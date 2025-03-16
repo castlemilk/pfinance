@@ -1,0 +1,19 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Your rule content
+
+- webapp is in web/ folder 
+- you are using nextJS with app folder
+- tailwind for styling
+- react-19 for general app features
+- shacdn for the styling and component library/design system
+- visx for charting/visualisations
+
+# general style guidance
+
+- use bentos
+- use sleek modern design practices and consider light/dark mode support
