@@ -17,3 +17,4 @@ alwaysApply: true
 
 - use bentos
 - use sleek modern design practices and consider light/dark mode support
+- always use shadcdn for styling
