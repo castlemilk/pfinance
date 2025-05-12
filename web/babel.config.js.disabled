@@ -1,0 +1,6 @@
+// This file is now disabled - we're using SWC instead of Babel
+module.exports = {
+  presets: [
+    ['next/babel']
+  ],
+}; 
