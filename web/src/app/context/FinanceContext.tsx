@@ -4,7 +4,8 @@ import { createContext, useContext, useState, ReactNode, useEffect } from 'react
 import { 
   Expense, 
   ExpenseCategory, 
-  ExpenseSummary, 
+  ExpenseSummary,
+  ExpenseFrequency, 
   Income, 
   IncomeFrequency, 
   TaxConfig,
@@ -37,9 +38,9 @@ interface SerializedIncome {
 interface FinanceContextType {
   // Expense related methods
   expenses: Expense[];
-  addExpense: (description: string, amount: number, category: ExpenseCategory, frequency?: IncomeFrequency) => void;
-  addExpenses: (newExpenses: Array<{description: string, amount: number, category: ExpenseCategory, frequency?: IncomeFrequency}>) => void;
-  updateExpense: (id: string, description: string, amount: number, category: ExpenseCategory, frequency: IncomeFrequency) => void;
+  addExpense: (description: string, amount: number, category: ExpenseCategory, frequency?: ExpenseFrequency) => void;
+  addExpenses: (newExpenses: Array<{description: string, amount: number, category: ExpenseCategory, frequency?: ExpenseFrequency}>) => void;
+  updateExpense: (id: string, description: string, amount: number, category: ExpenseCategory, frequency: ExpenseFrequency) => void;
   deleteExpense: (id: string) => void;
   deleteExpenses: (ids: string[]) => void;
   getExpenseSummary: () => ExpenseSummary[];
@@ -133,7 +134,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   }, [taxConfig]);
 
   // Expense related methods
-  const addExpense = (description: string, amount: number, category: ExpenseCategory, frequency: IncomeFrequency = 'monthly') => {
+  const addExpense = (description: string, amount: number, category: ExpenseCategory, frequency: ExpenseFrequency = 'monthly') => {
     console.log('FinanceContext: Adding single expense:', description, amount, category);
     const newExpense: Expense = {
       id: uuidv4(),
@@ -147,7 +148,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   };
 
   // Batch add multiple expenses at once to avoid race conditions
-  const addExpenses = (newExpenses: Array<{description: string, amount: number, category: ExpenseCategory, frequency?: IncomeFrequency}>) => {
+  const addExpenses = (newExpenses: Array<{description: string, amount: number, category: ExpenseCategory, frequency?: ExpenseFrequency}>) => {
     console.log('FinanceContext: Adding batch of expenses:', newExpenses.length);
     
     setExpenses(prevExpenses => {
@@ -166,7 +167,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     console.log('FinanceContext: Batch add completed');
   };
 
-  const updateExpense = (id: string, description: string, amount: number, category: ExpenseCategory, frequency: IncomeFrequency) => {
+  const updateExpense = (id: string, description: string, amount: number, category: ExpenseCategory, frequency: ExpenseFrequency) => {
     setExpenses(prevExpenses => 
       prevExpenses.map(expense => 
         expense.id === id 

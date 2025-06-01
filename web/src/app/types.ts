@@ -32,7 +32,7 @@ export interface Expense {
   amount: number;
   category: ExpenseCategory;
   date: Date;
-  frequency: IncomeFrequency;
+  frequency: ExpenseFrequency;
 }
 
 export interface ExpenseSummary {

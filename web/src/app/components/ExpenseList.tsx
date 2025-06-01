@@ -37,7 +37,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useForm } from 'react-hook-form';
-import { Expense, ExpenseCategory, IncomeFrequency } from '../types';
+import { Expense, ExpenseCategory, ExpenseFrequency } from '../types';
 import { Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getCategoryColor, getFrequencyColor } from '../constants/theme';
@@ -46,7 +46,7 @@ type EditFormData = {
   description: string;
   amount: string;
   category: ExpenseCategory;
-  frequency: IncomeFrequency;
+  frequency: ExpenseFrequency;
 };
 
 export default function ExpenseList() {
@@ -109,7 +109,7 @@ export default function ExpenseList() {
   };
 
   // Format frequency to be more readable
-  const formatFrequency = (frequency: IncomeFrequency) => {
+  const formatFrequency = (frequency: ExpenseFrequency) => {
     return frequency.charAt(0).toUpperCase() + frequency.slice(1);
   };
 
@@ -236,10 +236,13 @@ export default function ExpenseList() {
     'Other'
   ];
 
-  const frequencies: IncomeFrequency[] = [
+  const frequencies: ExpenseFrequency[] = [
+    'once',
+    'daily',
     'weekly',
     'fortnightly',
     'monthly',
+    'quarterly',
     'annually'
   ];
 
