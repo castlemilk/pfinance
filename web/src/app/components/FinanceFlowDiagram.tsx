@@ -1,12 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { IncomeFrequency } from '../types';
 import { ParentSize } from '@visx/responsive';
 import { Group } from '@visx/group';
 import { Sankey } from '@visx/sankey';
-import { LinkHorizontal, Bar } from '@visx/shape';
+import { Bar } from '@visx/shape';
 import { scaleOrdinal } from '@visx/scale';
 import { useTooltip, defaultStyles } from '@visx/tooltip';
 import { Text } from '@visx/text';
@@ -110,7 +110,7 @@ export default function FinanceFlowDiagram({ displayPeriod }: FinanceFlowDiagram
   };
 
   // Scale income and expense amounts by frequency
-  const scaleAmountByFrequency = (amount: number, frequency: IncomeFrequency): number => {
+  const scaleAmountByFrequency = useCallback((amount: number, frequency: IncomeFrequency): number => {
     // Convert to annual amount
     const annualAmount = 
       frequency === 'weekly' ? amount * 52 :
@@ -123,7 +123,7 @@ export default function FinanceFlowDiagram({ displayPeriod }: FinanceFlowDiagram
       displayPeriod === 'fortnightly' ? annualAmount / 26 :
       displayPeriod === 'monthly' ? annualAmount / 12 :
       annualAmount;
-  };
+  }, [displayPeriod]);
 
   // Prepare data for Sankey diagram
   const { nodes, links } = useMemo(() => {
@@ -417,7 +417,17 @@ export default function FinanceFlowDiagram({ displayPeriod }: FinanceFlowDiagram
     }
     
     return { nodes, links, nodeMap };
-  }, [incomes, expenseSummary, totalIncome, taxAmount, savingsAmount, adjustedExpenses, displayPeriod, taxConfig]);
+  }, [
+    incomes,
+    expenseSummary,
+    totalIncome,
+    taxAmount,
+    savingsAmount,
+    adjustedExpenses,
+    displayPeriod,
+    taxConfig,
+    scaleAmountByFrequency
+  ]);
 
   // If no data, show a message
   if (nodes.length === 0) {

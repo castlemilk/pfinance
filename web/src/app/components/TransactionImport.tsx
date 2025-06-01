@@ -13,6 +13,7 @@ import Papa from 'papaparse';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import OpenAI from 'openai';
+import { batchCategorizeTransactions } from '../utils/smartCategorization';
 
 // Transaction type for parsed data
 interface Transaction {
@@ -22,6 +23,7 @@ interface Transaction {
   amount: number;
   category: ExpenseCategory;
   selected: boolean;
+  confidence?: number;
 }
 
 // Interface for parsed JSON data from PDF
@@ -122,6 +124,7 @@ export default function TransactionImport() {
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false);
   const [pdfProcessingEnabled, setPdfProcessingEnabled] = useState(false);
+  const [smartCategorizationEnabled, setSmartCategorizationEnabled] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load saved API key and PDF processing preference on component mount
@@ -155,42 +158,8 @@ export default function TransactionImport() {
     setError(null);
   }, [pdfProcessingEnabled]);
 
-  // Handle file drop
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-    setError(null);
-
-    const files = e.dataTransfer.files;
-    if (files.length === 0) return;
-    
-    console.log("File dropped, PDF processing enabled:", pdfProcessingEnabled);
-    handleFiles(files);
-  }, [pdfProcessingEnabled]);
-
-  // Handle drag events
-  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback(() => {
-    setIsDragging(false);
-  }, []);
-
-  // Handle file input change
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    console.log("File selected via input, PDF processing enabled:", pdfProcessingEnabled);
-    handleFiles(files);
-    // Reset file input
-    e.target.value = '';
-  }, [pdfProcessingEnabled]);
-
   // Process files
-  const handleFiles = (files: FileList) => {
+  const handleFiles = useCallback((files: FileList) => {
     setIsLoading(true);
     setError(null);
     
@@ -233,17 +202,54 @@ export default function TransactionImport() {
       setError(`File type not supported. Only ${acceptedTypes} files are accepted. Received file: ${file.name} (${file.type})`);
       setIsLoading(false);
     }
-  };
+  }, [pdfProcessingEnabled, apiKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handle file drop
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    setError(null);
+
+    const files = e.dataTransfer.files;
+    if (files.length === 0) return;
+    
+    console.log("File dropped, PDF processing enabled:", pdfProcessingEnabled);
+    handleFiles(files);
+  }, [pdfProcessingEnabled, handleFiles]);
+
+  // Handle drag events
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Handle file input change
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    console.log("File selected via input, PDF processing enabled:", pdfProcessingEnabled);
+    handleFiles(files);
+    // Reset file input
+    e.target.value = '';
+  }, [pdfProcessingEnabled, handleFiles]);
 
   // Process CSV file
   const processCSVFile = (file: File) => {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: (results) => {
+      complete: async (results) => {
         try {
           const parsedTransactions = processCSV(results.data as Record<string, string>[]);
-          setTransactions(parsedTransactions);
+          
+          // Apply smart categorization if enabled
+          const finalTransactions = await applySmartCategorization(parsedTransactions);
+          setTransactions(finalTransactions);
           setIsImportDialogOpen(true);
           setIsLoading(false);
         } catch {
@@ -340,6 +346,7 @@ export default function TransactionImport() {
       });
       
       // 6. Poll for the completion of the run
+      // @ts-expect-error - OpenAI API compatibility
       let runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
       
       // Wait for the run to complete
@@ -350,6 +357,7 @@ export default function TransactionImport() {
         await new Promise(resolve => setTimeout(resolve, 1000));
         
         // Check status again
+        // @ts-expect-error - OpenAI API compatibility
         runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
         
         if (runStatus.status === 'failed') {
@@ -423,6 +431,7 @@ export default function TransactionImport() {
       
       // Clean up - delete the file
       try {
+        // @ts-expect-error - OpenAI API compatibility
         await openai.files.del(fileUploadResponse.id);
         console.log('File deleted');
       } catch (e) {
@@ -622,6 +631,52 @@ export default function TransactionImport() {
     }
   }, [transactions, addExpenses]);
 
+  // Apply smart categorization to transactions
+  const applySmartCategorization = async (transactionsToProcess: Transaction[]) => {
+    if (!smartCategorizationEnabled || !apiKey) {
+      return transactionsToProcess;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const transactionData = transactionsToProcess.map(t => ({
+        description: t.description,
+        amount: t.amount
+      }));
+
+      const categorizedData = await batchCategorizeTransactions(transactionData, apiKey);
+
+      const enhancedTransactions = transactionsToProcess.map((transaction, index) => {
+        const categorized = categorizedData[index];
+        if (categorized) {
+          return {
+            ...transaction,
+            category: categorized.suggestedCategory,
+            confidence: categorized.confidence
+          };
+        }
+        return transaction;
+      });
+
+      setSuccessMessage(`Smart categorization applied! Average confidence: ${
+        (categorizedData.reduce((sum, t) => sum + t.confidence, 0) / categorizedData.length * 100).toFixed(1)
+      }%`);
+
+      setTimeout(() => setSuccessMessage(null), 5000);
+
+      return enhancedTransactions;
+    } catch (error) {
+      console.error('Smart categorization failed:', error);
+      setError('Smart categorization failed. Using basic categorization.');
+      setTimeout(() => setError(null), 5000);
+      return transactionsToProcess;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Save API key and process the PDF
   const handleSaveApiKey = () => {
     if (apiKey.trim() === '') {
@@ -671,18 +726,34 @@ export default function TransactionImport() {
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Import Transactions</span>
-          <div className="flex items-center space-x-2">
-            <Switch 
-              id="pdf-processing"
-              checked={pdfProcessingEnabled}
-              onCheckedChange={handleTogglePdfProcessing}
-            />
-            <Label 
-              htmlFor="pdf-processing" 
-              className={`text-sm font-normal cursor-pointer ${pdfProcessingEnabled ? 'text-primary font-semibold' : ''}`}
-            >
-              Enable PDF Import {pdfProcessingEnabled && '(On)'}
-            </Label>
+          <div className="flex flex-col space-y-2">
+            <div className="flex items-center space-x-2">
+              <Switch 
+                id="pdf-processing"
+                checked={pdfProcessingEnabled}
+                onCheckedChange={handleTogglePdfProcessing}
+              />
+              <Label 
+                htmlFor="pdf-processing" 
+                className={`text-sm font-normal cursor-pointer ${pdfProcessingEnabled ? 'text-primary font-semibold' : ''}`}
+              >
+                Enable PDF Import {pdfProcessingEnabled && '(On)'}
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch 
+                id="smart-categorization"
+                checked={smartCategorizationEnabled}
+                onCheckedChange={setSmartCategorizationEnabled}
+                disabled={!apiKey}
+              />
+              <Label 
+                htmlFor="smart-categorization" 
+                className={`text-sm font-normal cursor-pointer ${smartCategorizationEnabled ? 'text-primary font-semibold' : ''}`}
+              >
+                Smart Categorization {smartCategorizationEnabled && '(On)'}
+              </Label>
+            </div>
           </div>
         </CardTitle>
         <CardDescription>
@@ -866,6 +937,7 @@ export default function TransactionImport() {
                   <TableHead>Description</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Category</TableHead>
+                  {smartCategorizationEnabled && <TableHead className="w-[100px]">Confidence</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -906,6 +978,23 @@ export default function TransactionImport() {
                         </SelectContent>
                       </Select>
                     </TableCell>
+                    {smartCategorizationEnabled && (
+                      <TableCell>
+                        {transaction.confidence !== undefined ? (
+                          <div className="flex items-center">
+                            <div className={`text-xs px-2 py-1 rounded ${
+                              transaction.confidence > 0.8 ? 'bg-green-100 text-green-800' :
+                              transaction.confidence > 0.6 ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {(transaction.confidence * 100).toFixed(0)}%
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Manual</span>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useFinance } from '../context/FinanceContext';
-import { IncomeFrequency } from '../types';
+import { IncomeFrequency, Deduction } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -102,7 +102,7 @@ export default function FinanceSummary() {
           displayPeriod === 'fortnightly' ? 26 : 
           displayPeriod === 'monthly' ? 12 : 1;
           
-        income.deductions.forEach(deduction => {
+        income.deductions.forEach((deduction: Deduction) => {
           // Convert to annual then to target period
           const annualAmount = deduction.amount * frequencyFactor;
           const periodAmount = annualAmount / targetFactor;
@@ -173,7 +173,7 @@ export default function FinanceSummary() {
                   {displayPeriod}
                   {taxConfig.country !== 'simple' && (
                     <span role="img" aria-label={taxConfig.country} className="ml-1">
-                      {countryFlags[taxConfig.country]}
+                      {countryFlags[taxConfig.country as keyof typeof countryFlags]}
                     </span>
                   )}
                 </p>
@@ -205,7 +205,7 @@ export default function FinanceSummary() {
                   <span className="text-muted-foreground flex items-center gap-1">
                     {taxConfig.country !== 'simple' && (
                       <span role="img" aria-label={taxConfig.country} className="text-sm">
-                        {countryFlags[taxConfig.country]}
+                        {countryFlags[taxConfig.country as keyof typeof countryFlags]}
                       </span>
                     )}
                     {taxConfig.country === 'simple' 
@@ -260,7 +260,7 @@ export default function FinanceSummary() {
                   <span className="flex items-center text-xs text-muted-foreground gap-1">
                     using
                     <span role="img" aria-label={taxConfig.country}>
-                      {countryFlags[taxConfig.country]}
+                      {countryFlags[taxConfig.country as keyof typeof countryFlags]}
                     </span>
                     {getTaxSystem(taxConfig.country).name} tax system
                   </span>

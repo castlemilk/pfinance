@@ -20,9 +20,9 @@ describe('SalaryCalculator - Voluntary Superannuation', () => {
     fireEvent.click(voluntarySuperSwitch);
 
     // Base super = $23,000 (11.5% of $200,000)
-    // Remaining cap should be $27,500 - $23,000 = $4,500
+    // Remaining cap should be $30,000 - $23,000 = $7,000
     const remainingCapText = screen.getByText(/remaining cap:/i);
-    expect(remainingCapText).toHaveTextContent('$4,500.00');
+    expect(remainingCapText).toHaveTextContent('$7,000.00');
   });
 
   it('should prevent exceeding concessional cap', () => {
@@ -40,11 +40,11 @@ describe('SalaryCalculator - Voluntary Superannuation', () => {
     const voluntarySuperSwitch = screen.getByRole('switch', { name: /voluntary superannuation/i });
     fireEvent.click(voluntarySuperSwitch);
 
-    // Try to set voluntary super to $5,000 (should be capped at $4,500)
+    // Try to set voluntary super to $10,000 (should be capped at $7,000)
     const voluntarySuperInput = screen.getByRole('spinbutton', { name: /voluntary super contribution/i });
-    fireEvent.change(voluntarySuperInput, { target: { value: '5000' } });
+    fireEvent.change(voluntarySuperInput, { target: { value: '10000' } });
 
-    expect(voluntarySuperInput).toHaveValue(4500);
+    expect(voluntarySuperInput).toHaveValue(7000);
   });
 
   it('should update slider range based on remaining cap', async () => {
@@ -63,18 +63,21 @@ describe('SalaryCalculator - Voluntary Superannuation', () => {
     fireEvent.click(voluntarySuperSwitch);
 
     // Wait for the slider to update with the correct maximum
+    // Base super = $23,000 (11.5% of $200,000)
+    // Remaining cap should be $30,000 - $23,000 = $7,000
     await waitFor(() => {
       const slider = screen.getByRole('slider');
-      expect(slider).toHaveAttribute('aria-valuemax', '4500');
+      expect(slider).toHaveAttribute('aria-valuemax', '7000');
     });
     
     // Change salary to $100,000
     fireEvent.change(salaryInput, { target: { value: '100000' } });
 
-    // Remaining cap should be $27,500 - $11,500 = $16,000
+    // Base super = $11,500 (11.5% of $100,000)  
+    // Remaining cap should be $30,000 - $11,500 = $18,500
     await waitFor(() => {
       const slider = screen.getByRole('slider');
-      expect(slider).toHaveAttribute('aria-valuemax', '16000');
+      expect(slider).toHaveAttribute('aria-valuemax', '18500');
     });
   });
 

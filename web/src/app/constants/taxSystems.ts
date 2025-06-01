@@ -86,7 +86,6 @@ export function calculateTaxWithBrackets(income: number, brackets: CountryTaxSys
     if (bracket.min > income) break; // Skip brackets that don't apply
     
     // Calculate the amount of income in this bracket
-    const nextBracketMin = i < sortedBrackets.length - 1 ? sortedBrackets[i + 1].min : Infinity;
     const upperLimit = bracket.max !== null ? Math.min(bracket.max, income) : income;
     const lowerLimit = bracket.min;
     const amountInBracket = Math.min(upperLimit - lowerLimit, remainingIncome);

@@ -310,25 +310,23 @@ export function SalaryCalculator() {
     // Calculate actual tax on the reduced taxable income
     const calculatedTax = calculateTaxWithBrackets(taxableIncome, taxSystem.brackets);
     
-    // Calculate what tax would have been without deductions for debugging
-    const preSacrificeTax = calculateTaxWithBrackets(totalAnnualIncome, taxSystem.brackets);
-    const taxSavings = preSacrificeTax - calculatedTax;
-    
-    // Log some debug information to verify calculations
-    if (salarySacrificeCalculation.taxDeductibleSacrifice > 0) {
-      console.log({
-        grossIncome: totalAnnualIncome,
-        taxableIncome,
-        sacrifice: salarySacrificeCalculation.taxDeductibleSacrifice,
-        preSacrificeTax,
-        calculatedTax,
-        taxSavings,
-        netBenefit: salarySacrificeCalculation.taxDeductibleSacrifice - taxSavings
-      });
-    }
+    // Debug information to verify calculations (commented out)
+    // if (salarySacrificeCalculation.taxDeductibleSacrifice > 0) {
+    //   const preSacrificeTax = calculateTaxWithBrackets(totalAnnualIncome, taxSystem.brackets);
+    //   const taxSavings = preSacrificeTax - calculatedTax;
+    //   console.log({
+    //     grossIncome: totalAnnualIncome,
+    //     taxableIncome,
+    //     sacrifice: salarySacrificeCalculation.taxDeductibleSacrifice,
+    //     preSacrificeTax,
+    //     calculatedTax,
+    //     taxSavings,
+    //     netBenefit: salarySacrificeCalculation.taxDeductibleSacrifice - taxSavings
+    //   });
+    // }
     
     return calculatedTax;
-  }, [taxableIncome, totalAnnualIncome, taxConfig.country, salarySacrificeCalculation.taxDeductibleSacrifice]);
+  }, [taxableIncome, taxConfig.country]);
 
   // Calculate Medicare Levy (2% of taxable income)
   const medicareLevy = useMemo(() => {
@@ -454,7 +452,7 @@ export function SalaryCalculator() {
     });
     
     return totalSuper;
-  }, [annualSalary, totalOvertimeAmount, taxSettings.includeSuper, taxSettings.superRate, overtimeEntries]);
+  }, [annualSalary, taxSettings.includeSuper, taxSettings.superRate, overtimeEntries]);
 
   // Calculate base remaining cap before voluntary contributions
   const baseRemainingCap = useMemo((): number => {
@@ -468,7 +466,7 @@ export function SalaryCalculator() {
     if (!taxSettings.includeVoluntarySuper) return 0;
     const value = parseFloat(form.watch('voluntarySuper')) || 0;
     return Math.min(value, baseRemainingCap);
-  }, [form.watch('voluntarySuper'), taxSettings.includeVoluntarySuper, baseRemainingCap]);
+  }, [taxSettings.includeVoluntarySuper, baseRemainingCap, form]);
 
   // Calculate tax savings from voluntary super
   const voluntarySuperTaxSavings = useMemo((): number => {
@@ -506,17 +504,17 @@ export function SalaryCalculator() {
     // Just delivered through a different mechanism (package card)
     net -= salarySacrificeCalculation.totalSalarySacrifice;
     
-    // Log for debugging purposes
-    console.log('Net income calculation:', {
-      totalAnnualIncome,
-      incomeTax,
-      medicareLevy,
-      studentLoanRepayment,
-      voluntarySuper: taxSettings.includeVoluntarySuper ? parseFloat(form.watch('voluntarySuper')) || 0 : 0,
-      salarySacrifice: salarySacrificeCalculation.totalSalarySacrifice,
-      estimatedTaxSavings: salarySacrificeCalculation.estimatedTaxSavings,
-      result: net
-    });
+    // Debug net income calculation
+    // console.log('Net income calculation:', {
+    //   totalAnnualIncome,
+    //   incomeTax,
+    //   medicareLevy,
+    //   studentLoanRepayment,
+    //   voluntarySuper: taxSettings.includeVoluntarySuper ? parseFloat(form.watch('voluntarySuper')) || 0 : 0,
+    //   salarySacrifice: salarySacrificeCalculation.totalSalarySacrifice,
+    //   estimatedTaxSavings: salarySacrificeCalculation.estimatedTaxSavings,
+    //   result: net
+    // });
     
     return Math.max(0, net);
   }, [
@@ -801,7 +799,7 @@ export function SalaryCalculator() {
         console.error('Error loading shared calculator:', error);
       }
     }
-  }, []);
+  }, [form, taxConfig.country, updateTaxConfig]);
 
   // Add an effect to disable Medicare levy when private health is selected
   useEffect(() => {
@@ -811,7 +809,7 @@ export function SalaryCalculator() {
         includeMedicare: false
       }));
     }
-  }, [taxSettings.includePrivateHealth]);
+  }, [taxSettings.includePrivateHealth, taxSettings.includeMedicare]);
 
   // Fringe Benefits handlers
   const addFringeBenefit = () => {
