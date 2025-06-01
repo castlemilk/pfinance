@@ -10,26 +10,91 @@ import TaxConfig from './TaxConfig';
 import FinanceSummary from './FinanceSummary';
 import TransactionImport from './TransactionImport';
 import { SalaryCalculator } from './SalaryCalculator';
+import GroupManager from './GroupManager';
+import AuthModal from './AuthModal';
+import ReportGenerator from './ReportGenerator';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '../context/AuthContext';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { LogOut, Users } from 'lucide-react';
 
 export default function Dashboard() {
+  const { user, logout, loading } = useAuth();
   const [activeIncomeView, setActiveIncomeView] = useState<'income' | 'salary'>('salary');
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8 text-center">Income & Expense Tracker</h1>
-      
-      <div className="mb-8">
-        <FinanceSummary />
+      {/* Header with Auth */}
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold">Income & Expense Tracker</h1>
+        
+        {user ? (
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Avatar className="w-8 h-8">
+                <AvatarFallback className="text-sm">
+                  {getInitials(user.displayName || user.email || 'U')}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm font-medium">
+                {user.displayName || user.email}
+              </span>
+            </div>
+            <Button variant="outline" size="sm" onClick={logout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
+        ) : (
+          <Button onClick={() => setShowAuthModal(true)}>
+            Sign In
+          </Button>
+        )}
       </div>
-      
-      <Tabs defaultValue="income" className="w-full mb-8">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="income">Income</TabsTrigger>
-          <TabsTrigger value="expenses">Expenses</TabsTrigger>
-          <TabsTrigger value="settings">Tax Settings</TabsTrigger>
-        </TabsList>
+
+      {user ? (
+        <>
+          <div className="mb-8">
+            <FinanceSummary />
+          </div>
+          
+          <Tabs defaultValue="groups" className="w-full mb-8">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="groups">
+                <Users className="w-4 h-4 mr-2" />
+                Groups
+              </TabsTrigger>
+              <TabsTrigger value="income">Income</TabsTrigger>
+              <TabsTrigger value="expenses">Expenses</TabsTrigger>
+              <TabsTrigger value="reports">Reports</TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="groups" className="mt-6">
+              <GroupManager />
+            </TabsContent>
         
         <TabsContent value="income" className="mt-6">
           <div className="mb-6 flex justify-center">
@@ -78,6 +143,10 @@ export default function Dashboard() {
           </div>
         </TabsContent>
         
+        <TabsContent value="reports" className="mt-6">
+          <ReportGenerator />
+        </TabsContent>
+        
         <TabsContent value="settings" className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <TaxConfig />
@@ -96,7 +165,24 @@ export default function Dashboard() {
             </div>
           </div>
         </TabsContent>
-      </Tabs>
+          </Tabs>
+        </>
+      ) : (
+        <div className="text-center py-16">
+          <h2 className="text-2xl font-semibold mb-4">Welcome to PFinance</h2>
+          <p className="text-muted-foreground mb-8">
+            Sign in to start tracking your finances and collaborate with others.
+          </p>
+          <Button onClick={() => setShowAuthModal(true)} size="lg">
+            Get Started
+          </Button>
+        </div>
+      )}
+
+      <AuthModal 
+        isOpen={showAuthModal} 
+        onClose={() => setShowAuthModal(false)} 
+      />
     </div>
   );
 } 
