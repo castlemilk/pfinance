@@ -40,8 +40,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     try {
       await signIn(loginForm.email, loginForm.password);
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to sign in');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to sign in');
     } finally {
       setLoading(false);
     }
@@ -67,8 +67,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     try {
       await signUp(signupForm.email, signupForm.password, signupForm.displayName);
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to create account');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to create account');
     } finally {
       setLoading(false);
     }
@@ -81,8 +81,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     try {
       await signInWithGoogle();
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to sign in with Google');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to sign in with Google');
     } finally {
       setLoading(false);
     }

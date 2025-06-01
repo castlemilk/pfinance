@@ -158,42 +158,8 @@ export default function TransactionImport() {
     setError(null);
   }, [pdfProcessingEnabled]);
 
-  // Handle file drop
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-    setError(null);
-
-    const files = e.dataTransfer.files;
-    if (files.length === 0) return;
-    
-    console.log("File dropped, PDF processing enabled:", pdfProcessingEnabled);
-    handleFiles(files);
-  }, [pdfProcessingEnabled]);
-
-  // Handle drag events
-  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback(() => {
-    setIsDragging(false);
-  }, []);
-
-  // Handle file input change
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    console.log("File selected via input, PDF processing enabled:", pdfProcessingEnabled);
-    handleFiles(files);
-    // Reset file input
-    e.target.value = '';
-  }, [pdfProcessingEnabled]);
-
   // Process files
-  const handleFiles = (files: FileList) => {
+  const handleFiles = useCallback((files: FileList) => {
     setIsLoading(true);
     setError(null);
     
@@ -236,7 +202,41 @@ export default function TransactionImport() {
       setError(`File type not supported. Only ${acceptedTypes} files are accepted. Received file: ${file.name} (${file.type})`);
       setIsLoading(false);
     }
-  };
+  }, [pdfProcessingEnabled, apiKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handle file drop
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    setError(null);
+
+    const files = e.dataTransfer.files;
+    if (files.length === 0) return;
+    
+    console.log("File dropped, PDF processing enabled:", pdfProcessingEnabled);
+    handleFiles(files);
+  }, [pdfProcessingEnabled, handleFiles]);
+
+  // Handle drag events
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Handle file input change
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    console.log("File selected via input, PDF processing enabled:", pdfProcessingEnabled);
+    handleFiles(files);
+    // Reset file input
+    e.target.value = '';
+  }, [pdfProcessingEnabled, handleFiles]);
 
   // Process CSV file
   const processCSVFile = (file: File) => {
@@ -346,7 +346,7 @@ export default function TransactionImport() {
       });
       
       // 6. Poll for the completion of the run
-      // @ts-ignore - OpenAI API compatibility
+      // @ts-expect-error - OpenAI API compatibility
       let runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
       
       // Wait for the run to complete
@@ -357,7 +357,7 @@ export default function TransactionImport() {
         await new Promise(resolve => setTimeout(resolve, 1000));
         
         // Check status again
-        // @ts-ignore - OpenAI API compatibility
+        // @ts-expect-error - OpenAI API compatibility
         runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
         
         if (runStatus.status === 'failed') {
@@ -431,7 +431,7 @@ export default function TransactionImport() {
       
       // Clean up - delete the file
       try {
-        // @ts-ignore - OpenAI API compatibility
+        // @ts-expect-error - OpenAI API compatibility
         await openai.files.del(fileUploadResponse.id);
         console.log('File deleted');
       } catch (e) {

@@ -21,14 +21,12 @@ import {
 import { 
   Plus, 
   Users, 
-  Settings, 
-  UserPlus, 
   Crown, 
   Shield, 
   User,
-  ExternalLink 
+  UserPlus,
+  ExternalLink
 } from 'lucide-react';
-import { FinanceGroup } from '../context/MultiUserFinanceContext';
 
 export default function GroupManager() {
   const { user } = useAuth();

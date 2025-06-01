@@ -34,7 +34,7 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { getTaxSystem, australianTaxSystem, ukTaxSystem } from '../constants/taxSystems';
+import { getTaxSystem } from '../constants/taxSystems';
 
 // Add flag constants at the top of the file
 export const countryFlags = {
@@ -191,7 +191,7 @@ export default function TaxConfig() {
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        Choose which country's tax system to use
+                        Choose which country&apos;s tax system to use
                       </FormDescription>
                     </FormItem>
                   )}
@@ -317,9 +317,8 @@ export default function TaxConfig() {
                 </div>
               )}
               
-              <p className="text-sm text-muted-foreground mt-4">
-                Tax brackets are for informational purposes. The app will automatically calculate 
-                taxes based on the selected tax system.
+              <p className="text-sm text-muted-foreground">
+                Don&apos;t see your country? We&apos;re working on adding more tax systems.
               </p>
             </div>
           </TabsContent>

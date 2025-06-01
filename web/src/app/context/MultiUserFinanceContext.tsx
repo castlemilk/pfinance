@@ -7,22 +7,17 @@ import {
   addDoc, 
   updateDoc, 
   deleteDoc, 
-  getDocs, 
   query, 
   where, 
   onSnapshot,
-  serverTimestamp,
-  writeBatch
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from './AuthContext';
 import { 
   Expense, 
-  ExpenseCategory, 
-  Income, 
-  IncomeFrequency, 
-  TaxStatus, 
-  Deduction 
+  ExpenseCategory,
+  Income
 } from '../types';
 
 // Multi-user types
@@ -117,7 +112,7 @@ export function MultiUserFinanceProvider({ children }: { children: ReactNode }) 
   const [groupExpenses, setGroupExpenses] = useState<GroupExpense[]>([]);
   const [groupIncomes, setGroupIncomes] = useState<GroupIncome[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
 
   // Load user's groups
   useEffect(() => {
@@ -142,10 +137,19 @@ export function MultiUserFinanceProvider({ children }: { children: ReactNode }) 
         id: doc.id,
         ...doc.data(),
         createdAt: doc.data().createdAt?.toDate() || new Date(),
-        members: doc.data().members?.map((member: any) => ({
-          ...member,
-          joinedAt: member.joinedAt?.toDate() || new Date()
-        })) || []
+        members: doc.data().members?.map((member: unknown) => {
+          const memberData = member as {
+            userId: string;
+            email: string;
+            displayName: string;
+            role: 'owner' | 'admin' | 'member';
+            joinedAt?: { toDate?: () => Date };
+          };
+          return {
+            ...memberData,
+            joinedAt: memberData.joinedAt?.toDate?.() || new Date()
+          };
+        }) || []
       })) as FinanceGroup[];
       
       setGroups(groupsData);
