@@ -1,0 +1,32 @@
+# Git files
+.git
+.gitignore
+
+# Go build cache
+/bin
+/pkg
+
+# Test files
+*_test.go
+
+# Documentation
+*.md
+docs/
+
+# Development files
+.env
+.env.*
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp

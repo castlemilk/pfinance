@@ -1,0 +1,286 @@
+syntax = "proto3";
+
+package pfinance.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "pfinance/v1/types.proto";
+
+// FinanceService handles all finance-related operations
+service FinanceService {
+  // User operations
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  
+  // Expense operations
+  rpc CreateExpense(CreateExpenseRequest) returns (CreateExpenseResponse);
+  rpc UpdateExpense(UpdateExpenseRequest) returns (UpdateExpenseResponse);
+  rpc DeleteExpense(DeleteExpenseRequest) returns (google.protobuf.Empty);
+  rpc ListExpenses(ListExpensesRequest) returns (ListExpensesResponse);
+  rpc BatchCreateExpenses(BatchCreateExpensesRequest) returns (BatchCreateExpensesResponse);
+  
+  // Income operations
+  rpc CreateIncome(CreateIncomeRequest) returns (CreateIncomeResponse);
+  rpc UpdateIncome(UpdateIncomeRequest) returns (UpdateIncomeResponse);
+  rpc DeleteIncome(DeleteIncomeRequest) returns (google.protobuf.Empty);
+  rpc ListIncomes(ListIncomesRequest) returns (ListIncomesResponse);
+  
+  // Tax configuration
+  rpc GetTaxConfig(GetTaxConfigRequest) returns (GetTaxConfigResponse);
+  rpc UpdateTaxConfig(UpdateTaxConfigRequest) returns (UpdateTaxConfigResponse);
+  
+  // Group operations
+  rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse);
+  rpc GetGroup(GetGroupRequest) returns (GetGroupResponse);
+  rpc UpdateGroup(UpdateGroupRequest) returns (UpdateGroupResponse);
+  rpc DeleteGroup(DeleteGroupRequest) returns (google.protobuf.Empty);
+  rpc ListGroups(ListGroupsRequest) returns (ListGroupsResponse);
+  
+  // Group member operations
+  rpc InviteToGroup(InviteToGroupRequest) returns (InviteToGroupResponse);
+  rpc AcceptInvitation(AcceptInvitationRequest) returns (AcceptInvitationResponse);
+  rpc DeclineInvitation(DeclineInvitationRequest) returns (google.protobuf.Empty);
+  rpc RemoveFromGroup(RemoveFromGroupRequest) returns (google.protobuf.Empty);
+  rpc UpdateMemberRole(UpdateMemberRoleRequest) returns (UpdateMemberRoleResponse);
+  
+  // Invitation operations
+  rpc ListInvitations(ListInvitationsRequest) returns (ListInvitationsResponse);
+}
+
+// User operations
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message GetUserResponse {
+  User user = 1;
+}
+
+message UpdateUserRequest {
+  string user_id = 1;
+  string display_name = 2;
+}
+
+message UpdateUserResponse {
+  User user = 1;
+}
+
+// Expense operations
+message CreateExpenseRequest {
+  string user_id = 1;
+  string group_id = 2; // Optional
+  string description = 3;
+  double amount = 4;
+  ExpenseCategory category = 5;
+  ExpenseFrequency frequency = 6;
+  google.protobuf.Timestamp date = 7;
+}
+
+message CreateExpenseResponse {
+  Expense expense = 1;
+}
+
+message UpdateExpenseRequest {
+  string expense_id = 1;
+  string description = 2;
+  double amount = 3;
+  ExpenseCategory category = 4;
+  ExpenseFrequency frequency = 5;
+}
+
+message UpdateExpenseResponse {
+  Expense expense = 1;
+}
+
+message DeleteExpenseRequest {
+  string expense_id = 1;
+}
+
+message ListExpensesRequest {
+  string user_id = 1;
+  string group_id = 2; // Optional - filter by group
+  google.protobuf.Timestamp start_date = 3;
+  google.protobuf.Timestamp end_date = 4;
+  int32 page_size = 5;
+  string page_token = 6;
+}
+
+message ListExpensesResponse {
+  repeated Expense expenses = 1;
+  string next_page_token = 2;
+}
+
+message BatchCreateExpensesRequest {
+  string user_id = 1;
+  string group_id = 2; // Optional
+  repeated CreateExpenseRequest expenses = 3;
+}
+
+message BatchCreateExpensesResponse {
+  repeated Expense expenses = 1;
+}
+
+// Income operations
+message CreateIncomeRequest {
+  string user_id = 1;
+  string group_id = 2; // Optional
+  string source = 3;
+  double amount = 4;
+  IncomeFrequency frequency = 5;
+  TaxStatus tax_status = 6;
+  repeated Deduction deductions = 7;
+  google.protobuf.Timestamp date = 8;
+}
+
+message CreateIncomeResponse {
+  Income income = 1;
+}
+
+message UpdateIncomeRequest {
+  string income_id = 1;
+  string source = 2;
+  double amount = 3;
+  IncomeFrequency frequency = 4;
+  TaxStatus tax_status = 5;
+  repeated Deduction deductions = 6;
+}
+
+message UpdateIncomeResponse {
+  Income income = 1;
+}
+
+message DeleteIncomeRequest {
+  string income_id = 1;
+}
+
+message ListIncomesRequest {
+  string user_id = 1;
+  string group_id = 2; // Optional - filter by group
+  google.protobuf.Timestamp start_date = 3;
+  google.protobuf.Timestamp end_date = 4;
+  int32 page_size = 5;
+  string page_token = 6;
+}
+
+message ListIncomesResponse {
+  repeated Income incomes = 1;
+  string next_page_token = 2;
+}
+
+// Tax configuration
+message GetTaxConfigRequest {
+  string user_id = 1;
+  string group_id = 2; // Optional
+}
+
+message GetTaxConfigResponse {
+  TaxConfig tax_config = 1;
+}
+
+message UpdateTaxConfigRequest {
+  string user_id = 1;
+  string group_id = 2; // Optional
+  TaxConfig tax_config = 3;
+}
+
+message UpdateTaxConfigResponse {
+  TaxConfig tax_config = 1;
+}
+
+// Group operations
+message CreateGroupRequest {
+  string owner_id = 1;
+  string name = 2;
+  string description = 3;
+}
+
+message CreateGroupResponse {
+  FinanceGroup group = 1;
+}
+
+message GetGroupRequest {
+  string group_id = 1;
+}
+
+message GetGroupResponse {
+  FinanceGroup group = 1;
+}
+
+message UpdateGroupRequest {
+  string group_id = 1;
+  string name = 2;
+  string description = 3;
+}
+
+message UpdateGroupResponse {
+  FinanceGroup group = 1;
+}
+
+message DeleteGroupRequest {
+  string group_id = 1;
+}
+
+message ListGroupsRequest {
+  string user_id = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListGroupsResponse {
+  repeated FinanceGroup groups = 1;
+  string next_page_token = 2;
+}
+
+// Group member operations
+message InviteToGroupRequest {
+  string group_id = 1;
+  string inviter_id = 2;
+  string invitee_email = 3;
+  GroupRole role = 4;
+}
+
+message InviteToGroupResponse {
+  GroupInvitation invitation = 1;
+}
+
+message AcceptInvitationRequest {
+  string invitation_id = 1;
+  string user_id = 2;
+}
+
+message AcceptInvitationResponse {
+  FinanceGroup group = 1;
+}
+
+message DeclineInvitationRequest {
+  string invitation_id = 1;
+  string user_id = 2;
+}
+
+message RemoveFromGroupRequest {
+  string group_id = 1;
+  string user_id = 2;
+}
+
+message UpdateMemberRoleRequest {
+  string group_id = 1;
+  string user_id = 2;
+  GroupRole new_role = 3;
+}
+
+message UpdateMemberRoleResponse {
+  GroupMember member = 1;
+}
+
+// Invitation operations
+message ListInvitationsRequest {
+  string user_email = 1;
+  InvitationStatus status = 2; // Optional filter
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+message ListInvitationsResponse {
+  repeated GroupInvitation invitations = 1;
+  string next_page_token = 2;
+}

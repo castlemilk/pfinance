@@ -1,4 +1,4 @@
-name: Deploy to Firebase
+name: Deploy to Firebase and Cloud Run
 
 on:
   push:
@@ -10,7 +10,8 @@ env:
   PROJECT_ID: pfinance-app-1748773335
 
 jobs:
-  build-and-deploy:
+  build-and-deploy-frontend:
+    name: Build and Deploy Frontend
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -68,3 +69,58 @@ jobs:
     - name: Deploy to Firebase
       working-directory: ./web
       run: firebase deploy --project ${{ env.PROJECT_ID }}
+
+  build-and-deploy-backend:
+    name: Build and Deploy Backend
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: projects/859800863588/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+        service_account: github-actions@pfinance-app-1748773335.iam.gserviceaccount.com
+
+    - name: Setup Google Cloud CLI
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    - name: Configure Docker
+      run: gcloud auth configure-docker
+
+    - name: Build and push container
+      working-directory: ./backend
+      run: |
+        docker build -t gcr.io/${{ env.PROJECT_ID }}/pfinance-backend:${{ github.sha }} .
+        docker push gcr.io/${{ env.PROJECT_ID }}/pfinance-backend:${{ github.sha }}
+
+    - name: Deploy to Cloud Run
+      run: |
+        gcloud run deploy pfinance-backend \
+          --image gcr.io/${{ env.PROJECT_ID }}/pfinance-backend:${{ github.sha }} \
+          --region us-central1 \
+          --platform managed \
+          --allow-unauthenticated \
+          --port 8080 \
+          --set-env-vars GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }}
+
+    - name: Get Cloud Run URL
+      id: get-url
+      run: |
+        echo "url=$(gcloud run services describe pfinance-backend --region=us-central1 --format='value(status.url)')" >> $GITHUB_OUTPUT
+
+    - name: Output Backend URL
+      run: |
+        echo "Backend deployed to: ${{ steps.get-url.outputs.url }}"

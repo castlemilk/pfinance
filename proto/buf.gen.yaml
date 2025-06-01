@@ -1,0 +1,28 @@
+version: v1
+managed:
+  enabled: true
+  go_package_prefix:
+    default: github.com/castlemilk/pfinance/backend/gen
+plugins:
+  # Go
+  - plugin: buf.build/protocolbuffers/go:v1.32.0
+    out: ../backend/gen
+    opt:
+      - paths=source_relative
+  - plugin: buf.build/grpc/go:v1.3.0
+    out: ../backend/gen
+    opt:
+      - paths=source_relative
+  - plugin: buf.build/bufbuild/connect-go:v1.10.0
+    out: ../backend/gen
+    opt:
+      - paths=source_relative
+  # TypeScript/JavaScript for web client
+  - plugin: buf.build/bufbuild/es:v2.5.1
+    out: ../web/src/gen
+    opt:
+      - target=ts
+  - plugin: buf.build/bufbuild/connect-es:v0.13.0
+    out: ../web/src/gen
+    opt:
+      - target=ts

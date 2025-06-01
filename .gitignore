@@ -43,3 +43,7 @@ web/node_modules/
 next-env.d.ts
 *.key.json
 *key.json
+
+# Generated protobuf code
+backend/gen/
+web/src/gen/

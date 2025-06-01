@@ -17,10 +17,10 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../context/AuthContext';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { LogOut, Users } from 'lucide-react';
+import { LogOut, Users, UserPlus } from 'lucide-react';
 
 export default function Dashboard() {
-  const { user, logout, loading } = useAuth();
+  const { user, logout } = useAuth();
   const [activeIncomeView, setActiveIncomeView] = useState<'income' | 'salary'>('salary');
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -33,16 +33,7 @@ export default function Dashboard() {
       .slice(0, 2);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  // Don't show loading screen - app works without auth
   
   return (
     <div className="container mx-auto px-4 py-8">
@@ -68,33 +59,41 @@ export default function Dashboard() {
             </Button>
           </div>
         ) : (
-          <Button onClick={() => setShowAuthModal(true)}>
-            Sign In
+          <Button variant="outline" onClick={() => setShowAuthModal(true)}>
+            <UserPlus className="w-4 h-4 mr-2" />
+            Sign In for Multi-User Features
           </Button>
         )}
       </div>
 
-      {user ? (
-        <>
-          <div className="mb-8">
-            <FinanceSummary />
-          </div>
-          
-          <Tabs defaultValue="groups" className="w-full mb-8">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="groups">
-                <Users className="w-4 h-4 mr-2" />
-                Groups
-              </TabsTrigger>
-              <TabsTrigger value="income">Income</TabsTrigger>
-              <TabsTrigger value="expenses">Expenses</TabsTrigger>
-              <TabsTrigger value="reports">Reports</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="groups" className="mt-6">
-              <GroupManager />
-            </TabsContent>
+      <div className="mb-8">
+        <FinanceSummary />
+      </div>
+      
+      <Tabs defaultValue="income" className="w-full mb-8">
+        <TabsList className={`grid w-full ${user ? 'grid-cols-5' : 'grid-cols-4'}`}>
+          {user && (
+            <TabsTrigger value="groups">
+              <Users className="w-4 h-4 mr-2" />
+              Groups
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="income">Income</TabsTrigger>
+          <TabsTrigger value="expenses">Expenses</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+        </TabsList>
+        
+        {user && (
+          <TabsContent value="groups" className="mt-6">
+            <GroupManager />
+            <div className="mt-4 p-4 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                <strong>Multi-User Features:</strong> Create groups to share and track finances with family members, roommates, or business partners.
+              </p>
+            </div>
+          </TabsContent>
+        )}
         
         <TabsContent value="income" className="mt-6">
           <div className="mb-6 flex justify-center">
@@ -162,22 +161,31 @@ export default function Dashboard() {
                   <li>Enable tax deductions if you have eligible deductions to apply</li>
                 </ul>
               </div>
+              {!user && (
+                <div className="p-6 rounded-lg border bg-card border-primary/20">
+                  <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    Multi-User Features
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    Sign in to unlock collaborative features:
+                  </p>
+                  <ul className="space-y-2 list-disc pl-5 text-sm text-muted-foreground mb-4">
+                    <li>Create shared finance groups</li>
+                    <li>Invite family members or partners</li>
+                    <li>Track shared expenses and income</li>
+                    <li>Sync data across devices</li>
+                  </ul>
+                  <Button onClick={() => setShowAuthModal(true)} className="w-full">
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Sign In to Enable
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </TabsContent>
-          </Tabs>
-        </>
-      ) : (
-        <div className="text-center py-16">
-          <h2 className="text-2xl font-semibold mb-4">Welcome to PFinance</h2>
-          <p className="text-muted-foreground mb-8">
-            Sign in to start tracking your finances and collaborate with others.
-          </p>
-          <Button onClick={() => setShowAuthModal(true)} size="lg">
-            Get Started
-          </Button>
-        </div>
-      )}
+      </Tabs>
 
       <AuthModal 
         isOpen={showAuthModal} 
@@ -185,4 +193,4 @@ export default function Dashboard() {
       />
     </div>
   );
-} 
+}

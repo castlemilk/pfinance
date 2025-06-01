@@ -1,0 +1,177 @@
+syntax = "proto3";
+
+package pfinance.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// ExpenseCategory represents the category of an expense
+enum ExpenseCategory {
+  EXPENSE_CATEGORY_UNSPECIFIED = 0;
+  EXPENSE_CATEGORY_FOOD = 1;
+  EXPENSE_CATEGORY_HOUSING = 2;
+  EXPENSE_CATEGORY_TRANSPORTATION = 3;
+  EXPENSE_CATEGORY_ENTERTAINMENT = 4;
+  EXPENSE_CATEGORY_HEALTHCARE = 5;
+  EXPENSE_CATEGORY_UTILITIES = 6;
+  EXPENSE_CATEGORY_SHOPPING = 7;
+  EXPENSE_CATEGORY_EDUCATION = 8;
+  EXPENSE_CATEGORY_TRAVEL = 9;
+  EXPENSE_CATEGORY_OTHER = 10;
+}
+
+// ExpenseFrequency represents how often an expense occurs
+enum ExpenseFrequency {
+  EXPENSE_FREQUENCY_UNSPECIFIED = 0;
+  EXPENSE_FREQUENCY_ONCE = 1;
+  EXPENSE_FREQUENCY_DAILY = 2;
+  EXPENSE_FREQUENCY_WEEKLY = 3;
+  EXPENSE_FREQUENCY_FORTNIGHTLY = 4;
+  EXPENSE_FREQUENCY_MONTHLY = 5;
+  EXPENSE_FREQUENCY_QUARTERLY = 6;
+  EXPENSE_FREQUENCY_ANNUALLY = 7;
+}
+
+// IncomeFrequency represents how often income is received
+enum IncomeFrequency {
+  INCOME_FREQUENCY_UNSPECIFIED = 0;
+  INCOME_FREQUENCY_WEEKLY = 1;
+  INCOME_FREQUENCY_FORTNIGHTLY = 2;
+  INCOME_FREQUENCY_MONTHLY = 3;
+  INCOME_FREQUENCY_ANNUALLY = 4;
+}
+
+// TaxStatus represents whether income is pre or post tax
+enum TaxStatus {
+  TAX_STATUS_UNSPECIFIED = 0;
+  TAX_STATUS_PRE_TAX = 1;
+  TAX_STATUS_POST_TAX = 2;
+}
+
+// TaxCountry represents supported tax systems
+enum TaxCountry {
+  TAX_COUNTRY_UNSPECIFIED = 0;
+  TAX_COUNTRY_AUSTRALIA = 1;
+  TAX_COUNTRY_UK = 2;
+  TAX_COUNTRY_SIMPLE = 3;
+}
+
+// User represents a user in the system
+message User {
+  string id = 1;
+  string email = 2;
+  string display_name = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+// Expense represents a single expense entry
+message Expense {
+  string id = 1;
+  string user_id = 2;
+  string group_id = 3; // Optional - if part of a group
+  string description = 4;
+  double amount = 5;
+  ExpenseCategory category = 6;
+  ExpenseFrequency frequency = 7;
+  google.protobuf.Timestamp date = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+// Income represents a single income entry
+message Income {
+  string id = 1;
+  string user_id = 2;
+  string group_id = 3; // Optional - if part of a group
+  string source = 4;
+  double amount = 5;
+  IncomeFrequency frequency = 6;
+  TaxStatus tax_status = 7;
+  repeated Deduction deductions = 8;
+  google.protobuf.Timestamp date = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+// Deduction represents a tax deduction
+message Deduction {
+  string id = 1;
+  string name = 2;
+  double amount = 3;
+  bool is_tax_deductible = 4;
+}
+
+// TaxSettings represents user's tax configuration
+message TaxSettings {
+  bool include_super = 1;
+  double super_rate = 2;
+  bool include_medicare = 3;
+  bool medicare_exemption = 4;
+  bool include_senior_offset = 5;
+  bool include_student_loan = 6;
+  double student_loan_rate = 7;
+  bool include_dependent_children = 8;
+  bool include_spouse = 9;
+  bool include_private_health = 10;
+  bool include_voluntary_super = 11;
+}
+
+// TaxConfig represents the tax configuration for a user or group
+message TaxConfig {
+  bool enabled = 1;
+  TaxCountry country = 2;
+  double tax_rate = 3;
+  bool include_deductions = 4;
+  TaxSettings settings = 5;
+}
+
+// FinanceGroup represents a shared finance tracking group
+message FinanceGroup {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string owner_id = 4;
+  repeated string member_ids = 5;
+  repeated GroupMember members = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+// GroupMember represents a member of a finance group
+message GroupMember {
+  string user_id = 1;
+  string email = 2;
+  string display_name = 3;
+  GroupRole role = 4;
+  google.protobuf.Timestamp joined_at = 5;
+}
+
+// GroupRole represents the role of a member in a group
+enum GroupRole {
+  GROUP_ROLE_UNSPECIFIED = 0;
+  GROUP_ROLE_VIEWER = 1;
+  GROUP_ROLE_MEMBER = 2;
+  GROUP_ROLE_ADMIN = 3;
+  GROUP_ROLE_OWNER = 4;
+}
+
+// GroupInvitation represents an invitation to join a group
+message GroupInvitation {
+  string id = 1;
+  string group_id = 2;
+  string inviter_id = 3;
+  string invitee_email = 4;
+  GroupRole role = 5;
+  InvitationStatus status = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp expires_at = 8;
+}
+
+// InvitationStatus represents the status of an invitation
+enum InvitationStatus {
+  INVITATION_STATUS_UNSPECIFIED = 0;
+  INVITATION_STATUS_PENDING = 1;
+  INVITATION_STATUS_ACCEPTED = 2;
+  INVITATION_STATUS_DECLINED = 3;
+  INVITATION_STATUS_EXPIRED = 4;
+}
