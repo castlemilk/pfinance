@@ -9,29 +9,29 @@ service cloud.firestore {
     // Finance groups - only members can read/write
     match /financeGroups/{groupId} {
       allow read, write: if request.auth != null && 
-        request.auth.uid in resource.data.members[].userId;
+        request.auth.uid in resource.data.memberIds;
       allow create: if request.auth != null && 
-        request.auth.uid in request.resource.data.members[].userId;
+        request.auth.uid in request.resource.data.memberIds;
     }
     
     // Group expenses - only group members can read/write
     match /groupExpenses/{expenseId} {
       allow read, write: if request.auth != null && 
         exists(/databases/$(database)/documents/financeGroups/$(resource.data.groupId)) &&
-        request.auth.uid in get(/databases/$(database)/documents/financeGroups/$(resource.data.groupId)).data.members[].userId;
+        request.auth.uid in get(/databases/$(database)/documents/financeGroups/$(resource.data.groupId)).data.memberIds;
       allow create: if request.auth != null && 
         exists(/databases/$(database)/documents/financeGroups/$(request.resource.data.groupId)) &&
-        request.auth.uid in get(/databases/$(database)/documents/financeGroups/$(request.resource.data.groupId)).data.members[].userId;
+        request.auth.uid in get(/databases/$(database)/documents/financeGroups/$(request.resource.data.groupId)).data.memberIds;
     }
     
     // Group incomes - only group members can read/write
     match /groupIncomes/{incomeId} {
       allow read, write: if request.auth != null && 
         exists(/databases/$(database)/documents/financeGroups/$(resource.data.groupId)) &&
-        request.auth.uid in get(/databases/$(database)/documents/financeGroups/$(resource.data.groupId)).data.members[].userId;
+        request.auth.uid in get(/databases/$(database)/documents/financeGroups/$(resource.data.groupId)).data.memberIds;
       allow create: if request.auth != null && 
         exists(/databases/$(database)/documents/financeGroups/$(request.resource.data.groupId)) &&
-        request.auth.uid in get(/databases/$(database)/documents/financeGroups/$(request.resource.data.groupId)).data.members[].userId;
+        request.auth.uid in get(/databases/$(database)/documents/financeGroups/$(request.resource.data.groupId)).data.memberIds;
     }
   }
 }
