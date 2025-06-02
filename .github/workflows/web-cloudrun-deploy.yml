@@ -1,0 +1,147 @@
+name: Deploy Web App to Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-cloudrun-deploy.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'web/**'
+
+env:
+  PROJECT_ID: pfinance-app-1748773335
+  REGION: us-central1
+  SERVICE_NAME: pfinance-web
+  IMAGE_NAME: gcr.io/pfinance-app-1748773335/pfinance-web
+  WORKLOAD_IDENTITY_PROVIDER: projects/859800863588/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+  SERVICE_ACCOUNT: github-actions@pfinance-app-1748773335.iam.gserviceaccount.com
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: web/package-lock.json
+
+    - name: Set up buf CLI
+      uses: bufbuild/buf-setup-action@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Generate protobuf code
+      run: |
+        cd proto
+        buf generate
+
+    - name: Install dependencies
+      run: |
+        cd web
+        npm ci --legacy-peer-deps
+
+    - name: Run linter
+      run: |
+        cd web
+        npm run lint || true
+
+    - name: Run tests
+      run: |
+        cd web
+        npm test -- --passWithNoTests
+
+  build-and-deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up buf CLI
+      uses: bufbuild/buf-setup-action@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Generate protobuf code
+      run: |
+        cd proto
+        buf generate
+
+    - name: Authenticate to Google Cloud
+      id: auth
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+        service_account: ${{ env.SERVICE_ACCOUNT }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    - name: Configure Docker for GCR
+      run: gcloud auth configure-docker
+
+    - name: Build Docker image
+      run: |
+        cd web
+        docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} \
+          --build-arg NEXT_PUBLIC_FIREBASE_API_KEY="${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}" \
+          --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}" \
+          --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID="${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}" \
+          --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}" \
+          --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}" \
+          --build-arg NEXT_PUBLIC_FIREBASE_APP_ID="${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}" \
+          --build-arg NEXT_PUBLIC_BACKEND_URL="https://pfinance-backend-ogllvvupaa-uc.a.run.app" \
+          .
+        docker tag ${{ env.IMAGE_NAME }}:${{ github.sha }} ${{ env.IMAGE_NAME }}:latest
+
+    - name: Push Docker image
+      run: |
+        docker push ${{ env.IMAGE_NAME }}:${{ github.sha }}
+        docker push ${{ env.IMAGE_NAME }}:latest
+
+    - name: Deploy to Cloud Run
+      run: |
+        gcloud run deploy ${{ env.SERVICE_NAME }} \
+          --image ${{ env.IMAGE_NAME }}:${{ github.sha }} \
+          --region ${{ env.REGION }} \
+          --platform managed \
+          --allow-unauthenticated \
+          --port 3000 \
+          --memory 512Mi \
+          --cpu 1 \
+          --max-instances 10 \
+          --set-env-vars NODE_ENV=production \
+          --quiet
+
+    - name: Get service URL
+      run: |
+        SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+          --region ${{ env.REGION }} \
+          --format 'value(status.url)')
+        echo "Service deployed to: $SERVICE_URL"
+        echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_ENV
+
+    - name: Test deployment
+      run: |
+        # Wait for deployment to be ready
+        sleep 30
+        
+        # Test the main page
+        curl -f ${{ env.SERVICE_URL }} || exit 1
+        echo "✅ Web app is accessible"

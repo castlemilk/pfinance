@@ -50,6 +50,7 @@ SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
 echo ""
 echo "✅ Deployment successful!"
 echo "🌐 Service URL: $SERVICE_URL"
+echo "🚀 API Endpoint: $SERVICE_URL/v1"
 echo ""
 echo "🧪 Testing deployment..."
 
