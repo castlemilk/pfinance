@@ -31,10 +31,20 @@ jobs:
         cache: 'npm'
         cache-dependency-path: web/package-lock.json
 
+    - name: Set up buf CLI
+      uses: bufbuild/buf-setup-action@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Generate protobuf code
+      run: |
+        cd proto
+        buf generate
+
     - name: Install dependencies
       run: |
         cd web
-        npm ci
+        npm ci --legacy-peer-deps
 
     - name: Run linter
       run: |
@@ -57,6 +67,16 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Set up buf CLI
+      uses: bufbuild/buf-setup-action@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Generate protobuf code
+      run: |
+        cd proto
+        buf generate
 
     - name: Authenticate to Google Cloud
       id: auth
@@ -83,7 +103,7 @@ jobs:
     - name: Install dependencies
       run: |
         cd web
-        npm ci
+        npm ci --legacy-peer-deps
 
     - name: Build Next.js app
       run: |
