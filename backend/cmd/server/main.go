@@ -10,6 +10,7 @@ import (
 	"cloud.google.com/go/firestore"
 	"github.com/bufbuild/connect-go"
 	"github.com/castlemilk/pfinance/backend/gen/pfinance/v1/pfinancev1connect"
+	"github.com/castlemilk/pfinance/backend/internal/auth"
 	"github.com/castlemilk/pfinance/backend/internal/service"
 	"github.com/castlemilk/pfinance/backend/internal/store"
 	"github.com/rs/cors"
@@ -37,15 +38,21 @@ func main() {
 	}
 	defer firestoreClient.Close()
 
+	// Initialize Firebase Auth
+	firebaseAuth, err := auth.NewFirebaseAuth(ctx)
+	if err != nil {
+		log.Fatalf("Failed to initialize Firebase Auth: %v", err)
+	}
+
 	// Create the store and finance service
 	firestoreStore := store.NewFirestoreStore(firestoreClient)
 	financeService := service.NewFinanceService(firestoreStore)
 
-	// Create Connect handler
+	// Create Connect handler with auth interceptor
 	path, handler := pfinancev1connect.NewFinanceServiceHandler(
 		financeService,
 		connect.WithInterceptors(
-			// Add any interceptors here (auth, logging, etc.)
+			auth.AuthInterceptor(firebaseAuth),
 		),
 	)
 

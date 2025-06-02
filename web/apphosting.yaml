@@ -1,0 +1,22 @@
+# Firebase App Hosting configuration
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    secret: firebase-api-key
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: pfinance-app-1748773335.firebaseapp.com
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: pfinance-app-1748773335
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: pfinance-app-1748773335.appspot.com
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    secret: firebase-messaging-sender-id
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    secret: firebase-app-id
+  - variable: NEXT_PUBLIC_BACKEND_URL
+    value: https://pfinance-backend-ogllvvupaa-uc.a.run.app
+
+cpu: 1
+memory: 512Mi
+minInstances: 0
+maxInstances: 100
+concurrency: 80
