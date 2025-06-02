@@ -32,14 +32,10 @@ export type {
   FinanceGroup,
   GroupInvitation,
   User,
-  TaxConfig,
-  ExpenseCategory,
-  ExpenseFrequency,
-  IncomeFrequency,
-  GroupRole,
-  InvitationStatus
+  TaxConfig
 } from "@/gen/pfinance/v1/types_pb";
 
+// Export enums as values
 export {
   ExpenseCategory,
   ExpenseFrequency,
