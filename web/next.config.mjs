@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  // Remove standalone output for Vercel
   trailingSlash: true,
   images: {
     // Enable optimized images for server deployment
