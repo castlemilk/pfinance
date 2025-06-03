@@ -3,5 +3,6 @@
   "regions": ["iad1"],
   "buildCommand": "cd .. && npm install -g @bufbuild/buf && cd proto && buf generate && cd ../web && npm run build",
   "installCommand": "npm install --legacy-peer-deps",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "projectName": "pfinance"
 }
