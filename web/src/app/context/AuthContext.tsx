@@ -9,7 +9,9 @@ import {
   signOut,
   updateProfile,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  setPersistence,
+  browserLocalPersistence
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
@@ -29,12 +31,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    // Skip auth setup if Firebase is not initialized
+    if (!auth) {
       setLoading(false);
-    });
+      return;
+    }
 
-    return unsubscribe;
+    // Set persistence to local (survives browser restarts)
+    setPersistence(auth, browserLocalPersistence)
+      .then(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+          setUser(user);
+          setLoading(false);
+        });
+
+        return () => unsubscribe();
+      })
+      .catch((error) => {
+        console.error('Error setting persistence:', error);
+        setLoading(false);
+      });
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -49,8 +65,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    if (!auth) {
+      throw new Error('Firebase auth not initialized');
+    }
+    
     const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    
+    // Add scopes if needed
+    provider.addScope('profile');
+    provider.addScope('email');
+    
+    // Use popup for better UX (no redirects)
+    try {
+      const result = await signInWithPopup(auth, provider);
+      return result;
+    } catch (error: any) {
+      // Handle specific errors
+      if (error.code === 'auth/popup-blocked') {
+        console.error('Popup was blocked. Please allow popups for this site.');
+      }
+      throw error;
+    }
   };
 
   const logout = async () => {
