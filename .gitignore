@@ -44,6 +44,5 @@ next-env.d.ts
 *.key.json
 *key.json
 
-# Generated protobuf code
+# Generated protobuf code (backend only - web needs to be committed)
 backend/gen/
-web/src/gen/
