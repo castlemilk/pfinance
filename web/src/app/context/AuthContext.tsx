@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (): Promise<void> => {
     if (!auth) {
       throw new Error('Firebase auth not initialized');
     }
@@ -77,8 +77,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // Use popup for better UX (no redirects)
     try {
-      const result = await signInWithPopup(auth, provider);
-      return result;
+      await signInWithPopup(auth, provider);
+      // Don't return the result, just complete the promise
     } catch (error: any) {
       // Handle specific errors
       if (error.code === 'auth/popup-blocked') {

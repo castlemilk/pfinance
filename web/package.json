@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
+    "type-check": "tsc --noEmit",
+    "test:ci": "npm run type-check && npm run lint && npm run test",
     "test:watch": "jest --watch",
     "deploy": "npm run build && firebase deploy"
   },
