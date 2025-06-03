@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+
 import { 
   collection, 
   doc, 
@@ -124,7 +125,7 @@ export function MultiUserFinanceProvider({ children }: { children: ReactNode }) 
 
     setLoading(true);
     const groupsQuery = query(
-      collection(db, 'financeGroups'),
+      collection(db!, 'financeGroups'),
       where('members', 'array-contains', {
         userId: user.uid,
         email: user.email,
@@ -167,7 +168,7 @@ export function MultiUserFinanceProvider({ children }: { children: ReactNode }) 
     }
 
     const expensesQuery = query(
-      collection(db, 'groupExpenses'),
+      collection(db!, 'groupExpenses'),
       where('groupId', '==', activeGroup.id)
     );
 
@@ -192,7 +193,7 @@ export function MultiUserFinanceProvider({ children }: { children: ReactNode }) 
     }
 
     const incomesQuery = query(
-      collection(db, 'groupIncomes'),
+      collection(db!, 'groupIncomes'),
       where('groupId', '==', activeGroup.id)
     );
 
@@ -232,7 +233,7 @@ export function MultiUserFinanceProvider({ children }: { children: ReactNode }) 
       }
     };
 
-    const docRef = await addDoc(collection(db, 'financeGroups'), groupData);
+    const docRef = await addDoc(collection(db!, 'financeGroups'), groupData);
     return docRef.id;
   };
 
@@ -249,7 +250,7 @@ export function MultiUserFinanceProvider({ children }: { children: ReactNode }) 
       joinedAt: serverTimestamp()
     };
 
-    const groupRef = doc(db, 'financeGroups', groupId);
+    const groupRef = doc(db!, 'financeGroups', groupId);
     // This is a simplified implementation - you'd want to check if user exists first
     await updateDoc(groupRef, {
       members: [...(groups.find(g => g.id === groupId)?.members || []), newMember]
@@ -266,16 +267,16 @@ export function MultiUserFinanceProvider({ children }: { children: ReactNode }) 
     
     if (updatedMembers.length === 0) {
       // If last member, delete the group
-      await deleteDoc(doc(db, 'financeGroups', groupId));
+      await deleteDoc(doc(db!, 'financeGroups', groupId));
     } else {
-      await updateDoc(doc(db, 'financeGroups', groupId), {
+      await updateDoc(doc(db!, 'financeGroups', groupId), {
         members: updatedMembers
       });
     }
   };
 
   const updateGroupSettings = async (groupId: string, settings: Partial<GroupSettings>): Promise<void> => {
-    const groupRef = doc(db, 'financeGroups', groupId);
+    const groupRef = doc(db!, 'financeGroups', groupId);
     await updateDoc(groupRef, { settings });
   };
 
@@ -299,17 +300,17 @@ export function MultiUserFinanceProvider({ children }: { children: ReactNode }) 
       approvedBy: user.uid
     };
 
-    const docRef = await addDoc(collection(db, 'groupExpenses'), expenseData);
+    const docRef = await addDoc(collection(db!, 'groupExpenses'), expenseData);
     return docRef.id;
   };
 
   const updateGroupExpense = async (expenseId: string, expense: Partial<GroupExpense>): Promise<void> => {
-    const expenseRef = doc(db, 'groupExpenses', expenseId);
+    const expenseRef = doc(db!, 'groupExpenses', expenseId);
     await updateDoc(expenseRef, expense);
   };
 
   const deleteGroupExpense = async (expenseId: string): Promise<void> => {
-    await deleteDoc(doc(db, 'groupExpenses', expenseId));
+    await deleteDoc(doc(db!, 'groupExpenses', expenseId));
   };
 
   const markExpenseAsPaid = async (expenseId: string, userId: string): Promise<void> => {
@@ -335,17 +336,17 @@ export function MultiUserFinanceProvider({ children }: { children: ReactNode }) 
       date: serverTimestamp()
     };
 
-    const docRef = await addDoc(collection(db, 'groupIncomes'), incomeData);
+    const docRef = await addDoc(collection(db!, 'groupIncomes'), incomeData);
     return docRef.id;
   };
 
   const updateGroupIncome = async (incomeId: string, income: Partial<GroupIncome>): Promise<void> => {
-    const incomeRef = doc(db, 'groupIncomes', incomeId);
+    const incomeRef = doc(db!, 'groupIncomes', incomeId);
     await updateDoc(incomeRef, income);
   };
 
   const deleteGroupIncome = async (incomeId: string): Promise<void> => {
-    await deleteDoc(doc(db, 'groupIncomes', incomeId));
+    await deleteDoc(doc(db!, 'groupIncomes', incomeId));
   };
 
   const getGroupExpenseSummary = (groupId: string) => {

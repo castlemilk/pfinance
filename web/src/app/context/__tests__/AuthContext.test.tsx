@@ -1,7 +1,6 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { render, screen, waitFor } from '@testing-library/react';
-import { act } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../AuthContext';
-import { auth } from '@/lib/firebase';
 
 // Mock Firebase auth
 jest.mock('@/lib/firebase', () => ({
@@ -52,8 +51,10 @@ describe('AuthContext', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockOnAuthStateChanged = require('firebase/auth').onAuthStateChanged;
-    mockSetPersistence = require('firebase/auth').setPersistence;
+    
+    // Get mocked functions from jest mocks
+    mockOnAuthStateChanged = jest.mocked(require('firebase/auth').onAuthStateChanged);
+    mockSetPersistence = jest.mocked(require('firebase/auth').setPersistence);
     
     // Mock setPersistence to resolve successfully
     mockSetPersistence.mockResolvedValue(undefined);
@@ -104,8 +105,9 @@ describe('AuthContext', () => {
 
   it('handles auth initialization when Firebase is not available', async () => {
     // Mock auth as null (Firebase not initialized)
-    const originalAuth = require('@/lib/firebase').auth;
-    require('@/lib/firebase').auth = null;
+    const firebaseModule = jest.mocked(require('@/lib/firebase'));
+    const originalAuth = firebaseModule.auth;
+    firebaseModule.auth = null;
 
     render(
       <AuthProvider>
@@ -120,7 +122,7 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('user')).toHaveTextContent('not authenticated');
 
     // Restore original auth
-    require('@/lib/firebase').auth = originalAuth;
+    firebaseModule.auth = originalAuth;
   });
 
   it('handles persistence setup errors', async () => {

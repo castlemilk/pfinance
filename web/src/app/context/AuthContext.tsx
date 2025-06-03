@@ -38,26 +38,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // Set persistence to local (survives browser restarts)
-    setPersistence(auth, browserLocalPersistence)
-      .then(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-          setUser(user);
+    if (auth) {
+      setPersistence(auth, browserLocalPersistence)
+        .then(() => {
+          if (auth) {
+            const unsubscribe = onAuthStateChanged(auth, (user) => {
+              setUser(user);
+              setLoading(false);
+            });
+
+            return () => unsubscribe();
+          }
+        })
+        .catch((error) => {
+          console.error('Error setting persistence:', error);
           setLoading(false);
         });
-
-        return () => unsubscribe();
-      })
-      .catch((error) => {
-        console.error('Error setting persistence:', error);
-        setLoading(false);
-      });
+    }
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    if (!auth) throw new Error('Firebase auth not initialized');
     await signInWithEmailAndPassword(auth, email, password);
   };
 
   const signUp = async (email: string, password: string, displayName: string) => {
+    if (!auth) throw new Error('Firebase auth not initialized');
     const result = await createUserWithEmailAndPassword(auth, email, password);
     if (result.user) {
       await updateProfile(result.user, { displayName });
@@ -79,9 +85,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await signInWithPopup(auth, provider);
       // Don't return the result, just complete the promise
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle specific errors
-      if (error.code === 'auth/popup-blocked') {
+      const firebaseError = error as { code?: string };
+      if (firebaseError.code === 'auth/popup-blocked') {
         console.error('Popup was blocked. Please allow popups for this site.');
       }
       throw error;
@@ -89,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    if (!auth) throw new Error('Firebase auth not initialized');
     await signOut(auth);
   };
 

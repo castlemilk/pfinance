@@ -11,9 +11,8 @@ const transport = createConnectTransport({
       // Add Firebase auth token if user is logged in
       if (typeof window !== 'undefined') {
         const { auth } = await import('./firebase');
-        const user = auth.currentUser;
-        if (user) {
-          const token = await user.getIdToken();
+        if (auth?.currentUser) {
+          const token = await auth.currentUser.getIdToken();
           req.header.set('Authorization', `Bearer ${token}`);
         }
       }

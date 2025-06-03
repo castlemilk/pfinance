@@ -21,9 +21,9 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 }
 
 // Only initialize Firebase on the client side
-let app: any;
-let auth: any;
-let db: any;
+let app: ReturnType<typeof initializeApp> | null;
+let auth: ReturnType<typeof getAuth> | null;
+let db: ReturnType<typeof getFirestore> | null;
 
 if (typeof window !== 'undefined') {
   // Client-side initialization
