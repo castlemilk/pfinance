@@ -1,0 +1,167 @@
+# PFinance Project Rules
+
+This file provides comprehensive context and guidance for AI assistants working on the pfinance codebase.
+
+## ⚠️ CRITICAL CONFIGURATION - DO NOT CHANGE
+
+- **Backend Port**: `8111` (NOT 8080 - intentional to avoid conflicts)
+- **Frontend Port**: `1234`
+- **API URL**: `http://localhost:8111`
+
+## Project Overview
+
+PFinance is a full-stack personal finance application featuring:
+- Multi-user collaboration (group finance management)
+- AI-powered transaction categorization and PDF import
+- Comprehensive budgeting and expense tracking
+- Real-time data sync with Firestore
+
+## Technology Stack
+
+### Frontend (web/)
+- **Framework**: Next.js 15 with App Router
+- **Language**: TypeScript 5 + React 19
+- **Styling**: Tailwind CSS 4 + shadcn/ui
+- **Charts**: visx (NOT recharts)
+- **State**: React Context API
+- **Forms**: React Hook Form + Zod validation
+- **API Client**: Connect-RPC (@bufbuild/connect-web)
+
+### Backend (backend/)
+- **Language**: Go 1.23+
+- **API**: Connect-RPC (gRPC-Web compatible)
+- **Auth**: Firebase Authentication
+- **Database**: Firestore (prod) / In-memory (dev)
+- **Testing**: go.uber.org/mock/gomock
+
+### Shared
+- **API Contract**: Protocol Buffers (proto/pfinance/v1/)
+- **Auth Provider**: Firebase
+
+## Architecture Patterns
+
+### Protocol-First Development
+1. Define API in `.proto` files first
+2. Run `make proto` to generate code
+3. Implement backend service handler
+4. Use generated types in frontend
+
+### Frontend State Management
+```
+<AuthProvider>
+  <FinanceProvider>
+    <MultiUserFinanceProvider>
+      <App />
+    </MultiUserFinanceProvider>
+  </FinanceProvider>
+</AuthProvider>
+```
+
+### Backend Service Pattern
+- Services implement Connect-RPC interfaces
+- Store interface for data access (enables mocking)
+- Auth interceptor sets user context
+
+## Essential Commands
+
+```bash
+# Development
+make dev              # Full stack
+make dev-backend      # Backend only (:8111)
+make dev-frontend     # Frontend only (:1234)
+make status           # Check service health
+make stop             # Stop all services
+
+# Code Generation
+make proto            # Generate from .proto files
+make generate         # Proto + mocks
+
+# Testing
+make test             # All tests
+make test-backend     # Go tests
+make test-frontend    # Jest tests
+
+# Build & Deploy
+make build            # Build both
+make deploy-backend   # Cloud Run
+make deploy-frontend  # Vercel
+```
+
+## Code Style Guidelines
+
+### TypeScript/React
+- Use functional components with hooks
+- Prefer `"use client"` only when necessary (RSC by default)
+- Use shadcn/ui components from `@/components/ui/`
+- Validate all forms with Zod schemas
+- Support dark mode with Tailwind `dark:` variants
+- Use visx for all charting (not recharts)
+
+### Go
+- Use the Store interface for all data access
+- Return proper Connect error codes
+- Extract user from context (set by auth interceptor)
+- Write tests with gomock for store mocks
+- Follow uber-go style guide
+
+### General
+- Use descriptive variable names (isLoading, hasError)
+- Implement proper error handling with early returns
+- Keep components/functions focused and small
+- Add tests for new features
+
+## File Locations
+
+```
+pfinance/
+├── web/src/
+│   ├── app/
+│   │   ├── components/     # Feature components
+│   │   ├── context/        # React Context providers
+│   │   └── utils/          # Utility functions
+│   ├── components/ui/      # shadcn/ui components
+│   └── gen/pfinance/v1/    # Generated API types
+├── backend/
+│   ├── cmd/server/         # Server entrypoint
+│   └── internal/
+│       ├── service/        # Business logic
+│       └── store/          # Data access layer
+└── proto/pfinance/v1/      # API definitions
+```
+
+## Testing Strategy
+
+### Frontend
+- Jest + React Testing Library
+- Mock Firebase and contexts
+- Focus on integration-style tests
+
+### Backend
+- Go test with gomock
+- Mock store interface
+- Test service methods directly
+
+## Environment Variables
+
+### Frontend (.env.local)
+```
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_API_URL=http://localhost:8111
+```
+
+### Backend
+```
+PORT=8111
+GOOGLE_CLOUD_PROJECT=pfinance-app-1748773335
+USE_MEMORY_STORE=true  # Set to false for Firestore
+```
+
+## Common Pitfalls
+
+1. **Port conflicts**: Always use 8111 for backend, not 8080
+2. **Proto changes**: Always run `make proto` after modifying .proto files
+3. **Store mocks**: Run `go generate ./internal/store` after Store interface changes
+4. **Firebase config**: Ensure .env.local has all required variables
+5. **CORS**: Backend must allow frontend origins

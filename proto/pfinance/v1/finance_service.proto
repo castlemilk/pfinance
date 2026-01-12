@@ -45,6 +45,30 @@ service FinanceService {
   
   // Invitation operations
   rpc ListInvitations(ListInvitationsRequest) returns (ListInvitationsResponse);
+  
+  // Budget operations
+  rpc CreateBudget(CreateBudgetRequest) returns (CreateBudgetResponse);
+  rpc GetBudget(GetBudgetRequest) returns (GetBudgetResponse);
+  rpc UpdateBudget(UpdateBudgetRequest) returns (UpdateBudgetResponse);
+  rpc DeleteBudget(DeleteBudgetRequest) returns (google.protobuf.Empty);
+  rpc ListBudgets(ListBudgetsRequest) returns (ListBudgetsResponse);
+  rpc GetBudgetProgress(GetBudgetProgressRequest) returns (GetBudgetProgressResponse);
+  
+  // Expense allocation operations
+  rpc GetMemberBalances(GetMemberBalancesRequest) returns (GetMemberBalancesResponse);
+  rpc SettleExpense(SettleExpenseRequest) returns (SettleExpenseResponse);
+  rpc GetGroupSummary(GetGroupSummaryRequest) returns (GetGroupSummaryResponse);
+  
+  // Invite link operations
+  rpc CreateInviteLink(CreateInviteLinkRequest) returns (CreateInviteLinkResponse);
+  rpc GetInviteLinkByCode(GetInviteLinkByCodeRequest) returns (GetInviteLinkByCodeResponse);
+  rpc JoinGroupByLink(JoinGroupByLinkRequest) returns (JoinGroupByLinkResponse);
+  rpc ListInviteLinks(ListInviteLinksRequest) returns (ListInviteLinksResponse);
+  rpc DeactivateInviteLink(DeactivateInviteLinkRequest) returns (google.protobuf.Empty);
+  
+  // Contribution operations
+  rpc ContributeExpenseToGroup(ContributeExpenseToGroupRequest) returns (ContributeExpenseToGroupResponse);
+  rpc ListContributions(ListContributionsRequest) returns (ListContributionsResponse);
 }
 
 // User operations
@@ -74,6 +98,13 @@ message CreateExpenseRequest {
   ExpenseCategory category = 5;
   ExpenseFrequency frequency = 6;
   google.protobuf.Timestamp date = 7;
+  
+  // Allocation fields
+  string paid_by_user_id = 8; // Who paid (defaults to user_id)
+  SplitType split_type = 9; // How to split
+  repeated string allocated_user_ids = 10; // Who to split between
+  repeated ExpenseAllocation allocations = 11; // Custom allocations (for percentage/amount splits)
+  repeated string tags = 12; // Optional tags
 }
 
 message CreateExpenseResponse {
@@ -86,6 +117,13 @@ message UpdateExpenseRequest {
   double amount = 3;
   ExpenseCategory category = 4;
   ExpenseFrequency frequency = 5;
+  
+  // Allocation fields
+  string paid_by_user_id = 6;
+  SplitType split_type = 7;
+  repeated string allocated_user_ids = 8;
+  repeated ExpenseAllocation allocations = 9;
+  repeated string tags = 10;
 }
 
 message UpdateExpenseResponse {
@@ -282,5 +320,187 @@ message ListInvitationsRequest {
 
 message ListInvitationsResponse {
   repeated GroupInvitation invitations = 1;
+  string next_page_token = 2;
+}
+
+// Budget operations
+message CreateBudgetRequest {
+  string user_id = 1;
+  string group_id = 2; // Optional
+  string name = 3;
+  string description = 4;
+  double amount = 5;
+  BudgetPeriod period = 6;
+  repeated ExpenseCategory category_ids = 7;
+  google.protobuf.Timestamp start_date = 8;
+  google.protobuf.Timestamp end_date = 9; // Optional
+}
+
+message CreateBudgetResponse {
+  Budget budget = 1;
+}
+
+message GetBudgetRequest {
+  string budget_id = 1;
+}
+
+message GetBudgetResponse {
+  Budget budget = 1;
+}
+
+message UpdateBudgetRequest {
+  string budget_id = 1;
+  string name = 2;
+  string description = 3;
+  double amount = 4;
+  BudgetPeriod period = 5;
+  repeated ExpenseCategory category_ids = 6;
+  bool is_active = 7;
+  google.protobuf.Timestamp end_date = 8; // Optional
+}
+
+message UpdateBudgetResponse {
+  Budget budget = 1;
+}
+
+message DeleteBudgetRequest {
+  string budget_id = 1;
+}
+
+message ListBudgetsRequest {
+  string user_id = 1;
+  string group_id = 2; // Optional - filter by group
+  bool include_inactive = 3;
+  int32 page_size = 4;
+  string page_token = 5;
+}
+
+message ListBudgetsResponse {
+  repeated Budget budgets = 1;
+  string next_page_token = 2;
+}
+
+message GetBudgetProgressRequest {
+  string budget_id = 1;
+  google.protobuf.Timestamp as_of_date = 2; // Optional - defaults to current date
+}
+
+message GetBudgetProgressResponse {
+  BudgetProgress progress = 1;
+}
+
+// Expense allocation operations
+message GetMemberBalancesRequest {
+  string group_id = 1;
+  string user_id = 2; // Optional - filter for specific user
+  google.protobuf.Timestamp start_date = 3; // Optional
+  google.protobuf.Timestamp end_date = 4; // Optional
+}
+
+message GetMemberBalancesResponse {
+  repeated MemberBalance balances = 1;
+  double total_group_expenses = 2;
+}
+
+message SettleExpenseRequest {
+  string expense_id = 1;
+  string user_id = 2; // User settling their allocation
+  double amount = 3; // Amount being settled (could be partial)
+}
+
+message SettleExpenseResponse {
+  Expense expense = 1;
+  ExpenseAllocation updated_allocation = 2;
+}
+
+message GetGroupSummaryRequest {
+  string group_id = 1;
+  google.protobuf.Timestamp start_date = 2; // Optional
+  google.protobuf.Timestamp end_date = 3; // Optional
+}
+
+message GetGroupSummaryResponse {
+  double total_expenses = 1;
+  double total_income = 2;
+  repeated ExpenseBreakdown expense_by_category = 3;
+  repeated MemberBalance member_balances = 4;
+  int32 unsettled_expense_count = 5;
+  double unsettled_amount = 6;
+}
+
+// Invite link operations
+message CreateInviteLinkRequest {
+  string group_id = 1;
+  string created_by = 2;
+  GroupRole default_role = 3;
+  int32 max_uses = 4; // 0 means unlimited
+  int32 expires_in_days = 5; // 0 means never expires
+}
+
+message CreateInviteLinkResponse {
+  GroupInviteLink invite_link = 1;
+}
+
+message GetInviteLinkByCodeRequest {
+  string code = 1;
+}
+
+message GetInviteLinkByCodeResponse {
+  GroupInviteLink invite_link = 1;
+  FinanceGroup group = 2; // Include group details for preview
+}
+
+message JoinGroupByLinkRequest {
+  string code = 1;
+  string user_id = 2;
+  string user_email = 3;
+  string display_name = 4;
+}
+
+message JoinGroupByLinkResponse {
+  FinanceGroup group = 1;
+}
+
+message ListInviteLinksRequest {
+  string group_id = 1;
+  bool include_inactive = 2;
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+message ListInviteLinksResponse {
+  repeated GroupInviteLink invite_links = 1;
+  string next_page_token = 2;
+}
+
+message DeactivateInviteLinkRequest {
+  string link_id = 1;
+}
+
+// Contribution operations
+message ContributeExpenseToGroupRequest {
+  string source_expense_id = 1;
+  string target_group_id = 2;
+  string contributed_by = 3;
+  double amount = 4; // Amount to contribute (can be partial)
+  SplitType split_type = 5;
+  repeated string allocated_user_ids = 6;
+  repeated ExpenseAllocation allocations = 7; // Custom allocations
+}
+
+message ContributeExpenseToGroupResponse {
+  ExpenseContribution contribution = 1;
+  Expense created_group_expense = 2;
+}
+
+message ListContributionsRequest {
+  string group_id = 1; // Optional - filter by group
+  string user_id = 2; // Optional - filter by contributor
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+message ListContributionsResponse {
+  repeated ExpenseContribution contributions = 1;
   string next_page_token = 2;
 }

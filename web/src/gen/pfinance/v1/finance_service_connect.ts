@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { AcceptInvitationRequest, AcceptInvitationResponse, BatchCreateExpensesRequest, BatchCreateExpensesResponse, CreateExpenseRequest, CreateExpenseResponse, CreateGroupRequest, CreateGroupResponse, CreateIncomeRequest, CreateIncomeResponse, DeclineInvitationRequest, DeleteExpenseRequest, DeleteGroupRequest, DeleteIncomeRequest, GetGroupRequest, GetGroupResponse, GetTaxConfigRequest, GetTaxConfigResponse, GetUserRequest, GetUserResponse, InviteToGroupRequest, InviteToGroupResponse, ListExpensesRequest, ListExpensesResponse, ListGroupsRequest, ListGroupsResponse, ListIncomesRequest, ListIncomesResponse, ListInvitationsRequest, ListInvitationsResponse, RemoveFromGroupRequest, UpdateExpenseRequest, UpdateExpenseResponse, UpdateGroupRequest, UpdateGroupResponse, UpdateIncomeRequest, UpdateIncomeResponse, UpdateMemberRoleRequest, UpdateMemberRoleResponse, UpdateTaxConfigRequest, UpdateTaxConfigResponse, UpdateUserRequest, UpdateUserResponse } from "./finance_service_pb.js";
+import { AcceptInvitationRequest, AcceptInvitationResponse, BatchCreateExpensesRequest, BatchCreateExpensesResponse, ContributeExpenseToGroupRequest, ContributeExpenseToGroupResponse, CreateBudgetRequest, CreateBudgetResponse, CreateExpenseRequest, CreateExpenseResponse, CreateGroupRequest, CreateGroupResponse, CreateIncomeRequest, CreateIncomeResponse, CreateInviteLinkRequest, CreateInviteLinkResponse, DeactivateInviteLinkRequest, DeclineInvitationRequest, DeleteBudgetRequest, DeleteExpenseRequest, DeleteGroupRequest, DeleteIncomeRequest, GetBudgetProgressRequest, GetBudgetProgressResponse, GetBudgetRequest, GetBudgetResponse, GetGroupRequest, GetGroupResponse, GetGroupSummaryRequest, GetGroupSummaryResponse, GetInviteLinkByCodeRequest, GetInviteLinkByCodeResponse, GetMemberBalancesRequest, GetMemberBalancesResponse, GetTaxConfigRequest, GetTaxConfigResponse, GetUserRequest, GetUserResponse, InviteToGroupRequest, InviteToGroupResponse, JoinGroupByLinkRequest, JoinGroupByLinkResponse, ListBudgetsRequest, ListBudgetsResponse, ListContributionsRequest, ListContributionsResponse, ListExpensesRequest, ListExpensesResponse, ListGroupsRequest, ListGroupsResponse, ListIncomesRequest, ListIncomesResponse, ListInvitationsRequest, ListInvitationsResponse, ListInviteLinksRequest, ListInviteLinksResponse, RemoveFromGroupRequest, SettleExpenseRequest, SettleExpenseResponse, UpdateBudgetRequest, UpdateBudgetResponse, UpdateExpenseRequest, UpdateExpenseResponse, UpdateGroupRequest, UpdateGroupResponse, UpdateIncomeRequest, UpdateIncomeResponse, UpdateMemberRoleRequest, UpdateMemberRoleResponse, UpdateTaxConfigRequest, UpdateTaxConfigResponse, UpdateUserRequest, UpdateUserResponse } from "./finance_service_pb.js";
 import { Empty, MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -242,6 +242,158 @@ export const FinanceService = {
       name: "ListInvitations",
       I: ListInvitationsRequest,
       O: ListInvitationsResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Budget operations
+     *
+     * @generated from rpc pfinance.v1.FinanceService.CreateBudget
+     */
+    createBudget: {
+      name: "CreateBudget",
+      I: CreateBudgetRequest,
+      O: CreateBudgetResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc pfinance.v1.FinanceService.GetBudget
+     */
+    getBudget: {
+      name: "GetBudget",
+      I: GetBudgetRequest,
+      O: GetBudgetResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc pfinance.v1.FinanceService.UpdateBudget
+     */
+    updateBudget: {
+      name: "UpdateBudget",
+      I: UpdateBudgetRequest,
+      O: UpdateBudgetResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc pfinance.v1.FinanceService.DeleteBudget
+     */
+    deleteBudget: {
+      name: "DeleteBudget",
+      I: DeleteBudgetRequest,
+      O: Empty,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc pfinance.v1.FinanceService.ListBudgets
+     */
+    listBudgets: {
+      name: "ListBudgets",
+      I: ListBudgetsRequest,
+      O: ListBudgetsResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc pfinance.v1.FinanceService.GetBudgetProgress
+     */
+    getBudgetProgress: {
+      name: "GetBudgetProgress",
+      I: GetBudgetProgressRequest,
+      O: GetBudgetProgressResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Expense allocation operations
+     *
+     * @generated from rpc pfinance.v1.FinanceService.GetMemberBalances
+     */
+    getMemberBalances: {
+      name: "GetMemberBalances",
+      I: GetMemberBalancesRequest,
+      O: GetMemberBalancesResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc pfinance.v1.FinanceService.SettleExpense
+     */
+    settleExpense: {
+      name: "SettleExpense",
+      I: SettleExpenseRequest,
+      O: SettleExpenseResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc pfinance.v1.FinanceService.GetGroupSummary
+     */
+    getGroupSummary: {
+      name: "GetGroupSummary",
+      I: GetGroupSummaryRequest,
+      O: GetGroupSummaryResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Invite link operations
+     *
+     * @generated from rpc pfinance.v1.FinanceService.CreateInviteLink
+     */
+    createInviteLink: {
+      name: "CreateInviteLink",
+      I: CreateInviteLinkRequest,
+      O: CreateInviteLinkResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc pfinance.v1.FinanceService.GetInviteLinkByCode
+     */
+    getInviteLinkByCode: {
+      name: "GetInviteLinkByCode",
+      I: GetInviteLinkByCodeRequest,
+      O: GetInviteLinkByCodeResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc pfinance.v1.FinanceService.JoinGroupByLink
+     */
+    joinGroupByLink: {
+      name: "JoinGroupByLink",
+      I: JoinGroupByLinkRequest,
+      O: JoinGroupByLinkResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc pfinance.v1.FinanceService.ListInviteLinks
+     */
+    listInviteLinks: {
+      name: "ListInviteLinks",
+      I: ListInviteLinksRequest,
+      O: ListInviteLinksResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc pfinance.v1.FinanceService.DeactivateInviteLink
+     */
+    deactivateInviteLink: {
+      name: "DeactivateInviteLink",
+      I: DeactivateInviteLinkRequest,
+      O: Empty,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Contribution operations
+     *
+     * @generated from rpc pfinance.v1.FinanceService.ContributeExpenseToGroup
+     */
+    contributeExpenseToGroup: {
+      name: "ContributeExpenseToGroup",
+      I: ContributeExpenseToGroupRequest,
+      O: ContributeExpenseToGroupResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc pfinance.v1.FinanceService.ListContributions
+     */
+    listContributions: {
+      name: "ListContributions",
+      I: ListContributionsRequest,
+      O: ListContributionsResponse,
       kind: MethodKind.Unary,
     },
   }

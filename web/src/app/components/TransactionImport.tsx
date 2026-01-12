@@ -2,11 +2,12 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useFinance } from '../context/FinanceContext';
+import { useAuth } from '../context/AuthWithAdminContext';
 import { ExpenseCategory } from '../types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertCircle, CheckCircle2, Upload, FileText } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Upload, FileText, Lock, Brain } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Papa from 'papaparse';
@@ -114,6 +115,7 @@ const fileToBase64 = (file: File): Promise<string> => {
 
 export default function TransactionImport() {
   const { addExpense, addExpenses } = useFinance();
+  const { user } = useAuth();
   const [isDragging, setIsDragging] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -180,6 +182,11 @@ export default function TransactionImport() {
     if (isCSV) {
       processCSVFile(file);
     } else if (isPDF) {
+      if (!user) {
+        setError('Please sign in to use PDF processing features.');
+        setIsLoading(false);
+        return;
+      }
       if (pdfProcessingEnabled) {
         console.log("PDF processing is enabled, continuing with processing");
         // For PDF files, we'll use the OpenAI API
@@ -633,7 +640,7 @@ export default function TransactionImport() {
 
   // Apply smart categorization to transactions
   const applySmartCategorization = async (transactionsToProcess: Transaction[]) => {
-    if (!smartCategorizationEnabled || !apiKey) {
+    if (!user || !smartCategorizationEnabled || !apiKey) {
       return transactionsToProcess;
     }
 
@@ -731,27 +738,34 @@ export default function TransactionImport() {
               <Switch 
                 id="pdf-processing"
                 checked={pdfProcessingEnabled}
-                onCheckedChange={handleTogglePdfProcessing}
+                onCheckedChange={user ? handleTogglePdfProcessing : undefined}
+                disabled={!user}
               />
               <Label 
                 htmlFor="pdf-processing" 
-                className={`text-sm font-normal cursor-pointer ${pdfProcessingEnabled ? 'text-primary font-semibold' : ''}`}
+                className={`text-sm font-normal ${user ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'} ${pdfProcessingEnabled ? 'text-primary font-semibold' : ''}`}
               >
-                Enable PDF Import {pdfProcessingEnabled && '(On)'}
+                <span className="flex items-center gap-1">
+                  {!user && <Lock className="w-3 h-3" />}
+                  Enable PDF Import {pdfProcessingEnabled && '(On)'}
+                </span>
               </Label>
             </div>
             <div className="flex items-center space-x-2">
               <Switch 
                 id="smart-categorization"
                 checked={smartCategorizationEnabled}
-                onCheckedChange={setSmartCategorizationEnabled}
-                disabled={!apiKey}
+                onCheckedChange={user ? setSmartCategorizationEnabled : undefined}
+                disabled={!user || !apiKey}
               />
               <Label 
                 htmlFor="smart-categorization" 
-                className={`text-sm font-normal cursor-pointer ${smartCategorizationEnabled ? 'text-primary font-semibold' : ''}`}
+                className={`text-sm font-normal ${user && apiKey ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'} ${smartCategorizationEnabled ? 'text-primary font-semibold' : ''}`}
               >
-                Smart Categorization {smartCategorizationEnabled && '(On)'}
+                <span className="flex items-center gap-1">
+                  {!user && <Lock className="w-3 h-3" />}
+                  Smart Categorization {smartCategorizationEnabled && '(On)'}
+                </span>
               </Label>
             </div>
           </div>
@@ -762,6 +776,25 @@ export default function TransactionImport() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {!user && (
+          <div className="mb-4 p-4 border rounded-lg bg-blue-50 border-blue-200">
+            <div className="flex items-start gap-3">
+              <Brain className="h-5 w-5 text-blue-600 mt-0.5" />
+              <div>
+                <h4 className="font-semibold text-blue-800 mb-2">Sign in to unlock AI-powered features!</h4>
+                <ul className="list-disc text-sm text-blue-700 ml-4 space-y-1">
+                  <li>PDF bank statement import with AI extraction</li>
+                  <li>Smart transaction categorization using GPT-4</li>
+                  <li>Learning from your categorization preferences</li>
+                  <li>Duplicate transaction detection</li>
+                </ul>
+                <p className="mt-3 text-sm text-blue-600">
+                  Basic CSV import is available without signing in.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         <div
           className={`border-2 border-dashed rounded-lg p-8 text-center ${
             isDragging ? 'border-primary bg-primary/10' : 'border-border'

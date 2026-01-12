@@ -1,0 +1,226 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+  GO_VERSION: '1.23'
+
+jobs:
+  # ===========================================
+  # Detect Changes
+  # ===========================================
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.changes.outputs.frontend }}
+      backend: ${{ steps.changes.outputs.backend }}
+      proto: ${{ steps.changes.outputs.proto }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            frontend:
+              - 'web/**'
+              - 'proto/**'
+            backend:
+              - 'backend/**'
+              - 'proto/**'
+            proto:
+              - 'proto/**'
+
+  # ===========================================
+  # Frontend CI
+  # ===========================================
+  frontend-lint:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: cd web && npm ci --legacy-peer-deps
+
+      - name: Type check
+        run: cd web && npm run type-check
+
+      - name: Lint
+        run: cd web && npm run lint
+
+  frontend-test:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: cd web && npm ci --legacy-peer-deps
+
+      - name: Run tests
+        run: cd web && npm run test -- --passWithNoTests --coverage
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          directory: web/coverage
+          flags: frontend
+        continue-on-error: true
+
+  frontend-build:
+    needs: [frontend-lint, frontend-test]
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: cd web && npm ci --legacy-peer-deps
+
+      - name: Build
+        run: cd web && npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+
+  # ===========================================
+  # Backend CI
+  # ===========================================
+  backend-lint:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Setup buf CLI
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate protobuf code
+        run: cd proto && buf generate
+
+      - name: Go vet
+        run: cd backend && go vet ./...
+
+      - name: Go fmt check
+        run: |
+          cd backend
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "Code is not formatted. Run 'go fmt ./...'"
+            gofmt -l .
+            exit 1
+          fi
+
+  backend-test:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Setup buf CLI
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate protobuf code
+        run: cd proto && buf generate
+
+      - name: Install mock generator
+        run: go install go.uber.org/mock/mockgen@latest
+
+      - name: Generate mocks
+        run: cd backend && go generate ./internal/store
+
+      - name: Run tests
+        run: cd backend && go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: backend/coverage.out
+          flags: backend
+        continue-on-error: true
+
+  backend-build:
+    needs: [backend-lint, backend-test]
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Setup buf CLI
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate protobuf code
+        run: cd proto && buf generate
+
+      - name: Build
+        run: cd backend && go build -o server cmd/server/main.go
+
+  # ===========================================
+  # Proto Lint
+  # ===========================================
+  proto-lint:
+    needs: changes
+    if: needs.changes.outputs.proto == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup buf CLI
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lint protos
+        run: cd proto && buf lint
+
+      - name: Check breaking changes
+        run: cd proto && buf breaking --against '.git#branch=main' || true

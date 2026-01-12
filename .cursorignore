@@ -1,0 +1,89 @@
+# ===========================================
+# PFinance Cursor Ignore Configuration
+# ===========================================
+# Files listed here are excluded from Cursor's 
+# context to improve performance and relevance.
+
+# ===========================================
+# Dependencies
+# ===========================================
+node_modules/
+web/node_modules/
+**/node_modules/
+
+# ===========================================
+# Build Outputs
+# ===========================================
+web/.next/
+web/out/
+backend/server
+backend/main
+*.exe
+*.dll
+*.so
+*.dylib
+
+# ===========================================
+# Generated Code (reference in gen/ folders)
+# ===========================================
+# Note: Keep gen/ folders accessible for type reference
+# but exclude large generated files
+**/*.pb.go.bak
+**/pfinancev1connect/
+
+# ===========================================
+# Test Coverage & Reports
+# ===========================================
+web/coverage/
+backend/coverage.out
+*.lcov
+coverage-final.json
+lcov.info
+
+# ===========================================
+# IDE & Editor
+# ===========================================
+.idea/
+*.swp
+*.swo
+*~
+.vscode/settings.json
+
+# ===========================================
+# OS Files
+# ===========================================
+.DS_Store
+Thumbs.db
+*.log
+
+# ===========================================
+# Environment & Secrets
+# ===========================================
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*-key.json
+github-actions-key.json
+
+# ===========================================
+# Lock Files (reference package.json instead)
+# ===========================================
+package-lock.json
+go.sum
+
+# ===========================================
+# Large Documentation (read individually)
+# ===========================================
+# Keep high-level docs, exclude verbose ones
+web/coverage/lcov-report/
+
+# ===========================================
+# Temporary Files
+# ===========================================
+*.tmp
+*.temp
+.cache/
+tmp/
+temp/

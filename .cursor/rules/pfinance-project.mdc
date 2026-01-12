@@ -1,0 +1,35 @@
+---
+description: Core project rules for pfinance development
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# PFinance Project Rules
+
+## Critical Port Configuration
+- Backend: **8111** (NOT 8080)
+- Frontend: **1234**
+- Never change these without explicit instruction
+
+## Technology Stack
+- **Frontend**: Next.js 15 + React 19 + TypeScript + Tailwind + shadcn/ui + visx
+- **Backend**: Go 1.23 + Connect-RPC + Firebase Auth + Firestore
+- **Protocol**: Protobuf (proto/pfinance/v1/)
+
+## Development Commands
+```bash
+make dev           # Start full stack
+make dev-backend   # Backend only (:8111)
+make dev-frontend  # Frontend only (:1234)
+make status        # Check health
+make proto         # Generate from protos
+make test          # Run all tests
+```
+
+## Code Guidelines
+- Use shadcn/ui components from `@/components/ui/`
+- Use visx for charts (not recharts)
+- Validate forms with Zod
+- Support dark mode with Tailwind `dark:` variants
+- Backend: Use Store interface for data access
+- Backend: Return proper Connect error codes

@@ -38,9 +38,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { useForm } from 'react-hook-form';
 import { Expense, ExpenseCategory, ExpenseFrequency } from '../types';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Share2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getCategoryColor, getFrequencyColor } from '../constants/theme';
+import ContributeExpenseModal from './ContributeExpenseModal';
+import { useMultiUserFinance } from '../context/MultiUserFinanceContext';
 
 type EditFormData = {
   description: string;
@@ -49,15 +51,25 @@ type EditFormData = {
   frequency: ExpenseFrequency;
 };
 
-export default function ExpenseList() {
+interface ExpenseListProps {
+  limit?: number;
+}
+
+export default function ExpenseList({ limit }: ExpenseListProps = {}) {
   const { expenses, deleteExpense, deleteExpenses, updateExpense } = useFinance();
+  const { groups } = useMultiUserFinance();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [expenseToShare, setExpenseToShare] = useState<Expense | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<Set<string>>(new Set());
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
   const [isShiftPressed, setIsShiftPressed] = useState(false);
+  
+  // Check if user has groups to share with
+  const canShare = groups.length > 0;
 
   const form = useForm<EditFormData>({
     defaultValues: {
@@ -123,6 +135,12 @@ export default function ExpenseList() {
       frequency: expense.frequency,
     });
     setIsEditDialogOpen(true);
+  };
+
+  // Handler for opening the share dialog
+  const handleShare = (expense: Expense) => {
+    setExpenseToShare(expense);
+    setIsShareDialogOpen(true);
   };
 
   // Handler for opening the delete confirmation dialog
@@ -290,7 +308,7 @@ export default function ExpenseList() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {expenses.map((expense, index) => (
+                {(limit ? expenses.slice(0, limit) : expenses).map((expense, index) => (
                   <TableRow key={expense.id}>
                     <TableCell>
                       <input
@@ -323,13 +341,25 @@ export default function ExpenseList() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right font-medium">{formatCurrency(expense.amount)}</TableCell>
-                    <TableCell className="w-[100px] text-right">
-                      <div className="flex justify-end gap-2">
+                    <TableCell className="w-[140px] text-right">
+                      <div className="flex justify-end gap-1">
+                        {canShare && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleShare(expense)}
+                            title="Share with group"
+                          >
+                            <Share2 className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
                           className="h-8 w-8 p-0 bg-zinc-900 hover:bg-zinc-800 text-white"
                           onClick={() => handleEdit(expense)}
+                          title="Edit expense"
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -338,6 +368,7 @@ export default function ExpenseList() {
                           size="sm"
                           className="h-8 w-8 p-0"
                           onClick={() => handleDeleteClick(expense.id)}
+                          title="Delete expense"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -488,6 +519,16 @@ export default function ExpenseList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Share Expense Modal */}
+      {expenseToShare && (
+        <ContributeExpenseModal
+          open={isShareDialogOpen}
+          onOpenChange={setIsShareDialogOpen}
+          expense={expenseToShare}
+          onContributed={() => setExpenseToShare(null)}
+        />
+      )}
     </>
   );
 } 

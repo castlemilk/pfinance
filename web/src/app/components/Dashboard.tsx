@@ -10,17 +10,24 @@ import TaxConfig from './TaxConfig';
 import FinanceSummary from './FinanceSummary';
 import TransactionImport from './TransactionImport';
 import { SalaryCalculator } from './SalaryCalculator';
-import GroupManager from './GroupManager';
+import FinanceView from './FinanceView';
 import AuthModal from './AuthModal';
 import ReportGenerator from './ReportGenerator';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthWithAdminContext';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { LogOut, Users, UserPlus } from 'lucide-react';
+import { ThemeToggle } from './ThemeToggle';
+import { AdminPanel } from './AdminPanel';
+import { MultiUserDemo } from './MultiUserDemo';
+import { useAdmin } from '../context/AdminContext';
+import BudgetDashboard from './BudgetDashboard';
 
 export default function Dashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, isImpersonating } = useAuth();
+  const { isAdminMode } = useAdmin();
   const [activeIncomeView, setActiveIncomeView] = useState<'income' | 'salary'>('salary');
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -36,42 +43,69 @@ export default function Dashboard() {
   // Don't show loading screen - app works without auth
   
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-background">
       {/* Header with Auth */}
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold">Income & Expense Tracker</h1>
-        
-        {user ? (
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Avatar className="w-8 h-8">
-                <AvatarFallback className="text-sm">
-                  {getInitials(user.displayName || user.email || 'U')}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm font-medium">
-                {user.displayName || user.email}
-              </span>
-            </div>
-            <Button variant="outline" size="sm" onClick={logout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign Out
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <h1 className="text-2xl sm:text-3xl font-bold">Income & Expense Tracker</h1>
+            
+            <div className="flex items-center gap-2 sm:gap-4">
+              <AdminPanel />
+              <ThemeToggle />
+          
+          {user ? (
+            <>
+              <div className="flex items-center gap-2">
+                <Avatar className={`w-8 h-8 ${isImpersonating ? 'ring-2 ring-amber-500 ring-offset-2 ring-offset-background' : ''}`}>
+                  <AvatarFallback className="text-sm">
+                    {getInitials(user.displayName || user.email || 'U')}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <span className="text-sm font-medium">
+                    {user.displayName || user.email}
+                  </span>
+                  {isImpersonating && (
+                    <Badge variant="secondary" className="ml-2 text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/50">
+                      Test User
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={logout}>
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out
+              </Button>
+            </>
+          ) : (
+            <Button variant="outline" onClick={() => setShowAuthModal(true)}>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Sign In for Multi-User Features
             </Button>
+              )}
+            </div>
           </div>
-        ) : (
-          <Button variant="outline" onClick={() => setShowAuthModal(true)}>
-            <UserPlus className="w-4 h-4 mr-2" />
-            Sign In for Multi-User Features
-          </Button>
-        )}
-      </div>
+        </div>
+      </header>
 
-      <div className="mb-8">
-        <FinanceSummary />
-      </div>
+      {/* Main Content */}
+      <main className="flex-1">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="mb-8">
+            <FinanceSummary />
+          </div>
+
+          {/* Admin Mode Demo */}
+          {isAdminMode && (
+            <div className="mb-8">
+              <MultiUserDemo />
+            </div>
+          )}
       
-      <Tabs defaultValue="income" className="w-full mb-8">
-        <TabsList className={`grid w-full ${user ? 'grid-cols-5' : 'grid-cols-4'}`}>
+      <Tabs defaultValue="budgets" className="w-full mb-8">
+        <TabsList className={`grid w-full ${user ? 'grid-cols-6' : 'grid-cols-5'}`}>
+          <TabsTrigger value="budgets">Budgets</TabsTrigger>
           {user && (
             <TabsTrigger value="groups">
               <Users className="w-4 h-4 mr-2" />
@@ -84,14 +118,13 @@ export default function Dashboard() {
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
         
+        <TabsContent value="budgets" className="mt-6">
+          <BudgetDashboard />
+        </TabsContent>
+        
         {user && (
           <TabsContent value="groups" className="mt-6">
-            <GroupManager />
-            <div className="mt-4 p-4 bg-muted rounded-lg">
-              <p className="text-sm text-muted-foreground">
-                <strong>Multi-User Features:</strong> Create groups to share and track finances with family members, roommates, or business partners.
-              </p>
-            </div>
+            <FinanceView />
           </TabsContent>
         )}
         
@@ -185,12 +218,14 @@ export default function Dashboard() {
             </div>
           </div>
         </TabsContent>
-      </Tabs>
+          </Tabs>
 
-      <AuthModal 
-        isOpen={showAuthModal} 
-        onClose={() => setShowAuthModal(false)} 
-      />
+          <AuthModal 
+            isOpen={showAuthModal} 
+            onClose={() => setShowAuthModal(false)} 
+          />
+        </div>
+      </main>
     </div>
   );
 }

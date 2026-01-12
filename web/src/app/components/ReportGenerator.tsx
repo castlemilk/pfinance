@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { useMultiUserFinance } from '../context/MultiUserFinanceContext';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthWithAdminContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,7 +56,12 @@ interface ReportData {
 type ReportType = 'personal' | 'group' | 'comparison';
 type ReportPeriod = 'week' | 'month' | 'quarter' | 'year' | 'custom';
 
-export default function ReportGenerator() {
+interface ReportGeneratorProps {
+  mode?: 'personal' | 'shared';
+  groupId?: string;
+}
+
+export default function ReportGenerator({ mode = 'personal', groupId }: ReportGeneratorProps) {
   const { user } = useAuth();
   const { 
     getTotalIncome, 

@@ -20,40 +20,76 @@ import (
 
 func main() {
 	// Get port from environment or use default
+	// NOTE: Default is 8111 to avoid conflicts with other projects (not 8080)
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "8111"
 	}
 
-	// Initialize Firestore client
+	// Initialize context
 	ctx := context.Background()
-	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
-	if projectID == "" {
-		projectID = "pfinance-app-1748773335"
+	
+	// Determine if we're running locally
+	useMemoryStore := os.Getenv("USE_MEMORY_STORE") == "true" || os.Getenv("ENV") == "local"
+	skipAuth := os.Getenv("SKIP_AUTH") == "true"
+	
+	var storeImpl store.Store
+	var firebaseAuth *auth.FirebaseAuth
+	
+	if useMemoryStore {
+		log.Println("Using in-memory store for local development")
+		storeImpl = store.NewMemoryStore()
+		
+		if skipAuth {
+			log.Println("⚠️  SKIP_AUTH enabled - using mock authentication (for seeding/testing only)")
+			firebaseAuth = nil
+		} else {
+			// Initialize Firebase Auth even for local (for token validation)
+			var authErr error
+			firebaseAuth, authErr = auth.NewFirebaseAuth(ctx)
+			if authErr != nil {
+				log.Printf("Warning: Failed to initialize Firebase Auth: %v. Running without auth.", authErr)
+				// Create a no-op auth for local development
+				firebaseAuth = nil
+			}
+		}
+	} else {
+		// Production mode - use Firestore
+		projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
+		if projectID == "" {
+			projectID = "pfinance-app-1748773335"
+		}
+		
+		firestoreClient, err := firestore.NewClient(ctx, projectID)
+		if err != nil {
+			log.Fatalf("Failed to create Firestore client: %v", err)
+		}
+		defer firestoreClient.Close()
+		
+		// Initialize Firebase Auth
+		firebaseAuth, err = auth.NewFirebaseAuth(ctx)
+		if err != nil {
+			log.Fatalf("Failed to initialize Firebase Auth: %v", err)
+		}
+		
+		storeImpl = store.NewFirestoreStore(firestoreClient)
 	}
 
-	firestoreClient, err := firestore.NewClient(ctx, projectID)
-	if err != nil {
-		log.Fatalf("Failed to create Firestore client: %v", err)
+	// Create the finance service
+	financeService := service.NewFinanceService(storeImpl)
+
+	// Create Connect handler with conditional auth interceptor
+	var interceptors []connect.Interceptor
+	if firebaseAuth != nil {
+		interceptors = append(interceptors, auth.AuthInterceptor(firebaseAuth))
+	} else {
+		// For local development without auth, add a mock user context
+		interceptors = append(interceptors, auth.LocalDevInterceptor())
 	}
-	defer firestoreClient.Close()
-
-	// Initialize Firebase Auth
-	firebaseAuth, err := auth.NewFirebaseAuth(ctx)
-	if err != nil {
-		log.Fatalf("Failed to initialize Firebase Auth: %v", err)
-	}
-
-	// Create the store and finance service
-	firestoreStore := store.NewFirestoreStore(firestoreClient)
-	financeService := service.NewFinanceService(firestoreStore)
-
-	// Create Connect handler with auth interceptor
+	
 	path, handler := pfinancev1connect.NewFinanceServiceHandler(
 		financeService,
-		connect.WithInterceptors(
-			auth.AuthInterceptor(firebaseAuth),
-		),
+		connect.WithInterceptors(interceptors...),
 	)
 
 	// Create mux and register handler
@@ -67,11 +103,14 @@ func main() {
 	})
 
 	// Set up CORS
+	// NOTE: Frontend runs on port 1234, not 3000
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{
-			"http://localhost:3000",
+			"http://localhost:1234",           // Local frontend
+			"http://127.0.0.1:1234",           // Alternative local
 			"https://pfinance-app-1748773335.web.app",
 			"https://pfinance-app-1748773335.firebaseapp.com",
+			"https://*.vercel.app",            // Vercel preview deployments
 		},
 		AllowedMethods: []string{
 			http.MethodGet,

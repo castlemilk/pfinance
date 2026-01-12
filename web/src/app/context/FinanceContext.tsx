@@ -1,6 +1,29 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+/**
+ * FinanceContext
+ * 
+ * Data layer context for raw financial data storage and CRUD operations.
+ * Uses backend API when authenticated, falls back to localStorage for demo mode.
+ * 
+ * NOTE: For computed metrics and visualization data, use the MetricsContext
+ * or the metrics hooks directly. This context is focused on data management.
+ */
+
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import { useAdmin } from './AdminContext';
+import { useAuth } from './AuthWithAdminContext';
+import { financeClient } from '@/lib/financeService';
+import { Timestamp } from '@bufbuild/protobuf';
+import {
+  ExpenseCategory as ProtoExpenseCategory,
+  ExpenseFrequency as ProtoExpenseFrequency,
+  IncomeFrequency as ProtoIncomeFrequency,
+  TaxStatus as ProtoTaxStatus,
+  TaxCountry as ProtoTaxCountry,
+  Expense as ProtoExpense,
+  Income as ProtoIncome,
+} from '@/gen/pfinance/v1/types_pb';
 import { 
   Expense, 
   ExpenseCategory, 
@@ -12,51 +35,154 @@ import {
   TaxStatus,
   Deduction
 } from '../types';
-import { v4 as uuidv4 } from 'uuid';
+
+// Use centralized utilities from the metrics layer
+import { toAnnual, fromAnnual } from '../metrics/utils/period';
 import { getTaxSystem, calculateTaxWithBrackets } from '../constants/taxSystems';
 
-// Interface for serialized data from localStorage
-interface SerializedExpense {
-  id: string;
-  description: string;
-  amount: number;
-  category: ExpenseCategory;
-  frequency: IncomeFrequency;
-  date: string; // Date is stored as string in JSON
+// ============================================================================
+// Type Mapping Utilities
+// ============================================================================
+
+const categoryToProto: Record<ExpenseCategory, ProtoExpenseCategory> = {
+  'Food': ProtoExpenseCategory.FOOD,
+  'Housing': ProtoExpenseCategory.HOUSING,
+  'Transportation': ProtoExpenseCategory.TRANSPORTATION,
+  'Entertainment': ProtoExpenseCategory.ENTERTAINMENT,
+  'Healthcare': ProtoExpenseCategory.HEALTHCARE,
+  'Utilities': ProtoExpenseCategory.UTILITIES,
+  'Shopping': ProtoExpenseCategory.SHOPPING,
+  'Education': ProtoExpenseCategory.EDUCATION,
+  'Travel': ProtoExpenseCategory.TRAVEL,
+  'Other': ProtoExpenseCategory.OTHER,
+};
+
+const protoToCategory: Record<ProtoExpenseCategory, ExpenseCategory> = {
+  [ProtoExpenseCategory.UNSPECIFIED]: 'Other',
+  [ProtoExpenseCategory.FOOD]: 'Food',
+  [ProtoExpenseCategory.HOUSING]: 'Housing',
+  [ProtoExpenseCategory.TRANSPORTATION]: 'Transportation',
+  [ProtoExpenseCategory.ENTERTAINMENT]: 'Entertainment',
+  [ProtoExpenseCategory.HEALTHCARE]: 'Healthcare',
+  [ProtoExpenseCategory.UTILITIES]: 'Utilities',
+  [ProtoExpenseCategory.SHOPPING]: 'Shopping',
+  [ProtoExpenseCategory.EDUCATION]: 'Education',
+  [ProtoExpenseCategory.TRAVEL]: 'Travel',
+  [ProtoExpenseCategory.OTHER]: 'Other',
+};
+
+const expenseFrequencyToProto: Record<ExpenseFrequency, ProtoExpenseFrequency> = {
+  'once': ProtoExpenseFrequency.ONCE,
+  'daily': ProtoExpenseFrequency.DAILY,
+  'weekly': ProtoExpenseFrequency.WEEKLY,
+  'fortnightly': ProtoExpenseFrequency.FORTNIGHTLY,
+  'monthly': ProtoExpenseFrequency.MONTHLY,
+  'quarterly': ProtoExpenseFrequency.QUARTERLY,
+  'annually': ProtoExpenseFrequency.ANNUALLY,
+};
+
+const protoToExpenseFrequency: Record<ProtoExpenseFrequency, ExpenseFrequency> = {
+  [ProtoExpenseFrequency.UNSPECIFIED]: 'monthly',
+  [ProtoExpenseFrequency.ONCE]: 'once',
+  [ProtoExpenseFrequency.DAILY]: 'daily',
+  [ProtoExpenseFrequency.WEEKLY]: 'weekly',
+  [ProtoExpenseFrequency.FORTNIGHTLY]: 'fortnightly',
+  [ProtoExpenseFrequency.MONTHLY]: 'monthly',
+  [ProtoExpenseFrequency.QUARTERLY]: 'quarterly',
+  [ProtoExpenseFrequency.ANNUALLY]: 'annually',
+};
+
+const incomeFrequencyToProto: Record<IncomeFrequency, ProtoIncomeFrequency> = {
+  'weekly': ProtoIncomeFrequency.WEEKLY,
+  'fortnightly': ProtoIncomeFrequency.FORTNIGHTLY,
+  'monthly': ProtoIncomeFrequency.MONTHLY,
+  'annually': ProtoIncomeFrequency.ANNUALLY,
+};
+
+const protoToIncomeFrequency: Record<ProtoIncomeFrequency, IncomeFrequency> = {
+  [ProtoIncomeFrequency.UNSPECIFIED]: 'monthly',
+  [ProtoIncomeFrequency.WEEKLY]: 'weekly',
+  [ProtoIncomeFrequency.FORTNIGHTLY]: 'fortnightly',
+  [ProtoIncomeFrequency.MONTHLY]: 'monthly',
+  [ProtoIncomeFrequency.ANNUALLY]: 'annually',
+};
+
+const taxStatusToProto: Record<TaxStatus, ProtoTaxStatus> = {
+  'preTax': ProtoTaxStatus.PRE_TAX,
+  'postTax': ProtoTaxStatus.POST_TAX,
+};
+
+const protoToTaxStatus: Record<ProtoTaxStatus, TaxStatus> = {
+  [ProtoTaxStatus.UNSPECIFIED]: 'preTax',
+  [ProtoTaxStatus.PRE_TAX]: 'preTax',
+  [ProtoTaxStatus.POST_TAX]: 'postTax',
+};
+
+// Map proto expense to local expense
+function mapProtoExpenseToLocal(proto: ProtoExpense): Expense {
+  return {
+    id: proto.id,
+    description: proto.description,
+    amount: proto.amount,
+    category: protoToCategory[proto.category],
+    frequency: protoToExpenseFrequency[proto.frequency],
+    date: proto.date?.toDate() ?? new Date(),
+  };
 }
 
-interface SerializedIncome {
-  id: string;
-  source: string;
-  amount: number;
-  frequency: IncomeFrequency;
-  taxStatus: TaxStatus;
-  deductions?: Deduction[];
-  date: string; // Date is stored as string in JSON
+// Map proto income to local income
+function mapProtoIncomeToLocal(proto: ProtoIncome): Income {
+  return {
+    id: proto.id,
+    source: proto.source,
+    amount: proto.amount,
+    frequency: protoToIncomeFrequency[proto.frequency],
+    taxStatus: protoToTaxStatus[proto.taxStatus],
+    deductions: proto.deductions?.map(d => ({
+      id: d.id,
+      name: d.name,
+      amount: d.amount,
+      isTaxDeductible: d.isTaxDeductible,
+    })),
+    date: proto.date?.toDate() ?? new Date(),
+  };
 }
+
+// ============================================================================
+// Context Interface
+// ============================================================================
 
 interface FinanceContextType {
-  // Expense related methods
+  // Raw data
   expenses: Expense[];
-  addExpense: (description: string, amount: number, category: ExpenseCategory, frequency?: ExpenseFrequency) => void;
-  addExpenses: (newExpenses: Array<{description: string, amount: number, category: ExpenseCategory, frequency?: ExpenseFrequency}>) => void;
-  updateExpense: (id: string, description: string, amount: number, category: ExpenseCategory, frequency: ExpenseFrequency) => void;
-  deleteExpense: (id: string) => void;
-  deleteExpenses: (ids: string[]) => void;
+  incomes: Income[];
+  taxConfig: TaxConfig;
+  loading: boolean;
+  error: string | null;
+  
+  // Expense CRUD
+  addExpense: (description: string, amount: number, category: ExpenseCategory, frequency?: ExpenseFrequency) => Promise<void>;
+  addExpenses: (newExpenses: Array<{description: string, amount: number, category: ExpenseCategory, frequency?: ExpenseFrequency}>) => Promise<void>;
+  updateExpense: (id: string, description: string, amount: number, category: ExpenseCategory, frequency: ExpenseFrequency) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
+  deleteExpenses: (ids: string[]) => Promise<void>;
+  
+  // Income CRUD
+  addIncome: (source: string, amount: number, frequency: IncomeFrequency, taxStatus: TaxStatus, deductions?: Deduction[]) => Promise<void>;
+  updateIncome: (id: string, source: string, amount: number, frequency: IncomeFrequency, taxStatus: TaxStatus, deductions?: Deduction[]) => Promise<void>;
+  deleteIncome: (id: string) => Promise<void>;
+  
+  // Tax config
+  updateTaxConfig: (config: Partial<TaxConfig>) => void;
+  
+  // Refresh data from API
+  refreshData: () => Promise<void>;
+  
+  // Legacy computed methods (kept for backward compatibility)
   getExpenseSummary: () => ExpenseSummary[];
   getTotalExpenses: () => number;
-  
-  // Income related methods
-  incomes: Income[];
-  addIncome: (source: string, amount: number, frequency: IncomeFrequency, taxStatus: TaxStatus, deductions?: Deduction[]) => void;
-  updateIncome: (id: string, source: string, amount: number, frequency: IncomeFrequency, taxStatus: TaxStatus, deductions?: Deduction[]) => void;
-  deleteIncome: (id: string) => void;
   getTotalIncome: (period?: IncomeFrequency) => number;
   getNetIncome: (period?: IncomeFrequency) => number;
-  
-  // Tax related methods
-  taxConfig: TaxConfig;
-  updateTaxConfig: (config: Partial<TaxConfig>) => void;
   calculateTax: (amount: number) => number;
 }
 
@@ -70,151 +196,440 @@ const defaultTaxConfig: TaxConfig = {
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 
 export function FinanceProvider({ children }: { children: ReactNode }) {
+  const { isAdminMode } = useAdmin();
+  const { user } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [taxConfig, setTaxConfig] = useState<TaxConfig>(defaultTaxConfig);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load data from local storage on component mount
-  useEffect(() => {
-    // Load expenses
-    const savedExpenses = localStorage.getItem('expenses');
+  // Storage key helper for admin/demo mode
+  const getStorageKey = useCallback((baseKey: string) => {
+    return isAdminMode ? `test_${baseKey}` : baseKey;
+  }, [isAdminMode]);
+
+  // Dev mode: use API with mock user when NEXT_PUBLIC_DEV_MODE=true and backend has SKIP_AUTH=true
+  const isDevMode = process.env.NEXT_PUBLIC_DEV_MODE === 'true';
+  const devUserId = 'local-dev-user';
+  
+  // Check if we should use the API (user is authenticated OR dev mode)
+  const useApi = !!user || isDevMode;
+  const effectiveUserId = user?.uid || (isDevMode ? devUserId : '');
+  
+  // Start with loading=true if we're going to fetch from API
+  const [loading, setLoading] = useState(useApi && !!effectiveUserId);
+  
+  // Load from localStorage (fallback/demo mode) - defined first so loadData can reference it
+  const loadFromLocalStorage = useCallback(() => {
+    const savedExpenses = localStorage.getItem(getStorageKey('expenses'));
     if (savedExpenses) {
       try {
-        const parsedExpenses = JSON.parse(savedExpenses) as SerializedExpense[];
-        const expensesWithDateObjects = parsedExpenses.map((expense: SerializedExpense) => ({
-          ...expense,
-          date: new Date(expense.date)
-        }));
-        setExpenses(expensesWithDateObjects);
-      } catch (error) {
-        console.error('Failed to parse expenses from localStorage:', error);
+        const parsed = JSON.parse(savedExpenses);
+        setExpenses(parsed.map((e: { date: string }) => ({
+          ...e,
+          date: new Date(e.date)
+        })));
+      } catch (err) {
+        console.error('Failed to parse expenses from localStorage:', err);
       }
     }
 
-    // Load incomes
-    const savedIncomes = localStorage.getItem('incomes');
+    const savedIncomes = localStorage.getItem(getStorageKey('incomes'));
     if (savedIncomes) {
       try {
-        const parsedIncomes = JSON.parse(savedIncomes) as SerializedIncome[];
-        const incomesWithDateObjects = parsedIncomes.map((income: SerializedIncome) => ({
-          ...income,
-          date: new Date(income.date)
-        }));
-        setIncomes(incomesWithDateObjects);
-      } catch (error) {
-        console.error('Failed to parse incomes from localStorage:', error);
+        const parsed = JSON.parse(savedIncomes);
+        setIncomes(parsed.map((i: { date: string }) => ({
+          ...i,
+          date: new Date(i.date)
+        })));
+      } catch (err) {
+        console.error('Failed to parse incomes from localStorage:', err);
       }
     }
 
-    // Load tax configuration
-    const savedTaxConfig = localStorage.getItem('taxConfig');
+    const savedTaxConfig = localStorage.getItem(getStorageKey('taxConfig'));
     if (savedTaxConfig) {
       try {
-        const parsedTaxConfig = JSON.parse(savedTaxConfig) as TaxConfig;
-        setTaxConfig(parsedTaxConfig);
-      } catch (error) {
-        console.error('Failed to parse tax config from localStorage:', error);
+        setTaxConfig(JSON.parse(savedTaxConfig));
+      } catch (err) {
+        console.error('Failed to parse tax config from localStorage:', err);
       }
     }
-  }, []);
+  }, [getStorageKey]);
 
-  // Save expenses to local storage whenever they change
+  // Load data from API or localStorage
+  const loadData = useCallback(async () => {
+    if (useApi && effectiveUserId) {
+      setLoading(true);
+      setError(null);
+      try {
+        // Load expenses from API
+        const expensesResponse = await financeClient.listExpenses({
+          userId: effectiveUserId,
+          pageSize: 1000,
+        });
+        setExpenses(expensesResponse.expenses.map(mapProtoExpenseToLocal));
+
+        // Load incomes from API
+        const incomesResponse = await financeClient.listIncomes({
+          userId: effectiveUserId,
+          pageSize: 1000,
+        });
+        setIncomes(incomesResponse.incomes.map(mapProtoIncomeToLocal));
+
+        // Load tax config from API
+        try {
+          const taxResponse = await financeClient.getTaxConfig({
+            userId: effectiveUserId,
+          });
+          if (taxResponse.taxConfig) {
+            setTaxConfig({
+              enabled: taxResponse.taxConfig.enabled,
+              country: taxResponse.taxConfig.country === ProtoTaxCountry.AUSTRALIA ? 'australia' :
+                       taxResponse.taxConfig.country === ProtoTaxCountry.UK ? 'uk' : 'simple',
+              taxRate: taxResponse.taxConfig.taxRate,
+              includeDeductions: taxResponse.taxConfig.includeDeductions,
+            });
+          }
+        } catch {
+          // Tax config may not exist, use default
+          console.debug('No tax config found, using default');
+        }
+      } catch (err) {
+        console.error('Failed to load data from API:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load data');
+        // Fall back to localStorage
+        loadFromLocalStorage();
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Load from localStorage for demo mode
+      loadFromLocalStorage();
+    }
+  }, [useApi, effectiveUserId, getStorageKey, loadFromLocalStorage]);
+
+  // Load data on mount and when user changes
   useEffect(() => {
-    localStorage.setItem('expenses', JSON.stringify(expenses));
-  }, [expenses]);
+    loadData();
+  }, [loadData]);
 
-  // Save incomes to local storage whenever they change
+  // Persist to localStorage when data changes (for demo mode or as cache)
   useEffect(() => {
-    localStorage.setItem('incomes', JSON.stringify(incomes));
-  }, [incomes]);
+    if (!useApi) {
+      localStorage.setItem(getStorageKey('expenses'), JSON.stringify(expenses));
+    }
+  }, [expenses, useApi, getStorageKey]);
 
-  // Save tax config to local storage whenever it changes
   useEffect(() => {
-    localStorage.setItem('taxConfig', JSON.stringify(taxConfig));
-  }, [taxConfig]);
+    if (!useApi) {
+      localStorage.setItem(getStorageKey('incomes'), JSON.stringify(incomes));
+    }
+  }, [incomes, useApi, getStorageKey]);
 
-  // Expense related methods
-  const addExpense = (description: string, amount: number, category: ExpenseCategory, frequency: ExpenseFrequency = 'monthly') => {
-    console.log('FinanceContext: Adding single expense:', description, amount, category);
-    const newExpense: Expense = {
-      id: uuidv4(),
-      description,
-      amount,
-      category,
-      frequency,
-      date: new Date(),
-    };
-    setExpenses(prevExpenses => [...prevExpenses, newExpense]);
+  useEffect(() => {
+    localStorage.setItem(getStorageKey('taxConfig'), JSON.stringify(taxConfig));
+  }, [taxConfig, getStorageKey]);
+
+  // ============================================================================
+  // Expense CRUD Operations
+  // ============================================================================
+
+  const addExpense = async (
+    description: string, 
+    amount: number, 
+    category: ExpenseCategory, 
+    frequency: ExpenseFrequency = 'monthly'
+  ) => {
+    if (useApi && effectiveUserId) {
+      try {
+        const response = await financeClient.createExpense({
+          userId: effectiveUserId,
+          description,
+          amount,
+          category: categoryToProto[category],
+          frequency: expenseFrequencyToProto[frequency],
+          date: Timestamp.now(),
+        });
+        if (response.expense) {
+          setExpenses(prev => [...prev, mapProtoExpenseToLocal(response.expense!)]);
+        }
+      } catch (err) {
+        console.error('Failed to create expense:', err);
+        setError(err instanceof Error ? err.message : 'Failed to create expense');
+      }
+    } else {
+      // Local mode
+      const newExpense: Expense = {
+        id: crypto.randomUUID(),
+        description,
+        amount,
+        category,
+        frequency,
+        date: new Date(),
+      };
+      setExpenses(prev => [...prev, newExpense]);
+    }
   };
 
-  // Batch add multiple expenses at once to avoid race conditions
-  const addExpenses = (newExpenses: Array<{description: string, amount: number, category: ExpenseCategory, frequency?: ExpenseFrequency}>) => {
-    console.log('FinanceContext: Adding batch of expenses:', newExpenses.length);
-    
-    setExpenses(prevExpenses => {
-      const expensesToAdd = newExpenses.map(exp => ({
-        id: uuidv4(),
-        description: exp.description,
-        amount: exp.amount,
-        category: exp.category,
-        frequency: exp.frequency || 'monthly',
-        date: new Date()
-      }));
-      
-      return [...prevExpenses, ...expensesToAdd];
-    });
-    
-    console.log('FinanceContext: Batch add completed');
+  const addExpenses = async (
+    newExpenses: Array<{description: string, amount: number, category: ExpenseCategory, frequency?: ExpenseFrequency}>
+  ) => {
+    if (useApi && effectiveUserId) {
+      try {
+        const response = await financeClient.batchCreateExpenses({
+          userId: effectiveUserId,
+          expenses: newExpenses.map(exp => ({
+            userId: effectiveUserId,
+            description: exp.description,
+            amount: exp.amount,
+            category: categoryToProto[exp.category],
+            frequency: expenseFrequencyToProto[exp.frequency || 'monthly'],
+            date: Timestamp.now(),
+          })),
+        });
+        if (response.expenses) {
+          setExpenses(prev => [...prev, ...response.expenses.map(mapProtoExpenseToLocal)]);
+        }
+      } catch (err) {
+        console.error('Failed to batch create expenses:', err);
+        setError(err instanceof Error ? err.message : 'Failed to create expenses');
+      }
+    } else {
+      // Local mode
+      setExpenses(prev => [
+        ...prev,
+        ...newExpenses.map(exp => ({
+          id: crypto.randomUUID(),
+          description: exp.description,
+          amount: exp.amount,
+          category: exp.category,
+          frequency: exp.frequency || 'monthly',
+          date: new Date()
+        }))
+      ]);
+    }
   };
 
-  const updateExpense = (id: string, description: string, amount: number, category: ExpenseCategory, frequency: ExpenseFrequency) => {
-    setExpenses(prevExpenses => 
-      prevExpenses.map(expense => 
+  const updateExpense = async (
+    id: string, 
+    description: string, 
+    amount: number, 
+    category: ExpenseCategory, 
+    frequency: ExpenseFrequency
+  ) => {
+    if (useApi && effectiveUserId) {
+      try {
+        const response = await financeClient.updateExpense({
+          expenseId: id,
+          description,
+          amount,
+          category: categoryToProto[category],
+          frequency: expenseFrequencyToProto[frequency],
+        });
+        if (response.expense) {
+          setExpenses(prev => prev.map(expense => 
+            expense.id === id ? mapProtoExpenseToLocal(response.expense!) : expense
+          ));
+        }
+      } catch (err) {
+        console.error('Failed to update expense:', err);
+        setError(err instanceof Error ? err.message : 'Failed to update expense');
+      }
+    } else {
+      // Local mode
+      setExpenses(prev => prev.map(expense => 
         expense.id === id 
           ? { ...expense, description, amount, category, frequency }
           : expense
-      )
-    );
+      ));
+    }
   };
 
-  const deleteExpense = (id: string) => {
-    setExpenses(prevExpenses => prevExpenses.filter(expense => expense.id !== id));
+  const deleteExpense = async (id: string) => {
+    if (useApi && effectiveUserId) {
+      try {
+        await financeClient.deleteExpense({ expenseId: id });
+        setExpenses(prev => prev.filter(expense => expense.id !== id));
+      } catch (err) {
+        console.error('Failed to delete expense:', err);
+        setError(err instanceof Error ? err.message : 'Failed to delete expense');
+      }
+    } else {
+      setExpenses(prev => prev.filter(expense => expense.id !== id));
+    }
   };
 
-  const deleteExpenses = (ids: string[]) => {
-    setExpenses(prevExpenses => prevExpenses.filter(expense => !ids.includes(expense.id)));
+  const deleteExpenses = async (ids: string[]) => {
+    if (useApi && effectiveUserId) {
+      try {
+        await Promise.all(ids.map(id => financeClient.deleteExpense({ expenseId: id })));
+        setExpenses(prev => prev.filter(expense => !ids.includes(expense.id)));
+      } catch (err) {
+        console.error('Failed to delete expenses:', err);
+        setError(err instanceof Error ? err.message : 'Failed to delete expenses');
+      }
+    } else {
+      setExpenses(prev => prev.filter(expense => !ids.includes(expense.id)));
+    }
   };
+
+  // ============================================================================
+  // Income CRUD Operations
+  // ============================================================================
+
+  const addIncome = async (
+    source: string, 
+    amount: number, 
+    frequency: IncomeFrequency, 
+    taxStatus: TaxStatus, 
+    deductions?: Deduction[]
+  ) => {
+    if (useApi && effectiveUserId) {
+      try {
+        const response = await financeClient.createIncome({
+          userId: effectiveUserId,
+          source,
+          amount,
+          frequency: incomeFrequencyToProto[frequency],
+          taxStatus: taxStatusToProto[taxStatus],
+          deductions: deductions?.map(d => ({
+            id: d.id,
+            name: d.name,
+            amount: d.amount,
+            isTaxDeductible: d.isTaxDeductible,
+          })),
+          date: Timestamp.now(),
+        });
+        if (response.income) {
+          setIncomes(prev => [...prev, mapProtoIncomeToLocal(response.income!)]);
+        }
+      } catch (err) {
+        console.error('Failed to create income:', err);
+        setError(err instanceof Error ? err.message : 'Failed to create income');
+      }
+    } else {
+      // Local mode
+      const newIncome: Income = {
+        id: crypto.randomUUID(),
+        source,
+        amount,
+        frequency,
+        taxStatus,
+        deductions,
+        date: new Date(),
+      };
+      setIncomes(prev => [...prev, newIncome]);
+    }
+  };
+
+  const updateIncome = async (
+    id: string, 
+    source: string, 
+    amount: number, 
+    frequency: IncomeFrequency, 
+    taxStatus: TaxStatus, 
+    deductions?: Deduction[]
+  ) => {
+    if (useApi && effectiveUserId) {
+      try {
+        const response = await financeClient.updateIncome({
+          incomeId: id,
+          source,
+          amount,
+          frequency: incomeFrequencyToProto[frequency],
+          taxStatus: taxStatusToProto[taxStatus],
+          deductions: deductions?.map(d => ({
+            id: d.id,
+            name: d.name,
+            amount: d.amount,
+            isTaxDeductible: d.isTaxDeductible,
+          })),
+        });
+        if (response.income) {
+          setIncomes(prev => prev.map(income => 
+            income.id === id ? mapProtoIncomeToLocal(response.income!) : income
+          ));
+        }
+      } catch (err) {
+        console.error('Failed to update income:', err);
+        setError(err instanceof Error ? err.message : 'Failed to update income');
+      }
+    } else {
+      // Local mode
+      setIncomes(prev => prev.map(income => 
+        income.id === id 
+          ? { ...income, source, amount, frequency, taxStatus, deductions }
+          : income
+      ));
+    }
+  };
+
+  const deleteIncome = async (id: string) => {
+    if (useApi && effectiveUserId) {
+      try {
+        await financeClient.deleteIncome({ incomeId: id });
+        setIncomes(prev => prev.filter(income => income.id !== id));
+      } catch (err) {
+        console.error('Failed to delete income:', err);
+        setError(err instanceof Error ? err.message : 'Failed to delete income');
+      }
+    } else {
+      setIncomes(prev => prev.filter(income => income.id !== id));
+    }
+  };
+
+  // ============================================================================
+  // Tax Config
+  // ============================================================================
+
+  const updateTaxConfig = (config: Partial<TaxConfig>) => {
+    setTaxConfig(prev => {
+      const newConfig = { ...prev, ...config };
+      localStorage.setItem(getStorageKey('taxConfig'), JSON.stringify(newConfig));
+      
+      // Update API in background if authenticated
+      if (useApi && effectiveUserId) {
+        financeClient.updateTaxConfig({
+          userId: effectiveUserId,
+          taxConfig: {
+            enabled: newConfig.enabled,
+            country: newConfig.country === 'australia' ? ProtoTaxCountry.AUSTRALIA :
+                     newConfig.country === 'uk' ? ProtoTaxCountry.UK : ProtoTaxCountry.SIMPLE,
+            taxRate: newConfig.taxRate,
+            includeDeductions: newConfig.includeDeductions,
+          },
+        }).catch(err => console.error('Failed to update tax config on server:', err));
+      }
+      
+      return newConfig;
+    });
+  };
+
+  // Refresh data from API
+  const refreshData = async () => {
+    await loadData();
+  };
+
+  // ============================================================================
+  // Legacy Computed Methods (for backward compatibility)
+  // ============================================================================
 
   const getTotalExpenses = () => {
     return expenses.reduce((total, expense) => {
-      // Convert to annual amount based on frequency
-      const annualAmount = 
-        expense.frequency === 'weekly' ? expense.amount * 52 :
-        expense.frequency === 'fortnightly' ? expense.amount * 26 :
-        expense.frequency === 'monthly' ? expense.amount * 12 :
-        expense.amount;
-      
-      return total + annualAmount;
+      return total + toAnnual(expense.amount, expense.frequency as IncomeFrequency);
     }, 0);
   };
 
   const getExpenseSummary = (): ExpenseSummary[] => {
     const totalAmount = getTotalExpenses();
     
-    // Group expenses by category, converting to annual amounts
     const categorySums = expenses.reduce((acc, expense) => {
-      // Convert to annual amount based on frequency
-      const annualAmount = 
-        expense.frequency === 'weekly' ? expense.amount * 52 :
-        expense.frequency === 'fortnightly' ? expense.amount * 26 :
-        expense.frequency === 'monthly' ? expense.amount * 12 :
-        expense.amount;
-      
+      const annualAmount = toAnnual(expense.amount, expense.frequency as IncomeFrequency);
       acc[expense.category] = (acc[expense.category] || 0) + annualAmount;
       return acc;
     }, {} as Record<ExpenseCategory, number>);
     
-    // Convert to array of ExpenseSummary objects
     return Object.entries(categorySums).map(([category, amount]) => ({
       category: category as ExpenseCategory,
       totalAmount: amount,
@@ -222,215 +637,82 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  // Income related methods
-  const addIncome = (
-    source: string, 
-    amount: number, 
-    frequency: IncomeFrequency, 
-    taxStatus: TaxStatus, 
-    deductions?: Deduction[]
-  ) => {
-    const newIncome: Income = {
-      id: uuidv4(),
-      source,
-      amount,
-      frequency,
-      taxStatus,
-      deductions,
-      date: new Date(),
-    };
-    setIncomes([...incomes, newIncome]);
-  };
-
-  const updateIncome = (id: string, source: string, amount: number, frequency: IncomeFrequency, taxStatus: TaxStatus, deductions?: Deduction[]) => {
-    setIncomes(prevIncomes => 
-      prevIncomes.map(income => 
-        income.id === id 
-          ? { ...income, source, amount, frequency, taxStatus, deductions }
-          : income
-      )
-    );
-  };
-
-  const deleteIncome = (id: string) => {
-    setIncomes(incomes.filter(income => income.id !== id));
-  };
-
-  // Convert income amount to annual equivalent based on frequency
-  const annualizeIncome = (income: Income): number => {
-    switch (income.frequency) {
-      case 'weekly':
-        return income.amount * 52;
-      case 'fortnightly':
-        return income.amount * 26;
-      case 'monthly':
-        return income.amount * 12;
-      case 'annually':
-        return income.amount;
-      default:
-        return income.amount;
-    }
-  };
-
-  // Convert annual amount to specified frequency
-  const convertAmountToFrequency = (annualAmount: number, targetFrequency: IncomeFrequency): number => {
-    switch (targetFrequency) {
-      case 'weekly':
-        return annualAmount / 52;
-      case 'fortnightly':
-        return annualAmount / 26;
-      case 'monthly':
-        return annualAmount / 12;
-      case 'annually':
-        return annualAmount;
-      default:
-        return annualAmount;
-    }
-  };
-
-  // Calculate total income for a given period
   const getTotalIncome = (period: IncomeFrequency = 'annually'): number => {
     const annualTotal = incomes.reduce((total, income) => {
-      return total + annualizeIncome(income);
+      return total + toAnnual(income.amount, income.frequency);
     }, 0);
-    
-    return convertAmountToFrequency(annualTotal, period);
-  };
-
-  // Tax calculation methods
-  const updateTaxConfig = (config: Partial<TaxConfig>) => {
-    console.log("Updating tax config:", config);
-    setTaxConfig(prevConfig => {
-      const newConfig = {
-        ...prevConfig,
-        ...config
-      };
-      // Save to localStorage immediately
-      localStorage.setItem('taxConfig', JSON.stringify(newConfig));
-      return newConfig;
-    });
+    return fromAnnual(annualTotal, period);
   };
 
   const calculateTax = (amount: number): number => {
-    // If tax is disabled or the amount is zero or negative, return zero tax
     if (!taxConfig.enabled || amount <= 0) return 0;
     
-    // Use the simple flat rate calculation for backward compatibility
     if (taxConfig.country === 'simple') {
       return (amount * taxConfig.taxRate) / 100;
     }
     
-    // Use progressive tax brackets for country-specific systems
     const taxSystem = getTaxSystem(taxConfig.country);
-    
-    // Use custom brackets if provided, otherwise use the country's standard brackets
     const brackets = taxConfig.customBrackets || taxSystem.brackets;
-    
     return calculateTaxWithBrackets(amount, brackets);
   };
 
-  // Calculate net income after tax for a given period
   const getNetIncome = (period: IncomeFrequency = 'annually'): number => {
     const totalIncome = getTotalIncome(period);
     
-    // If tax is disabled, simply return the total income without any tax calculation
     if (!taxConfig.enabled) return totalIncome;
     
-    // For progressive tax systems, we need to annualize the income
-    // because tax brackets are defined for annual income
-    let annualIncome: number;
-    if (period === 'annually') {
-      annualIncome = totalIncome;
-    } else if (period === 'monthly') {
-      annualIncome = totalIncome * 12;
-    } else if (period === 'fortnightly') {
-      annualIncome = totalIncome * 26;
-    } else { // weekly
-      annualIncome = totalIncome * 52;
-    }
+    const annualIncome = toAnnual(totalIncome, period);
     
-    // Calculate total tax deductible amount
     let annualTaxableIncome = annualIncome;
-    
     if (taxConfig.includeDeductions) {
       const deductibleAmount = incomes.reduce((total, income) => {
         if (!income.deductions) return total;
-        
         const annualDeductions = income.deductions
           .filter(d => d.isTaxDeductible)
           .reduce((sum, d) => sum + d.amount, 0);
-        
-        // Convert deductions to annual if needed
-        let annualDeductionsTotal;
-        if (income.frequency === 'annually') {
-          annualDeductionsTotal = annualDeductions;
-        } else if (income.frequency === 'monthly') {
-          annualDeductionsTotal = annualDeductions * 12;
-        } else if (income.frequency === 'fortnightly') {
-          annualDeductionsTotal = annualDeductions * 26;
-        } else { // weekly
-          annualDeductionsTotal = annualDeductions * 52;
-        }
-        
-        return total + annualDeductionsTotal;
+        return total + toAnnual(annualDeductions, income.frequency);
       }, 0);
-      
       annualTaxableIncome = Math.max(0, annualIncome - deductibleAmount);
     }
     
-    // Calculate tax based on annual amount
     const annualTax = calculateTax(annualTaxableIncome);
-    
-    // Convert annual tax back to requested period
-    let periodTax;
-    if (period === 'annually') {
-      periodTax = annualTax;
-    } else if (period === 'monthly') {
-      periodTax = annualTax / 12;
-    } else if (period === 'fortnightly') {
-      periodTax = annualTax / 26;
-    } else { // weekly
-      periodTax = annualTax / 52;
-    }
-    
-    // Debug: Log the tax calculation details
-    console.log("Tax calculation:", {
-      country: taxConfig.country,
-      period,
-      totalIncome,
-      annualIncome,
-      annualTaxableIncome,
-      annualTax,
-      periodTax,
-      effectiveRate: annualIncome > 0 ? (annualTax / annualIncome) * 100 : 0
-    });
+    const periodTax = fromAnnual(annualTax, period);
     
     return totalIncome - periodTax;
   };
 
   return (
     <FinanceContext.Provider value={{ 
-      // Expense methods
+      // Raw data
       expenses, 
+      incomes,
+      taxConfig,
+      loading,
+      error,
+      
+      // Expense CRUD
       addExpense, 
       addExpenses,
       updateExpense,
       deleteExpense,
       deleteExpenses,
-      getExpenseSummary,
-      getTotalExpenses,
       
-      // Income methods
-      incomes,
+      // Income CRUD
       addIncome,
       updateIncome,
       deleteIncome,
+      
+      // Tax config
+      updateTaxConfig,
+      
+      // Refresh
+      refreshData,
+      
+      // Legacy computed methods
+      getExpenseSummary,
+      getTotalExpenses,
       getTotalIncome,
       getNetIncome,
-      
-      // Tax methods
-      taxConfig,
-      updateTaxConfig,
       calculateTax
     }}>
       {children}
@@ -444,4 +726,4 @@ export function useFinance() {
     throw new Error('useFinance must be used within a FinanceProvider');
   }
   return context;
-} 
+}

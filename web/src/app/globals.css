@@ -117,19 +117,116 @@
   * {
     @apply border-border outline-ring/50;
   }
+  
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground transition-colors duration-300;
+  }
+  
+  html {
+    @apply scroll-smooth;
+  }
+  
+  /* Enhanced focus styles for better accessibility */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+  
+  /* Smooth transitions for theme changes */
+  *, *::before, *::after {
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+  }
+  
+  /* Prevent transition on initial page load */
+  .no-transitions * {
+    transition: none !important;
   }
 }
 
-/* Add animation for fadeIn effect */
+/* Theme-specific enhancements */
+.dark {
+  /* Enhanced dark mode with subtle gradients */
+  background-image: radial-gradient(ellipse at top, rgba(120, 119, 198, 0.03), transparent 50%);
+  color-scheme: dark;
+}
+
+.light {
+  /* Subtle light mode enhancement */
+  background-image: radial-gradient(ellipse at top, rgba(59, 130, 246, 0.02), transparent 50%);
+  color-scheme: light;
+}
+
+/* Ensure proper backgrounds for nested elements */
+.dark .border:not([class*="bg-"]) {
+  @apply bg-card/50;
+}
+
+/* Better dark mode colors for status indicators */
+.dark .text-green-600 {
+  @apply text-green-400;
+}
+
+.dark .text-emerald-500 {
+  @apply text-emerald-400;
+}
+
+.dark .text-amber-500 {
+  @apply text-amber-400;
+}
+
+.dark .text-red-500 {
+  @apply text-red-400;
+}
+
+/* Custom animations */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
+@keyframes slideIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(-10px);
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0);
+  }
+}
+
+@keyframes themeSwitch {
+  0% { opacity: 0.8; }
+  50% { opacity: 0.4; }
+  100% { opacity: 1; }
+}
+
 .animate-fadeIn {
   animation: fadeIn 0.3s ease-in-out;
+}
+
+.animate-slideIn {
+  animation: slideIn 0.4s ease-out;
+}
+
+.animate-themeSwitch {
+  animation: themeSwitch 0.5s ease-in-out;
+}
+
+/* Enhanced card styles for better theming */
+.card-enhanced {
+  @apply bg-card/50 backdrop-blur-sm border border-border/50;
+}
+
+.dark .card-enhanced {
+  @apply shadow-lg;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}
+
+.light .card-enhanced {
+  @apply shadow-md;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 /* Add these print styles at the end of the file */

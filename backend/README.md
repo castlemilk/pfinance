@@ -32,7 +32,7 @@ go mod download
 3. Set environment variables:
 ```bash
 export GOOGLE_CLOUD_PROJECT=pfinance-app-1748773335
-export PORT=8080
+export PORT=8111
 ```
 
 4. Run the server:
@@ -40,7 +40,7 @@ export PORT=8080
 go run cmd/server/main.go
 ```
 
-The server will be available at http://localhost:8080
+The server will be available at http://localhost:8111
 
 ## API Endpoints
 

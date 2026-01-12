@@ -64,10 +64,29 @@ message User {
   google.protobuf.Timestamp updated_at = 5;
 }
 
+// SplitType represents how an expense is split among members
+enum SplitType {
+  SPLIT_TYPE_UNSPECIFIED = 0;
+  SPLIT_TYPE_EQUAL = 1; // Split equally among all allocated members
+  SPLIT_TYPE_PERCENTAGE = 2; // Split by percentage
+  SPLIT_TYPE_AMOUNT = 3; // Split by fixed amounts
+  SPLIT_TYPE_SHARES = 4; // Split by shares (e.g., 2 shares for one person, 1 for another)
+}
+
+// ExpenseAllocation represents how much a specific member owes for an expense
+message ExpenseAllocation {
+  string user_id = 1;
+  double amount = 2; // Calculated amount this user owes
+  double percentage = 3; // If split by percentage
+  double shares = 4; // If split by shares
+  bool is_paid = 5; // Whether this allocation has been settled
+  google.protobuf.Timestamp paid_at = 6;
+}
+
 // Expense represents a single expense entry
 message Expense {
   string id = 1;
-  string user_id = 2;
+  string user_id = 2; // User who created/paid for the expense
   string group_id = 3; // Optional - if part of a group
   string description = 4;
   double amount = 5;
@@ -76,6 +95,13 @@ message Expense {
   google.protobuf.Timestamp date = 8;
   google.protobuf.Timestamp created_at = 9;
   google.protobuf.Timestamp updated_at = 10;
+  
+  // New fields for expense allocation
+  string paid_by_user_id = 11; // Who actually paid (defaults to user_id)
+  SplitType split_type = 12; // How the expense is split
+  repeated ExpenseAllocation allocations = 13; // Member allocations
+  bool is_settled = 14; // Whether all allocations have been settled
+  repeated string tags = 15; // Optional tags for filtering/grouping
 }
 
 // Income represents a single income entry
@@ -174,4 +200,105 @@ enum InvitationStatus {
   INVITATION_STATUS_ACCEPTED = 2;
   INVITATION_STATUS_DECLINED = 3;
   INVITATION_STATUS_EXPIRED = 4;
+}
+
+// BudgetPeriod represents the time period for a budget
+enum BudgetPeriod {
+  BUDGET_PERIOD_UNSPECIFIED = 0;
+  BUDGET_PERIOD_WEEKLY = 1;
+  BUDGET_PERIOD_FORTNIGHTLY = 2;
+  BUDGET_PERIOD_MONTHLY = 3;
+  BUDGET_PERIOD_QUARTERLY = 4;
+  BUDGET_PERIOD_YEARLY = 5;
+}
+
+// Budget represents a budget configuration
+message Budget {
+  string id = 1;
+  string user_id = 2;
+  string group_id = 3; // Optional - if part of a group
+  string name = 4;
+  string description = 5;
+  double amount = 6;
+  BudgetPeriod period = 7;
+  repeated ExpenseCategory category_ids = 8; // Categories this budget applies to
+  bool is_active = 9;
+  google.protobuf.Timestamp start_date = 10;
+  google.protobuf.Timestamp end_date = 11; // Optional - for fixed period budgets
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+// BudgetAlert represents an alert configuration for a budget
+message BudgetAlert {
+  string id = 1;
+  string budget_id = 2;
+  double threshold_percentage = 3; // e.g., 50, 80, 90, 100
+  bool is_enabled = 4;
+  google.protobuf.Timestamp last_triggered_at = 5;
+}
+
+// BudgetProgress represents the current progress of a budget
+message BudgetProgress {
+  string budget_id = 1;
+  double allocated_amount = 2;
+  double spent_amount = 3;
+  double remaining_amount = 4;
+  double percentage_used = 5;
+  int32 days_remaining = 6;
+  google.protobuf.Timestamp period_start = 7;
+  google.protobuf.Timestamp period_end = 8;
+  repeated ExpenseBreakdown category_breakdown = 9;
+}
+
+// ExpenseBreakdown represents spending breakdown by category
+message ExpenseBreakdown {
+  ExpenseCategory category = 1;
+  double amount = 2;
+  double percentage = 3;
+}
+
+// MemberBalance represents a member's balance in a group
+message MemberBalance {
+  string user_id = 1;
+  string group_id = 2;
+  double total_paid = 3; // Total amount paid by this member
+  double total_owed = 4; // Total amount allocated to this member
+  double balance = 5; // total_paid - total_owed (positive means owed money, negative means owes money)
+  repeated MemberDebt debts = 6; // Detailed debts to/from other members
+}
+
+// MemberDebt represents money owed between two members
+message MemberDebt {
+  string from_user_id = 1; // Who owes money
+  string to_user_id = 2; // Who is owed money
+  double amount = 3;
+  int32 expense_count = 4; // Number of expenses contributing to this debt
+}
+
+// GroupInviteLink represents a shareable link to join a group
+message GroupInviteLink {
+  string id = 1;
+  string group_id = 2;
+  string code = 3;  // Short 8-char shareable code
+  string created_by = 4;
+  GroupRole default_role = 5;
+  int32 max_uses = 6;
+  int32 current_uses = 7;
+  google.protobuf.Timestamp expires_at = 8;
+  bool is_active = 9;
+  google.protobuf.Timestamp created_at = 10;
+}
+
+// ExpenseContribution represents a personal expense contributed to a group
+message ExpenseContribution {
+  string id = 1;
+  string source_expense_id = 2;  // Original personal expense
+  string target_group_id = 3;
+  string contributed_by = 4;
+  double amount = 5;  // Amount contributed (could be partial)
+  SplitType split_type = 6;
+  repeated ExpenseAllocation allocations = 7;
+  string created_group_expense_id = 8;  // Resulting group expense
+  google.protobuf.Timestamp contributed_at = 9;
 }

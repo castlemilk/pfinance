@@ -9,61 +9,51 @@ import { scaleOrdinal } from '@visx/scale';
 import { ParentSize } from '@visx/responsive';
 import { LegendOrdinal } from '@visx/legend';
 import { IncomeFrequency } from '../types';
-import { categoryColors } from '../constants/theme';
+
+// Import from the new metrics layer
+import { usePieChartData } from '../metrics/hooks/useVisualizationData';
+import { formatCurrency } from '../metrics/utils/currency';
+import { getCurrencyForCountry } from '../metrics/utils/currency';
 
 interface ExpenseChartProps {
   displayPeriod: IncomeFrequency;
 }
 
 export default function ExpenseChart({ displayPeriod }: ExpenseChartProps) {
-  const { getExpenseSummary, getTotalExpenses } = useFinance();
-  const expenseSummary = getExpenseSummary();
-  const totalExpenses = getTotalExpenses();
+  const { incomes, expenses, taxConfig } = useFinance();
   
-  // Convert expenses to the selected frequency
-  const convertedExpenses = useMemo(() => {
-    return expenseSummary.map(expense => {
-      const annualAmount = expense.totalAmount;
-      const convertedAmount = 
-        displayPeriod === 'weekly' ? annualAmount / 52 :
-        displayPeriod === 'fortnightly' ? annualAmount / 26 :
-        displayPeriod === 'monthly' ? annualAmount / 12 :
-        annualAmount;
-      
-      return {
-        ...expense,
-        totalAmount: convertedAmount
-      };
-    });
-  }, [expenseSummary, displayPeriod]);
+  // Use the new visualization data hook
+  const { expensePieChart, hasData } = usePieChartData(
+    incomes,
+    expenses,
+    taxConfig,
+    { displayPeriod }
+  );
+
+  const currency = getCurrencyForCountry(taxConfig.country);
+
+  // Calculate total for center display
+  const totalExpenses = useMemo(() => {
+    return expensePieChart.reduce((sum, item) => sum + item.value, 0);
+  }, [expensePieChart]);
   
-  // Convert total expenses to the selected frequency
-  const convertedTotalExpenses = useMemo(() => {
-    return displayPeriod === 'weekly' ? totalExpenses / 52 :
-           displayPeriod === 'fortnightly' ? totalExpenses / 26 :
-           displayPeriod === 'monthly' ? totalExpenses / 12 :
-           totalExpenses;
-  }, [totalExpenses, displayPeriod]);
-  
-  // Create color scale
+  // Create color scale from the pre-computed data
   const colorScale = useMemo(
     () => scaleOrdinal({
-      domain: convertedExpenses.map(d => d.category),
-      range: categoryColors,
+      domain: expensePieChart.map(d => d.label),
+      range: expensePieChart.map(d => d.color),
     }),
-    [convertedExpenses]
+    [expensePieChart]
   );
 
   // Format currency based on amount
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+  const formatAmount = (amount: number) => {
+    return formatCurrency(amount, currency, {
       maximumFractionDigits: amount < 10 ? 2 : 0
-    }).format(amount);
+    });
   };
 
-  if (convertedExpenses.length === 0) {
+  if (!hasData || expensePieChart.length === 0) {
     return (
       <div className="flex justify-center items-center h-64">
         <p className="text-center text-muted-foreground">
@@ -93,8 +83,8 @@ export default function ExpenseChart({ displayPeriod }: ExpenseChartProps) {
             <svg width={width} height={400}>
               <Group top={centerY} left={centerX}>
                 <Pie
-                  data={convertedExpenses}
-                  pieValue={d => d.totalAmount}
+                  data={expensePieChart}
+                  pieValue={d => d.value}
                   outerRadius={radius - 20}
                   innerRadius={radius * 0.5}
                   cornerRadius={3}
@@ -102,15 +92,14 @@ export default function ExpenseChart({ displayPeriod }: ExpenseChartProps) {
                 >
                   {pie => {
                     return pie.arcs.map((arc, index) => {
-                      const { category } = arc.data;
+                      const { label, percentage, color } = arc.data;
                       const [centroidX, centroidY] = pie.path.centroid(arc);
                       const hasSpaceForLabel = arc.endAngle - arc.startAngle > 0.1;
                       const arcPath = pie.path(arc) || '';
-                      const arcFill = colorScale(category);
                       
                       return (
-                        <g key={`pie-arc-${category}-${index}`}>
-                          <path d={arcPath} fill={arcFill} />
+                        <g key={`pie-arc-${label}-${index}`}>
+                          <path d={arcPath} fill={color} />
                           {hasSpaceForLabel && (
                             <Text
                               x={centroidX}
@@ -120,7 +109,7 @@ export default function ExpenseChart({ displayPeriod }: ExpenseChartProps) {
                               textAnchor="middle"
                               fill="#ffffff"
                             >
-                              {`${Math.round(arc.data.percentage)}%`}
+                              {`${Math.round(percentage)}%`}
                             </Text>
                           )}
                         </g>
@@ -129,7 +118,7 @@ export default function ExpenseChart({ displayPeriod }: ExpenseChartProps) {
                   }}
                 </Pie>
                 <Text textAnchor="middle" fontSize={20} dy={-20}>
-                  {`Total: ${formatCurrency(convertedTotalExpenses)}`}
+                  {`Total: ${formatAmount(totalExpenses)}`}
                 </Text>
                 <Text textAnchor="middle" fontSize={14} dy={10}>
                   {displayPeriod === 'annually' ? 'per year' : 
@@ -144,4 +133,4 @@ export default function ExpenseChart({ displayPeriod }: ExpenseChartProps) {
       </ParentSize>
     </div>
   );
-} 
+}

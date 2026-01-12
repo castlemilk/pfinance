@@ -1,0 +1,188 @@
+name: Production Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy_frontend:
+        description: 'Deploy frontend'
+        required: false
+        default: true
+        type: boolean
+      deploy_backend:
+        description: 'Deploy backend'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  PROJECT_ID: pfinance-app-1748773335
+  REGION: us-central1
+  SERVICE_NAME: pfinance-backend
+  IMAGE_NAME: gcr.io/pfinance-app-1748773335/pfinance-backend
+  WORKLOAD_IDENTITY_PROVIDER: projects/859800863588/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+  SERVICE_ACCOUNT: github-actions@pfinance-app-1748773335.iam.gserviceaccount.com
+
+jobs:
+  # ===========================================
+  # Detect Changes
+  # ===========================================
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.changes.outputs.frontend }}
+      backend: ${{ steps.changes.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            frontend:
+              - 'web/**'
+              - 'proto/**'
+            backend:
+              - 'backend/**'
+              - 'proto/**'
+
+  # ===========================================
+  # Frontend Production (Vercel)
+  # ===========================================
+  frontend-production:
+    needs: changes
+    if: |
+      (needs.changes.outputs.frontend == 'true' || github.event.inputs.deploy_frontend == 'true') &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://pfinance.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel Environment
+        run: |
+          cd web
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        run: |
+          cd web
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Production
+        run: |
+          cd web
+          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+  # ===========================================
+  # Backend Production (Cloud Run)
+  # ===========================================
+  backend-production:
+    needs: changes
+    if: |
+      (needs.changes.outputs.backend == 'true' || github.event.inputs.deploy_backend == 'true') &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    environment:
+      name: production
+      url: https://api.pfinance.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
+
+      - name: Setup Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker
+
+      - name: Setup buf CLI
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate protobuf code
+        run: cd proto && buf generate
+
+      - name: Build Docker image
+        run: |
+          cd backend
+          docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} .
+          docker tag ${{ env.IMAGE_NAME }}:${{ github.sha }} ${{ env.IMAGE_NAME }}:latest
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.IMAGE_NAME }}:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image ${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 8111 \
+            --memory 512Mi \
+            --cpu 1 \
+            --max-instances 10 \
+            --set-env-vars GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }} \
+            --quiet
+
+      - name: Verify Deployment
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --format 'value(status.url)')
+          
+          echo "Service deployed to: $SERVICE_URL"
+          
+          # Wait for deployment
+          sleep 30
+          
+          # Health check
+          curl -f $SERVICE_URL/health || exit 1
+          echo "✅ Health check passed"
+
+      - name: Create Release Tag
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = `backend-${new Date().toISOString().split('T')[0]}-${context.sha.substring(0, 7)}`;
+            try {
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/tags/${tag}`,
+                sha: context.sha
+              });
+              console.log(`Created tag: ${tag}`);
+            } catch (e) {
+              console.log('Tag already exists or could not be created');
+            }

@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
-import { IncomeFrequency, Deduction } from '../types';
+import { useMultiUserFinance } from '../context/MultiUserFinanceContext';
+import { IncomeFrequency } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
   SelectContent,
@@ -21,121 +23,102 @@ import FinanceFlowDiagram from './FinanceFlowDiagram';
 import { getTaxSystem } from '../constants/taxSystems';
 import { countryFlags } from './TaxConfig';
 
-export default function FinanceSummary() {
+// Import from the new metrics layer
+import { useFinanceMetrics } from '../metrics/hooks/useFinanceMetrics';
+import { SAVINGS_STATUS_CLASSES, getSavingsStatusClass } from '../metrics/utils/colors';
+
+interface FinanceSummaryProps {
+  mode?: 'personal' | 'shared';
+  groupId?: string;
+}
+
+// Loading skeleton for the summary cards
+function SummarySkeleton() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="p-4 border rounded-lg bg-background">
+          <Skeleton className="h-4 w-16 mb-2" />
+          <Skeleton className="h-8 w-24 mb-1" />
+          <Skeleton className="h-3 w-12" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function FinanceSummary({ mode = 'personal', groupId }: FinanceSummaryProps) {
   const { 
-    getTotalIncome, 
-    getNetIncome, 
-    getTotalExpenses, 
+    incomes, 
+    expenses, 
     taxConfig,
-    incomes 
+    loading 
   } = useFinance();
   
+  const { groupExpenses, groupIncomes } = useMultiUserFinance();
+  
   const [displayPeriod, setDisplayPeriod] = useState<IncomeFrequency>('monthly');
-  
-  // Format amount to currency
-  const formatCurrency = (amount: number, country = taxConfig.country) => {
-    // Get currency code from tax system
-    const currencyCode = getTaxSystem(country).currency;
-    
-    return new Intl.NumberFormat('en', {
-      style: 'currency',
-      currency: currencyCode,
-      maximumFractionDigits: 2
-    }).format(amount);
-  };
 
-  const totalIncome = getTotalIncome(displayPeriod);
-  const netIncome = getNetIncome(displayPeriod);
-  const totalExpenses = getTotalExpenses();
-  // Simple conversion of total expenses to match display period
-  const adjustedExpenses = 
-    displayPeriod === 'annually' ? totalExpenses : 
-    displayPeriod === 'monthly' ? totalExpenses / 12 :
-    displayPeriod === 'fortnightly' ? totalExpenses / 26 :
-    totalExpenses / 52;
+  // Use the new metrics hook for personal mode
+  const { metrics, utils, periodLabel } = useFinanceMetrics(
+    incomes,
+    expenses,
+    taxConfig,
+    { displayPeriod }
+  );
+
+  // For shared mode, we still use the old calculation (can be migrated later)
+  const isSharedMode = mode === 'shared' && groupId;
   
-  const savingsAmount = netIncome - adjustedExpenses;
-  // Ensure savings rate is a valid number
-  const savingsRate = totalIncome > 0 ? (savingsAmount / totalIncome) * 100 : 0;
+  // Get values from metrics (personal) or calculate for shared
+  const totalIncome = isSharedMode
+    ? groupIncomes.filter(i => i.groupId === groupId).reduce((sum, i) => sum + i.amount, 0)
+    : metrics.income.gross.value;
   
-  // Ensure the displayed savings rate is never NaN 
+  const netIncome = isSharedMode
+    ? totalIncome // No tax calc for groups yet
+    : metrics.income.net.value;
+    
+  const adjustedExpenses = isSharedMode
+    ? groupExpenses.filter(e => e.groupId === groupId).reduce((sum, e) => sum + e.amount, 0)
+    : metrics.expenses.total.value;
+  
+  const savingsAmount = isSharedMode
+    ? netIncome - adjustedExpenses
+    : metrics.savings.amount.value;
+
+  const savingsRate = isSharedMode
+    ? (totalIncome > 0 ? (savingsAmount / totalIncome) * 100 : 0)
+    : metrics.savings.rate;
+  
   const displaySavingsRate = isNaN(savingsRate) ? 0 : savingsRate;
   
-  // Tax amount
-  const taxAmount = totalIncome - netIncome;
+  const taxAmount = isSharedMode
+    ? 0
+    : metrics.tax.amount.value;
   
-  // Calculate effective tax rate (properly handling progressive tax systems)
-  const getEffectiveTaxRate = () => {
-    if (!taxConfig.enabled) return 0;
-    if (totalIncome <= 0 || taxAmount <= 0) return 0;
-    
-    // For simple tax system, the effective rate equals the flat rate
-    if (taxConfig.country === 'simple') {
-      return taxConfig.taxRate;
-    }
-    
-    // For progressive tax systems, calculate based on actual tax amount
-    const rate = (taxAmount / totalIncome) * 100;
-    return isNaN(rate) ? 0 : rate;
+  const effectiveTaxRate = isSharedMode
+    ? 0
+    : metrics.tax.effectiveRate;
+
+  // Savings status from metrics
+  const savingsStatus = isSharedMode
+    ? (displaySavingsRate >= 20 ? 'excellent' : displaySavingsRate >= 10 ? 'good' : displaySavingsRate >= 0 ? 'fair' : 'poor')
+    : metrics.savings.status;
+
+  // Use centralized color classes
+  const savingsStatusColors = SAVINGS_STATUS_CLASSES;
+
+  // Format currency using metrics utils
+  const formatCurrency = (amount: number) => {
+    return utils.formatCurrency(amount);
   };
 
-  const effectiveTaxRate = getEffectiveTaxRate();
-  
-  // Deductions calculation
-  const deductionsInfo = useMemo(() => {
-    let totalDeductionAmount = 0;
-    let taxDeductibleAmount = 0;
-    let count = 0;
-    
-    incomes.forEach(income => {
-      if (income.deductions && income.deductions.length > 0) {
-        count += income.deductions.length;
-        
-        // Convert deduction amounts based on frequency
-        const frequencyFactor = 
-          income.frequency === 'weekly' ? 52 : 
-          income.frequency === 'fortnightly' ? 26 : 
-          income.frequency === 'monthly' ? 12 : 1;
-          
-        const targetFactor = 
-          displayPeriod === 'weekly' ? 52 : 
-          displayPeriod === 'fortnightly' ? 26 : 
-          displayPeriod === 'monthly' ? 12 : 1;
-          
-        income.deductions.forEach((deduction: Deduction) => {
-          // Convert to annual then to target period
-          const annualAmount = deduction.amount * frequencyFactor;
-          const periodAmount = annualAmount / targetFactor;
-          
-          totalDeductionAmount += periodAmount;
-          if (deduction.isTaxDeductible) {
-            taxDeductibleAmount += periodAmount;
-          }
-        });
-      }
-    });
-    
-    return {
-      count,
-      totalAmount: totalDeductionAmount,
-      taxDeductibleAmount
-    };
-  }, [incomes, displayPeriod]);
-  
-  // Determine savings status
-  const getSavingsStatus = () => {
-    if (displaySavingsRate >= 20) return "excellent";
-    if (displaySavingsRate >= 10) return "good";
-    if (displaySavingsRate >= 0) return "fair";
-    return "poor";
-  };
-  
-  const savingsStatus = getSavingsStatus();
-  const savingsStatusColors: Record<string, string> = {
-    excellent: "text-green-600",
-    good: "text-emerald-500",
-    fair: "text-amber-500",
-    poor: "text-red-500"
+  // Deductions from metrics
+  const deductionsInfo = {
+    count: metrics.income.sources.reduce((count, s) => count + (s.isPreTax ? 0 : 0), 0), // Simplified
+    totalAmount: metrics.income.deductions.value,
+    taxDeductibleAmount: metrics.tax.deductibleAmount.value,
   };
 
   return (
@@ -165,34 +148,38 @@ export default function FinanceSummary() {
             <TabsTrigger value="flow">Flow</TabsTrigger>
           </TabsList>
           <TabsContent value="summary" className="space-y-4 mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 border rounded-lg">
-                <h3 className="text-sm font-medium text-muted-foreground">Income</h3>
-                <p className="text-2xl font-bold">{formatCurrency(totalIncome)}</p>
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  {displayPeriod}
-                  {taxConfig.country !== 'simple' && (
-                    <span role="img" aria-label={taxConfig.country} className="ml-1">
-                      {countryFlags[taxConfig.country as keyof typeof countryFlags]}
-                    </span>
-                  )}
-                </p>
+            {loading ? (
+              <SummarySkeleton />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 border rounded-lg bg-background">
+                  <h3 className="text-sm font-medium text-muted-foreground">Income</h3>
+                  <p className="text-2xl font-bold">{formatCurrency(totalIncome)}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    {displayPeriod}
+                    {taxConfig.country !== 'simple' && (
+                      <span role="img" aria-label={taxConfig.country} className="ml-1">
+                        {countryFlags[taxConfig.country as keyof typeof countryFlags]}
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <div className="p-4 border rounded-lg bg-background">
+                  <h3 className="text-sm font-medium text-muted-foreground">Expenses</h3>
+                  <p className="text-2xl font-bold">{formatCurrency(adjustedExpenses)}</p>
+                  <p className="text-xs text-muted-foreground">{displayPeriod}</p>
+                </div>
+                <div className="p-4 border rounded-lg bg-background">
+                  <h3 className="text-sm font-medium text-muted-foreground">Savings</h3>
+                  <p className={`text-2xl font-bold ${savingsStatusColors[savingsStatus]}`}>
+                    {formatCurrency(savingsAmount)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {displaySavingsRate.toFixed(1)}% of income
+                  </p>
+                </div>
               </div>
-              <div className="p-4 border rounded-lg">
-                <h3 className="text-sm font-medium text-muted-foreground">Expenses</h3>
-                <p className="text-2xl font-bold">{formatCurrency(adjustedExpenses)}</p>
-                <p className="text-xs text-muted-foreground">{displayPeriod}</p>
-              </div>
-              <div className="p-4 border rounded-lg">
-                <h3 className="text-sm font-medium text-muted-foreground">Savings</h3>
-                <p className={`text-2xl font-bold ${savingsStatusColors[savingsStatus]}`}>
-                  {formatCurrency(savingsAmount)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {displaySavingsRate.toFixed(1)}% of income
-                </p>
-              </div>
-            </div>
+            )}
           </TabsContent>
           <TabsContent value="details" className="space-y-4 mt-4">
             <div className="space-y-2">
@@ -210,15 +197,15 @@ export default function FinanceSummary() {
                     )}
                     {taxConfig.country === 'simple' 
                       ? `Tax (${taxConfig.taxRate}%):`
-                      : `${getTaxSystem(taxConfig.country).name} Tax (${!isNaN(effectiveTaxRate) ? effectiveTaxRate.toFixed(1) : '0.0'}% effective):`}
+                      : `${getTaxSystem(taxConfig.country).name} Tax (${effectiveTaxRate.toFixed(1)}% effective):`}
                   </span>
                   <span className="font-medium text-red-500">-{formatCurrency(taxAmount)}</span>
                 </div>
               )}
-              {deductionsInfo.count > 0 && (
+              {deductionsInfo.totalAmount > 0 && (
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">
-                    Deductions ({deductionsInfo.count}):
+                    Deductions:
                   </span>
                   <span className="font-medium text-amber-500">-{formatCurrency(deductionsInfo.totalAmount)}</span>
                 </div>
@@ -241,12 +228,7 @@ export default function FinanceSummary() {
               {taxConfig.enabled && taxConfig.country !== 'simple' && totalIncome > 0 && (
                 <div className="flex justify-between items-center text-xs text-muted-foreground mt-1 mb-2">
                   <span>
-                    Tax based on annual income: {formatCurrency(
-                      displayPeriod === 'annually' ? totalIncome :
-                      displayPeriod === 'monthly' ? totalIncome * 12 :
-                      displayPeriod === 'fortnightly' ? totalIncome * 26 :
-                      totalIncome * 52
-                    )}
+                    Tax based on annual income: {formatCurrency(metrics.income.gross.annualized)}
                   </span>
                 </div>
               )}
@@ -279,4 +261,4 @@ export default function FinanceSummary() {
       </CardContent>
     </Card>
   );
-} 
+}

@@ -1,0 +1,70 @@
+---
+description: Backend development rules for Go, Connect-RPC, and Firestore
+globs: ["backend/**/*.go", "proto/**/*.proto"]
+alwaysApply: false
+---
+
+# Backend Development Rules
+
+## Project Structure
+```
+backend/
+├── cmd/server/main.go     # Entrypoint
+└── internal/
+    ├── auth/              # Firebase auth middleware
+    ├── service/           # Business logic (Connect handlers)
+    └── store/             # Data access layer
+        ├── store.go       # Interface
+        ├── memory.go      # In-memory impl
+        ├── firestore.go   # Firestore impl
+        └── store_mock.go  # Generated mocks
+```
+
+## Connect-RPC Service Pattern
+```go
+func (s *FinanceService) CreateExpense(
+    ctx context.Context,
+    req *connect.Request[v1.CreateExpenseRequest],
+) (*connect.Response[v1.CreateExpenseResponse], error) {
+    userID := auth.UserIDFromContext(ctx)
+    // Validation, store calls, response
+}
+```
+
+## Error Handling
+```go
+import "github.com/bufbuild/connect-go"
+
+// Use appropriate codes
+connect.CodeInvalidArgument   // Bad request
+connect.CodeUnauthenticated   // Not logged in
+connect.CodePermissionDenied  // Not authorized
+connect.CodeNotFound          // Not found
+connect.CodeInternal          // Server error
+```
+
+## Store Interface
+- Always use `store.Store` interface for data access
+- Enables easy mocking in tests
+- Implementations: `memory.go` (dev), `firestore.go` (prod)
+
+## Testing with gomock
+```go
+ctrl := gomock.NewController(t)
+mockStore := store.NewMockStore(ctrl)
+mockStore.EXPECT().Method(gomock.Any()).Return(result, nil)
+```
+
+## Commands
+```bash
+make dev-backend              # Run server
+make test-backend             # Run tests
+cd backend && go generate ./internal/store  # Regenerate mocks
+```
+
+## Proto Workflow
+1. Edit `proto/pfinance/v1/*.proto`
+2. Run `make proto`
+3. Implement handler in `internal/service/`
+4. Add store method if needed
+5. Regenerate mocks

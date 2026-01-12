@@ -1,0 +1,57 @@
+---
+description: Frontend development rules for Next.js, React, Tailwind, and shadcn/ui
+globs: ["web/**/*.tsx", "web/**/*.ts", "web/**/*.css"]
+alwaysApply: false
+---
+
+# Frontend Development Rules
+
+## Component Structure
+```
+web/src/
+├── app/                    # App Router pages
+│   ├── components/         # Feature components
+│   ├── context/           # React Context providers
+│   └── utils/             # Utility functions
+├── components/ui/         # shadcn/ui components
+└── gen/pfinance/v1/       # Generated API types
+```
+
+## React Patterns
+- Prefer Server Components - add `"use client"` only when needed
+- Use hooks for state: `useState`, `useEffect`, `useContext`
+- Custom hooks for reusable logic
+- Props interface naming: `ComponentNameProps`
+
+## Styling with Tailwind + shadcn/ui
+- Use the `cn()` utility from `@/lib/utils` for conditional classes
+- Support dark mode with `dark:` variants
+- Use shadcn/ui components: `@/components/ui/[component]`
+- Add new components: `npx shadcn@latest add [name]`
+
+## Forms with React Hook Form + Zod
+```tsx
+const schema = z.object({
+  field: z.string().min(1, "Required"),
+});
+type FormData = z.infer<typeof schema>;
+
+const form = useForm<FormData>({
+  resolver: zodResolver(schema),
+});
+```
+
+## API Integration
+- Use generated types from `@/gen/pfinance/v1/`
+- Finance client in `@/lib/financeService.ts`
+- Handle loading/error states properly
+
+## Charts with visx
+- Use visx (NOT recharts) for all visualizations
+- Components: `@visx/shape`, `@visx/scale`, `@visx/group`
+- Make charts responsive with `@visx/responsive`
+
+## Testing
+- Jest + React Testing Library
+- Test files: `__tests__/*.test.tsx`
+- Mock contexts for isolated testing

@@ -111,7 +111,7 @@ jobs:
           --region ${{ env.REGION }} \
           --platform managed \
           --allow-unauthenticated \
-          --port 8080 \
+          --port 8111 \
           --memory 512Mi \
           --cpu 1 \
           --max-instances 10 \
