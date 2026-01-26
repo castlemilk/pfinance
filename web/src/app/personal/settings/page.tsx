@@ -24,6 +24,11 @@ function DevToolsCard({ userId }: { userId: string }) {
   const getToken = async () => {
     setLoadingToken(true);
     try {
+      if (!auth) {
+        setToken(null);
+        setLoadingToken(false);
+        return;
+      }
       const currentUser = auth.currentUser;
       if (currentUser) {
         const idToken = await currentUser.getIdToken();
