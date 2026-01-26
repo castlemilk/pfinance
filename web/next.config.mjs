@@ -4,13 +4,15 @@ const nextConfig = {
   trailingSlash: true,
   images: {
     // Enable optimized images for server deployment
-    domains: ['firebasestorage.googleapis.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+      },
+    ],
   },
   experimental: {
     forceSwcTransforms: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true, // Ignore ESLint errors during build
   },
   webpack: (config) => {
     // Add alias to resolve .js imports to .ts files for protobuf
