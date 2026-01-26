@@ -1,0 +1,94 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "expenses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "UserId", "order": "ASCENDING" },
+        { "fieldPath": "Date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "expenses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "Category", "order": "ASCENDING" },
+        { "fieldPath": "UserId", "order": "ASCENDING" },
+        { "fieldPath": "Date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "expenses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "GroupId", "order": "ASCENDING" },
+        { "fieldPath": "Date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "incomes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "UserId", "order": "ASCENDING" },
+        { "fieldPath": "Date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "incomes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "GroupId", "order": "ASCENDING" },
+        { "fieldPath": "Date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "budgets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "UserId", "order": "ASCENDING" },
+        { "fieldPath": "IsActive", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "budgets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "GroupId", "order": "ASCENDING" },
+        { "fieldPath": "IsActive", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "groups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "MemberIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "CreatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "invitations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "TargetGroupId", "order": "ASCENDING" },
+        { "fieldPath": "Status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "invitations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "InviteeEmail", "order": "ASCENDING" },
+        { "fieldPath": "Status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "inviteLinks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "TargetGroupId", "order": "ASCENDING" },
+        { "fieldPath": "IsActive", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

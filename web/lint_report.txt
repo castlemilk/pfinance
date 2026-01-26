@@ -1,0 +1,62 @@
+
+> pfinance@0.1.1 lint
+> next lint
+
+
+./src/app/components/__tests__/TransactionImport.test.tsx
+2:17  Error: 'createContext' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/components/transaction-import/utils.ts
+58:9  Error: 'formats' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/context/__mocks__/AuthWithAdminContext.ts
+4:65  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/context/__mocks__/FinanceContext.ts
+4:59  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/context/__tests__/MultiUserFinanceContext.test.tsx
+1:1  Warning: Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-require-imports').
+
+./src/app/context/finance/hooks/useExpenses.ts
+57:3  Error: 'user' is defined but never used.  @typescript-eslint/no-unused-vars
+58:3  Error: 'isDevMode' is defined but never used.  @typescript-eslint/no-unused-vars
+65:9  Error: 'isLoadingRef' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/context/finance/hooks/useFinanceCalculations.ts
+7:10  Error: 'useMemo' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/context/finance/hooks/useIncomes.ts
+50:3  Error: 'user' is defined but never used.  @typescript-eslint/no-unused-vars
+51:3  Error: 'isDevMode' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/context/finance/hooks/useTaxConfig.ts
+10:21  Error: 'TaxCountry' is defined but never used.  @typescript-eslint/no-unused-vars
+12:24  Error: 'ProtoTaxCountry' is defined but never used.  @typescript-eslint/no-unused-vars
+36:3  Error: 'user' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/context/multiuser/MultiUserFinanceContext.tsx
+124:42  Error: 'group' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/context/multiuser/hooks/useGroupIncomes.ts
+11:22  Error: 'ProtoIncomeFrequency' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/utils/__tests__/enhancedSmartCategorization.test.ts
+35:19  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+182:32  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+192:32  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+219:32  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+236:32  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+248:32  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+264:32  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+280:32  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+322:32  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+326:49  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+326:75  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+356:32  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+363:49  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+363:75  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+393:34  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+438:32  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules

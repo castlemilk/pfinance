@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { jest } from '@jest/globals';
 import OpenAI from 'openai';
 import { 
@@ -5,7 +6,18 @@ import {
   EnhancedTransactionData
 } from '../enhancedSmartCategorization';
 
-jest.mock('openai');
+jest.mock('openai', () => {
+  return {
+    __esModule: true,
+    default: jest.fn().mockImplementation(() => ({
+      chat: {
+        completions: {
+          create: jest.fn(),
+        },
+      },
+    })),
+  };
+});
 
 // Mock localStorage
 const mockLocalStorage = (() => {

@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# Pre-commit hook for PFinance
+# Runs all checks before allowing a commit
+
+echo "🔍 Running pre-commit checks..."
+echo "-------------------------------"
+
+# Run linting and unit tests
+# We use the Makefile targets to ensure consistency
+make test
+
+RESULT=$?
+
+echo "-------------------------------"
+if [ $RESULT -ne 0 ]; then
+  echo "❌ Pre-commit checks failed!"
+  echo "Please fix the issues above or commit with --no-verify if absolutely necessary."
+  exit 1
+fi
+
+echo "✅ Pre-commit checks passed!"
+exit 0

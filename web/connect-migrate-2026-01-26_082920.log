@@ -1,0 +1,424 @@
+Scanning with ignorePatterns **/dist/** in /Users/benebsworth/projects/pfinance/web
+sourceFiles: ["eslint.config.mjs","jest.config.js","jest.setup.js","next.config.mjs","next.config.ts","postcss.config.mjs","test-expense-creation.js","src/setupTests.ts","coverage/lcov-report/block-navigation.js","coverage/lcov-report/prettify.js","coverage/lcov-report/sorter.js","src/app/layout.tsx","src/app/page.tsx","src/app/types.ts","src/lib/financeService.ts","src/lib/firebase.ts","src/lib/utils.ts","src/app/__tests__/ExpenseList.test.tsx","src/app/__tests__/ExpenseListSelection.test.tsx","src/app/auth/page.tsx","src/app/components/AdminPanel.tsx","src/app/components/AppLayout.tsx","src/app/components/AuthModal.tsx","src/app/components/BudgetCreator.tsx","src/app/components/BudgetDashboard.tsx","src/app/components/BudgetTracker.tsx","src/app/components/ChartToggle.tsx","src/app/components/ContributeExpenseModal.tsx","src/app/components/Dashboard.tsx","src/app/components/DebugPanel.tsx","src/app/components/DeductionForm.tsx","src/app/components/EnhancedGroupSelector.tsx","src/app/components/EnhancedReportGenerator.tsx","src/app/components/EnhancedTransactionImport.tsx","src/app/components/ExpenseChart.tsx","src/app/components/ExpenseForm.tsx","src/app/components/ExpenseList.tsx","src/app/components/ExpenseSankey.tsx","src/app/components/ExpenseVisualization.tsx","src/app/components/FinanceDashboard.tsx","src/app/components/FinanceFlowDiagram.tsx","src/app/components/FinanceSummary.tsx","src/app/components/FinanceView.tsx","src/app/components/GroupConfiguration.tsx","src/app/components/GroupExpenseForm.tsx","src/app/components/GroupExpenseList.tsx","src/app/components/GroupMemberBalances.tsx","src/app/components/GroupSelector.tsx","src/app/components/IncomeForm.tsx","src/app/components/IncomeList.tsx","src/app/components/InviteLinkGenerator.tsx","src/app/components/JoinGroupModal.tsx","src/app/components/MultiUserDemo.tsx","src/app/components/ReportGenerator.tsx","src/app/components/SalaryBreakdownChart.tsx","src/app/components/SalaryCalculator.tsx","src/app/components/SidebarNav.tsx","src/app/components/TaxConfig.tsx","src/app/components/ThemeToggle.tsx","src/app/components/TransactionImport.tsx","src/app/constants/taxSystems.ts","src/app/constants/theme.ts","src/app/context/AdminContext.tsx","src/app/context/AuthContext.tsx","src/app/context/AuthWithAdminContext.tsx","src/app/context/BudgetContext.tsx","src/app/context/ExpenseContext.tsx","src/app/context/FinanceContext.tsx","src/app/context/MetricsContext.tsx","src/app/context/MultiUserFinanceContext.tsx","src/app/context/ThemeContext.tsx","src/app/metrics/engine.ts","src/app/metrics/index.ts","src/app/metrics/types.ts","src/app/personal/page.tsx","src/app/shared/page.tsx","src/app/types/index.ts","src/app/utils/enhancedPdfProcessor.ts","src/app/utils/enhancedReportGenerator.ts","src/app/utils/enhancedSmartCategorization.ts","src/app/utils/smartCategorization.ts","src/components/ui/accordion.tsx","src/components/ui/alert.tsx","src/components/ui/avatar.tsx","src/components/ui/badge.tsx","src/components/ui/button.tsx","src/components/ui/card.tsx","src/components/ui/checkbox.tsx","src/components/ui/collapsible.tsx","src/components/ui/dialog.tsx","src/components/ui/dropdown-menu.tsx","src/components/ui/form.tsx","src/components/ui/input.tsx","src/components/ui/label.tsx","src/components/ui/progress.tsx","src/components/ui/select.tsx","src/components/ui/separator.tsx","src/components/ui/skeleton.tsx","src/components/ui/slider.tsx","src/components/ui/switch.tsx","src/components/ui/table.tsx","src/components/ui/tabs.tsx","src/components/ui/textarea.tsx","src/components/ui/toast.tsx","src/components/ui/toaster.tsx","src/components/ui/tooltip.tsx","src/components/ui/use-toast.ts","out/_next/static/bQ2h1SzEAWmq7LZcCuKBR/_buildManifest.js","out/_next/static/bQ2h1SzEAWmq7LZcCuKBR/_ssgManifest.js","out/_next/static/chunks/121.7560c80c038f73cc.js","out/_next/static/chunks/164f4fb6-3d03ba5a0726c36a.js","out/_next/static/chunks/412-723988fdf598042f.js","out/_next/static/chunks/4bd1b696-6a6a2c9063149257.js","out/_next/static/chunks/684-6831d10645ad999c.js","out/_next/static/chunks/831.3d4c5f280eca332b.js","out/_next/static/chunks/ad2866b8-c7956e5438da774a.js","out/_next/static/chunks/bc98253f.d21a5b1e2e1a8f86.js","out/_next/static/chunks/bc9e92e6-849278bb9fc74237.js","out/_next/static/chunks/f01af2bd-6b588cb084a192f5.js","out/_next/static/chunks/framework-66dcb5289ae9d888.js","out/_next/static/chunks/main-0a1054a263a83d19.js","out/_next/static/chunks/main-app-66553e5945666e6e.js","out/_next/static/chunks/polyfills-42372ed130431b0a.js","out/_next/static/chunks/webpack-9040fb40445ef3bd.js","src/app/__tests__/integration/expense-creation.test.tsx","src/app/__tests__/integration/group-expense-creation.test.tsx","src/app/components/__tests__/SalaryCalculator.test.tsx","src/app/components/__tests__/TransactionImport.test.tsx","src/app/components/salary-calculator/constants.ts","src/app/components/salary-calculator/index.ts","src/app/components/salary-calculator/types.ts","src/app/components/salary-calculator/utils.ts","src/app/components/transaction-import/constants.ts","src/app/components/transaction-import/index.ts","src/app/components/transaction-import/types.ts","src/app/components/transaction-import/utils.ts","src/app/context/__mocks__/AuthWithAdminContext.ts","src/app/context/__mocks__/FinanceContext.ts","src/app/context/__tests__/AuthContext.test.tsx","src/app/context/__tests__/MultiUserFinanceContext.test.tsx","src/app/context/finance/index.ts","src/app/context/finance/mappers.ts","src/app/context/multiuser/MultiUserFinanceContext.tsx","src/app/context/multiuser/index.ts","src/app/context/multiuser/mappers.ts","src/app/context/multiuser/types.ts","src/app/metrics/hooks/index.ts","src/app/metrics/hooks/useBudgetMetrics.ts","src/app/metrics/hooks/useFinanceMetrics.ts","src/app/metrics/hooks/useVisualizationData.ts","src/app/metrics/providers/budget-metrics.ts","src/app/metrics/providers/finance-metrics.ts","src/app/metrics/providers/flow-metrics.ts","src/app/metrics/providers/index.ts","src/app/metrics/utils/colors.ts","src/app/metrics/utils/currency.ts","src/app/metrics/utils/index.ts","src/app/metrics/utils/period.ts","src/app/personal/expenses/page.tsx","src/app/personal/income/page.tsx","src/app/personal/reports/page.tsx","src/app/personal/settings/page.tsx","src/app/shared/expenses/page.tsx","src/app/shared/groups/page.tsx","src/app/shared/join/page.tsx","src/app/shared/reports/page.tsx","src/app/utils/__tests__/enhancedSmartCategorization.test.ts","src/gen/pfinance/v1/finance_service_connect.ts","src/gen/pfinance/v1/finance_service_pb.js","src/gen/pfinance/v1/finance_service_pb.ts","src/gen/pfinance/v1/types_pb.js","src/gen/pfinance/v1/types_pb.ts","out/_next/static/chunks/app/layout-2469196a93b8fbd7.js","out/_next/static/chunks/app/page-cdb2f6ffd9d46442.js","out/_next/static/chunks/pages/_app-8e94039938385921.js","out/_next/static/chunks/pages/_error-7b2d139042a6a5ab.js","src/app/components/salary-calculator/hooks/index.ts","src/app/components/salary-calculator/hooks/useSalaryCalculations.ts","src/app/context/finance/hooks/index.ts","src/app/context/finance/hooks/useExpenses.ts","src/app/context/finance/hooks/useFinanceCalculations.ts","src/app/context/finance/hooks/useIncomes.ts","src/app/context/finance/hooks/useTaxConfig.ts","src/app/context/multiuser/hooks/index.ts","src/app/context/multiuser/hooks/useGroupAnalytics.ts","src/app/context/multiuser/hooks/useGroupExpenses.ts","src/app/context/multiuser/hooks/useGroupIncomes.ts","src/app/context/multiuser/hooks/useGroupMembers.ts","src/app/context/multiuser/hooks/useGroups.ts","src/app/context/multiuser/hooks/useInviteLinks.ts","out/_next/static/chunks/app/_not-found/page-7380803792dc7456.js"]
+packageFiles: [{"path":"package.json","pkg":{"name":"pfinance","version":"0.1.1","private":true,"scripts":{"dev":"next dev -p 1234","build":"next build","start":"next start","lint":"next lint","test":"jest","type-check":"tsc --noEmit","test:ci":"npm run type-check && npm run lint && npm run test","test:watch":"jest --watch","deploy":"npm run build && firebase deploy"},"dependencies":{"@bufbuild/connect":"^0.13.0","@bufbuild/connect-web":"^0.13.0","@bufbuild/protobuf":"^1.10.1","@hookform/resolvers":"^4.1.3","@radix-ui/react-accordion":"^1.2.3","@radix-ui/react-avatar":"^1.1.10","@radix-ui/react-checkbox":"^1.3.2","@radix-ui/react-collapsible":"^1.1.3","@radix-ui/react-dialog":"^1.1.6","@radix-ui/react-dropdown-menu":"^2.1.15","@radix-ui/react-label":"^2.1.2","@radix-ui/react-progress":"^1.1.2","@radix-ui/react-select":"^2.1.6","@radix-ui/react-separator":"^1.1.2","@radix-ui/react-slider":"^1.2.3","@radix-ui/react-slot":"^1.1.2","@radix-ui/react-switch":"^1.1.3","@radix-ui/react-tabs":"^1.1.3","@radix-ui/react-toast":"^1.2.6","@radix-ui/react-tooltip":"^1.1.8","@types/papaparse":"^5.3.16","@types/uuid":"^10.0.0","@visx/event":"^3.12.0","@visx/group":"^3.12.0","@visx/hierarchy":"^3.12.0","@visx/legend":"^3.12.0","@visx/mock-data":"^3.12.0","@visx/network":"^3.12.0","@visx/responsive":"^3.12.0","@visx/sankey":"^3.12.0","@visx/scale":"^3.12.0","@visx/shape":"^3.12.0","@visx/text":"^3.12.0","@visx/tooltip":"^3.12.0","canvas":"^3.1.0","class-variance-authority":"^0.7.1","clsx":"^2.1.1","firebase":"^11.8.1","framer-motion":"^12.16.0","html2canvas":"^1.4.1","jspdf":"^2.5.2","lucide-react":"^0.482.0","next":"15.2.2","openai":"^5.0.1","papaparse":"^5.5.3","react":"^19.0.0","react-dom":"^19.0.0","react-hook-form":"^7.54.2","tailwind-merge":"^2.6.0","tailwindcss-animate":"^1.0.7","uuid":"^11.1.0","zod":"^3.24.2"},"devDependencies":{"@eslint/eslintrc":"^3","@tailwindcss/postcss":"^4","@testing-library/jest-dom":"^6.4.2","@testing-library/react":"^15.0.0","@testing-library/user-event":"^14.5.2","@types/jest":"^29.5.12","@types/node":"^20","@types/react":"^19","@types/react-dom":"^19","babel-jest":"^29.7.0","eslint":"^9","eslint-config-next":"15.2.2","jest":"^29.7.0","jest-environment-jsdom":"^29.7.0","tailwindcss":"^4","typescript":"^5"}}}]
+lockFiles: ["package-lock.json"]
+bufGenYamlPaths: []
+transform eslint.config.mjs
+skipped
+transform jest.config.js
+skipped
+transform jest.setup.js
+skipped
+transform next.config.mjs
+skipped
+transform next.config.ts
+skipped
+transform postcss.config.mjs
+skipped
+transform test-expense-creation.js
+skipped
+transform src/setupTests.ts
+skipped
+transform coverage/lcov-report/block-navigation.js
+skipped
+transform coverage/lcov-report/prettify.js
+skipped
+transform coverage/lcov-report/sorter.js
+skipped
+transform src/app/layout.tsx
+skipped
+transform src/app/page.tsx
+skipped
+transform src/app/types.ts
+skipped
+transform src/lib/financeService.ts
+modified
+transform src/lib/firebase.ts
+skipped
+transform src/lib/utils.ts
+skipped
+transform src/app/__tests__/ExpenseList.test.tsx
+skipped
+transform src/app/__tests__/ExpenseListSelection.test.tsx
+skipped
+transform src/app/auth/page.tsx
+skipped
+transform src/app/components/AdminPanel.tsx
+skipped
+transform src/app/components/AppLayout.tsx
+skipped
+transform src/app/components/AuthModal.tsx
+skipped
+transform src/app/components/BudgetCreator.tsx
+skipped
+transform src/app/components/BudgetDashboard.tsx
+skipped
+transform src/app/components/BudgetTracker.tsx
+skipped
+transform src/app/components/ChartToggle.tsx
+skipped
+transform src/app/components/ContributeExpenseModal.tsx
+skipped
+transform src/app/components/Dashboard.tsx
+skipped
+transform src/app/components/DebugPanel.tsx
+skipped
+transform src/app/components/DeductionForm.tsx
+skipped
+transform src/app/components/EnhancedGroupSelector.tsx
+skipped
+transform src/app/components/EnhancedReportGenerator.tsx
+skipped
+transform src/app/components/EnhancedTransactionImport.tsx
+skipped
+transform src/app/components/ExpenseChart.tsx
+skipped
+transform src/app/components/ExpenseForm.tsx
+skipped
+transform src/app/components/ExpenseList.tsx
+skipped
+transform src/app/components/ExpenseSankey.tsx
+skipped
+transform src/app/components/ExpenseVisualization.tsx
+skipped
+transform src/app/components/FinanceDashboard.tsx
+skipped
+transform src/app/components/FinanceFlowDiagram.tsx
+skipped
+transform src/app/components/FinanceSummary.tsx
+skipped
+transform src/app/components/FinanceView.tsx
+skipped
+transform src/app/components/GroupConfiguration.tsx
+skipped
+transform src/app/components/GroupExpenseForm.tsx
+skipped
+transform src/app/components/GroupExpenseList.tsx
+skipped
+transform src/app/components/GroupMemberBalances.tsx
+skipped
+transform src/app/components/GroupSelector.tsx
+skipped
+transform src/app/components/IncomeForm.tsx
+skipped
+transform src/app/components/IncomeList.tsx
+skipped
+transform src/app/components/InviteLinkGenerator.tsx
+skipped
+transform src/app/components/JoinGroupModal.tsx
+skipped
+transform src/app/components/MultiUserDemo.tsx
+skipped
+transform src/app/components/ReportGenerator.tsx
+skipped
+transform src/app/components/SalaryBreakdownChart.tsx
+skipped
+transform src/app/components/SalaryCalculator.tsx
+skipped
+transform src/app/components/SidebarNav.tsx
+skipped
+transform src/app/components/TaxConfig.tsx
+skipped
+transform src/app/components/ThemeToggle.tsx
+skipped
+transform src/app/components/TransactionImport.tsx
+skipped
+transform src/app/constants/taxSystems.ts
+skipped
+transform src/app/constants/theme.ts
+skipped
+transform src/app/context/AdminContext.tsx
+skipped
+transform src/app/context/AuthContext.tsx
+skipped
+transform src/app/context/AuthWithAdminContext.tsx
+skipped
+transform src/app/context/BudgetContext.tsx
+skipped
+transform src/app/context/ExpenseContext.tsx
+skipped
+transform src/app/context/FinanceContext.tsx
+skipped
+transform src/app/context/MetricsContext.tsx
+skipped
+transform src/app/context/MultiUserFinanceContext.tsx
+skipped
+transform src/app/context/ThemeContext.tsx
+skipped
+transform src/app/metrics/engine.ts
+skipped
+transform src/app/metrics/index.ts
+skipped
+transform src/app/metrics/types.ts
+skipped
+transform src/app/personal/page.tsx
+skipped
+transform src/app/shared/page.tsx
+skipped
+transform src/app/types/index.ts
+skipped
+transform src/app/utils/enhancedPdfProcessor.ts
+skipped
+transform src/app/utils/enhancedReportGenerator.ts
+skipped
+transform src/app/utils/enhancedSmartCategorization.ts
+skipped
+transform src/app/utils/smartCategorization.ts
+skipped
+transform src/components/ui/accordion.tsx
+skipped
+transform src/components/ui/alert.tsx
+skipped
+transform src/components/ui/avatar.tsx
+skipped
+transform src/components/ui/badge.tsx
+skipped
+transform src/components/ui/button.tsx
+skipped
+transform src/components/ui/card.tsx
+skipped
+transform src/components/ui/checkbox.tsx
+skipped
+transform src/components/ui/collapsible.tsx
+skipped
+transform src/components/ui/dialog.tsx
+skipped
+transform src/components/ui/dropdown-menu.tsx
+skipped
+transform src/components/ui/form.tsx
+skipped
+transform src/components/ui/input.tsx
+skipped
+transform src/components/ui/label.tsx
+skipped
+transform src/components/ui/progress.tsx
+skipped
+transform src/components/ui/select.tsx
+skipped
+transform src/components/ui/separator.tsx
+skipped
+transform src/components/ui/skeleton.tsx
+skipped
+transform src/components/ui/slider.tsx
+skipped
+transform src/components/ui/switch.tsx
+skipped
+transform src/components/ui/table.tsx
+skipped
+transform src/components/ui/tabs.tsx
+skipped
+transform src/components/ui/textarea.tsx
+skipped
+transform src/components/ui/toast.tsx
+skipped
+transform src/components/ui/toaster.tsx
+skipped
+transform src/components/ui/tooltip.tsx
+skipped
+transform src/components/ui/use-toast.ts
+skipped
+transform out/_next/static/bQ2h1SzEAWmq7LZcCuKBR/_buildManifest.js
+skipped
+transform out/_next/static/bQ2h1SzEAWmq7LZcCuKBR/_ssgManifest.js
+skipped
+transform out/_next/static/chunks/121.7560c80c038f73cc.js
+modified
+transform out/_next/static/chunks/164f4fb6-3d03ba5a0726c36a.js
+modified
+transform out/_next/static/chunks/412-723988fdf598042f.js
+modified
+transform out/_next/static/chunks/4bd1b696-6a6a2c9063149257.js
+modified
+transform out/_next/static/chunks/684-6831d10645ad999c.js
+modified
+transform out/_next/static/chunks/831.3d4c5f280eca332b.js
+skipped
+transform out/_next/static/chunks/ad2866b8-c7956e5438da774a.js
+skipped
+transform out/_next/static/chunks/bc98253f.d21a5b1e2e1a8f86.js
+skipped
+transform out/_next/static/chunks/bc9e92e6-849278bb9fc74237.js
+modified
+transform out/_next/static/chunks/f01af2bd-6b588cb084a192f5.js
+modified
+transform out/_next/static/chunks/framework-66dcb5289ae9d888.js
+modified
+transform out/_next/static/chunks/main-0a1054a263a83d19.js
+modified
+transform out/_next/static/chunks/main-app-66553e5945666e6e.js
+skipped
+transform out/_next/static/chunks/polyfills-42372ed130431b0a.js
+modified
+transform out/_next/static/chunks/webpack-9040fb40445ef3bd.js
+skipped
+transform src/app/__tests__/integration/expense-creation.test.tsx
+skipped
+transform src/app/__tests__/integration/group-expense-creation.test.tsx
+skipped
+transform src/app/components/__tests__/SalaryCalculator.test.tsx
+skipped
+transform src/app/components/__tests__/TransactionImport.test.tsx
+skipped
+transform src/app/components/salary-calculator/constants.ts
+skipped
+transform src/app/components/salary-calculator/index.ts
+skipped
+transform src/app/components/salary-calculator/types.ts
+skipped
+transform src/app/components/salary-calculator/utils.ts
+skipped
+transform src/app/components/transaction-import/constants.ts
+skipped
+transform src/app/components/transaction-import/index.ts
+skipped
+transform src/app/components/transaction-import/types.ts
+skipped
+transform src/app/components/transaction-import/utils.ts
+skipped
+transform src/app/context/__mocks__/AuthWithAdminContext.ts
+skipped
+transform src/app/context/__mocks__/FinanceContext.ts
+skipped
+transform src/app/context/__tests__/AuthContext.test.tsx
+skipped
+transform src/app/context/__tests__/MultiUserFinanceContext.test.tsx
+skipped
+transform src/app/context/finance/index.ts
+skipped
+transform src/app/context/finance/mappers.ts
+skipped
+transform src/app/context/multiuser/MultiUserFinanceContext.tsx
+skipped
+transform src/app/context/multiuser/index.ts
+skipped
+transform src/app/context/multiuser/mappers.ts
+skipped
+transform src/app/context/multiuser/types.ts
+skipped
+transform src/app/metrics/hooks/index.ts
+skipped
+transform src/app/metrics/hooks/useBudgetMetrics.ts
+skipped
+transform src/app/metrics/hooks/useFinanceMetrics.ts
+skipped
+transform src/app/metrics/hooks/useVisualizationData.ts
+skipped
+transform src/app/metrics/providers/budget-metrics.ts
+skipped
+transform src/app/metrics/providers/finance-metrics.ts
+skipped
+transform src/app/metrics/providers/flow-metrics.ts
+skipped
+transform src/app/metrics/providers/index.ts
+skipped
+transform src/app/metrics/utils/colors.ts
+skipped
+transform src/app/metrics/utils/currency.ts
+skipped
+transform src/app/metrics/utils/index.ts
+skipped
+transform src/app/metrics/utils/period.ts
+skipped
+transform src/app/personal/expenses/page.tsx
+skipped
+transform src/app/personal/income/page.tsx
+skipped
+transform src/app/personal/reports/page.tsx
+skipped
+transform src/app/personal/settings/page.tsx
+skipped
+transform src/app/shared/expenses/page.tsx
+skipped
+transform src/app/shared/groups/page.tsx
+skipped
+transform src/app/shared/join/page.tsx
+skipped
+transform src/app/shared/reports/page.tsx
+skipped
+transform src/app/utils/__tests__/enhancedSmartCategorization.test.ts
+skipped
+transform src/gen/pfinance/v1/finance_service_connect.ts
+skipped
+transform src/gen/pfinance/v1/finance_service_pb.js
+skipped
+transform src/gen/pfinance/v1/finance_service_pb.ts
+skipped
+transform src/gen/pfinance/v1/types_pb.js
+skipped
+transform src/gen/pfinance/v1/types_pb.ts
+skipped
+transform out/_next/static/chunks/app/layout-2469196a93b8fbd7.js
+skipped
+transform out/_next/static/chunks/app/page-cdb2f6ffd9d46442.js
+modified
+transform out/_next/static/chunks/pages/_app-8e94039938385921.js
+skipped
+transform out/_next/static/chunks/pages/_error-7b2d139042a6a5ab.js
+skipped
+transform src/app/components/salary-calculator/hooks/index.ts
+skipped
+transform src/app/components/salary-calculator/hooks/useSalaryCalculations.ts
+skipped
+transform src/app/context/finance/hooks/index.ts
+skipped
+transform src/app/context/finance/hooks/useExpenses.ts
+skipped
+transform src/app/context/finance/hooks/useFinanceCalculations.ts
+skipped
+transform src/app/context/finance/hooks/useIncomes.ts
+skipped
+transform src/app/context/finance/hooks/useTaxConfig.ts
+skipped
+transform src/app/context/multiuser/hooks/index.ts
+skipped
+transform src/app/context/multiuser/hooks/useGroupAnalytics.ts
+skipped
+transform src/app/context/multiuser/hooks/useGroupExpenses.ts
+skipped
+transform src/app/context/multiuser/hooks/useGroupIncomes.ts
+skipped
+transform src/app/context/multiuser/hooks/useGroupMembers.ts
+skipped
+transform src/app/context/multiuser/hooks/useGroups.ts
+skipped
+transform src/app/context/multiuser/hooks/useInviteLinks.ts
+skipped
+transform out/_next/static/chunks/app/_not-found/page-7380803792dc7456.js
+skipped
+run npm install in .
+exit code: 1
+stdout:
+ 
+stderr:
+ npm error code ERESOLVE
+npm error ERESOLVE could not resolve
+npm error
+npm error While resolving: @testing-library/react@15.0.7
+npm error Found: @types/react@19.0.10
+npm error node_modules/@types/react
+npm error   dev @types/react@"^19" from the root project
+npm error   peerOptional @types/react@"*" from @radix-ui/react-accordion@1.2.3
+npm error   node_modules/@radix-ui/react-accordion
+npm error     @radix-ui/react-accordion@"^1.2.3" from the root project
+npm error   101 more (@radix-ui/react-arrow, @radix-ui/react-avatar, ...)
+npm error
+npm error Could not resolve dependency:
+npm error peerOptional @types/react@"^18.0.0" from @testing-library/react@15.0.7
+npm error node_modules/@testing-library/react
+npm error   dev @testing-library/react@"^15.0.0" from the root project
+npm error
+npm error Conflicting peer dependency: @types/react@18.3.27
+npm error node_modules/@types/react
+npm error   peerOptional @types/react@"^18.0.0" from @testing-library/react@15.0.7
+npm error   node_modules/@testing-library/react
+npm error     dev @testing-library/react@"^15.0.0" from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry
+npm error this command with --force or --legacy-peer-deps
+npm error to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error /Users/benebsworth/.npm/_logs/2026-01-26T08_29_16_585Z-eresolve-report.txt
+npm error A complete log of this run can be found in: /Users/benebsworth/.npm/_logs/2026-01-26T08_29_16_585Z-debug-0.log
+
