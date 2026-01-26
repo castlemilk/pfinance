@@ -1,5 +1,5 @@
-import { createPromiseClient } from "@bufbuild/connect";
-import { createConnectTransport } from "@bufbuild/connect-web";
+import { createPromiseClient } from "@connectrpc/connect";
+import { createConnectTransport } from "@connectrpc/connect-web";
 import { FinanceService } from "@/gen/pfinance/v1/finance_service_connect";
 import { onAuthStateChanged } from 'firebase/auth';
 

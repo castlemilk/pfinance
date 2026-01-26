@@ -18,11 +18,11 @@ plugins:
     opt:
       - paths=source_relative
   # TypeScript/JavaScript for web client
-  - plugin: buf.build/bufbuild/es:v1.10.0
+  - plugin: buf.build/connectrpc/es:latest
     out: ../web/src/gen
     opt:
       - target=ts
-  - plugin: buf.build/bufbuild/connect-es:v0.13.0
+  - plugin: buf.build/connectrpc/connect-es:latest
     out: ../web/src/gen
     opt:
       - target=ts
