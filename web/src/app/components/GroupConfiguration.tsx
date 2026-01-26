@@ -13,7 +13,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
 import { 
-  Users, 
   Crown, 
   Shield, 
   User,
@@ -237,7 +236,7 @@ export default function GroupConfiguration() {
         <CardHeader>
           <CardTitle>Your Finance Groups</CardTitle>
           <CardDescription>
-            All groups you're a member of
+            All groups you&apos;re a member of
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -318,7 +317,7 @@ export default function GroupConfiguration() {
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              This action cannot be undone. You'll need a new invitation to rejoin.
+              This action cannot be undone. You&apos;ll need a new invitation to rejoin.
             </AlertDescription>
           </Alert>
           

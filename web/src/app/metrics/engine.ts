@@ -10,10 +10,7 @@
 
 import { 
   IncomeFrequency,
-  ExpenseFrequency, 
   TaxConfig, 
-  Income, 
-  Expense 
 } from '../types';
 import { getTaxSystem, calculateTaxWithBrackets } from '../constants/taxSystems';
 import {
@@ -30,11 +27,12 @@ import {
 } from './types';
 import { toAnnual, fromAnnual, getPeriodLabel } from './utils/period';
 import { formatCurrency, formatPercentage, getCurrencyForCountry } from './utils/currency';
+import { getIncomeColor, getCategoryColor, getSavingsStatusColor } from './utils/colors';
 
 /**
  * Create metric utilities for a given context
  */
-function createMetricUtils(currency: string, taxConfig: TaxConfig): MetricUtils {
+function createMetricUtils(currency: string): MetricUtils {
   return {
     toAnnual,
     fromAnnual,
@@ -151,7 +149,7 @@ export class MetricsEngine implements IMetricsEngine {
     }
 
     const currency = options.currency ?? getCurrencyForCountry(input.taxConfig.country);
-    const utils = createMetricUtils(currency, input.taxConfig);
+    const utils = createMetricUtils(currency);
     
     // Create the compute context
     const context: MetricComputeContext = {
@@ -189,7 +187,7 @@ export class MetricsEngine implements IMetricsEngine {
    * Compute finance metrics
    */
   private computeFinanceMetrics(context: MetricComputeContext): FinanceMetrics {
-    const { incomes, expenses, taxConfig, displayPeriod, currency, utils } = context;
+    const { displayPeriod, currency } = context;
 
     // Compute income metrics
     const incomeMetrics = this.computeIncomeMetrics(context);
@@ -201,7 +199,7 @@ export class MetricsEngine implements IMetricsEngine {
     const taxMetrics = this.computeTaxMetrics(context, incomeMetrics);
     
     // Compute savings metrics
-    const savingsMetrics = this.computeSavingsMetrics(context, incomeMetrics, expenseMetrics, taxMetrics);
+    const savingsMetrics = this.computeSavingsMetrics(context, incomeMetrics, expenseMetrics);
 
     return {
       income: incomeMetrics,
@@ -219,9 +217,6 @@ export class MetricsEngine implements IMetricsEngine {
   private computeIncomeMetrics(context: MetricComputeContext) {
     const { incomes, displayPeriod, utils, taxConfig } = context;
     
-    // Import colors
-    const { getIncomeColor } = require('./utils/colors');
-
     // Calculate total annual income
     let totalAnnualGross = 0;
     let totalAnnualDeductions = 0;
@@ -277,10 +272,6 @@ export class MetricsEngine implements IMetricsEngine {
       .filter(i => i.taxStatus === 'preTax')
       .reduce((sum, i) => sum + utils.toAnnual(i.amount, i.frequency), 0);
     
-    const postTaxAnnualIncome = incomes
-      .filter(i => i.taxStatus === 'postTax')
-      .reduce((sum, i) => sum + utils.toAnnual(i.amount, i.frequency), 0);
-
     let totalTax = 0;
     if (taxConfig.enabled && preTaxAnnualIncome > 0) {
       // Apply deductions if configured
@@ -310,9 +301,6 @@ export class MetricsEngine implements IMetricsEngine {
   ) {
     const { expenses, displayPeriod, utils } = context;
     
-    // Import colors
-    const { getCategoryColor } = require('./utils/colors');
-
     // Group expenses by category
     const categoryTotals = new Map<string, number>();
     let totalAnnualExpenses = 0;
@@ -420,14 +408,10 @@ export class MetricsEngine implements IMetricsEngine {
   private computeSavingsMetrics(
     context: MetricComputeContext,
     incomeMetrics: ReturnType<typeof this.computeIncomeMetrics>,
-    expenseMetrics: ReturnType<typeof this.computeExpenseMetrics>,
-    taxMetrics: ReturnType<typeof this.computeTaxMetrics>
+    expenseMetrics: ReturnType<typeof this.computeExpenseMetrics>
   ) {
     const { displayPeriod, utils } = context;
     
-    // Import colors
-    const { getSavingsStatusColor } = require('./utils/colors');
-
     // Calculate savings
     const annualSavings = incomeMetrics.net.annualized - expenseMetrics.total.annualized;
     
@@ -459,7 +443,7 @@ export class MetricsEngine implements IMetricsEngine {
     context: MetricComputeContext,
     financeMetrics: FinanceMetrics
   ): VisualizationData {
-    const { displayPeriod, utils } = context;
+    const { displayPeriod } = context;
     
     // Expense pie chart data
     const expensePieChart = financeMetrics.expenses.byCategory.map(cat => ({

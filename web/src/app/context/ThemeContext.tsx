@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -26,22 +26,22 @@ export function ThemeProvider({
   const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('light');
 
   // Get system preference
-  const getSystemTheme = (): 'light' | 'dark' => {
+  const getSystemTheme = useCallback((): 'light' | 'dark' => {
     if (typeof window !== 'undefined') {
       return window.matchMedia('(prefers-color-scheme: dark)').matches 
         ? 'dark' 
         : 'light';
     }
     return 'light';
-  };
+  }, []);
 
   // Calculate actual theme based on theme setting
-  const calculateActualTheme = (currentTheme: Theme): 'light' | 'dark' => {
+  const calculateActualTheme = useCallback((currentTheme: Theme): 'light' | 'dark' => {
     if (currentTheme === 'system') {
       return getSystemTheme();
     }
     return currentTheme;
-  };
+  }, [getSystemTheme]);
 
   // Load theme from localStorage on mount
   useEffect(() => {
@@ -67,7 +67,7 @@ export function ThemeProvider({
       // Save to localStorage
       localStorage.setItem('pfinance-theme', theme);
     }
-  }, [theme]);
+  }, [theme, calculateActualTheme]);
 
   // Listen for system theme changes
   useEffect(() => {
@@ -81,7 +81,7 @@ export function ThemeProvider({
       mediaQuery.addEventListener('change', handleChange);
       return () => mediaQuery.removeEventListener('change', handleChange);
     }
-  }, [theme]);
+  }, [theme, calculateActualTheme]);
 
   const handleSetTheme = (newTheme: Theme) => {
     setTheme(newTheme);

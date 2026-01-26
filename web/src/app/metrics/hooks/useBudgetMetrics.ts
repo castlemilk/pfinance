@@ -15,6 +15,7 @@ import {
   getBudgetMetricsForCategory,
   getMostConstrainedBudget,
   getAtRiskBudgets,
+  computeBudgetProgressMetric,
   BudgetMetricsInput, 
   BudgetMetricsOptions 
 } from '../providers/budget-metrics';
@@ -117,7 +118,6 @@ export function useSingleBudgetProgress(
   return useMemo(() => {
     if (!budget) return null;
 
-    const { computeBudgetProgressMetric } = require('../providers/budget-metrics');
     return computeBudgetProgressMetric(budget, progress, {
       displayPeriod,
       currency,

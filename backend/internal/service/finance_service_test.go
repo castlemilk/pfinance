@@ -172,7 +172,7 @@ func TestCreateExpenseWithAllocation(t *testing.T) {
 					if len(expense.Allocations) != tt.expectedAllocCount {
 						t.Errorf("Expected %d allocations, got %d", tt.expectedAllocCount, len(expense.Allocations))
 					}
-					
+
 					if tt.expectedAllocCount > 0 {
 						for _, alloc := range expense.Allocations {
 							if alloc.Amount != tt.expectedAmount {
@@ -183,12 +183,12 @@ func TestCreateExpenseWithAllocation(t *testing.T) {
 							}
 						}
 					}
-					
+
 					// Verify paid_by_user_id is set correctly
 					if expense.PaidByUserId != tt.request.PaidByUserId {
 						t.Errorf("Expected PaidByUserId %s, got %s", tt.request.PaidByUserId, expense.PaidByUserId)
 					}
-					
+
 					return nil
 				})
 
@@ -1414,16 +1414,16 @@ func TestListGroups(t *testing.T) {
 
 	mockGroups := []*pfinancev1.FinanceGroup{
 		{
-			Id:          "group-1",
-			Name:        "Family Budget",
-			OwnerId:     "user-123",
-			MemberIds:   []string{"user-123", "user-456"},
+			Id:        "group-1",
+			Name:      "Family Budget",
+			OwnerId:   "user-123",
+			MemberIds: []string{"user-123", "user-456"},
 		},
 		{
-			Id:          "group-2",
-			Name:        "Roommates",
-			OwnerId:     "user-123",
-			MemberIds:   []string{"user-123", "user-789"},
+			Id:        "group-2",
+			Name:      "Roommates",
+			OwnerId:   "user-123",
+			MemberIds: []string{"user-123", "user-789"},
 		},
 	}
 
@@ -2163,10 +2163,10 @@ func TestRemoveFromGroup(t *testing.T) {
 	service := NewFinanceService(mockStore)
 
 	existingGroup := &pfinancev1.FinanceGroup{
-		Id:          "group-123",
-		Name:        "Family Budget",
-		OwnerId:     "user-123",
-		MemberIds:   []string{"user-123", "user-456", "user-789"},
+		Id:        "group-123",
+		Name:      "Family Budget",
+		OwnerId:   "user-123",
+		MemberIds: []string{"user-123", "user-456", "user-789"},
 		Members: []*pfinancev1.GroupMember{
 			{UserId: "user-123", Role: pfinancev1.GroupRole_GROUP_ROLE_OWNER},
 			{UserId: "user-456", Role: pfinancev1.GroupRole_GROUP_ROLE_MEMBER},
@@ -2270,10 +2270,10 @@ func TestUpdateMemberRole(t *testing.T) {
 	service := NewFinanceService(mockStore)
 
 	existingGroup := &pfinancev1.FinanceGroup{
-		Id:          "group-123",
-		Name:        "Family Budget",
-		OwnerId:     "user-123",
-		MemberIds:   []string{"user-123", "user-456"},
+		Id:        "group-123",
+		Name:      "Family Budget",
+		OwnerId:   "user-123",
+		MemberIds: []string{"user-123", "user-456"},
 		Members: []*pfinancev1.GroupMember{
 			{UserId: "user-123", Role: pfinancev1.GroupRole_GROUP_ROLE_OWNER},
 			{UserId: "user-456", Role: pfinancev1.GroupRole_GROUP_ROLE_MEMBER},
@@ -3662,16 +3662,16 @@ func TestListContributions(t *testing.T) {
 
 	mockContributions := []*pfinancev1.ExpenseContribution{
 		{
-			Id:              "contrib-1",
-			TargetGroupId:   "group-123",
-			ContributedBy:   "user-123",
-			Amount:          50.00,
+			Id:            "contrib-1",
+			TargetGroupId: "group-123",
+			ContributedBy: "user-123",
+			Amount:        50.00,
 		},
 		{
-			Id:              "contrib-2",
-			TargetGroupId:   "group-123",
-			ContributedBy:   "user-456",
-			Amount:          75.00,
+			Id:            "contrib-2",
+			TargetGroupId: "group-123",
+			ContributedBy: "user-456",
+			Amount:        75.00,
 		},
 	}
 

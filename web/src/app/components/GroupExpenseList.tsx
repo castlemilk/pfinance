@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { useMultiUserFinance } from '../context/MultiUserFinanceContext';
 import { Expense, ExpenseAllocation, SplitType, ExpenseCategory } from '@/gen/pfinance/v1/types_pb';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -25,26 +24,31 @@ import {
   Users, 
   CheckCircle2, 
   XCircle, 
-  DollarSign,
-  Calendar,
-  Tag
+  DollarSign
 } from 'lucide-react';
 
 interface GroupExpenseListProps {
   groupId: string;
 }
 
-export default function GroupExpenseList({ groupId }: GroupExpenseListProps) {
+export default function GroupExpenseList({ }: GroupExpenseListProps) {
   const { user } = useAuth();
   const { activeGroup, groupExpenses } = useMultiUserFinance();
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
 
   // Use expenses from context which are already being refreshed
   const expenses = groupExpenses;
 
-  const formatDate = (date: any) => {
+  const formatDate = (date: { toDate?: () => Date } | Date | string | number | undefined) => {
     if (!date) return '';
-    const d = date.toDate ? date.toDate() : new Date(date);
+    
+    let d: Date;
+    if (typeof date === 'object' && date !== null && 'toDate' in date && typeof date.toDate === 'function') {
+      d = date.toDate();
+    } else {
+      d = new Date(date as string | number | Date);
+    }
+    
     return new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
       month: 'short',

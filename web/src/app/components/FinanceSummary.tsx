@@ -25,7 +25,7 @@ import { countryFlags } from './TaxConfig';
 
 // Import from the new metrics layer
 import { useFinanceMetrics } from '../metrics/hooks/useFinanceMetrics';
-import { SAVINGS_STATUS_CLASSES, getSavingsStatusClass } from '../metrics/utils/colors';
+import { SAVINGS_STATUS_CLASSES } from '../metrics/utils/colors';
 
 interface FinanceSummaryProps {
   mode?: 'personal' | 'shared';
@@ -60,7 +60,7 @@ export default function FinanceSummary({ mode = 'personal', groupId }: FinanceSu
   const [displayPeriod, setDisplayPeriod] = useState<IncomeFrequency>('monthly');
 
   // Use the new metrics hook for personal mode
-  const { metrics, utils, periodLabel } = useFinanceMetrics(
+  const { metrics, utils } = useFinanceMetrics(
     incomes,
     expenses,
     taxConfig,

@@ -44,11 +44,11 @@ func NewMemoryStore() *MemoryStore {
 func (m *MemoryStore) CreateExpense(ctx context.Context, expense *pfinancev1.Expense) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if expense.Id == "" {
 		expense.Id = uuid.New().String()
 	}
-	
+
 	m.expenses[expense.Id] = expense
 	return nil
 }
@@ -56,23 +56,23 @@ func (m *MemoryStore) CreateExpense(ctx context.Context, expense *pfinancev1.Exp
 func (m *MemoryStore) GetExpense(ctx context.Context, expenseID string) (*pfinancev1.Expense, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	expense, ok := m.expenses[expenseID]
 	if !ok {
 		return nil, fmt.Errorf("expense not found: %s", expenseID)
 	}
-	
+
 	return expense, nil
 }
 
 func (m *MemoryStore) UpdateExpense(ctx context.Context, expense *pfinancev1.Expense) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if _, ok := m.expenses[expense.Id]; !ok {
 		return fmt.Errorf("expense not found: %s", expense.Id)
 	}
-	
+
 	m.expenses[expense.Id] = expense
 	return nil
 }
@@ -210,11 +210,11 @@ func (m *MemoryStore) ListIncomes(ctx context.Context, userID, groupID string, s
 func (m *MemoryStore) CreateGroup(ctx context.Context, group *pfinancev1.FinanceGroup) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if group.Id == "" {
 		group.Id = uuid.New().String()
 	}
-	
+
 	m.groups[group.Id] = group
 	return nil
 }
@@ -222,23 +222,23 @@ func (m *MemoryStore) CreateGroup(ctx context.Context, group *pfinancev1.Finance
 func (m *MemoryStore) GetGroup(ctx context.Context, groupID string) (*pfinancev1.FinanceGroup, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	group, ok := m.groups[groupID]
 	if !ok {
 		return nil, fmt.Errorf("group not found: %s", groupID)
 	}
-	
+
 	return group, nil
 }
 
 func (m *MemoryStore) UpdateGroup(ctx context.Context, group *pfinancev1.FinanceGroup) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if _, ok := m.groups[group.Id]; !ok {
 		return fmt.Errorf("group not found: %s", group.Id)
 	}
-	
+
 	m.groups[group.Id] = group
 	return nil
 }
@@ -286,11 +286,11 @@ func (m *MemoryStore) DeleteGroup(ctx context.Context, groupID string) error {
 func (m *MemoryStore) CreateInvitation(ctx context.Context, invitation *pfinancev1.GroupInvitation) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if invitation.Id == "" {
 		invitation.Id = uuid.New().String()
 	}
-	
+
 	m.invitations[invitation.Id] = invitation
 	return nil
 }
@@ -298,23 +298,23 @@ func (m *MemoryStore) CreateInvitation(ctx context.Context, invitation *pfinance
 func (m *MemoryStore) GetInvitation(ctx context.Context, invitationID string) (*pfinancev1.GroupInvitation, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	invitation, ok := m.invitations[invitationID]
 	if !ok {
 		return nil, fmt.Errorf("invitation not found: %s", invitationID)
 	}
-	
+
 	return invitation, nil
 }
 
 func (m *MemoryStore) UpdateInvitation(ctx context.Context, invitation *pfinancev1.GroupInvitation) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if _, ok := m.invitations[invitation.Id]; !ok {
 		return fmt.Errorf("invitation not found: %s", invitation.Id)
 	}
-	
+
 	m.invitations[invitation.Id] = invitation
 	return nil
 }
@@ -322,25 +322,25 @@ func (m *MemoryStore) UpdateInvitation(ctx context.Context, invitation *pfinance
 func (m *MemoryStore) ListInvitations(ctx context.Context, userEmail string, status *pfinancev1.InvitationStatus, pageSize int32) ([]*pfinancev1.GroupInvitation, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	var result []*pfinancev1.GroupInvitation
-	
+
 	for _, invitation := range m.invitations {
 		if invitation.InviteeEmail != userEmail {
 			continue
 		}
-		
+
 		if status != nil && invitation.Status != *status {
 			continue
 		}
-		
+
 		result = append(result, invitation)
-		
+
 		if pageSize > 0 && int32(len(result)) >= pageSize {
 			break
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -513,11 +513,11 @@ func (m *MemoryStore) UpdateTaxConfig(ctx context.Context, userID, groupID strin
 func (m *MemoryStore) CreateBudget(ctx context.Context, budget *pfinancev1.Budget) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if budget.Id == "" {
 		budget.Id = uuid.New().String()
 	}
-	
+
 	m.budgets[budget.Id] = budget
 	return nil
 }
@@ -525,23 +525,23 @@ func (m *MemoryStore) CreateBudget(ctx context.Context, budget *pfinancev1.Budge
 func (m *MemoryStore) GetBudget(ctx context.Context, budgetID string) (*pfinancev1.Budget, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	budget, ok := m.budgets[budgetID]
 	if !ok {
 		return nil, fmt.Errorf("budget not found: %s", budgetID)
 	}
-	
+
 	return budget, nil
 }
 
 func (m *MemoryStore) UpdateBudget(ctx context.Context, budget *pfinancev1.Budget) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if _, ok := m.budgets[budget.Id]; !ok {
 		return fmt.Errorf("budget not found: %s", budget.Id)
 	}
-	
+
 	m.budgets[budget.Id] = budget
 	return nil
 }
@@ -549,7 +549,7 @@ func (m *MemoryStore) UpdateBudget(ctx context.Context, budget *pfinancev1.Budge
 func (m *MemoryStore) DeleteBudget(ctx context.Context, budgetID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	delete(m.budgets, budgetID)
 	return nil
 }
@@ -557,9 +557,9 @@ func (m *MemoryStore) DeleteBudget(ctx context.Context, budgetID string) error {
 func (m *MemoryStore) ListBudgets(ctx context.Context, userID, groupID string, includeInactive bool, pageSize int32) ([]*pfinancev1.Budget, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	var result []*pfinancev1.Budget
-	
+
 	for _, budget := range m.budgets {
 		if userID != "" && budget.UserId != userID {
 			continue
@@ -567,30 +567,30 @@ func (m *MemoryStore) ListBudgets(ctx context.Context, userID, groupID string, i
 		if groupID != "" && budget.GroupId != groupID {
 			continue
 		}
-		
+
 		if !includeInactive && !budget.IsActive {
 			continue
 		}
-		
+
 		result = append(result, budget)
-		
+
 		if pageSize > 0 && int32(len(result)) >= pageSize {
 			break
 		}
 	}
-	
+
 	return result, nil
 }
 
 func (m *MemoryStore) GetBudgetProgress(ctx context.Context, budgetID string, asOfDate time.Time) (*pfinancev1.BudgetProgress, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	budget, ok := m.budgets[budgetID]
 	if !ok {
 		return nil, fmt.Errorf("budget not found: %s", budgetID)
 	}
-	
+
 	// Calculate spent amount by summing matching expenses
 	var spentAmount float64
 	for _, expense := range m.expenses {
@@ -601,7 +601,7 @@ func (m *MemoryStore) GetBudgetProgress(ctx context.Context, budgetID string, as
 		if budget.GroupId != "" && expense.GroupId != budget.GroupId {
 			continue
 		}
-		
+
 		// Match by category if specified in budget
 		if len(budget.CategoryIds) > 0 {
 			categoryMatch := false
@@ -615,22 +615,22 @@ func (m *MemoryStore) GetBudgetProgress(ctx context.Context, budgetID string, as
 				continue
 			}
 		}
-		
+
 		// Check if expense is within budget period
 		expenseTime := expense.Date.AsTime()
 		budgetStart := budget.StartDate.AsTime()
 		budgetEnd := budget.EndDate.AsTime()
-		
+
 		if expenseTime.Before(budgetStart) || expenseTime.After(budgetEnd) {
 			continue
 		}
-		
+
 		spentAmount += expense.Amount
 	}
-	
+
 	remainingAmount := budget.Amount - spentAmount
 	percentageUsed := (spentAmount / budget.Amount) * 100
-	
+
 	return &pfinancev1.BudgetProgress{
 		BudgetId:        budgetID,
 		SpentAmount:     spentAmount,

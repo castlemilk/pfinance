@@ -25,10 +25,9 @@ import {
   IncomeSourceMetric,
   CategoryExpenseMetric,
   SavingsStatus,
-  MetricUtils
 } from '../types';
-import { toAnnual, fromAnnual, getPeriodLabel } from '../utils/period';
-import { formatCurrency, formatPercentage, getCurrencyForCountry } from '../utils/currency';
+import { toAnnual, fromAnnual } from '../utils/period';
+import { formatCurrency, getCurrencyForCountry } from '../utils/currency';
 import { 
   getCategoryColor, 
   getIncomeColor, 

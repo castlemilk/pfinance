@@ -19,8 +19,7 @@ import {
   MoreVertical, 
   Target,
   TrendingUp,
-  TrendingDown,
-  Minus
+  TrendingDown
 } from 'lucide-react';
 import { Budget, BudgetPeriod, ExpenseCategory } from '@/gen/pfinance/v1/types_pb';
 
@@ -76,13 +75,6 @@ export default function BudgetTracker({
       case ExpenseCategory.OTHER: return 'Other';
       default: return 'Unknown';
     }
-  };
-
-  const getProgressColor = (percentage: number): string => {
-    if (percentage >= 100) return 'bg-red-500';
-    if (percentage >= 90) return 'bg-orange-500';
-    if (percentage >= 75) return 'bg-yellow-500';
-    return 'bg-green-500';
   };
 
   const getProgressIcon = (percentage: number) => {
@@ -256,7 +248,7 @@ export default function BudgetTracker({
                 <div>
                   <p className="text-sm font-medium mb-2">Spending Breakdown</p>
                   <div className="space-y-1">
-                    {progress.categoryBreakdown.map((breakdown: any) => (
+                    {progress.categoryBreakdown.map((breakdown) => (
                       <div key={breakdown.category} className="flex justify-between text-xs">
                         <span>{getCategoryLabel(breakdown.category)}</span>
                         <span className="font-medium">

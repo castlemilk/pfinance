@@ -111,7 +111,6 @@ export class EnhancedReportGenerator {
   public async generatePDF(): Promise<Blob> {
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
     let yPosition = 20;
 
     // Title page
@@ -165,8 +164,8 @@ export class EnhancedReportGenerator {
   }
 
   // Generate Excel-compatible XLSX data
-  public generateXLSXData(): any {
-    const workbook = {
+  public generateXLSXData(): Record<string, unknown> {
+    const workbook: Record<string, unknown> = {
       SheetNames: ['Summary', 'Income', 'Expenses', 'Trends'],
       Sheets: {
         Summary: this.createSummarySheet(),
@@ -177,8 +176,8 @@ export class EnhancedReportGenerator {
     };
 
     if (this.data.groupData) {
-      workbook.SheetNames.push('Group');
-      (workbook.Sheets as any)['Group'] = this.createGroupSheet();
+      (workbook.SheetNames as string[]).push('Group');
+      (workbook.Sheets as Record<string, unknown>)['Group'] = this.createGroupSheet();
     }
 
     return workbook;
@@ -549,7 +548,7 @@ export class EnhancedReportGenerator {
     return `During the reporting period from ${this.data.period.start.toLocaleDateString()} to ${this.data.period.end.toLocaleDateString()}, total income was $${this.data.income.total.toFixed(2)} with total expenses of $${this.data.expenses.total.toFixed(2)}, resulting in net savings of $${this.data.savings.amount.toFixed(2)} (${savingsRate.toFixed(1)}% savings rate). The largest expense category was ${topCategory}, and spending trends show a ${spendingTrend} pattern. ${this.data.groupData ? `Group expenses totaled $${this.data.groupData.totalGroupExpenses.toFixed(2)} with a net balance of $${this.data.groupData.netBalance.toFixed(2)}.` : ''}`;
   }
 
-  private createSummarySheet(): any {
+  private createSummarySheet(): Record<string, unknown> {
     return {
       'A1': { v: 'Financial Summary', t: 's' },
       'A2': { v: 'Period', t: 's' },
@@ -572,8 +571,8 @@ export class EnhancedReportGenerator {
     };
   }
 
-  private createIncomeSheet(): any {
-    const sheet: any = {
+  private createIncomeSheet(): Record<string, unknown> {
+    const sheet: Record<string, unknown> = {
       'A1': { v: 'Income Breakdown', t: 's' },
       'A3': { v: 'Source', t: 's' },
       'B3': { v: 'Amount', t: 's' },
@@ -583,10 +582,11 @@ export class EnhancedReportGenerator {
 
     this.data.income.breakdown.forEach((income, index) => {
       const row = index + 4;
-      sheet[`A${row}`] = { v: income.source, t: 's' };
-      sheet[`B${row}`] = { v: income.amount, t: 'n' };
-      sheet[`C${row}`] = { v: income.frequency, t: 's' };
-      sheet[`D${row}`] = { v: income.percentage / 100, t: 'n', z: '0.00%' };
+      const sheetRecord = sheet as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+      sheetRecord[`A${row}`] = { v: income.source, t: 's' };
+      sheetRecord[`B${row}`] = { v: income.amount, t: 'n' };
+      sheetRecord[`C${row}`] = { v: income.frequency, t: 's' };
+      sheetRecord[`D${row}`] = { v: income.percentage / 100, t: 'n', z: '0.00%' };
     });
 
     const lastRow = this.data.income.breakdown.length + 3;
@@ -594,8 +594,8 @@ export class EnhancedReportGenerator {
     return sheet;
   }
 
-  private createExpenseSheet(): any {
-    const sheet: any = {
+  private createExpenseSheet(): Record<string, unknown> {
+    const sheet: Record<string, unknown> = {
       'A1': { v: 'Expense Breakdown', t: 's' },
       'A3': { v: 'Category', t: 's' },
       'B3': { v: 'Amount', t: 's' },
@@ -605,10 +605,11 @@ export class EnhancedReportGenerator {
 
     this.data.expenses.breakdown.forEach((expense, index) => {
       const row = index + 4;
-      sheet[`A${row}`] = { v: expense.category, t: 's' };
-      sheet[`B${row}`] = { v: expense.totalAmount, t: 'n' };
-      sheet[`C${row}`] = { v: expense.percentage / 100, t: 'n', z: '0.00%' };
-      sheet[`D${row}`] = { v: expense.trend || 'Stable', t: 's' };
+      const sheetRecord = sheet as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+      sheetRecord[`A${row}`] = { v: expense.category, t: 's' };
+      sheetRecord[`B${row}`] = { v: expense.totalAmount, t: 'n' };
+      sheetRecord[`C${row}`] = { v: expense.percentage / 100, t: 'n', z: '0.00%' };
+      sheetRecord[`D${row}`] = { v: expense.trend || 'Stable', t: 's' };
     });
 
     const lastRow = this.data.expenses.breakdown.length + 3;
@@ -616,8 +617,8 @@ export class EnhancedReportGenerator {
     return sheet;
   }
 
-  private createTrendsSheet(): any {
-    const sheet: any = {
+  private createTrendsSheet(): Record<string, unknown> {
+    const sheet: Record<string, unknown> = {
       'A1': { v: 'Financial Trends', t: 's' },
       'A3': { v: 'Metric', t: 's' },
       'B3': { v: 'Current Period', t: 's' },
@@ -639,10 +640,10 @@ export class EnhancedReportGenerator {
     return sheet;
   }
 
-  private createGroupSheet(): any {
+  private createGroupSheet(): Record<string, unknown> {
     if (!this.data.groupData) return {};
 
-    const sheet: any = {
+    const sheet: Record<string, unknown> = {
       'A1': { v: 'Group Finance Analysis', t: 's' },
       'A3': { v: 'Group Name', t: 's' },
       'B3': { v: this.data.groupData.name, t: 's' },

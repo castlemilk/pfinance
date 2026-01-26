@@ -13,6 +13,7 @@ import { FinanceMetrics, MetricUtils } from '../types';
 import { computeFinanceMetrics, FinanceMetricsInput, FinanceMetricsOptions } from '../providers/finance-metrics';
 import { toAnnual, fromAnnual, getPeriodLabel } from '../utils/period';
 import { formatCurrency, formatPercentage, getCurrencyForCountry } from '../utils/currency';
+import { getTaxSystem, calculateTaxWithBrackets } from '../../constants/taxSystems';
 
 /**
  * Options for the useFinanceMetrics hook
@@ -77,7 +78,6 @@ export function useFinanceMetrics(
       if (config.country === 'simple') {
         return (amount * config.taxRate) / 100;
       }
-      const { getTaxSystem, calculateTaxWithBrackets } = require('../../constants/taxSystems');
       const taxSystem = getTaxSystem(config.country);
       const brackets = config.customBrackets ?? taxSystem.brackets;
       return calculateTaxWithBrackets(amount, brackets);

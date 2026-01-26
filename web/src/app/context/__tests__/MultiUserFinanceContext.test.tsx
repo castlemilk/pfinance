@@ -1,31 +1,37 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { MultiUserFinanceProvider, useMultiUserFinance } from '../MultiUserFinanceContext';
-import { useAuth } from '../AuthContext';
+import { useAuth } from '../AuthWithAdminContext';
 
-// Mock Firebase Firestore
-jest.mock('firebase/firestore', () => ({
-  collection: jest.fn(),
-  doc: jest.fn(),
-  addDoc: jest.fn(),
-  updateDoc: jest.fn(),
-  deleteDoc: jest.fn(),
-  query: jest.fn(),
-  where: jest.fn(),
-  onSnapshot: jest.fn(),
-  serverTimestamp: jest.fn(() => ({ _seconds: Date.now() / 1000 })),
-}));
+import { financeClient } from '@/lib/financeService';
+import { Timestamp } from '@bufbuild/protobuf';
 
-// Mock Firebase lib
-jest.mock('@/lib/firebase', () => ({
-  db: {
-    collection: jest.fn(),
+// Mock financeService
+jest.mock('@/lib/financeService', () => ({
+  financeClient: {
+    listGroups: jest.fn(),
+    createGroup: jest.fn(),
+    updateGroup: jest.fn(),
+    deleteGroup: jest.fn(),
+    removeFromGroup: jest.fn(),
+    inviteToGroup: jest.fn(),
+    updateMemberRole: jest.fn(),
+    listExpenses: jest.fn(),
+    createExpense: jest.fn(),
+    updateExpense: jest.fn(),
+    deleteExpense: jest.fn(),
+    listIncomes: jest.fn(),
+    createIncome: jest.fn(),
+    updateIncome: jest.fn(),
+    deleteIncome: jest.fn(),
+    settleExpense: jest.fn(),
   },
 }));
 
-// Mock AuthContext
-jest.mock('../AuthContext', () => ({
+// Mock AuthWithAdminContext
+jest.mock('../AuthWithAdminContext', () => ({
   useAuth: jest.fn(),
 }));
 
@@ -60,6 +66,7 @@ function TestComponent() {
     loading, 
     error,
     createGroup,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     setActiveGroup,
     inviteUserToGroup,
     leaveGroup,
@@ -94,14 +101,14 @@ function TestComponent() {
       </button>
       <button 
         data-testid="add-expense"
-        onClick={() => activeGroup && addGroupExpense(
+        onClick={() => activeGroup && (addGroupExpense as any)(
           activeGroup.id,
-          {
-            amount: 100,
-            description: 'Test expense',
-            category: 'Food' as any,
-            frequency: 'OneTime' as any
-          },
+          'Test expense',
+          100,
+          'Food',
+          'OneTime',
+          'user1',
+          'Equal',
           [{ userId: 'user1', amount: 50 }, { userId: 'user2', amount: 50 }]
         )}
       >
@@ -118,30 +125,13 @@ function TestComponent() {
 }
 
 describe('MultiUserFinanceContext', () => {
-  let mockOnSnapshot: jest.Mock;
-  let mockAddDoc: jest.Mock;
-  let mockUpdateDoc: jest.Mock;
-  let mockDeleteDoc: jest.Mock;
-
   beforeEach(() => {
     jest.clearAllMocks();
     
-    // Get mocked functions from jest mocks
-    mockOnSnapshot = jest.mocked(require('firebase/firestore').onSnapshot);
-    mockAddDoc = jest.mocked(require('firebase/firestore').addDoc);
-    mockUpdateDoc = jest.mocked(require('firebase/firestore').updateDoc);
-    mockDeleteDoc = jest.mocked(require('firebase/firestore').deleteDoc);
-    
-    // Mock successful operations
-    mockAddDoc.mockResolvedValue({ id: 'new-group-id' });
-    mockUpdateDoc.mockResolvedValue(undefined);
-    mockDeleteDoc.mockResolvedValue(undefined);
-    
-    // Mock onSnapshot to immediately call callback with empty data
-    mockOnSnapshot.mockImplementation((query, callback) => {
-      callback({ docs: [] });
-      return jest.fn(); // Return unsubscribe function
-    });
+    // Default mock implementations
+    (financeClient.listGroups as jest.Mock).mockResolvedValue({ groups: [] });
+    (financeClient.listExpenses as jest.Mock).mockResolvedValue({ expenses: [] });
+    (financeClient.listIncomes as jest.Mock).mockResolvedValue({ incomes: [] });
   });
 
   it('provides multi-user finance context when user is not authenticated', async () => {
@@ -152,6 +142,8 @@ describe('MultiUserFinanceContext', () => {
       signUp: jest.fn(),
       signInWithGoogle: jest.fn(),
       logout: jest.fn(),
+      isImpersonating: false,
+      actualUser: null,
     });
 
     render(
@@ -179,6 +171,8 @@ describe('MultiUserFinanceContext', () => {
       signUp: jest.fn(),
       signInWithGoogle: jest.fn(),
       logout: jest.fn(),
+      isImpersonating: false,
+      actualUser: mockUser,
     });
 
     const mockGroups = [
@@ -186,15 +180,17 @@ describe('MultiUserFinanceContext', () => {
         id: 'group1',
         name: 'Test Group',
         description: 'Test Description',
+        memberIds: ['user123'],
         members: [{
           userId: 'user123',
           email: 'test@example.com',
           displayName: 'Test User',
-          role: 'owner',
-          joinedAt: { toDate: () => new Date() }
+          role: 4, // OWNER
+          joinedAt: Timestamp.fromDate(new Date())
         }],
-        createdBy: 'user123',
-        createdAt: { toDate: () => new Date() },
+        ownerId: 'user123',
+        createdAt: Timestamp.fromDate(new Date()),
+        updatedAt: Timestamp.fromDate(new Date()),
         settings: {
           currency: 'USD',
           allowMemberInvites: true,
@@ -204,21 +200,8 @@ describe('MultiUserFinanceContext', () => {
       }
     ];
 
-    mockOnSnapshot.mockImplementation((query, callback) => {
-      callback({ 
-        docs: mockGroups.map(group => ({
-          id: group.id,
-          data: () => ({
-            ...group,
-            createdAt: { toDate: () => new Date() },
-            members: group.members.map(member => ({
-              ...member,
-              joinedAt: { toDate: () => new Date() }
-            }))
-          })
-        }))
-      });
-      return jest.fn();
+    (financeClient.listGroups as jest.Mock).mockResolvedValue({ 
+      groups: mockGroups
     });
 
     render(
@@ -244,6 +227,29 @@ describe('MultiUserFinanceContext', () => {
       signUp: jest.fn(),
       signInWithGoogle: jest.fn(),
       logout: jest.fn(),
+      isImpersonating: false,
+      actualUser: mockUser,
+    });
+
+    const mockNewGroup = {
+      id: 'new-group-id',
+      name: 'Test Group',
+      description: 'Test Description',
+      memberIds: ['user123'],
+      members: [{
+        userId: 'user123',
+        email: 'test@example.com',
+        displayName: 'Test User',
+        role: 4, // OWNER
+        joinedAt: Timestamp.fromDate(new Date())
+      }],
+      ownerId: 'user123',
+      createdAt: Timestamp.fromDate(new Date()),
+      updatedAt: Timestamp.fromDate(new Date()),
+    };
+
+    (financeClient.createGroup as jest.Mock).mockResolvedValue({ 
+      group: mockNewGroup
     });
 
     render(
@@ -260,27 +266,11 @@ describe('MultiUserFinanceContext', () => {
       screen.getByTestId('create-group').click();
     });
 
-    expect(mockAddDoc).toHaveBeenCalledWith(
-      undefined, // collection reference is mocked to return undefined
+    expect(financeClient.createGroup).toHaveBeenCalledWith(
       expect.objectContaining({
+        ownerId: 'user123',
         name: 'Test Group',
         description: 'Test Description',
-        createdBy: 'user123',
-        members: expect.arrayContaining([
-          expect.objectContaining({
-            userId: 'user123',
-            email: 'test@example.com',
-            displayName: 'Test User',
-            role: 'owner',
-            joinedAt: expect.anything()
-          })
-        ]),
-        settings: expect.objectContaining({
-          currency: 'USD',
-          allowMemberInvites: true,
-          autoApproveExpenses: true,
-          defaultSplitMethod: 'equal'
-        })
       })
     );
   });
@@ -293,6 +283,8 @@ describe('MultiUserFinanceContext', () => {
       signUp: jest.fn(),
       signInWithGoogle: jest.fn(),
       logout: jest.fn(),
+      isImpersonating: false,
+      actualUser: null,
     });
 
     render(
@@ -327,6 +319,8 @@ describe('MultiUserFinanceContext', () => {
       signUp: jest.fn(),
       signInWithGoogle: jest.fn(),
       logout: jest.fn(),
+      isImpersonating: false,
+      actualUser: mockUser,
     });
 
     function TestSetActiveGroup() {
@@ -351,7 +345,7 @@ describe('MultiUserFinanceContext', () => {
         <div>
           <button 
             data-testid="set-active"
-            onClick={() => setActiveGroup(testGroup)}
+            onClick={() => setActiveGroup(testGroup as any)}
           >
             Set Active
           </button>
@@ -387,30 +381,35 @@ describe('MultiUserFinanceContext', () => {
       signUp: jest.fn(),
       signInWithGoogle: jest.fn(),
       logout: jest.fn(),
+      isImpersonating: false,
+      actualUser: mockUser,
     });
 
-    function TestWithExpenses() {
-      const { setActiveGroup, groupExpenses } = useMultiUserFinance();
-      
-      const testGroup = {
-        id: 'group1',
-        name: 'Test Group',
-        description: 'Test Description',
-        members: [],
-        createdBy: 'user1',
-        createdAt: new Date(),
-        settings: {
-          currency: 'USD',
-          allowMemberInvites: true,
-          autoApproveExpenses: true,
-          defaultSplitMethod: 'equal' as const
-        }
-      };
+    const testGroup = {
+      id: 'group1',
+      name: 'Test Group',
+      description: 'Test Description',
+      members: [],
+      createdBy: 'user1',
+      ownerId: 'user1',
+      memberIds: ['user1'],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      settings: {
+        currency: 'USD',
+        allowMemberInvites: true,
+        autoApproveExpenses: true,
+        defaultSplitMethod: 'equal' as const
+      }
+    };
 
+    function TestWithExpenses() {
+      const { setActiveGroup } = useMultiUserFinance();
+      
       // Simulate setting group expenses manually for testing
       React.useEffect(() => {
-        setActiveGroup(testGroup);
-      }, []);
+        setActiveGroup(testGroup as any);
+      }, [setActiveGroup]);
       
       return <TestComponent />;
     }

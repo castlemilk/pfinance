@@ -73,7 +73,6 @@ func TestGetBudgetProgress(t *testing.T) {
 	budgetID := "budget123"
 	now := time.Now()
 
-
 	// Create test progress
 	testProgress := &pfinancev1.BudgetProgress{
 		BudgetId:        budgetID,
@@ -128,20 +127,20 @@ func TestListBudgets(t *testing.T) {
 	// Create test budgets
 	testBudgets := []*pfinancev1.Budget{
 		{
-			Id:          "budget1",
-			UserId:      userID,
-			Name:        "Food Budget",
-			Amount:      500.00,
-			Period:      pfinancev1.BudgetPeriod_BUDGET_PERIOD_MONTHLY,
-			IsActive:    true,
+			Id:       "budget1",
+			UserId:   userID,
+			Name:     "Food Budget",
+			Amount:   500.00,
+			Period:   pfinancev1.BudgetPeriod_BUDGET_PERIOD_MONTHLY,
+			IsActive: true,
 		},
 		{
-			Id:          "budget2",
-			UserId:      userID,
-			Name:        "Entertainment Budget",
-			Amount:      200.00,
-			Period:      pfinancev1.BudgetPeriod_BUDGET_PERIOD_WEEKLY,
-			IsActive:    true,
+			Id:       "budget2",
+			UserId:   userID,
+			Name:     "Entertainment Budget",
+			Amount:   200.00,
+			Period:   pfinancev1.BudgetPeriod_BUDGET_PERIOD_WEEKLY,
+			IsActive: true,
 		},
 	}
 

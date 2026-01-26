@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/components/ui/use-toast';
 import { 
   ArrowRight, 
   TrendingUp, 
@@ -19,7 +18,7 @@ import {
   Check,
   RefreshCw
 } from 'lucide-react';
-import { MemberBalance, MemberDebt } from '@/gen/pfinance/v1/types_pb';
+import { MemberBalance } from '@/gen/pfinance/v1/types_pb';
 
 interface GroupMemberBalancesProps {
   groupId: string;
@@ -40,7 +39,6 @@ interface SimplifiedDebt {
 export default function GroupMemberBalances({ groupId }: GroupMemberBalancesProps) {
   const { user } = useAuth();
   const { activeGroup } = useMultiUserFinance();
-  const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [balances, setBalances] = useState<MemberBalance[]>([]);
@@ -48,37 +46,13 @@ export default function GroupMemberBalances({ groupId }: GroupMemberBalancesProp
   const [simplifiedDebts, setSimplifiedDebts] = useState<SimplifiedDebt[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadBalances = useCallback(async () => {
-    if (!groupId) return;
-
-    try {
-      const response = await financeClient.getMemberBalances({
-        groupId,
-      });
-      setBalances(response.balances);
-      setTotalExpenses(response.totalGroupExpenses);
-      
-      // Calculate simplified debts from balances
-      calculateSimplifiedDebts(response.balances);
-    } catch (err) {
-      console.error('Failed to load balances:', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [groupId]);
-
-  useEffect(() => {
-    loadBalances();
-  }, [loadBalances]);
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    loadBalances();
-  };
+  const getMemberName = useCallback((userId: string): string => {
+    const member = activeGroup?.members.find(m => m.userId === userId);
+    return member?.displayName || member?.email || userId.slice(0, 8);
+  }, [activeGroup]);
 
   // Simplified debt calculation - minimize number of transactions
-  const calculateSimplifiedDebts = (memberBalances: MemberBalance[]) => {
+  const calculateSimplifiedDebts = useCallback((memberBalances: MemberBalance[]) => {
     // Separate into creditors (positive balance - owed money) and debtors (negative balance - owes money)
     const creditors: { userId: string; amount: number }[] = [];
     const debtors: { userId: string; amount: number }[] = [];
@@ -127,11 +101,35 @@ export default function GroupMemberBalances({ groupId }: GroupMemberBalancesProp
     }
 
     setSimplifiedDebts(debts);
-  };
+  }, [getMemberName]);
 
-  const getMemberName = (userId: string): string => {
-    const member = activeGroup?.members.find(m => m.userId === userId);
-    return member?.displayName || member?.email || userId.slice(0, 8);
+  const loadBalances = useCallback(async () => {
+    if (!groupId) return;
+
+    try {
+      const response = await financeClient.getMemberBalances({
+        groupId,
+      });
+      setBalances(response.balances);
+      setTotalExpenses(response.totalGroupExpenses);
+      
+      // Calculate simplified debts from balances
+      calculateSimplifiedDebts(response.balances);
+    } catch (err) {
+      console.error('Failed to load balances:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [groupId, calculateSimplifiedDebts]);
+
+  useEffect(() => {
+    loadBalances();
+  }, [loadBalances]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadBalances();
   };
 
   const getInitials = (name: string): string => {

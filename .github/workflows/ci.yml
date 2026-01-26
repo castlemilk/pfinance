@@ -6,24 +6,29 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: '20'
   GO_VERSION: '1.23'
 
 jobs:
   # ===========================================
-  # Detect Changes
+  # Change Detection
   # ===========================================
   changes:
     runs-on: ubuntu-latest
     outputs:
-      frontend: ${{ steps.changes.outputs.frontend }}
-      backend: ${{ steps.changes.outputs.backend }}
-      proto: ${{ steps.changes.outputs.proto }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+      proto: ${{ steps.filter.outputs.proto }}
+      firebase: ${{ steps.filter.outputs.firebase }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
-        id: changes
+        id: filter
         with:
           filters: |
             frontend:
@@ -34,76 +39,37 @@ jobs:
               - 'proto/**'
             proto:
               - 'proto/**'
+            firebase:
+              - 'firebase.json'
+              - 'firestore.indexes.json'
 
   # ===========================================
-  # Frontend CI
+  # Frontend
   # ===========================================
-  frontend-lint:
+  frontend:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
-      - name: Install dependencies
+      - name: Install
         run: cd web && npm ci --legacy-peer-deps
 
-      - name: Type check
-        run: cd web && npm run type-check
+      - name: Security audit
+        run: cd web && npm audit --audit-level=high || echo "::warning::npm audit found vulnerabilities"
 
-      - name: Lint
-        run: cd web && npm run lint
+      - name: Lint & Type Check
+        run: cd web && npm run lint && npm run type-check
 
-  frontend-test:
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
-
-      - name: Install dependencies
-        run: cd web && npm ci --legacy-peer-deps
-
-      - name: Run tests
+      - name: Test
         run: cd web && npm run test -- --passWithNoTests --coverage
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
-        with:
-          directory: web/coverage
-          flags: frontend
-        continue-on-error: true
-
-  frontend-build:
-    needs: [frontend-lint, frontend-test]
-    if: needs.changes.outputs.frontend == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
-
-      - name: Install dependencies
-        run: cd web && npm ci --legacy-peer-deps
 
       - name: Build
         run: cd web && npm run build
@@ -111,116 +77,79 @@ jobs:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
 
   # ===========================================
-  # Backend CI
+  # Backend
   # ===========================================
-  backend-lint:
+  backend:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Setup buf CLI
-        uses: bufbuild/buf-setup-action@v1
+      - uses: bufbuild/buf-setup-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate protobuf code
-        run: cd proto && buf generate
+      - name: Generate code
+        run: |
+          cd proto && buf generate
+          cd ../backend && go generate ./internal/store
 
-      - name: Go vet
-        run: cd backend && go vet ./...
-
-      - name: Go fmt check
+      - name: Security scan
         run: |
           cd backend
-          if [ -n "$(gofmt -l .)" ]; then
-            echo "Code is not formatted. Run 'go fmt ./...'"
-            gofmt -l .
-            exit 1
-          fi
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./... || echo "::warning::govulncheck found vulnerabilities"
 
-  backend-test:
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      - name: Lint
+        run: |
+          cd backend
+          go vet ./...
+          test -z "$(gofmt -l .)" || (echo "::error::Code not formatted" && exit 1)
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: Setup buf CLI
-        uses: bufbuild/buf-setup-action@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Generate protobuf code
-        run: cd proto && buf generate
-
-      - name: Install mock generator
-        run: go install go.uber.org/mock/mockgen@latest
-
-      - name: Generate mocks
-        run: cd backend && go generate ./internal/store
-
-      - name: Run tests
-        run: cd backend && go test -v -race -coverprofile=coverage.out ./...
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
-        with:
-          file: backend/coverage.out
-          flags: backend
-        continue-on-error: true
-
-  backend-build:
-    needs: [backend-lint, backend-test]
-    if: needs.changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: Setup buf CLI
-        uses: bufbuild/buf-setup-action@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Generate protobuf code
-        run: cd proto && buf generate
+      - name: Test
+        run: cd backend && go test -race -coverprofile=coverage.out ./...
 
       - name: Build
         run: cd backend && go build -o server cmd/server/main.go
 
   # ===========================================
-  # Proto Lint
+  # Proto
   # ===========================================
-  proto-lint:
+  proto:
     needs: changes
     if: needs.changes.outputs.proto == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup buf CLI
-        uses: bufbuild/buf-setup-action@v1
+      - uses: bufbuild/buf-setup-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Lint protos
-        run: cd proto && buf lint
+      - name: Lint & breaking changes
+        run: |
+          cd proto
+          buf lint
+          buf breaking --against '.git#branch=main' || echo "::warning::Breaking changes detected"
 
-      - name: Check breaking changes
-        run: cd proto && buf breaking --against '.git#branch=main' || true
+  # ===========================================
+  # Firebase
+  # ===========================================
+  firebase:
+    needs: changes
+    if: needs.changes.outputs.firebase == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate
+        run: |
+          jq empty firebase.json || exit 1
+          jq empty firestore.indexes.json || exit 1
+          INDEXES=$(jq '.indexes | length' firestore.indexes.json)
+          echo "✓ Valid Firebase config ($INDEXES indexes)"

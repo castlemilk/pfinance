@@ -322,7 +322,7 @@ func (s *FinanceService) UpdateExpense(ctx context.Context, req *connect.Request
 			AllocatedUserIds: req.Msg.AllocatedUserIds,
 			Allocations:      req.Msg.Allocations,
 		}
-		
+
 		allocations, err := s.calculateAllocations(createReq)
 		if err != nil {
 			return nil, fmt.Errorf("failed to calculate allocations: %w", err)
@@ -762,15 +762,15 @@ func (s *FinanceService) calculateAllocations(req *pfinancev1.CreateExpenseReque
 				IsPaid: false,
 			})
 		}
-	
+
 	case pfinancev1.SplitType_SPLIT_TYPE_PERCENTAGE:
 		// Percentage-based split requires custom allocations
 		return nil, fmt.Errorf("percentage split requires custom allocations with percentages")
-	
+
 	case pfinancev1.SplitType_SPLIT_TYPE_SHARES:
 		// Share-based split requires custom allocations
 		return nil, fmt.Errorf("share-based split requires custom allocations with share counts")
-	
+
 	default:
 		return nil, fmt.Errorf("unsupported split type: %v", req.SplitType)
 	}
@@ -965,12 +965,12 @@ func (s *FinanceService) GetGroupSummary(ctx context.Context, req *connect.Reque
 	}
 
 	return connect.NewResponse(&pfinancev1.GetGroupSummaryResponse{
-		TotalExpenses:        totalExpenses,
-		TotalIncome:          totalIncome,
-		ExpenseByCategory:    expenseByCategory,
-		MemberBalances:       balancesResp.Msg.Balances,
+		TotalExpenses:         totalExpenses,
+		TotalIncome:           totalIncome,
+		ExpenseByCategory:     expenseByCategory,
+		MemberBalances:        balancesResp.Msg.Balances,
 		UnsettledExpenseCount: int32(unsettledCount),
-		UnsettledAmount:      unsettledAmount,
+		UnsettledAmount:       unsettledAmount,
 	}), nil
 }
 

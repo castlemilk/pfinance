@@ -28,7 +28,7 @@ func (s *FirestoreStore) CreateExpense(ctx context.Context, expense *pfinancev1.
 	if expense.GroupId != "" {
 		collection = "groupExpenses"
 	}
-	
+
 	_, err := s.client.Collection(collection).Doc(expense.Id).Set(ctx, expense)
 	return err
 }
@@ -44,13 +44,13 @@ func (s *FirestoreStore) GetExpense(ctx context.Context, expenseID string) (*pfi
 		}
 		return &expense, nil
 	}
-	
+
 	// Try group expenses
 	doc, err = s.client.Collection("groupExpenses").Doc(expenseID).Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("expense not found: %w", err)
 	}
-	
+
 	var expense pfinancev1.Expense
 	if err := doc.DataTo(&expense); err != nil {
 		return nil, fmt.Errorf("failed to parse expense: %w", err)
@@ -64,7 +64,7 @@ func (s *FirestoreStore) UpdateExpense(ctx context.Context, expense *pfinancev1.
 	if expense.GroupId != "" {
 		collection = "groupExpenses"
 	}
-	
+
 	_, err := s.client.Collection(collection).Doc(expense.Id).Set(ctx, expense)
 	return err
 }
@@ -80,17 +80,18 @@ func (s *FirestoreStore) ListExpenses(ctx context.Context, userID, groupID strin
 	query = s.client.Collection(collection).Query
 
 	// Apply filters
+	// NOTE: Field names must match Go struct field names (PascalCase) as that's how Firestore serializes protobuf structs
 	if groupID != "" {
-		query = query.Where("group_id", "==", groupID)
+		query = query.Where("GroupId", "==", groupID)
 	} else if userID != "" {
-		query = query.Where("user_id", "==", userID)
+		query = query.Where("UserId", "==", userID)
 	}
 
 	if startDate != nil {
-		query = query.Where("date", ">=", *startDate)
+		query = query.Where("Date", ">=", *startDate)
 	}
 	if endDate != nil {
-		query = query.Where("date", "<=", *endDate)
+		query = query.Where("Date", "<=", *endDate)
 	}
 
 	// Apply pagination
@@ -201,17 +202,18 @@ func (s *FirestoreStore) ListIncomes(ctx context.Context, userID, groupID string
 	query = s.client.Collection(collection).Query
 
 	// Apply filters
+	// NOTE: Field names must match Go struct field names (PascalCase) as that's how Firestore serializes protobuf structs
 	if groupID != "" {
-		query = query.Where("group_id", "==", groupID)
+		query = query.Where("GroupId", "==", groupID)
 	} else if userID != "" {
-		query = query.Where("user_id", "==", userID)
+		query = query.Where("UserId", "==", userID)
 	}
 
 	if startDate != nil {
-		query = query.Where("date", ">=", *startDate)
+		query = query.Where("Date", ">=", *startDate)
 	}
 	if endDate != nil {
-		query = query.Where("date", "<=", *endDate)
+		query = query.Where("Date", "<=", *endDate)
 	}
 
 	// Apply pagination
@@ -269,8 +271,9 @@ func (s *FirestoreStore) ListGroups(ctx context.Context, userID string, pageSize
 	var query firestore.Query
 	query = s.client.Collection("financeGroups").Query
 
+	// NOTE: Field names must match Go struct field names (PascalCase) as that's how Firestore serializes protobuf structs
 	if userID != "" {
-		query = query.Where("member_ids", "array-contains", userID)
+		query = query.Where("MemberIds", "array-contains", userID)
 	}
 
 	// Apply pagination
@@ -334,11 +337,12 @@ func (s *FirestoreStore) ListInvitations(ctx context.Context, userEmail string, 
 	var query firestore.Query
 	query = s.client.Collection("groupInvitations").Query
 
+	// NOTE: Field names must match Go struct field names (PascalCase) as that's how Firestore serializes protobuf structs
 	if userEmail != "" {
-		query = query.Where("invitee_email", "==", userEmail)
+		query = query.Where("InviteeEmail", "==", userEmail)
 	}
 	if status != nil {
-		query = query.Where("status", "==", *status)
+		query = query.Where("Status", "==", *status)
 	}
 
 	// Apply pagination
@@ -434,7 +438,8 @@ func (s *FirestoreStore) GetInviteLink(ctx context.Context, linkID string) (*pfi
 
 // GetInviteLinkByCode retrieves an invite link by its code
 func (s *FirestoreStore) GetInviteLinkByCode(ctx context.Context, code string) (*pfinancev1.GroupInviteLink, error) {
-	docs, err := s.client.Collection("groupInviteLinks").Where("code", "==", code).Limit(1).Documents(ctx).GetAll()
+	// NOTE: Field names must match Go struct field names (PascalCase) as that's how Firestore serializes protobuf structs
+	docs, err := s.client.Collection("groupInviteLinks").Where("Code", "==", code).Limit(1).Documents(ctx).GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("failed to query invite link: %w", err)
 	}
@@ -461,12 +466,13 @@ func (s *FirestoreStore) ListInviteLinks(ctx context.Context, groupID string, in
 	var query firestore.Query
 	query = s.client.Collection("groupInviteLinks").Query
 
+	// NOTE: Field names must match Go struct field names (PascalCase) as that's how Firestore serializes protobuf structs
 	if groupID != "" {
-		query = query.Where("group_id", "==", groupID)
+		query = query.Where("GroupId", "==", groupID)
 	}
 
 	if !includeInactive {
-		query = query.Where("is_active", "==", true)
+		query = query.Where("IsActive", "==", true)
 	}
 
 	// Apply pagination
@@ -520,11 +526,12 @@ func (s *FirestoreStore) ListContributions(ctx context.Context, groupID, userID 
 	var query firestore.Query
 	query = s.client.Collection("expenseContributions").Query
 
+	// NOTE: Field names must match Go struct field names (PascalCase) as that's how Firestore serializes protobuf structs
 	if groupID != "" {
-		query = query.Where("target_group_id", "==", groupID)
+		query = query.Where("TargetGroupId", "==", groupID)
 	}
 	if userID != "" {
-		query = query.Where("contributed_by", "==", userID)
+		query = query.Where("ContributedBy", "==", userID)
 	}
 
 	// Apply pagination
@@ -559,7 +566,7 @@ func (s *FirestoreStore) CreateBudget(ctx context.Context, budget *pfinancev1.Bu
 	if budget.GroupId != "" {
 		collection = "groupBudgets"
 	}
-	
+
 	_, err := s.client.Collection(collection).Doc(budget.Id).Set(ctx, budget)
 	return err
 }
@@ -575,13 +582,13 @@ func (s *FirestoreStore) GetBudget(ctx context.Context, budgetID string) (*pfina
 		}
 		return &budget, nil
 	}
-	
+
 	// Try group budgets
 	doc, err = s.client.Collection("groupBudgets").Doc(budgetID).Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("budget not found: %w", err)
 	}
-	
+
 	var budget pfinancev1.Budget
 	if err := doc.DataTo(&budget); err != nil {
 		return nil, fmt.Errorf("failed to parse budget: %w", err)
@@ -595,7 +602,7 @@ func (s *FirestoreStore) UpdateBudget(ctx context.Context, budget *pfinancev1.Bu
 	if budget.GroupId != "" {
 		collection = "groupBudgets"
 	}
-	
+
 	_, err := s.client.Collection(collection).Doc(budget.Id).Set(ctx, budget)
 	return err
 }
@@ -607,7 +614,7 @@ func (s *FirestoreStore) DeleteBudget(ctx context.Context, budgetID string) erro
 	if err == nil {
 		return nil
 	}
-	
+
 	// Try group budgets
 	_, err = s.client.Collection("groupBudgets").Doc(budgetID).Delete(ctx)
 	return err
@@ -619,34 +626,35 @@ func (s *FirestoreStore) ListBudgets(ctx context.Context, userID, groupID string
 	if groupID != "" {
 		collection = "groupBudgets"
 	}
-	
+
 	var query firestore.Query
 	query = s.client.Collection(collection).Query
-	
+
 	// Apply filters
+	// NOTE: Field names must match Go struct field names (PascalCase) as that's how Firestore serializes protobuf structs
 	if groupID != "" {
-		query = query.Where("group_id", "==", groupID)
+		query = query.Where("GroupId", "==", groupID)
 	} else if userID != "" {
-		query = query.Where("user_id", "==", userID)
+		query = query.Where("UserId", "==", userID)
 	}
-	
+
 	// Filter by active status unless includeInactive is true
 	if !includeInactive {
-		query = query.Where("is_active", "==", true)
+		query = query.Where("IsActive", "==", true)
 	}
-	
+
 	// Apply pagination
 	if pageSize <= 0 {
 		pageSize = 100
 	}
 	query = query.Limit(int(pageSize))
-	
+
 	// Execute query
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list budgets: %w", err)
 	}
-	
+
 	budgets := make([]*pfinancev1.Budget, 0, len(docs))
 	for _, doc := range docs {
 		var budget pfinancev1.Budget
@@ -655,7 +663,7 @@ func (s *FirestoreStore) ListBudgets(ctx context.Context, userID, groupID string
 		}
 		budgets = append(budgets, &budget)
 	}
-	
+
 	return budgets, nil
 }
 
@@ -666,45 +674,46 @@ func (s *FirestoreStore) GetBudgetProgress(ctx context.Context, budgetID string,
 	if err != nil {
 		return nil, fmt.Errorf("failed to get budget: %w", err)
 	}
-	
+
 	// Calculate period start and end dates based on budget period
 	periodStart, periodEnd := s.calculateBudgetPeriod(budget, asOfDate)
-	
+
 	// Get expenses within the budget period
 	collection := "expenses"
 	if budget.GroupId != "" {
 		collection = "groupExpenses"
 	}
-	
+
 	var query firestore.Query
 	query = s.client.Collection(collection).Query
-	
+
 	// Filter by user or group
+	// NOTE: Field names must match Go struct field names (PascalCase) as that's how Firestore serializes protobuf structs
 	if budget.GroupId != "" {
-		query = query.Where("group_id", "==", budget.GroupId)
+		query = query.Where("GroupId", "==", budget.GroupId)
 	} else {
-		query = query.Where("user_id", "==", budget.UserId)
+		query = query.Where("UserId", "==", budget.UserId)
 	}
-	
+
 	// Filter by date range
-	query = query.Where("date", ">=", periodStart)
-	query = query.Where("date", "<=", periodEnd)
-	
+	query = query.Where("Date", ">=", periodStart)
+	query = query.Where("Date", "<=", periodEnd)
+
 	// Filter by categories if specified
 	if len(budget.CategoryIds) > 0 {
-		query = query.Where("category", "in", budget.CategoryIds)
+		query = query.Where("Category", "in", budget.CategoryIds)
 	}
-	
+
 	// Execute query
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get expenses for budget: %w", err)
 	}
-	
+
 	// Calculate spending by category
 	categorySpending := make(map[pfinancev1.ExpenseCategory]float64)
 	totalSpent := 0.0
-	
+
 	for _, doc := range docs {
 		var expense pfinancev1.Expense
 		if err := doc.DataTo(&expense); err != nil {
@@ -713,7 +722,7 @@ func (s *FirestoreStore) GetBudgetProgress(ctx context.Context, budgetID string,
 		categorySpending[expense.Category] += expense.Amount
 		totalSpent += expense.Amount
 	}
-	
+
 	// Build category breakdown
 	var categoryBreakdown []*pfinancev1.ExpenseBreakdown
 	for category, amount := range categorySpending {
@@ -727,30 +736,30 @@ func (s *FirestoreStore) GetBudgetProgress(ctx context.Context, budgetID string,
 			Percentage: percentage,
 		})
 	}
-	
+
 	// Calculate progress
 	remainingAmount := budget.Amount - totalSpent
 	percentageUsed := 0.0
 	if budget.Amount > 0 {
 		percentageUsed = (totalSpent / budget.Amount) * 100
 	}
-	
+
 	// Calculate days remaining
 	daysRemaining := int32(periodEnd.Sub(asOfDate).Hours() / 24)
 	if daysRemaining < 0 {
 		daysRemaining = 0
 	}
-	
+
 	return &pfinancev1.BudgetProgress{
-		BudgetId:           budgetID,
-		AllocatedAmount:    budget.Amount,
-		SpentAmount:        totalSpent,
-		RemainingAmount:    remainingAmount,
-		PercentageUsed:     percentageUsed,
-		DaysRemaining:      daysRemaining,
-		PeriodStart:        timestamppb.New(periodStart),
-		PeriodEnd:          timestamppb.New(periodEnd),
-		CategoryBreakdown:  categoryBreakdown,
+		BudgetId:          budgetID,
+		AllocatedAmount:   budget.Amount,
+		SpentAmount:       totalSpent,
+		RemainingAmount:   remainingAmount,
+		PercentageUsed:    percentageUsed,
+		DaysRemaining:     daysRemaining,
+		PeriodStart:       timestamppb.New(periodStart),
+		PeriodEnd:         timestamppb.New(periodEnd),
+		CategoryBreakdown: categoryBreakdown,
 	}, nil
 }
 
@@ -760,17 +769,17 @@ func (s *FirestoreStore) calculateBudgetPeriod(budget *pfinancev1.Budget, asOfDa
 	if budget.StartDate != nil && budget.EndDate != nil {
 		return budget.StartDate.AsTime(), budget.EndDate.AsTime()
 	}
-	
+
 	// Otherwise, calculate based on period type
 	var periodStart, periodEnd time.Time
-	
+
 	switch budget.Period {
 	case pfinancev1.BudgetPeriod_BUDGET_PERIOD_WEEKLY:
 		// Find start of current week (Sunday)
 		daysFromSunday := int(asOfDate.Weekday())
 		periodStart = asOfDate.AddDate(0, 0, -daysFromSunday)
 		periodEnd = periodStart.AddDate(0, 0, 6)
-	
+
 	case pfinancev1.BudgetPeriod_BUDGET_PERIOD_FORTNIGHTLY:
 		// Use budget start date as reference for fortnightly periods
 		refDate := budget.StartDate.AsTime()
@@ -778,34 +787,34 @@ func (s *FirestoreStore) calculateBudgetPeriod(budget *pfinancev1.Budget, asOfDa
 		periodsSince := daysDiff / 14
 		periodStart = refDate.AddDate(0, 0, periodsSince*14)
 		periodEnd = periodStart.AddDate(0, 0, 13)
-	
+
 	case pfinancev1.BudgetPeriod_BUDGET_PERIOD_MONTHLY:
 		// Start of current month
 		periodStart = time.Date(asOfDate.Year(), asOfDate.Month(), 1, 0, 0, 0, 0, asOfDate.Location())
 		// End of current month
 		periodEnd = periodStart.AddDate(0, 1, -1)
-	
+
 	case pfinancev1.BudgetPeriod_BUDGET_PERIOD_QUARTERLY:
 		// Find start of current quarter
 		month := asOfDate.Month()
-		quarterStartMonth := time.Month(((int(month) - 1) / 3) * 3 + 1)
+		quarterStartMonth := time.Month(((int(month)-1)/3)*3 + 1)
 		periodStart = time.Date(asOfDate.Year(), quarterStartMonth, 1, 0, 0, 0, 0, asOfDate.Location())
 		periodEnd = periodStart.AddDate(0, 3, -1)
-	
+
 	case pfinancev1.BudgetPeriod_BUDGET_PERIOD_YEARLY:
 		// Start of current year
 		periodStart = time.Date(asOfDate.Year(), 1, 1, 0, 0, 0, 0, asOfDate.Location())
 		periodEnd = time.Date(asOfDate.Year(), 12, 31, 23, 59, 59, 999999999, asOfDate.Location())
-	
+
 	default:
 		// Default to monthly
 		periodStart = time.Date(asOfDate.Year(), asOfDate.Month(), 1, 0, 0, 0, 0, asOfDate.Location())
 		periodEnd = periodStart.AddDate(0, 1, -1)
 	}
-	
+
 	// Set to beginning and end of day
 	periodStart = time.Date(periodStart.Year(), periodStart.Month(), periodStart.Day(), 0, 0, 0, 0, periodStart.Location())
 	periodEnd = time.Date(periodEnd.Year(), periodEnd.Month(), periodEnd.Day(), 23, 59, 59, 999999999, periodEnd.Location())
-	
+
 	return periodStart, periodEnd
 }

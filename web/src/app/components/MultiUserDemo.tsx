@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAdmin } from '../context/AdminContext';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { useMultiUserFinance } from '../context/MultiUserFinanceContext';
@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 
 export function MultiUserDemo() {
-  const { isAdminMode, availableTestUsers } = useAdmin();
+  const { isAdminMode } = useAdmin();
   const { user } = useAuth();
   const { groups, groupExpenses } = useMultiUserFinance();
   const [showInfo, setShowInfo] = useState(true);

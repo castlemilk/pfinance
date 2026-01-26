@@ -2,6 +2,18 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ExpenseList from '../components/ExpenseList';
 import { FinanceProvider, useFinance } from '../context/FinanceContext';
+import { AdminProvider } from '../context/AdminContext';
+import { AuthWithAdminProvider } from '../context/AuthWithAdminContext';
+import { MultiUserFinanceProvider } from '../context/MultiUserFinanceContext';
+
+// Mock financeService to prevent network calls
+jest.mock('@/lib/financeService', () => ({
+  financeClient: {
+    listGroups: jest.fn().mockResolvedValue({ groups: [] }),
+    listExpenses: jest.fn().mockResolvedValue({ expenses: [] }),
+    listIncomes: jest.fn().mockResolvedValue({ incomes: [] }),
+  },
+}));
 
 // Mock the useFinance hook
 jest.mock('../context/FinanceContext', () => {
@@ -61,9 +73,15 @@ jest.mock('../context/FinanceContext', () => {
 
 const renderExpenseList = () => {
   return render(
-    <FinanceProvider>
-      <ExpenseList />
-    </FinanceProvider>
+    <AdminProvider>
+      <AuthWithAdminProvider>
+        <MultiUserFinanceProvider>
+          <FinanceProvider>
+            <ExpenseList />
+          </FinanceProvider>
+        </MultiUserFinanceProvider>
+      </AuthWithAdminProvider>
+    </AdminProvider>
   );
 };
 

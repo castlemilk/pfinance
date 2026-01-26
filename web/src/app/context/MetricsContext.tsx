@@ -30,7 +30,7 @@ import {
 import { computeFinanceMetrics } from '../metrics/providers/finance-metrics';
 import { computeBudgetMetrics } from '../metrics/providers/budget-metrics';
 import { computeSankeyDiagramData } from '../metrics/providers/flow-metrics';
-import { toAnnual, fromAnnual, getPeriodLabel } from '../metrics/utils/period';
+import { toAnnual, fromAnnual } from '../metrics/utils/period';
 import { formatCurrency, formatPercentage, getCurrencyForCountry } from '../metrics/utils/currency';
 import { getTaxSystem, calculateTaxWithBrackets } from '../constants/taxSystems';
 
@@ -94,7 +94,7 @@ export function MetricsProvider({
         formatted: formatCurrency(periodValue, curr),
       };
     },
-  }), [currency, taxConfig]);
+  }), [currency]);
 
   // Compute finance metrics
   const financeMetrics = useMemo<FinanceMetrics | null>(() => {

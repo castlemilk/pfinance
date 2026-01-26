@@ -366,8 +366,8 @@ Return JSON array with extracted transaction data.
         throw new Error('Response is not an array');
       }
       
-      return parsed
-        .map((item: any, index: number) => this.validateAndCleanTransaction(item, index))
+      return (parsed as unknown[])
+        .map((item, index: number) => this.validateAndCleanTransaction(item, index))
         .filter((transaction): transaction is ExtractedTransaction => transaction !== null);
         
     } catch (error) {
@@ -377,30 +377,35 @@ Return JSON array with extracted transaction data.
   }
 
   // Validate and clean individual transaction
-  private validateAndCleanTransaction(item: any, index: number): ExtractedTransaction | null {
+  private validateAndCleanTransaction(item: unknown, index: number): ExtractedTransaction | null {
     try {
+      if (typeof item !== 'object' || item === null) return null;
+      
+      const txItem = item as Record<string, unknown>;
+
       // Validate required fields
-      if (!item.date || !item.description || item.amount === undefined) {
+      if (!txItem.date || !txItem.description || txItem.amount === undefined) {
         console.warn(`Transaction ${index} missing required fields:`, item);
         return null;
       }
 
       // Parse and validate date
-      const date = new Date(item.date);
+      const date = new Date(txItem.date as string | number | Date);
       if (isNaN(date.getTime())) {
-        console.warn(`Transaction ${index} has invalid date:`, item.date);
+        console.warn(`Transaction ${index} has invalid date:`, txItem.date);
         return null;
       }
 
       // Validate amount
-      const amount = typeof item.amount === 'string' ? parseFloat(item.amount) : item.amount;
+      const amountValue = txItem.amount as string | number;
+      const amount = typeof amountValue === 'string' ? parseFloat(amountValue) : amountValue;
       if (isNaN(amount) || amount <= 0) {
-        console.warn(`Transaction ${index} has invalid amount:`, item.amount);
+        console.warn(`Transaction ${index} has invalid amount:`, txItem.amount);
         return null;
       }
 
       // Clean description
-      const description = String(item.description)
+      const description = String(txItem.description)
         .trim()
         .replace(/\s+/g, ' ') // Replace multiple spaces with single space
         .replace(/[^\w\s\-&.,()]/g, '') // Remove special characters except common ones
@@ -410,10 +415,10 @@ Return JSON array with extracted transaction data.
         date,
         description,
         amount,
-        balance: item.balance ? parseFloat(item.balance) : undefined,
-        transactionType: item.transactionType || 'debit',
-        reference: item.reference ? String(item.reference).trim() : undefined,
-        confidence: Math.max(0, Math.min(1, item.confidence || 0.8))
+        balance: txItem.balance ? parseFloat(txItem.balance as string) : undefined,
+        transactionType: (txItem.transactionType as 'debit' | 'credit') || 'debit',
+        reference: txItem.reference ? String(txItem.reference).trim() : undefined,
+        confidence: Math.max(0, Math.min(1, (txItem.confidence as number) || 0.8))
       };
 
     } catch (error) {
@@ -436,8 +441,8 @@ Return JSON array with extracted transaction data.
   public detectDuplicates(
     newTransactions: ExtractedTransaction[], 
     existingTransactions: { date: Date; description: string; amount: number }[]
-  ): { transaction: ExtractedTransaction; duplicates: any[] }[] {
-    const results: { transaction: ExtractedTransaction; duplicates: any[] }[] = [];
+  ): { transaction: ExtractedTransaction; duplicates: Array<{ date: Date; description: string; amount: number }> }[] {
+    const results: { transaction: ExtractedTransaction; duplicates: Array<{ date: Date; description: string; amount: number }> }[] = [];
 
     newTransactions.forEach(newTx => {
       const duplicates = existingTransactions.filter(existing => {

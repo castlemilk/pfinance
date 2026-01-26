@@ -1,20 +1,30 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { createContext } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { jest } from '@jest/globals';
 import TransactionImport from '../TransactionImport';
+import { AuthContext } from '../../context/AuthWithAdminContext';
+import { FinanceContext } from '../../context/FinanceContext';
 
 // Mock the UI components
 jest.mock('@/components/ui/card', () => ({
-  Card: ({ children, className }: any) => <div className={className}>{children}</div>,
-  CardContent: ({ children, className }: any) => <div className={className}>{children}</div>,
-  CardHeader: ({ children, className }: any) => <div className={className}>{children}</div>,
-  CardTitle: ({ children, className }: any) => <h3 className={className}>{children}</h3>,
-  CardDescription: ({ children, className }: any) => <p className={className}>{children}</p>,
+  Card: ({ children, className }: { children: React.ReactNode; className?: string }) => <div className={className}>{children}</div>,
+// ...
+  CardContent: ({ children, className }: { children: React.ReactNode; className?: string }) => <div className={className}>{children}</div>,
+  CardHeader: ({ children, className }: { children: React.ReactNode; className?: string }) => <div className={className}>{children}</div>,
+  CardTitle: ({ children, className }: { children: React.ReactNode; className?: string }) => <h3 className={className}>{children}</h3>,
+  CardDescription: ({ children, className }: { children: React.ReactNode; className?: string }) => <p className={className}>{children}</p>,
 }));
 
 jest.mock('@/components/ui/button', () => ({
-  Button: ({ children, onClick, disabled, className, variant }: any) => (
+  Button: ({ children, onClick, disabled, className, variant }: { 
+    children: React.ReactNode; 
+    onClick?: () => void; 
+    disabled?: boolean; 
+    className?: string; 
+    variant?: string 
+  }) => (
     <button 
       onClick={onClick} 
       disabled={disabled} 
@@ -27,7 +37,12 @@ jest.mock('@/components/ui/button', () => ({
 }));
 
 jest.mock('@/components/ui/switch', () => ({
-  Switch: ({ checked, onCheckedChange, disabled, id }: any) => (
+  Switch: ({ checked, onCheckedChange, disabled, id }: { 
+    checked?: boolean; 
+    onCheckedChange?: (checked: boolean) => void; 
+    disabled?: boolean; 
+    id?: string 
+  }) => (
     <input
       type="checkbox"
       checked={checked}
@@ -40,7 +55,11 @@ jest.mock('@/components/ui/switch', () => ({
 }));
 
 jest.mock('@/components/ui/label', () => ({
-  Label: ({ children, htmlFor, className }: any) => (
+  Label: ({ children, htmlFor, className }: { 
+    children: React.ReactNode; 
+    htmlFor?: string; 
+    className?: string 
+  }) => (
     <label htmlFor={htmlFor} className={className}>{children}</label>
   ),
 }));
@@ -118,18 +137,9 @@ Object.defineProperty(window, 'localStorage', {
   value: mockLocalStorage,
 });
 
-// Create mock contexts
-const AuthContext = createContext<any>(null);
-const FinanceContext = createContext<any>(null);
 
-// Mock the context hooks
-jest.mock('../../context/AuthContext', () => ({
-  useAuth: jest.fn(),
-}));
 
-jest.mock('../../context/FinanceContext', () => ({
-  useFinance: jest.fn(),
-}));
+
 
 // Mock implementations
 const mockAddExpense = jest.fn();
@@ -157,31 +167,38 @@ const mockAuthenticatedUser = {
   displayName: 'Test User',
 };
 
-const mockUnauthenticatedAuthContext = {
-  user: null,
+const mockUnauthenticatedAuthContext: any = {
+  user: null as any,
   loading: false,
-  login: jest.fn(),
-  logout: jest.fn(),
-  signup: jest.fn(),
+  signIn: jest.fn().mockImplementation(() => Promise.resolve()),
+  signUp: jest.fn().mockImplementation(() => Promise.resolve()),
+  signInWithGoogle: jest.fn().mockImplementation(() => Promise.resolve()),
+  logout: jest.fn().mockImplementation(() => Promise.resolve()),
+  isImpersonating: false,
+  actualUser: null,
 };
 
-const mockAuthenticatedAuthContext = {
-  user: mockAuthenticatedUser,
+const mockAuthenticatedAuthContext: any = {
+  user: mockAuthenticatedUser as any,
   loading: false,
-  login: jest.fn(),
-  logout: jest.fn(),
-  signup: jest.fn(),
+  signIn: jest.fn().mockImplementation(() => Promise.resolve() as Promise<void>),
+  signUp: jest.fn().mockImplementation(() => Promise.resolve() as Promise<void>),
+  signInWithGoogle: jest.fn().mockImplementation(() => Promise.resolve() as Promise<void>),
+  logout: jest.fn().mockImplementation(() => Promise.resolve() as Promise<void>),
+  isImpersonating: false,
+  actualUser: null,
 };
 
-// Import the actual hooks to mock them
-import { useAuth } from '../../context/AuthContext';
-import { useFinance } from '../../context/FinanceContext';
+
 
 const renderWithMocks = (authContext = mockUnauthenticatedAuthContext) => {
-  (useAuth as jest.Mock).mockReturnValue(authContext);
-  (useFinance as jest.Mock).mockReturnValue(mockFinanceContext);
-  
-  return render(<TransactionImport />);
+  return render(
+    <AuthContext.Provider value={authContext}>
+      <FinanceContext.Provider value={mockFinanceContext as any}>
+        <TransactionImport />
+      </FinanceContext.Provider>
+    </AuthContext.Provider>
+  );
 };
 
 describe('TransactionImport - Auth Gating', () => {
@@ -205,28 +222,28 @@ describe('TransactionImport - Auth Gating', () => {
     it('disables PDF processing toggle when not authenticated', () => {
       renderWithMocks();
 
-      const pdfToggle = screen.getByTestId('switch-pdf-processing');
+      const pdfToggle = screen.getByLabelText(/Enable PDF Import/i);
       expect(pdfToggle).toBeDisabled();
     });
 
     it('disables smart categorization toggle when not authenticated', () => {
       renderWithMocks();
-
-      const smartToggle = screen.getByTestId('switch-smart-categorization');
+      
+      const smartToggle = screen.getByLabelText(/Smart Categorization/i);
       expect(smartToggle).toBeDisabled();
     });
 
     it('shows lock icons for disabled features', () => {
-      renderWithMocks();
+      const { container } = renderWithMocks();
 
-      const lockIcons = screen.getAllByTestId('lock-icon');
+      const lockIcons = container.querySelectorAll('.lucide-lock');
       expect(lockIcons).toHaveLength(2); // One for PDF, one for Smart Categorization
     });
 
     it('shows brain icon in promotional banner', () => {
-      renderWithMocks();
+      const { container } = renderWithMocks();
 
-      expect(screen.getByTestId('brain-icon')).toBeInTheDocument();
+      expect(container.querySelector('.lucide-brain')).toBeInTheDocument();
     });
 
     it('still allows basic CSV file selection', () => {
@@ -255,7 +272,7 @@ describe('TransactionImport - Auth Gating', () => {
     it('enables PDF processing toggle when authenticated', () => {
       renderWithMocks(mockAuthenticatedAuthContext);
 
-      const pdfToggle = screen.getByTestId('switch-pdf-processing');
+      const pdfToggle = screen.getByLabelText(/Enable PDF Import/i);
       expect(pdfToggle).not.toBeDisabled();
     });
 
@@ -263,27 +280,26 @@ describe('TransactionImport - Auth Gating', () => {
       mockLocalStorage.setItem('openai-api-key', 'sk-test-key');
       renderWithMocks(mockAuthenticatedAuthContext);
 
-      const smartToggle = screen.getByTestId('switch-smart-categorization');
+      const smartToggle = screen.getByLabelText(/Smart Categorization/i);
       expect(smartToggle).not.toBeDisabled();
     });
 
     it('keeps smart categorization disabled when no API key is available', () => {
       renderWithMocks(mockAuthenticatedAuthContext);
 
-      const smartToggle = screen.getByTestId('switch-smart-categorization');
+      const smartToggle = screen.getByLabelText(/Smart Categorization/i);
       expect(smartToggle).toBeDisabled();
     });
-
     it('does not show lock icons when authenticated', () => {
-      renderWithMocks(mockAuthenticatedAuthContext);
+      const { container } = renderWithMocks(mockAuthenticatedAuthContext);
 
-      expect(screen.queryByTestId('lock-icon')).not.toBeInTheDocument();
+      expect(container.querySelector('.lucide-lock')).not.toBeInTheDocument();
     });
 
     it('allows PDF file selection when authenticated and PDF processing enabled', async () => {
       renderWithMocks(mockAuthenticatedAuthContext);
 
-      const pdfToggle = screen.getByTestId('switch-pdf-processing');
+      const pdfToggle = screen.getByLabelText(/Enable PDF Import/i);
       await userEvent.click(pdfToggle);
 
       const fileInput = screen.getByDisplayValue('') as HTMLInputElement;
@@ -293,7 +309,7 @@ describe('TransactionImport - Auth Gating', () => {
     it('displays correct file type messaging for authenticated users with PDF enabled', async () => {
       renderWithMocks(mockAuthenticatedAuthContext);
 
-      const pdfToggle = screen.getByTestId('switch-pdf-processing');
+      const pdfToggle = screen.getByLabelText(/Enable PDF Import/i);
       await userEvent.click(pdfToggle);
 
       expect(screen.getByText(/Drag & drop your CSV or PDF file here/)).toBeInTheDocument();
@@ -305,7 +321,7 @@ describe('TransactionImport - Auth Gating', () => {
     it('prevents PDF toggle changes when not authenticated', async () => {
       renderWithMocks();
 
-      const pdfToggle = screen.getByTestId('switch-pdf-processing');
+      const pdfToggle = screen.getByLabelText(/Enable PDF Import/i);
       
       // Attempt to click the disabled toggle
       await userEvent.click(pdfToggle);
@@ -317,7 +333,7 @@ describe('TransactionImport - Auth Gating', () => {
     it('allows PDF toggle changes when authenticated', async () => {
       renderWithMocks(mockAuthenticatedAuthContext);
 
-      const pdfToggle = screen.getByTestId('switch-pdf-processing');
+      const pdfToggle = screen.getByLabelText(/Enable PDF Import/i);
       
       await userEvent.click(pdfToggle);
       
@@ -327,7 +343,7 @@ describe('TransactionImport - Auth Gating', () => {
     it('updates localStorage when PDF processing is enabled', async () => {
       renderWithMocks(mockAuthenticatedAuthContext);
 
-      const pdfToggle = screen.getByTestId('switch-pdf-processing');
+      const pdfToggle = screen.getByLabelText(/Enable PDF Import/i);
       await userEvent.click(pdfToggle);
 
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith('pdf-processing-enabled', 'true');
@@ -336,7 +352,7 @@ describe('TransactionImport - Auth Gating', () => {
     it('prevents smart categorization toggle when not authenticated', async () => {
       renderWithMocks();
 
-      const smartToggle = screen.getByTestId('switch-smart-categorization');
+      const smartToggle = screen.getByLabelText(/Smart Categorization/i);
       
       // Attempt to click the disabled toggle
       await userEvent.click(smartToggle);
@@ -345,6 +361,8 @@ describe('TransactionImport - Auth Gating', () => {
       expect(smartToggle).not.toBeChecked();
     });
   });
+// ... and Error Handling below
+
 
   describe('File Processing Auth Checks', () => {
     it('shows auth error when trying to process PDF without authentication', async () => {
@@ -416,7 +434,7 @@ describe('TransactionImport - Auth Gating', () => {
     it('updates toggle labels when features are enabled', async () => {
       renderWithMocks(mockAuthenticatedAuthContext);
 
-      const pdfToggle = screen.getByTestId('switch-pdf-processing');
+      const pdfToggle = screen.getByLabelText(/Enable PDF Import/i);
       await userEvent.click(pdfToggle);
 
       expect(screen.getByText(/Enable PDF Import \(On\)/)).toBeInTheDocument();
@@ -446,7 +464,7 @@ describe('TransactionImport - Auth Gating', () => {
       renderWithMocks(mockAuthenticatedAuthContext);
 
       // Enable PDF processing
-      const pdfToggle = screen.getByTestId('switch-pdf-processing');
+      const pdfToggle = screen.getByLabelText(/Enable PDF Import/i);
       await userEvent.click(pdfToggle);
 
       const file = new File(['content'], 'test.txt', { type: 'text/plain' });

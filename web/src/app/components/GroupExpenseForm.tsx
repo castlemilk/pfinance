@@ -33,7 +33,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Calculator, DollarSign, Percent } from 'lucide-react';
+import { Users, DollarSign, Percent } from 'lucide-react';
 
 type FormData = {
   description: string;
@@ -71,7 +71,6 @@ export default function GroupExpenseForm({ groupId, onSuccess }: GroupExpenseFor
     },
   });
 
-  const splitType = form.watch('splitType');
   const amount = parseFloat(form.watch('amount') || '0');
 
   useEffect(() => {
@@ -172,14 +171,14 @@ export default function GroupExpenseForm({ groupId, onSuccess }: GroupExpenseFor
   };
 
   const categories = Object.entries(ExpenseCategory)
-    .filter(([key, value]) => typeof value === 'number' && value !== ExpenseCategory.UNSPECIFIED)
+    .filter(([name, value]) => typeof value === 'number' && value !== ExpenseCategory.UNSPECIFIED && name !== '')
     .map(([key, value]) => ({
       value: value as ExpenseCategory,
       label: key.charAt(0) + key.slice(1).toLowerCase().replace(/_/g, ' ')
     }));
 
   const frequencies = Object.entries(ExpenseFrequency)
-    .filter(([key, value]) => typeof value === 'number' && value !== ExpenseFrequency.UNSPECIFIED)
+    .filter(([name, value]) => typeof value === 'number' && value !== ExpenseFrequency.UNSPECIFIED && name !== '')
     .map(([key, value]) => ({
       value: value as ExpenseFrequency,
       label: key.charAt(0) + key.slice(1).toLowerCase().replace(/_/g, ' ')

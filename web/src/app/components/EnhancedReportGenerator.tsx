@@ -39,8 +39,7 @@ import {
   EnhancedReportGenerator as ReportGeneratorClass, 
   EnhancedReportData, 
   ExportFormat, 
-  ReportTemplate,
-  ChartData 
+  ReportTemplate
 } from '../utils/enhancedReportGenerator';
 
 // Report configuration
@@ -73,7 +72,6 @@ export default function EnhancedReportGenerator() {
   const { user } = useAuth();
   const { 
     getTotalIncome, 
-    getNetIncome, 
     getTotalExpenses, 
     getExpenseSummary,
     incomes,
@@ -164,7 +162,9 @@ export default function EnhancedReportGenerator() {
     }));
 
     const expenseBreakdown = expenseSummary.map(expense => ({
-      ...expense,
+      category: expense.category,
+      totalAmount: expense.totalAmount,
+      percentage: expense.percentage,
       trend: 'stable' as const // Would calculate from historical data
     }));
 
@@ -251,7 +251,6 @@ export default function EnhancedReportGenerator() {
     config,
     dateRange,
     getTotalIncome,
-    getNetIncome,
     getTotalExpenses,
     getExpenseSummary,
     incomes,
@@ -320,7 +319,7 @@ export default function EnhancedReportGenerator() {
   const generateRecommendations = (
     income: number, 
     expenses: number, 
-    expenseBreakdown: any[], 
+    expenseBreakdown: Array<{ category: string; totalAmount: number; percentage: number }>, 
     savings: number
   ): string[] => {
     const recommendations = [];
@@ -481,7 +480,7 @@ export default function EnhancedReportGenerator() {
                     <Label htmlFor="period">Time Period</Label>
                     <Select 
                       value={config.period} 
-                      onValueChange={(value) => setConfig(prev => ({ ...prev, period: value as any }))}
+                      onValueChange={(value) => setConfig(prev => ({ ...prev, period: value as ReportConfig['period'] }))}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -693,7 +692,7 @@ export default function EnhancedReportGenerator() {
                             <p className="text-lg font-semibold">${reportPreview.groupData.totalGroupExpenses.toFixed(2)}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">You're Owed</p>
+                            <p className="text-sm text-muted-foreground">You&apos;re Owed</p>
                             <p className="text-lg font-semibold text-green-600">${reportPreview.groupData.userOwed.toFixed(2)}</p>
                           </div>
                           <div>
@@ -715,7 +714,7 @@ export default function EnhancedReportGenerator() {
               ) : (
                 <div className="text-center p-8 text-muted-foreground">
                   <BarChart3 className="w-12 h-12 mx-auto mb-4" />
-                  <p>Click "Preview" to see your report preview</p>
+                  <p>Click &quot;Preview&quot; to see your report preview</p>
                 </div>
               )}
             </TabsContent>

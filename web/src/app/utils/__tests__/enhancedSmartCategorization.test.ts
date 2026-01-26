@@ -1,28 +1,15 @@
 import { jest } from '@jest/globals';
+import OpenAI from 'openai';
 import { 
   EnhancedSmartCategorization, 
-  EnhancedTransactionData,
-  EnhancedCategorizationResult 
+  EnhancedTransactionData
 } from '../enhancedSmartCategorization';
 
-// Mock OpenAI
-const mockOpenAI = {
-  chat: {
-    completions: {
-      create: jest.fn(),
-    },
-  },
-};
-
-jest.mock('openai', () => {
-  return {
-    __esModule: true,
-    default: jest.fn().mockImplementation(() => mockOpenAI),
-  };
-});
+jest.mock('openai');
 
 // Mock localStorage
 const mockLocalStorage = (() => {
+// ...
   let store: Record<string, string> = {};
   return {
     getItem: jest.fn((key: string) => store[key] || null),
@@ -45,10 +32,22 @@ Object.defineProperty(window, 'localStorage', {
 describe('EnhancedSmartCategorization', () => {
   let categorizer: EnhancedSmartCategorization;
   const testApiKey = 'sk-test-key-12345';
+  let mockCreate: any; // using any to avoid type complexity with jest.Mock vs function
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockLocalStorage.clear();
+    
+    // Setup OpenAI mock
+    mockCreate = jest.fn();
+    (OpenAI as unknown as jest.Mock).mockImplementation(() => ({
+      chat: {
+        completions: {
+          create: mockCreate,
+        },
+      },
+    }));
+
     categorizer = new EnhancedSmartCategorization(testApiKey);
   });
 
@@ -70,7 +69,7 @@ describe('EnhancedSmartCategorization', () => {
 
       mockLocalStorage.setItem('transaction-learning-data', mockHistoricalData);
       
-      const newCategorizer = new EnhancedSmartCategorization(testApiKey);
+      new EnhancedSmartCategorization(testApiKey);
       expect(mockLocalStorage.getItem).toHaveBeenCalledWith('transaction-learning-data');
     });
 
@@ -180,17 +179,17 @@ describe('EnhancedSmartCategorization', () => {
         }],
       };
 
-      (mockOpenAI.chat.completions.create as jest.Mock).mockResolvedValue(mockResponse);
+      (mockCreate as jest.Mock<any>).mockResolvedValue(mockResponse);
       
       const results = await categorizer.enhancedBatchCategorization([mockTransactions[0]]);
       
-      expect(mockOpenAI.chat.completions.create).toHaveBeenCalled();
+      expect(mockCreate).toHaveBeenCalled();
       expect(results[0].suggestedCategory).toBe('Food');
       expect(results[0].confidence).toBe(0.9);
     });
 
     it('handles OpenAI API errors gracefully', async () => {
-      (mockOpenAI.chat.completions.create as jest.Mock).mockRejectedValue(
+      (mockCreate as jest.Mock<any>).mockRejectedValue(
         new Error('API Error')
       );
       
@@ -217,7 +216,7 @@ describe('EnhancedSmartCategorization', () => {
         }],
       };
 
-      (mockOpenAI.chat.completions.create as jest.Mock).mockResolvedValue(mockResponse);
+      (mockCreate as jest.Mock<any>).mockResolvedValue(mockResponse);
       
       const results = await categorizer.enhancedBatchCategorization([mockTransactions[0]]);
       
@@ -234,7 +233,7 @@ describe('EnhancedSmartCategorization', () => {
         }],
       };
 
-      (mockOpenAI.chat.completions.create as jest.Mock).mockResolvedValue(mockResponse);
+      (mockCreate as jest.Mock<any>).mockResolvedValue(mockResponse);
       
       const results = await categorizer.enhancedBatchCategorization([mockTransactions[0]]);
       
@@ -246,7 +245,7 @@ describe('EnhancedSmartCategorization', () => {
   describe('Fallback Categorization', () => {
     it('categorizes food-related transactions', async () => {
       // Disable OpenAI by throwing an error
-      (mockOpenAI.chat.completions.create as jest.Mock).mockRejectedValue(
+      (mockCreate as jest.Mock<any>).mockRejectedValue(
         new Error('API unavailable')
       );
 
@@ -262,7 +261,7 @@ describe('EnhancedSmartCategorization', () => {
     });
 
     it('categorizes transportation transactions', async () => {
-      (mockOpenAI.chat.completions.create as jest.Mock).mockRejectedValue(
+      (mockCreate as jest.Mock<any>).mockRejectedValue(
         new Error('API unavailable')
       );
 
@@ -278,7 +277,7 @@ describe('EnhancedSmartCategorization', () => {
     });
 
     it('defaults to Other for unrecognized transactions', async () => {
-      (mockOpenAI.chat.completions.create as jest.Mock).mockRejectedValue(
+      (mockCreate as jest.Mock<any>).mockRejectedValue(
         new Error('API unavailable')
       );
 
@@ -320,11 +319,11 @@ describe('EnhancedSmartCategorization', () => {
         }],
       };
 
-      (mockOpenAI.chat.completions.create as jest.Mock).mockResolvedValue(mockResponse);
+      (mockCreate as jest.Mock<any>).mockResolvedValue(mockResponse);
       
       await categorizer.enhancedBatchCategorization([transactionWithContext]);
       
-      const callArgs = (mockOpenAI.chat.completions.create as jest.Mock).mock.calls[0][0];
+      const callArgs = (mockCreate as jest.Mock<any>).mock.calls[0][0] as any;
       const prompt = callArgs.messages[1].content;
       
       expect(prompt).toContain('Merchant Type: Restaurant');
@@ -354,14 +353,14 @@ describe('EnhancedSmartCategorization', () => {
         }],
       };
 
-      (mockOpenAI.chat.completions.create as jest.Mock).mockResolvedValue(mockResponse);
+      (mockCreate as jest.Mock<any>).mockResolvedValue(mockResponse);
       
       await categorizer.enhancedBatchCategorization([{
         description: 'Local Coffee Shop',
         amount: 4.50,
       }]);
       
-      const callArgs = (mockOpenAI.chat.completions.create as jest.Mock).mock.calls[0][0];
+      const callArgs = (mockCreate as jest.Mock<any>).mock.calls[0][0] as any;
       const prompt = callArgs.messages[1].content;
       
       expect(prompt).toContain('Recent user preferences');
@@ -391,7 +390,7 @@ describe('EnhancedSmartCategorization', () => {
           }],
         };
 
-        (mockOpenAI.chat.completions.create as jest.Mock).mockResolvedValue(mockResponse);
+        (mockCreate as jest.Mock<any>).mockResolvedValue(mockResponse);
         
         const results = await categorizer.enhancedBatchCategorization([{
           description: 'Test Transaction',
@@ -436,7 +435,7 @@ describe('EnhancedSmartCategorization', () => {
         }],
       };
 
-      (mockOpenAI.chat.completions.create as jest.Mock).mockResolvedValue(mockResponse);
+      (mockCreate as jest.Mock<any>).mockResolvedValue(mockResponse);
       
       const results = await enhancedBatchCategorizeTransactions(transactions, testApiKey);
       

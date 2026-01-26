@@ -1,14 +1,20 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { SalaryCalculator } from '../SalaryCalculator';
 import { FinanceProvider } from '../../context/FinanceContext';
+import { AdminProvider } from '../../context/AdminContext';
+import { AuthWithAdminProvider } from '../../context/AuthWithAdminContext';
 import '@testing-library/jest-dom';
 
 describe('SalaryCalculator - Voluntary Superannuation', () => {
   const renderCalculator = () => {
     return render(
-      <FinanceProvider>
-        <SalaryCalculator />
-      </FinanceProvider>
+      <AdminProvider>
+        <AuthWithAdminProvider>
+          <FinanceProvider>
+            <SalaryCalculator />
+          </FinanceProvider>
+        </AuthWithAdminProvider>
+      </AdminProvider>
     );
   };
 

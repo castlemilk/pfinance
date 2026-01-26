@@ -29,6 +29,7 @@ import {
   EXPENSE_FLOW_COLORS,
   SAVINGS_COLORS,
 } from '../utils/colors';
+import { getTaxSystem, calculateTaxWithBrackets } from '../../constants/taxSystems';
 
 /**
  * Input for flow metrics computation
@@ -52,14 +53,6 @@ export interface FlowMetricsOptions {
   /** Maximum expense categories to show */
   maxExpenseCategories?: number;
 }
-
-/**
- * Standard expense categories
- */
-const EXPENSE_CATEGORIES: ExpenseCategory[] = [
-  'Food', 'Housing', 'Transportation', 'Entertainment', 
-  'Healthcare', 'Utilities', 'Shopping', 'Education', 'Travel', 'Other'
-];
 
 /**
  * Savings sub-categories for visualization
@@ -103,8 +96,6 @@ export function computeSankeyDiagramData(
     if (taxConfig.country === 'simple') {
       totalTax = (preTaxAnnualIncome * taxConfig.taxRate) / 100;
     } else {
-      // Import tax calculation
-      const { getTaxSystem, calculateTaxWithBrackets } = require('../../constants/taxSystems');
       const taxSystem = getTaxSystem(taxConfig.country);
       const brackets = taxConfig.customBrackets ?? taxSystem.brackets;
       totalTax = calculateTaxWithBrackets(preTaxAnnualIncome, brackets);

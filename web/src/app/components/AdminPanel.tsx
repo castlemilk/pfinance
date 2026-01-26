@@ -2,9 +2,8 @@
 
 import { useState } from 'react';
 import { useAdmin } from '../context/AdminContext';
-import { useAuth } from '../context/AuthWithAdminContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -41,7 +40,6 @@ export function AdminPanel() {
     switchToUser, 
     exitImpersonation 
   } = useAdmin();
-  const { user, isImpersonating } = useAuth();
   const [showAdminDialog, setShowAdminDialog] = useState(false);
 
   const getInitials = (name: string) => {

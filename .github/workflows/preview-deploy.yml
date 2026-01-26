@@ -3,29 +3,33 @@ name: Preview Deploy
 on:
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, closed]
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 env:
   PROJECT_ID: pfinance-app-1748773335
   REGION: us-central1
-  SERVICE_NAME: pfinance-backend-preview
   IMAGE_NAME: gcr.io/pfinance-app-1748773335/pfinance-backend-preview
   WORKLOAD_IDENTITY_PROVIDER: projects/859800863588/locations/global/workloadIdentityPools/github-pool/providers/github-provider
   SERVICE_ACCOUNT: github-actions@pfinance-app-1748773335.iam.gserviceaccount.com
 
 jobs:
   # ===========================================
-  # Detect Changes
+  # Change Detection
   # ===========================================
   changes:
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     outputs:
-      frontend: ${{ steps.changes.outputs.frontend }}
-      backend: ${{ steps.changes.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
-        id: changes
+        id: filter
         with:
           filters: |
             frontend:
@@ -36,164 +40,133 @@ jobs:
               - 'proto/**'
 
   # ===========================================
-  # Frontend Preview (Vercel)
+  # Frontend Preview → Vercel
   # ===========================================
-  frontend-preview:
+  frontend:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     environment:
       name: preview
-      url: ${{ steps.deploy.outputs.preview-url }}
+      url: ${{ steps.deploy.outputs.url }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
-      - name: Pull Vercel Environment
-        run: |
-          cd web
-          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build
-        run: |
-          cd web
-          vercel build --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy to Preview
+      - name: Deploy
         id: deploy
         run: |
+          npm i -g vercel@latest
           cd web
-          url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
-          echo "preview-url=$url" >> $GITHUB_OUTPUT
+          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --token=${{ secrets.VERCEL_TOKEN }}
+          URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$URL" >> $GITHUB_OUTPUT
 
-      - name: Comment on PR
+      - name: Comment PR
         uses: actions/github-script@v7
         with:
           script: |
-            const url = '${{ steps.deploy.outputs.preview-url }}';
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## 🚀 Frontend Preview Deployed\n\n**Preview URL:** ${url}\n\n_This preview will be automatically updated with new commits._`
+              body: `🚀 **Frontend Preview:** ${{ steps.deploy.outputs.url }}`
             });
 
   # ===========================================
-  # Backend Preview (Cloud Run)
+  # Backend Preview → Cloud Run
   # ===========================================
-  backend-preview:
+  backend:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     permissions:
-      contents: 'read'
-      id-token: 'write'
-      pull-requests: 'write'
+      contents: read
+      id-token: write
+      pull-requests: write
     environment:
       name: preview
-      url: ${{ steps.deploy.outputs.service-url }}
+      url: ${{ steps.deploy.outputs.url }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud
-        id: auth
-        uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ env.SERVICE_ACCOUNT }}
 
-      - name: Setup Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.PROJECT_ID }}
 
-      - name: Configure Docker for GCR
-        run: gcloud auth configure-docker
+      - run: gcloud auth configure-docker
 
-      - name: Setup buf CLI
-        uses: bufbuild/buf-setup-action@v1
+      - uses: bufbuild/buf-setup-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate protobuf code
-        run: cd proto && buf generate
-
-      - name: Build Docker image
-        run: |
-          cd backend
-          docker build -t ${{ env.IMAGE_NAME }}:pr-${{ github.event.pull_request.number }} .
-
-      - name: Push Docker image
-        run: docker push ${{ env.IMAGE_NAME }}:pr-${{ github.event.pull_request.number }}
-
-      - name: Deploy to Cloud Run Preview
+      - name: Build & Deploy
         id: deploy
         run: |
-          # Deploy with PR-specific service name
-          SERVICE_NAME="${{ env.SERVICE_NAME }}-pr-${{ github.event.pull_request.number }}"
+          cd proto && buf generate
+          cd ../backend
           
-          gcloud run deploy $SERVICE_NAME \
-            --image ${{ env.IMAGE_NAME }}:pr-${{ github.event.pull_request.number }} \
+          TAG="pr-${{ github.event.pull_request.number }}"
+          SERVICE="pfinance-backend-preview-$TAG"
+          
+          docker build -t ${{ env.IMAGE_NAME }}:$TAG .
+          docker push ${{ env.IMAGE_NAME }}:$TAG
+          
+          gcloud run deploy $SERVICE \
+            --image ${{ env.IMAGE_NAME }}:$TAG \
             --region ${{ env.REGION }} \
             --platform managed \
             --allow-unauthenticated \
             --port 8111 \
             --memory 256Mi \
-            --cpu 1 \
             --max-instances 2 \
             --set-env-vars GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }} \
-            --tag pr-${{ github.event.pull_request.number }} \
             --quiet
           
-          SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
-            --region ${{ env.REGION }} \
-            --format 'value(status.url)')
-          
-          echo "service-url=$SERVICE_URL" >> $GITHUB_OUTPUT
+          URL=$(gcloud run services describe $SERVICE --region ${{ env.REGION }} --format 'value(status.url)')
+          echo "url=$URL" >> $GITHUB_OUTPUT
 
-      - name: Comment on PR
+      - name: Comment PR
         uses: actions/github-script@v7
         with:
           script: |
-            const url = '${{ steps.deploy.outputs.service-url }}';
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## 🔧 Backend Preview Deployed\n\n**API URL:** ${url}\n**Health Check:** ${url}/health\n\n_This preview will be automatically updated with new commits._`
+              body: `🔧 **Backend Preview:** ${{ steps.deploy.outputs.url }}\n\nHealth: ${{ steps.deploy.outputs.url }}/health`
             });
 
   # ===========================================
   # Cleanup on PR Close
   # ===========================================
-  cleanup-preview:
-    runs-on: ubuntu-latest
+  cleanup:
     if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
     permissions:
-      contents: 'read'
-      id-token: 'write'
+      contents: read
+      id-token: write
     steps:
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ env.SERVICE_ACCOUNT }}
 
-      - name: Setup Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Delete Preview Service
+      - name: Delete preview
         run: |
-          SERVICE_NAME="${{ env.SERVICE_NAME }}-pr-${{ github.event.pull_request.number }}"
-          gcloud run services delete $SERVICE_NAME \
-            --region ${{ env.REGION }} \
-            --quiet || echo "Service not found or already deleted"
+          SERVICE="pfinance-backend-preview-pr-${{ github.event.pull_request.number }}"
+          gcloud run services delete $SERVICE --region ${{ env.REGION }} --quiet 2>/dev/null || true
+          echo "✓ Cleaned up $SERVICE"

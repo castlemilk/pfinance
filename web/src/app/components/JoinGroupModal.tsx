@@ -16,7 +16,6 @@ import {
   Loader2, 
   Check, 
   AlertCircle,
-  Link2,
   UserPlus
 } from 'lucide-react';
 

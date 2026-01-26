@@ -14,7 +14,7 @@ func LocalDevInterceptor() connect.UnaryInterceptorFunc {
 			if isPublicEndpoint(req.Spec().Procedure) {
 				return next(ctx, req)
 			}
-			
+
 			// Add a mock user context for local development
 			userClaims := &UserClaims{
 				UID:         "local-dev-user",
@@ -23,7 +23,7 @@ func LocalDevInterceptor() connect.UnaryInterceptorFunc {
 				Verified:    true,
 			}
 			ctx = withUserClaims(ctx, userClaims)
-			
+
 			return next(ctx, req)
 		}
 	}

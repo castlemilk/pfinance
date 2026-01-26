@@ -55,7 +55,7 @@ export class EnhancedSmartCategorization {
     try {
       const stored = localStorage.getItem('transaction-learning-data');
       if (stored) {
-        this.historicalCorrections = JSON.parse(stored).map((item: any) => ({
+        this.historicalCorrections = (JSON.parse(stored) as HistoricalCorrection[]).map((item) => ({
           ...item,
           timestamp: new Date(item.timestamp)
         }));
@@ -224,12 +224,11 @@ Respond ONLY with valid JSON in this exact format:
 
       const parsed = JSON.parse(response);
       
-      // Validate and sanitize response
       return {
         suggestedCategory: this.validateCategory(parsed.suggestedCategory),
         confidence: Math.max(0, Math.min(1, parsed.confidence || 0.5)),
         reasoning: parsed.reasoning || 'AI categorization',
-        alternativeCategories: (parsed.alternativeCategories || []).map((alt: any) => ({
+        alternativeCategories: (parsed.alternativeCategories || []).map((alt: { category: string; confidence?: number; reason?: string }) => ({
           category: this.validateCategory(alt.category),
           confidence: Math.max(0, Math.min(1, alt.confidence || 0)),
           reason: alt.reason || ''
@@ -324,7 +323,7 @@ Amount: $${transaction.amount}`;
     });
 
     return Array.from(wordCount.entries())
-      .filter(([_, count]) => count >= Math.min(2, descriptions.length / 2))
+      .filter(([word, count]) => word !== '' && count >= Math.min(2, descriptions.length / 2))
       .sort((a, b) => b[1] - a[1])
       .map(([word]) => word);
   }

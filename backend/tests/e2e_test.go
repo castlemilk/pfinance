@@ -62,7 +62,7 @@ func TestE2EFinanceService(t *testing.T) {
 			Return(nil)
 
 		ctx := context.Background()
-		
+
 		resp, err := client.CreateExpense(ctx, connect.NewRequest(&pfinancev1.CreateExpenseRequest{
 			UserId:      "test-user",
 			Description: "Test expense",
@@ -96,13 +96,13 @@ func TestE2EFinanceService(t *testing.T) {
 				Category:    pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
 			},
 		}
-		
+
 		mockStore.EXPECT().
 			ListExpenses(gomock.Any(), "test-user", "", gomock.Any(), gomock.Any(), int32(10)).
 			Return(mockExpenses, nil)
 
 		ctx := context.Background()
-		
+
 		resp, err := client.ListExpenses(ctx, connect.NewRequest(&pfinancev1.ListExpensesRequest{
 			UserId:   "test-user",
 			PageSize: 10,

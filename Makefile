@@ -1,7 +1,7 @@
 # PFinance Makefile
 # ==================
 
-.PHONY: help dev dev-backend dev-backend-seed dev-frontend stop restart status test test-unit test-e2e test-watch test-all proto generate build lint format type-check logs clean setup install health ports check-ports check-port-backend check-port-frontend kill-port-backend kill-port-frontend seed-data seed-data-auth
+.PHONY: help dev dev-firebase dev-backend dev-backend-firebase dev-backend-seed dev-backend-firebase-seed dev-frontend stop restart status test test-unit test-e2e test-watch test-all proto generate build lint format type-check logs clean setup install health ports check-ports check-port-backend check-port-frontend kill-port-backend kill-port-frontend seed-data seed-data-auth check-firebase-creds deploy-indexes
 
 # Default target
 help:
@@ -11,8 +11,10 @@ help:
 	@echo "⚠️  Ports: Backend=$(BACKEND_PORT), Frontend=$(FRONTEND_PORT)"
 	@echo ""
 	@echo "Development Environment:"
-	@echo "  make dev              - Start full development environment"
-	@echo "  make dev-backend      - Start only backend services"
+	@echo "  make dev              - Start full dev environment (memory store)"
+	@echo "  make dev-firebase     - Start full dev environment (Firestore)"
+	@echo "  make dev-backend      - Start only backend (memory store)"
+	@echo "  make dev-backend-firebase - Start only backend (Firestore)"
 	@echo "  make dev-frontend     - Start only frontend (requires backend running)"
 	@echo "  make stop             - Stop all services"  
 	@echo "  make restart          - Restart all services"
@@ -25,11 +27,12 @@ help:
 	@echo "  make kill-port-frontend - Force kill process on frontend port"
 	@echo ""
 	@echo "Testing:"
-	@echo "  make test             - Run all tests"
+	@echo "  make test             - Run all tests (lint + unit + integration)"
 	@echo "  make test-unit        - Run only unit tests"
-	@echo "  make test-e2e         - Run e2e tests"
+	@echo "  make test-integration - Run only integration tests"
 	@echo "  make test-watch       - Run tests in watch mode"
 	@echo "  make test-all         - Run comprehensive test suite with linting and coverage"
+	@echo "  make install-hooks    - Install git pre-commit hooks"
 	@echo ""
 	@echo "Code Generation:"
 	@echo "  make proto            - Generate code from protobuf definitions"
@@ -48,9 +51,20 @@ help:
 	@echo "  make install          - Install dependencies for all services"
 	@echo ""
 	@echo "Test Data:"
-	@echo "  make seed-data        - Seed test data (local dev user)"
+	@echo "  make seed-data        - Seed test data (requires backend with SKIP_AUTH=true)"
 	@echo "  make seed-data USER_ID=<id> - Seed data for specific user"
-	@echo "  make seed-data-auth AUTH_TOKEN=<token> - Seed with Firebase auth"
+	@echo "  make seed-data-auth AUTH_TOKEN=<token> USER_ID=<uid> - Seed with Firebase auth"
+	@echo "  make dev-backend-seed - Start backend for seeding (memory store, no auth)"
+	@echo "  make dev-backend-firebase-seed - Start backend for seeding (Firestore, no auth)"
+	@echo ""
+	@echo "  To seed data for your Firebase user:"
+	@echo "    1. Run 'make dev-firebase' (or 'make dev-backend-firebase')"
+	@echo "    2. Sign in to the frontend"
+	@echo "    3. Go to Settings page to get your User ID and Auth Token"
+	@echo "    4. Run: make seed-data-auth AUTH_TOKEN=<token> USER_ID=<uid>"
+	@echo ""
+	@echo "Firebase:"
+	@echo "  make deploy-indexes   - Deploy Firestore indexes (run once for new project)"
 
 # ===================
 # Port Configuration (DO NOT CHANGE without updating all references)
@@ -63,22 +77,65 @@ FRONTEND_PORT := 1234
 # ===================
 
 dev: check-ports generate
-	@echo "🚀 Starting full development environment..."
+	@echo "🚀 Starting full development environment (memory store)..."
 	@echo "   Backend:  http://localhost:$(BACKEND_PORT)"
 	@echo "   Frontend: http://localhost:$(FRONTEND_PORT)"
 	@make -j2 dev-backend dev-frontend
 
+dev-firebase: check-ports check-firebase-creds generate
+	@echo "🔥 Starting full development environment (Firestore)..."
+	@echo "   Backend:  http://localhost:$(BACKEND_PORT)"
+	@echo "   Frontend: http://localhost:$(FRONTEND_PORT)"
+	@make -j2 dev-backend-firebase dev-frontend
+
 dev-backend: check-port-backend
-	@echo "🔧 Starting backend service on port $(BACKEND_PORT)..."
+	@echo "🔧 Starting backend service on port $(BACKEND_PORT) (memory store)..."
 	@cd backend && \
 	export GOOGLE_CLOUD_PROJECT=pfinance-app-1748773335 && \
 	export PORT=$(BACKEND_PORT) && \
 	export USE_MEMORY_STORE=true && \
 	go run cmd/server/main.go
 
+dev-backend-firebase: check-port-backend check-firebase-creds
+	@echo "🔥 Starting backend service on port $(BACKEND_PORT) (Firestore)..."
+	@cd backend && \
+	export GOOGLE_CLOUD_PROJECT=pfinance-app-1748773335 && \
+	export PORT=$(BACKEND_PORT) && \
+	export USE_MEMORY_STORE=false && \
+	go run cmd/server/main.go
+
 dev-frontend: check-port-frontend
 	@echo "🌐 Starting frontend service on port $(FRONTEND_PORT)..."
 	@cd web && npm run dev -- -p $(FRONTEND_PORT)
+
+# ===================
+# Firebase Credentials Check
+# ===================
+
+check-firebase-creds:
+	@echo "🔍 Checking Firebase/Firestore credentials..."
+	@if [ -z "$$GOOGLE_APPLICATION_CREDENTIALS" ]; then \
+		if ! gcloud auth application-default print-access-token >/dev/null 2>&1; then \
+			echo ""; \
+			echo "❌ Google Cloud credentials not found!"; \
+			echo ""; \
+			echo "To use Firestore, you need to set up Application Default Credentials:"; \
+			echo "  1. Run: gcloud auth application-default login"; \
+			echo "  2. Or set GOOGLE_APPLICATION_CREDENTIALS to a service account key file"; \
+			echo ""; \
+			echo "For more info: https://cloud.google.com/docs/authentication/application-default-credentials"; \
+			exit 1; \
+		else \
+			echo "✅ Using Application Default Credentials"; \
+		fi; \
+	else \
+		if [ ! -f "$$GOOGLE_APPLICATION_CREDENTIALS" ]; then \
+			echo "❌ Service account key file not found: $$GOOGLE_APPLICATION_CREDENTIALS"; \
+			exit 1; \
+		else \
+			echo "✅ Using service account key: $$GOOGLE_APPLICATION_CREDENTIALS"; \
+		fi; \
+	fi
 
 # ===================
 # Port Management
@@ -109,12 +166,12 @@ kill-port-frontend:
 	@lsof -ti:$(FRONTEND_PORT) | xargs kill -9 2>/dev/null || echo "   No process found"
 
 stop:
-	@echo "🛑 Stopping all services..."
-	@pkill -f "go run cmd/server/main.go" 2>/dev/null || true
-	@pkill -f "next dev" 2>/dev/null || true
-	@lsof -ti:$(BACKEND_PORT) | xargs kill -9 2>/dev/null || true
-	@lsof -ti:$(FRONTEND_PORT) | xargs kill -9 2>/dev/null || true
-	@echo "✅ All services stopped"
+	@echo "🛑 Stopping all services (only for this project folder)..."
+	@pgrep -f "go run cmd/server/main.go" | xargs -r ps -o pid,ppid,command | grep -F "$$PWD/backend" | awk '{print $$1}' | xargs -r kill -9 2>/dev/null || true
+	@pgrep -f "next dev" | xargs -r ps -o pid,ppid,command | grep -F "$$PWD/web" | awk '{print $$1}' | xargs -r kill -9 2>/dev/null || true
+	@lsof -ti:$(BACKEND_PORT) -a +c15 | xargs -r kill -9 2>/dev/null || true
+	@lsof -ti:$(FRONTEND_PORT) -a +c15 | xargs -r kill -9 2>/dev/null || true
+	@echo "✅ All project-local services stopped"
 
 restart: stop
 	@sleep 1
@@ -147,9 +204,9 @@ ports:
 # Testing
 # ===================
 
-test: test-backend test-frontend
-
 test-unit: test-backend-unit test-frontend-unit
+
+test-integration: test-backend-integration test-frontend-integration
 
 test-backend:
 	@echo "🧪 Running backend tests..."
@@ -157,11 +214,11 @@ test-backend:
 
 test-backend-unit:
 	@echo "🧪 Running backend unit tests..."
-	@cd backend && go test ./internal/service -v
+	@cd backend && go test ./internal/service/... ./internal/auth/... -v
 
-test-e2e:
-	@echo "🌐 Running e2e tests..."
-	@cd backend && go test ./tests -v
+test-backend-integration:
+	@echo "🧪 Running backend integration/e2e tests..."
+	@cd backend && go test ./tests/... -v
 
 test-frontend:
 	@echo "🧪 Running frontend tests..."
@@ -169,7 +226,11 @@ test-frontend:
 
 test-frontend-unit:
 	@echo "🧪 Running frontend unit tests..."
-	@cd web && npm run test
+	@cd web && npm run test -- --testPathIgnorePatterns=integration
+
+test-frontend-integration:
+	@echo "🧪 Running frontend integration tests..."
+	@cd web && npm run test -- app/__tests__/integration
 
 test-watch:
 	@echo "👀 Running tests in watch mode..."
@@ -177,6 +238,13 @@ test-watch:
 
 test-all: generate lint test
 	@echo "✅ Comprehensive test suite completed!"
+
+install-hooks:
+	@echo "🪝 Installing git hooks..."
+	@mkdir -p .git/hooks
+	@cp scripts/pre-commit .git/hooks/pre-commit
+	@chmod +x .git/hooks/pre-commit
+	@echo "✅ Git hooks installed"
 
 # ===================
 # Code Generation  
@@ -213,7 +281,10 @@ lint-backend:
 
 lint-frontend:
 	@echo "🔍 Linting frontend..."
-	@cd web && npm run lint
+	@cd web && npm run lint && npm run type-check
+
+test: lint test-unit test-integration
+	@echo "✅ All checks and tests passed!"
 
 format: format-backend format-frontend
 
@@ -270,13 +341,23 @@ type-check:
 # Seed Data
 # ===================
 
-# Start backend without auth for seeding
+# Start backend without auth for seeding (memory store)
 dev-backend-seed: check-port-backend
-	@echo "🔧 Starting backend in SEED mode (no auth) on port $(BACKEND_PORT)..."
+	@echo "🔧 Starting backend in SEED mode (no auth, memory store) on port $(BACKEND_PORT)..."
 	@cd backend && \
 	export GOOGLE_CLOUD_PROJECT=pfinance-app-1748773335 && \
 	export PORT=$(BACKEND_PORT) && \
 	export USE_MEMORY_STORE=true && \
+	export SKIP_AUTH=true && \
+	go run cmd/server/main.go
+
+# Start backend without auth for seeding (Firestore)
+dev-backend-firebase-seed: check-port-backend check-firebase-creds
+	@echo "🔧 Starting backend in SEED mode (no auth, Firestore) on port $(BACKEND_PORT)..."
+	@cd backend && \
+	export GOOGLE_CLOUD_PROJECT=pfinance-app-1748773335 && \
+	export PORT=$(BACKEND_PORT) && \
+	export USE_MEMORY_STORE=false && \
 	export SKIP_AUTH=true && \
 	go run cmd/server/main.go
 
@@ -286,7 +367,8 @@ seed-data:
 	@echo "   User ID: $(or $(USER_ID),local-dev-user)"
 	@echo ""
 	@echo "ℹ️  Note: Backend must be running with SKIP_AUTH=true"
-	@echo "   Run 'make dev-backend-seed' in another terminal first"
+	@echo "   For memory store: Run 'make dev-backend-seed' in another terminal"
+	@echo "   For Firestore: Run 'make dev-backend-firebase-seed' in another terminal"
 	@echo ""
 	@cd backend && API_URL=http://localhost:$(BACKEND_PORT) USER_ID=$(or $(USER_ID),local-dev-user) go run scripts/seed-data.go
 
@@ -295,13 +377,21 @@ seed-data-auth:
 	@if [ -z "$(AUTH_TOKEN)" ]; then \
 		echo "❌ AUTH_TOKEN is required."; \
 		echo ""; \
-		echo "To get your auth token:"; \
-		echo "1. Open your browser's DevTools (F12)"; \
-		echo "2. Go to Application > Local Storage > your site"; \
-		echo "3. Look for Firebase auth token or run in console:"; \
-		echo "   firebase.auth().currentUser.getIdToken().then(t => console.log(t))"; \
+		echo "To get your auth token and user ID:"; \
+		echo "1. Start the frontend: make dev-frontend"; \
+		echo "2. Sign in to the app"; \
+		echo "3. Go to Settings page (http://localhost:$(FRONTEND_PORT)/personal/settings)"; \
+		echo "4. Copy your User ID and generate an Auth Token"; \
+		echo "5. Run: make seed-data-auth AUTH_TOKEN=<token> USER_ID=<uid>"; \
 		echo ""; \
-		echo "Then run: make seed-data-auth AUTH_TOKEN=<your-token> USER_ID=<your-uid>"; \
+		echo "Note: Backend must be running with Firebase auth enabled"; \
+		echo "   (use 'make dev-backend-firebase' or 'make dev-firebase')"; \
+		exit 1; \
+	fi
+	@if [ -z "$(USER_ID)" ]; then \
+		echo "❌ USER_ID is required."; \
+		echo ""; \
+		echo "Get your User ID from the Settings page after signing in."; \
 		exit 1; \
 	fi
 	@cd backend && API_URL=http://localhost:$(BACKEND_PORT) USER_ID=$(USER_ID) AUTH_TOKEN=$(AUTH_TOKEN) go run scripts/seed-data.go
@@ -336,6 +426,14 @@ deploy-frontend:
 	@cd web && npm run deploy
 
 deploy: deploy-backend deploy-frontend
+
+# Deploy Firestore indexes
+deploy-indexes:
+	@echo "🔥 Deploying Firestore indexes..."
+	@echo "   This requires Firebase CLI to be installed: npm install -g firebase-tools"
+	@echo "   And logged in: firebase login"
+	@firebase deploy --only firestore:indexes --project pfinance-app-1748773335
+	@echo "✅ Indexes deployed (may take 1-3 minutes to build)"
 
 # ===================
 # Health Checks

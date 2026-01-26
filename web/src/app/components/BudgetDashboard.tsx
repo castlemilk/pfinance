@@ -26,9 +26,7 @@ export default function BudgetDashboard({ financeGroupId, showGroupBudgets = fal
   const { 
     personalBudgets, 
     sharedBudgets, 
-    activeBudgets,
     budgetProgresses,
-    loading 
   } = useBudgets();
   
   const [showCreateDialog, setShowCreateDialog] = useState(false);

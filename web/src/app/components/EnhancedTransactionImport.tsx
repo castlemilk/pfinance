@@ -16,8 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Papa from 'papaparse';
 
 // Import enhanced utilities
-import { EnhancedSmartCategorization, EnhancedCategorizationResult } from '../utils/enhancedSmartCategorization';
-import { EnhancedPdfProcessor, ExtractedTransaction } from '../utils/enhancedPdfProcessor';
+import { EnhancedSmartCategorization } from '../utils/enhancedSmartCategorization';
+import { EnhancedPdfProcessor } from '../utils/enhancedPdfProcessor';
 
 // Enhanced transaction type
 interface EnhancedTransaction {
@@ -56,18 +56,233 @@ export default function EnhancedTransactionImport() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string>('');
-  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false);
   const [pdfProcessingEnabled, setPdfProcessingEnabled] = useState(false);
   const [enhancedCategorizationEnabled, setEnhancedCategorizationEnabled] = useState(true);
   const [duplicateDetectionEnabled, setDuplicateDetectionEnabled] = useState(true);
   const [processingStats, setProcessingStats] = useState<ProcessingStats | null>(null);
-  const [showProcessingDetails, setShowProcessingDetails] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Enhanced categorization service
   const [categorizer, setCategorizer] = useState<EnhancedSmartCategorization | null>(null);
   const [pdfProcessor, setPdfProcessor] = useState<EnhancedPdfProcessor | null>(null);
+
+  // Basic category guessing (fallback)
+  const guessBasicCategory = useCallback((description: string): ExpenseCategory => {
+    const desc = description.toLowerCase();
+    if (desc.includes('food') || desc.includes('restaurant')) return 'Food';
+    if (desc.includes('gas') || desc.includes('fuel')) return 'Transportation';
+    if (desc.includes('rent') || desc.includes('mortgage')) return 'Housing';
+    return 'Other';
+  }, []);
+
+  // Calculate processing statistics
+  const calculateProcessingStats = useCallback((transactions: EnhancedTransaction[]): ProcessingStats => {
+    const confidenceScores = transactions
+      .map(tx => tx.confidence || 0.5)
+      .filter(c => c > 0);
+
+    const highConfidence = confidenceScores.filter(c => c >= 0.8).length;
+    const mediumConfidence = confidenceScores.filter(c => c >= 0.5 && c < 0.8).length;
+    const lowConfidence = confidenceScores.filter(c => c < 0.5).length;
+    const potentialDuplicates = transactions.filter(tx => tx.isPotentialDuplicate).length;
+    const avgConfidence = confidenceScores.length > 0 
+      ? confidenceScores.reduce((sum, c) => sum + c, 0) / confidenceScores.length
+      : 0;
+
+    return {
+      totalTransactions: transactions.length,
+      highConfidence,
+      mediumConfidence,
+      lowConfidence,
+      potentialDuplicates,
+      avgConfidence
+    };
+  }, []);
+
+  // Parse CSV data
+  const parseCSVData = useCallback((data: Record<string, string>[]): EnhancedTransaction[] => {
+    if (data.length === 0) {
+      throw new Error('No data found in CSV file');
+    }
+
+    const headers = Object.keys(data[0]).map(h => h.toLowerCase());
+    
+    const dateColumn = headers.find(h => 
+      h.includes('date') || h.includes('time') || h === 'posted'
+    );
+    const descriptionColumn = headers.find(h => 
+      h.includes('description') || h.includes('narrative') || h.includes('merchant')
+    );
+    const amountColumn = headers.find(h => 
+      h.includes('amount') || h.includes('debit') || h.includes('value')
+    );
+
+    if (!dateColumn || !descriptionColumn || !amountColumn) {
+      throw new Error('Could not identify required columns in CSV');
+    }
+
+    return data
+      .map((row, index) => {
+        const amountValue = row[amountColumn]?.replace(/[^\d.-]/g, '');
+        const amount = amountValue ? parseFloat(amountValue) : 0;
+        
+        if (amount <= 0) return null; // Skip non-expense transactions
+        
+        const description = row[descriptionColumn]?.trim() || 'Unknown Transaction';
+        const dateStr = row[dateColumn];
+        
+        let date: Date;
+        try {
+          date = new Date(dateStr);
+          if (isNaN(date.getTime())) throw new Error('Invalid date');
+        } catch {
+          date = new Date();
+        }
+
+        return {
+          id: `csv-${index}-${Date.now()}`,
+          date,
+          description,
+          amount: Math.abs(amount),
+          category: guessBasicCategory(description),
+          selected: true,
+          source: 'csv' as const
+        };
+      })
+      .filter((tx): tx is NonNullable<typeof tx> => tx !== null);
+  }, [guessBasicCategory]);
+
+  // Process CSV file
+  const processCSVFile = useCallback(async (file: File): Promise<EnhancedTransaction[]> => {
+    return new Promise((resolve, reject) => {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          try {
+            const transactions = parseCSVData(results.data as Record<string, string>[]);
+            resolve(transactions);
+          } catch (error) {
+            reject(error);
+          }
+        },
+        error: (error) => {
+          reject(new Error(`CSV parsing failed: ${error.message}`));
+        }
+      });
+    });
+  }, [parseCSVData]);
+
+  // Process PDF file using enhanced processor
+  const processPDFFile = useCallback(async (file: File): Promise<EnhancedTransaction[]> => {
+    if (!pdfProcessor) {
+      throw new Error('PDF processor not initialized');
+    }
+
+    const result = await pdfProcessor.processPdf(file);
+    
+    if (result.metadata.warnings.length > 0) {
+      console.warn('PDF processing warnings:', result.metadata.warnings);
+    }
+
+    return result.transactions.map((tx, index) => ({
+      id: `pdf-${index}-${Date.now()}`,
+      date: tx.date,
+      description: tx.description,
+      amount: tx.amount,
+      category: guessBasicCategory(tx.description),
+      selected: true,
+      confidence: tx.confidence,
+      source: 'pdf' as const,
+      reference: tx.reference
+    }));
+  }, [pdfProcessor, guessBasicCategory]);
+
+  // Apply enhanced categorization
+  const applyEnhancedCategorization = useCallback(async (
+    transactions: EnhancedTransaction[]
+  ): Promise<EnhancedTransaction[]> => {
+    if (!categorizer) return transactions;
+
+    try {
+      const transactionData = transactions.map(tx => ({
+        description: tx.description,
+        amount: tx.amount,
+        timeOfDay: tx.date.getHours() < 12 ? 'morning' : tx.date.getHours() < 18 ? 'afternoon' : 'evening',
+        dayOfWeek: tx.date.toLocaleDateString('en-US', { weekday: 'long' })
+      }));
+
+      const results = await categorizer.enhancedBatchCategorization(transactionData);
+
+      return transactions.map((tx, index) => {
+        const result = results[index];
+        if (result) {
+          return {
+            ...tx,
+            category: result.suggestedCategory,
+            confidence: result.confidence,
+            reasoning: result.reasoning,
+            alternatives: result.alternativeCategories,
+            isRecurring: result.isRecurring
+          };
+        }
+        return tx;
+      });
+
+    } catch (error) {
+      console.error('Enhanced categorization failed:', error);
+      setError('Enhanced categorization failed, using basic categorization');
+      return transactions;
+    }
+  }, [categorizer]);
+
+  // Detect potential duplicates
+  const detectDuplicates = useCallback(async (
+    transactions: EnhancedTransaction[]
+  ): Promise<EnhancedTransaction[]> => {
+    if (!pdfProcessor || !expenses) return transactions;
+
+    try {
+      const existingTransactions = expenses.map(expense => ({
+        date: new Date(expense.date || Date.now()),
+        description: expense.description,
+        amount: expense.amount
+      }));
+
+      const duplicateResults = pdfProcessor.detectDuplicates(
+        transactions.map(tx => ({
+          date: tx.date,
+          description: tx.description,
+          amount: tx.amount,
+          confidence: tx.confidence || 0.8
+        })),
+        existingTransactions
+      );
+
+      const duplicateMap = new Map<string, string[]>();
+      duplicateResults.forEach(result => {
+        const txId = transactions.find(tx => 
+          tx.description === result.transaction.description &&
+          tx.amount === result.transaction.amount
+        )?.id;
+        
+        if (txId) {
+          duplicateMap.set(txId, result.duplicates.map(d => d.description));
+        }
+      });
+
+      return transactions.map(tx => ({
+        ...tx,
+        isPotentialDuplicate: duplicateMap.has(tx.id),
+        duplicateOf: duplicateMap.get(tx.id) || []
+      }));
+
+    } catch (error) {
+      console.error('Duplicate detection failed:', error);
+      return transactions;
+    }
+  }, [pdfProcessor, expenses]);
 
   // Load settings and initialize services
   useEffect(() => {
@@ -160,221 +375,7 @@ export default function EnhancedTransactionImport() {
     } finally {
       setIsLoading(false);
     }
-  }, [pdfProcessingEnabled, enhancedCategorizationEnabled, duplicateDetectionEnabled, categorizer, pdfProcessor]);
-
-  // Process CSV file
-  const processCSVFile = async (file: File): Promise<EnhancedTransaction[]> => {
-    return new Promise((resolve, reject) => {
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          try {
-            const transactions = parseCSVData(results.data as Record<string, string>[]);
-            resolve(transactions);
-          } catch (error) {
-            reject(error);
-          }
-        },
-        error: (error) => {
-          reject(new Error(`CSV parsing failed: ${error.message}`));
-        }
-      });
-    });
-  };
-
-  // Process PDF file using enhanced processor
-  const processPDFFile = async (file: File): Promise<EnhancedTransaction[]> => {
-    if (!pdfProcessor) {
-      throw new Error('PDF processor not initialized');
-    }
-
-    const result = await pdfProcessor.processPdf(file);
-    
-    if (result.metadata.warnings.length > 0) {
-      console.warn('PDF processing warnings:', result.metadata.warnings);
-    }
-
-    return result.transactions.map((tx, index) => ({
-      id: `pdf-${index}-${Date.now()}`,
-      date: tx.date,
-      description: tx.description,
-      amount: tx.amount,
-      category: guessBasicCategory(tx.description),
-      selected: true,
-      confidence: tx.confidence,
-      source: 'pdf' as const,
-      reference: tx.reference
-    }));
-  };
-
-  // Parse CSV data
-  const parseCSVData = (data: Record<string, string>[]): EnhancedTransaction[] => {
-    if (data.length === 0) {
-      throw new Error('No data found in CSV file');
-    }
-
-    const headers = Object.keys(data[0]).map(h => h.toLowerCase());
-    
-    const dateColumn = headers.find(h => 
-      h.includes('date') || h.includes('time') || h === 'posted'
-    );
-    const descriptionColumn = headers.find(h => 
-      h.includes('description') || h.includes('narrative') || h.includes('merchant')
-    );
-    const amountColumn = headers.find(h => 
-      h.includes('amount') || h.includes('debit') || h.includes('value')
-    );
-
-    if (!dateColumn || !descriptionColumn || !amountColumn) {
-      throw new Error('Could not identify required columns in CSV');
-    }
-
-    return data
-      .map((row, index) => {
-        let amount = parseFloat(row[amountColumn].replace(/[^\d.-]/g, ''));
-        
-        if (amount <= 0) return null; // Skip non-expense transactions
-        
-        const description = row[descriptionColumn]?.trim() || 'Unknown Transaction';
-        const dateStr = row[dateColumn];
-        
-        let date: Date;
-        try {
-          date = new Date(dateStr);
-          if (isNaN(date.getTime())) throw new Error('Invalid date');
-        } catch {
-          date = new Date();
-        }
-
-        return {
-          id: `csv-${index}-${Date.now()}`,
-          date,
-          description,
-          amount: Math.abs(amount),
-          category: guessBasicCategory(description),
-          selected: true,
-          source: 'csv' as const
-        };
-      })
-      .filter((tx): tx is NonNullable<typeof tx> => tx !== null);
-  };
-
-  // Apply enhanced categorization
-  const applyEnhancedCategorization = async (
-    transactions: EnhancedTransaction[]
-  ): Promise<EnhancedTransaction[]> => {
-    if (!categorizer) return transactions;
-
-    try {
-      const transactionData = transactions.map(tx => ({
-        description: tx.description,
-        amount: tx.amount,
-        timeOfDay: tx.date.getHours() < 12 ? 'morning' : tx.date.getHours() < 18 ? 'afternoon' : 'evening',
-        dayOfWeek: tx.date.toLocaleDateString('en-US', { weekday: 'long' })
-      }));
-
-      const results = await categorizer.enhancedBatchCategorization(transactionData);
-
-      return transactions.map((tx, index) => {
-        const result = results[index];
-        if (result) {
-          return {
-            ...tx,
-            category: result.suggestedCategory,
-            confidence: result.confidence,
-            reasoning: result.reasoning,
-            alternatives: result.alternativeCategories,
-            isRecurring: result.isRecurring
-          };
-        }
-        return tx;
-      });
-
-    } catch (error) {
-      console.error('Enhanced categorization failed:', error);
-      setError('Enhanced categorization failed, using basic categorization');
-      return transactions;
-    }
-  };
-
-  // Detect potential duplicates
-  const detectDuplicates = async (
-    transactions: EnhancedTransaction[]
-  ): Promise<EnhancedTransaction[]> => {
-    if (!pdfProcessor || !expenses) return transactions;
-
-    try {
-      const existingTransactions = expenses.map(expense => ({
-        date: new Date(expense.date || Date.now()),
-        description: expense.description,
-        amount: expense.amount
-      }));
-
-      const duplicateResults = pdfProcessor.detectDuplicates(
-        transactions.map(tx => ({
-          date: tx.date,
-          description: tx.description,
-          amount: tx.amount,
-          confidence: tx.confidence || 0.8
-        })),
-        existingTransactions
-      );
-
-      const duplicateMap = new Map<string, string[]>();
-      duplicateResults.forEach(result => {
-        const txId = transactions.find(tx => 
-          tx.description === result.transaction.description &&
-          tx.amount === result.transaction.amount
-        )?.id;
-        
-        if (txId) {
-          duplicateMap.set(txId, result.duplicates.map(d => d.description));
-        }
-      });
-
-      return transactions.map(tx => ({
-        ...tx,
-        isPotentialDuplicate: duplicateMap.has(tx.id),
-        duplicateOf: duplicateMap.get(tx.id) || []
-      }));
-
-    } catch (error) {
-      console.error('Duplicate detection failed:', error);
-      return transactions;
-    }
-  };
-
-  // Calculate processing statistics
-  const calculateProcessingStats = (transactions: EnhancedTransaction[]): ProcessingStats => {
-    const confidenceScores = transactions
-      .map(tx => tx.confidence || 0.5)
-      .filter(c => c > 0);
-
-    const highConfidence = confidenceScores.filter(c => c >= 0.8).length;
-    const mediumConfidence = confidenceScores.filter(c => c >= 0.5 && c < 0.8).length;
-    const lowConfidence = confidenceScores.filter(c => c < 0.5).length;
-    const potentialDuplicates = transactions.filter(tx => tx.isPotentialDuplicate).length;
-    const avgConfidence = confidenceScores.reduce((sum, c) => sum + c, 0) / confidenceScores.length;
-
-    return {
-      totalTransactions: transactions.length,
-      highConfidence,
-      mediumConfidence,
-      lowConfidence,
-      potentialDuplicates,
-      avgConfidence
-    };
-  };
-
-  // Basic category guessing (fallback)
-  const guessBasicCategory = (description: string): ExpenseCategory => {
-    const desc = description.toLowerCase();
-    if (desc.includes('food') || desc.includes('restaurant')) return 'Food';
-    if (desc.includes('gas') || desc.includes('fuel')) return 'Transportation';
-    if (desc.includes('rent') || desc.includes('mortgage')) return 'Housing';
-    return 'Other';
-  };
+  }, [pdfProcessingEnabled, enhancedCategorizationEnabled, duplicateDetectionEnabled, categorizer, pdfProcessor, processCSVFile, processPDFFile, applyEnhancedCategorization, detectDuplicates, calculateProcessingStats]);
 
   // Handle category change with learning
   const handleCategoryChange = (id: string, newCategory: ExpenseCategory) => {
@@ -469,7 +470,9 @@ export default function EnhancedTransactionImport() {
     const files = e.target.files;
     if (files && files.length > 0) {
       handleFiles(files);
-      e.target.value = '';
+      if (e.target) {
+        e.target.value = '';
+      }
     }
   }, [handleFiles]);
 

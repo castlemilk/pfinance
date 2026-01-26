@@ -13,7 +13,6 @@ import {
   PieChartData, 
   SankeyDiagramData, 
   SummaryCardData,
-  FinanceMetrics 
 } from '../types';
 import { computeFinanceMetrics } from '../providers/finance-metrics';
 import { computeSankeyDiagramData, FlowMetricsInput, FlowMetricsOptions } from '../providers/flow-metrics';

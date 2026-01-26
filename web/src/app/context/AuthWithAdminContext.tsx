@@ -27,7 +27,7 @@ interface AuthContextType {
   actualUser: User | null; // The real logged-in user (if any)
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
   const { isAdminMode, impersonatedUser } = useAdmin();
@@ -38,32 +38,58 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
   const effectiveUser = isAdminMode && impersonatedUser 
     ? impersonatedUser as unknown as User 
     : actualUser;
+  
+  // Debug logging
+  console.log('[AuthContext] State:', {
+    loading,
+    actualUser: actualUser?.uid || null,
+    effectiveUser: effectiveUser?.uid || null,
+    isAdminMode,
+    hasImpersonatedUser: !!impersonatedUser,
+    authInitialized: !!auth,
+  });
 
   useEffect(() => {
+    console.log('[AuthContext] useEffect - setting up auth listener, auth initialized:', !!auth);
+    
     // Skip auth setup if Firebase is not initialized
     if (!auth) {
+      console.log('[AuthContext] Firebase not initialized, setting loading=false');
       setLoading(false);
       return;
     }
 
+    let unsubscribe: (() => void) | undefined;
+    
     // Set persistence to local (survives browser restarts)
-    if (auth) {
-      setPersistence(auth, browserLocalPersistence)
-        .then(() => {
-          if (auth) {
-            const unsubscribe = onAuthStateChanged(auth, (user) => {
-              setActualUser(user);
-              setLoading(false);
-            });
-
-            return () => unsubscribe();
-          }
-        })
-        .catch((error) => {
-          console.error('Error setting persistence:', error);
+    setPersistence(auth, browserLocalPersistence)
+      .then(() => {
+        console.log('[AuthContext] Persistence set, subscribing to auth state');
+        // TypeScript needs reassurance that auth is still not null in async callback
+        if (!auth) return;
+        unsubscribe = onAuthStateChanged(auth, (user) => {
+          console.log('[AuthContext] onAuthStateChanged:', user?.uid || 'no user');
+          setActualUser(user);
           setLoading(false);
         });
-    }
+      })
+      .catch((error) => {
+        console.error('[AuthContext] Error setting persistence:', error);
+        setLoading(false);
+      });
+    
+    // Timeout safeguard - if auth doesn't resolve in 5s, set loading to false
+    const timeout = setTimeout(() => {
+      console.log('[AuthContext] Auth timeout - setting loading=false');
+      setLoading(false);
+    }, 5000);
+    
+    return () => {
+      clearTimeout(timeout);
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {

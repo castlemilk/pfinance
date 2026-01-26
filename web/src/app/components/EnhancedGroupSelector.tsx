@@ -65,7 +65,7 @@ export default function EnhancedGroupSelector() {
 
     setCreating(true);
     try {
-      const groupId = await createGroup(newGroupName, newGroupDescription);
+      await createGroup(newGroupName, newGroupDescription);
       toast({
         title: "Group created",
         description: `Successfully created group: ${newGroupName}`,
@@ -319,7 +319,7 @@ export default function EnhancedGroupSelector() {
                       <p className="text-sm text-muted-foreground">Created</p>
                       <p className="text-sm font-medium">
                         <Calendar className="inline h-3 w-3 mr-1" />
-                        {activeGroup.createdAt ? new Date(activeGroup.createdAt as any).toLocaleDateString() : 'Unknown'}
+                        {activeGroup.createdAt ? (activeGroup.createdAt instanceof Date ? activeGroup.createdAt : new Date(activeGroup.createdAt)).toLocaleDateString() : 'Unknown'}
                       </p>
                     </div>
                     <div className="space-y-1">

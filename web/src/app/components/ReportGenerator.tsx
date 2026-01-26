@@ -61,7 +61,7 @@ interface ReportGeneratorProps {
   groupId?: string;
 }
 
-export default function ReportGenerator({ mode = 'personal', groupId }: ReportGeneratorProps) {
+export default function ReportGenerator({ }: ReportGeneratorProps) {
   const { user } = useAuth();
   const { 
     getTotalIncome, 

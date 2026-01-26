@@ -42,6 +42,9 @@ func main() {
 	if authToken != "" {
 		log.Println("🔐 Using provided auth token")
 		opts = append(opts, connect.WithInterceptors(authInterceptor(authToken)))
+	} else {
+		log.Println("ℹ️  No auth token provided - backend must be running with SKIP_AUTH=true")
+		log.Println("   Run 'make dev-backend-seed' (memory) or 'make dev-backend-firebase-seed' (Firestore)")
 	}
 
 	// Create Connect client
@@ -67,6 +70,14 @@ func main() {
 	}
 
 	log.Println("✅ Successfully seeded all test data!")
+
+	// Verify seeded data is queryable
+	log.Println("")
+	log.Println("🔍 Verifying seeded data is queryable...")
+	if err := verifySeededData(ctx, client, userID); err != nil {
+		log.Fatalf("❌ Verification failed: %v", err)
+	}
+	log.Println("✅ All data verified successfully!")
 }
 
 // authInterceptor adds the Authorization header to requests
@@ -333,6 +344,70 @@ func seedGroup(ctx context.Context, client pfinancev1connect.FinanceServiceClien
 	} else {
 		log.Println("  ✓ Created invite link for group")
 	}
+
+	return nil
+}
+
+func verifySeededData(ctx context.Context, client pfinancev1connect.FinanceServiceClient, userID string) error {
+	// Verify expenses
+	expensesResp, err := client.ListExpenses(ctx, connect.NewRequest(&pfinancev1.ListExpensesRequest{
+		UserId:   userID,
+		PageSize: 100,
+	}))
+	if err != nil {
+		return fmt.Errorf("failed to list expenses: %w", err)
+	}
+	expenseCount := len(expensesResp.Msg.Expenses)
+	if expenseCount == 0 {
+		return fmt.Errorf("no expenses found for user %s - data may not have been stored correctly", userID)
+	}
+	log.Printf("  ✓ Found %d expenses for user", expenseCount)
+
+	// Verify incomes
+	incomesResp, err := client.ListIncomes(ctx, connect.NewRequest(&pfinancev1.ListIncomesRequest{
+		UserId:   userID,
+		PageSize: 100,
+	}))
+	if err != nil {
+		return fmt.Errorf("failed to list incomes: %w", err)
+	}
+	incomeCount := len(incomesResp.Msg.Incomes)
+	if incomeCount == 0 {
+		return fmt.Errorf("no incomes found for user %s - data may not have been stored correctly", userID)
+	}
+	log.Printf("  ✓ Found %d incomes for user", incomeCount)
+
+	// Verify budgets
+	budgetsResp, err := client.ListBudgets(ctx, connect.NewRequest(&pfinancev1.ListBudgetsRequest{
+		UserId:          userID,
+		IncludeInactive: true,
+		PageSize:        100,
+	}))
+	if err != nil {
+		return fmt.Errorf("failed to list budgets: %w", err)
+	}
+	budgetCount := len(budgetsResp.Msg.Budgets)
+	if budgetCount == 0 {
+		return fmt.Errorf("no budgets found for user %s - data may not have been stored correctly", userID)
+	}
+	log.Printf("  ✓ Found %d budgets for user", budgetCount)
+
+	// Verify groups
+	groupsResp, err := client.ListGroups(ctx, connect.NewRequest(&pfinancev1.ListGroupsRequest{
+		UserId:   userID,
+		PageSize: 100,
+	}))
+	if err != nil {
+		return fmt.Errorf("failed to list groups: %w", err)
+	}
+	groupCount := len(groupsResp.Msg.Groups)
+	if groupCount == 0 {
+		return fmt.Errorf("no groups found for user %s - data may not have been stored correctly", userID)
+	}
+	log.Printf("  ✓ Found %d groups for user", groupCount)
+
+	log.Printf("")
+	log.Printf("📊 Summary: %d expenses, %d incomes, %d budgets, %d groups", expenseCount, incomeCount, budgetCount, groupCount)
 
 	return nil
 }

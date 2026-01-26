@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { IncomeFrequency } from '../types';
 import { ParentSize } from '@visx/responsive';
@@ -13,8 +13,6 @@ import { Text } from '@visx/text';
 // Import from the new metrics layer
 import { useSankeyData } from '../metrics/hooks/useVisualizationData';
 import { formatCurrency, getCurrencyForCountry } from '../metrics/utils/currency';
-import { getPeriodLabel } from '../metrics/utils/period';
-import { SankeyNode, SankeyLink } from '../metrics/types';
 
 interface TooltipData {
   name: string;
@@ -109,9 +107,6 @@ export default function FinanceFlowDiagram({ displayPeriod }: FinanceFlowDiagram
               value: link.value
             }))
           };
-
-          // Create a map for quick node lookup
-          const nodeMap = new Map(nodes.map((node, idx) => [node.name, idx]));
           
           return (
             <>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useMultiUserFinance, FinanceGroup } from '../context/MultiUserFinanceContext';
+import { useMultiUserFinance } from '../context/MultiUserFinanceContext';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { financeClient } from '@/lib/financeService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -18,8 +18,7 @@ import {
   Users, 
   DollarSign, 
   Loader2,
-  Split,
-  AlertCircle
+  Split
 } from 'lucide-react';
 import { SplitType } from '@/gen/pfinance/v1/types_pb';
 import { Expense as LocalExpense } from '../types';

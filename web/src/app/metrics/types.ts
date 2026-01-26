@@ -13,8 +13,7 @@ import {
   TaxCountry, 
   TaxConfig,
   Income,
-  Expense,
-  ExpenseSummary
+  Expense
 } from '../types';
 
 // ============================================================================

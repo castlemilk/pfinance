@@ -19,9 +19,9 @@ import {
   BudgetMetrics,
   PeriodizedAmount,
 } from '../types';
-import { fromAnnual, getDaysInPeriod } from '../utils/period';
+import { getDaysInPeriod } from '../utils/period';
 import { formatCurrency, getCurrencyForCountry } from '../utils/currency';
-import { getBudgetUtilizationColor, getCategoryColor } from '../utils/colors';
+import { getBudgetUtilizationColor } from '../utils/colors';
 
 /**
  * Input for budget metrics computation

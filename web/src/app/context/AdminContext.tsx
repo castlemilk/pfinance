@@ -1,7 +1,6 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User } from 'firebase/auth';
 
 // Test users for impersonation
 export const TEST_USERS = [

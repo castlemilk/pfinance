@@ -14,10 +14,9 @@ import {
   Receipt,
   TrendingUp,
   FileText,
-  Settings,
+  Settings, 
   LogOut,
   UserPlus,
-  UsersIcon,
   UserCog
 } from 'lucide-react';
 import { useAuth } from '../context/AuthWithAdminContext';

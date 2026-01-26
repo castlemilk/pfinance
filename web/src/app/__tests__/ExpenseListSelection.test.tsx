@@ -2,7 +2,19 @@ import React, { ReactNode } from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import ExpenseList from '../components/ExpenseList';
 import { FinanceProvider, useFinance } from '../context/FinanceContext';
+import { AdminProvider } from '../context/AdminContext';
+import { AuthWithAdminProvider } from '../context/AuthWithAdminContext';
+import { MultiUserFinanceProvider } from '../context/MultiUserFinanceContext';
 import { Expense, ExpenseCategory, IncomeFrequency, TaxCountry } from '../types';
+
+// Mock financeService to prevent network calls
+jest.mock('@/lib/financeService', () => ({
+  financeClient: {
+    listGroups: jest.fn().mockResolvedValue({ groups: [] }),
+    listExpenses: jest.fn().mockResolvedValue({ expenses: [] }),
+    listIncomes: jest.fn().mockResolvedValue({ incomes: [] }),
+  },
+}));
 
 // Mock the dialog components as they're likely managed by a portal and not showing in tests
 jest.mock('@/components/ui/dialog', () => {
@@ -59,7 +71,10 @@ const createFinanceMock = (customExpenses?: Expense[]) => {
       includeDeductions: false
     },
     updateTaxConfig: jest.fn(),
-    calculateTax: jest.fn(() => 0)
+    calculateTax: jest.fn(() => 0),
+    loading: false,
+    error: null,
+    refreshData: jest.fn()
   };
 };
 
@@ -75,9 +90,15 @@ jest.mock('../context/FinanceContext', () => {
 
 const renderExpenseList = () => {
   return render(
-    <FinanceProvider>
-      <ExpenseList />
-    </FinanceProvider>
+    <AdminProvider>
+      <AuthWithAdminProvider>
+        <MultiUserFinanceProvider>
+          <FinanceProvider>
+            <ExpenseList />
+          </FinanceProvider>
+        </MultiUserFinanceProvider>
+      </AuthWithAdminProvider>
+    </AdminProvider>
   );
 };
 

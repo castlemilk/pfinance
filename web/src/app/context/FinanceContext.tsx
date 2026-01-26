@@ -10,7 +10,7 @@
  * or the metrics hooks directly. This context is focused on data management.
  */
 
-import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef } from 'react';
 import { useAdmin } from './AdminContext';
 import { useAuth } from './AuthWithAdminContext';
 import { financeClient } from '@/lib/financeService';
@@ -193,22 +193,25 @@ const defaultTaxConfig: TaxConfig = {
   includeDeductions: true
 };
 
-const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
+export const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 
 export function FinanceProvider({ children }: { children: ReactNode }) {
   const { isAdminMode } = useAdmin();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [taxConfig, setTaxConfig] = useState<TaxConfig>(defaultTaxConfig);
   const [error, setError] = useState<string | null>(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const isLoadingRef = useRef(false); // Guard against concurrent/redundant loads
+  const lastUserIdRef = useRef<string>(''); // Track user changes to prevent redundant loads
 
   // Storage key helper for admin/demo mode
   const getStorageKey = useCallback((baseKey: string) => {
     return isAdminMode ? `test_${baseKey}` : baseKey;
   }, [isAdminMode]);
 
-  // Dev mode: use API with mock user when NEXT_PUBLIC_DEV_MODE=true and backend has SKIP_AUTH=true
+  // Dev mode: use API with mock user when NEXT_PUBLIC_DEV_MODE=true (backend auto-uses mock auth with memory store)
   const isDevMode = process.env.NEXT_PUBLIC_DEV_MODE === 'true';
   const devUserId = 'local-dev-user';
   
@@ -216,8 +219,23 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const useApi = !!user || isDevMode;
   const effectiveUserId = user?.uid || (isDevMode ? devUserId : '');
   
-  // Start with loading=true if we're going to fetch from API
-  const [loading, setLoading] = useState(useApi && !!effectiveUserId);
+  // Loading is true if:
+  // 1. Auth is still loading (we don't know if there's a user yet), OR
+  // 2. We have a user/dev mode but haven't loaded data yet
+  const loading = authLoading || (useApi && !!effectiveUserId && !dataLoaded);
+  
+  // Debug logging
+  console.log('[FinanceContext] State:', {
+    authLoading,
+    user: user?.uid || null,
+    isDevMode,
+    useApi,
+    effectiveUserId,
+    dataLoaded,
+    loading,
+    expensesCount: expenses.length,
+    incomesCount: incomes.length,
+  });
   
   // Load from localStorage (fallback/demo mode) - defined first so loadData can reference it
   const loadFromLocalStorage = useCallback(() => {
@@ -257,30 +275,47 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     }
   }, [getStorageKey]);
 
-  // Load data from API or localStorage
-  const loadData = useCallback(async () => {
-    if (useApi && effectiveUserId) {
-      setLoading(true);
+  // Load data from API or localStorage - takes userId as param to avoid stale closure issues
+  const loadData = useCallback(async (userId: string, shouldUseApi: boolean) => {
+    console.log('[FinanceContext] loadData called', { 
+      isLoadingRef: isLoadingRef.current, 
+      shouldUseApi, 
+      userId,
+    });
+    
+    // Guard against concurrent/redundant loads
+    if (isLoadingRef.current) {
+      console.log('[FinanceContext] loadData skipped - already loading');
+      return;
+    }
+    isLoadingRef.current = true;
+    
+    if (shouldUseApi && userId) {
+      console.log('[FinanceContext] Loading from API for user:', userId);
       setError(null);
       try {
         // Load expenses from API
+        console.log('[FinanceContext] Fetching expenses...');
         const expensesResponse = await financeClient.listExpenses({
-          userId: effectiveUserId,
+          userId: userId,
           pageSize: 1000,
         });
+        console.log('[FinanceContext] Expenses loaded:', expensesResponse.expenses.length);
         setExpenses(expensesResponse.expenses.map(mapProtoExpenseToLocal));
 
         // Load incomes from API
+        console.log('[FinanceContext] Fetching incomes...');
         const incomesResponse = await financeClient.listIncomes({
-          userId: effectiveUserId,
+          userId: userId,
           pageSize: 1000,
         });
+        console.log('[FinanceContext] Incomes loaded:', incomesResponse.incomes.length);
         setIncomes(incomesResponse.incomes.map(mapProtoIncomeToLocal));
 
         // Load tax config from API
         try {
           const taxResponse = await financeClient.getTaxConfig({
-            userId: effectiveUserId,
+            userId: userId,
           });
           if (taxResponse.taxConfig) {
             setTaxConfig({
@@ -293,26 +328,67 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
           }
         } catch {
           // Tax config may not exist, use default
-          console.debug('No tax config found, using default');
+          console.debug('[FinanceContext] No tax config found, using default');
         }
+        console.log('[FinanceContext] API load complete');
       } catch (err) {
-        console.error('Failed to load data from API:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load data');
+        // Don't log auth errors as they're expected during initial load
+        const isAuthError = err instanceof Error && err.message.includes('unauthenticated');
+        if (!isAuthError) {
+          console.error('[FinanceContext] Failed to load data from API:', err);
+          setError(err instanceof Error ? err.message : 'Failed to load data');
+        } else {
+          console.log('[FinanceContext] Auth error (expected during initial load):', err);
+        }
         // Fall back to localStorage
+        console.log('[FinanceContext] Falling back to localStorage');
         loadFromLocalStorage();
       } finally {
-        setLoading(false);
+        console.log('[FinanceContext] Setting dataLoaded = true');
+        setDataLoaded(true);
+        isLoadingRef.current = false;
       }
     } else {
       // Load from localStorage for demo mode
+      console.log('[FinanceContext] Loading from localStorage (no API/user)');
       loadFromLocalStorage();
+      setDataLoaded(true);
+      isLoadingRef.current = false;
     }
-  }, [useApi, effectiveUserId, getStorageKey, loadFromLocalStorage]);
+  }, [loadFromLocalStorage]);
 
-  // Load data on mount and when user changes
+  // Load data when user changes
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    console.log('[FinanceContext] useEffect triggered', {
+      effectiveUserId,
+      useApi,
+      lastUserIdRef: lastUserIdRef.current,
+      dataLoaded,
+      isLoadingRef: isLoadingRef.current,
+    });
+    
+    // Skip if user hasn't changed and data is already loaded
+    if (lastUserIdRef.current === effectiveUserId && dataLoaded) {
+      console.log('[FinanceContext] useEffect skipped - same user and data loaded');
+      return;
+    }
+    
+    // Track that we're loading for this user
+    console.log('[FinanceContext] useEffect - loading data for user:', effectiveUserId);
+    lastUserIdRef.current = effectiveUserId;
+    
+    // Reset loading guard in case of React Strict Mode double-mount
+    isLoadingRef.current = false;
+    
+    // Pass current values to avoid stale closure issues
+    loadData(effectiveUserId, useApi);
+    
+    // Cleanup: reset loading ref on unmount (for React Strict Mode)
+    return () => {
+      console.log('[FinanceContext] useEffect cleanup');
+      isLoadingRef.current = false;
+    };
+  }, [effectiveUserId, useApi, loadData, dataLoaded]);
 
   // Persist to localStorage when data changes (for demo mode or as cache)
   useEffect(() => {
@@ -608,7 +684,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
   // Refresh data from API
   const refreshData = async () => {
-    await loadData();
+    // Reset the loading guard to allow a fresh load
+    isLoadingRef.current = false;
+    await loadData(effectiveUserId, useApi);
   };
 
   // ============================================================================
