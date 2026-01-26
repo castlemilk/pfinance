@@ -4,19 +4,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      frontend:
-        description: 'Deploy frontend'
-        type: boolean
-        default: true
-      backend:
-        description: 'Deploy backend'
-        type: boolean
-        default: true
-      firebase:
-        description: 'Deploy Firebase indexes'
-        type: boolean
-        default: false
 
 concurrency:
   group: production-deploy
@@ -29,76 +16,19 @@ env:
   IMAGE_NAME: gcr.io/pfinance-app-1748773335/pfinance-backend
   WORKLOAD_IDENTITY_PROVIDER: projects/859800863588/locations/global/workloadIdentityPools/github-pool/providers/github-provider
   SERVICE_ACCOUNT: github-actions@pfinance-app-1748773335.iam.gserviceaccount.com
+  TF_STATE_BUCKET: pfinance-terraform-state
 
 jobs:
   # ===========================================
-  # Change Detection
+  # 1. Build Backend (Docker)
   # ===========================================
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      frontend: ${{ steps.filter.outputs.frontend }}
-      backend: ${{ steps.filter.outputs.backend }}
-      firebase: ${{ steps.filter.outputs.firebase }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            frontend:
-              - 'web/**'
-              - 'proto/**'
-            backend:
-              - 'backend/**'
-              - 'proto/**'
-            firebase:
-              - 'firebase.json'
-              - 'firestore.indexes.json'
-
-  # ===========================================
-  # Frontend → Vercel
-  # ===========================================
-  frontend:
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true' || github.event.inputs.frontend == 'true'
-    runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: https://pfinance.dev
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
-
-      - name: Deploy to Vercel
-        run: |
-          npm i -g vercel@latest
-          cd web
-          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
-
-  # ===========================================
-  # Backend → Cloud Run
-  # ===========================================
-  backend:
-    needs: changes
-    if: needs.changes.outputs.backend == 'true' || github.event.inputs.backend == 'true'
+  build-backend:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
-    environment:
-      name: production
-      url: https://api.pfinance.dev
+    outputs:
+      image: ${{ env.IMAGE_NAME }}:${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
 
@@ -124,44 +54,17 @@ jobs:
           docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} .
           docker push ${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-      - name: Security scan
-        run: |
-          docker run --rm aquasec/trivy:latest image \
-            --severity HIGH,CRITICAL \
-            --exit-code 0 \
-            ${{ env.IMAGE_NAME }}:${{ github.sha }} || echo "::warning::Trivy found vulnerabilities"
-
-      - name: Deploy
-        run: |
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image ${{ env.IMAGE_NAME }}:${{ github.sha }} \
-            --region ${{ env.REGION }} \
-            --platform managed \
-            --allow-unauthenticated \
-            --port 8111 \
-            --memory 512Mi \
-            --max-instances 10 \
-            --set-env-vars GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }} \
-            --quiet
-
-      - name: Verify
-        run: |
-          URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} --region ${{ env.REGION }} --format 'value(status.url)')
-          sleep 15
-          curl -sf $URL/health || exit 1
-          echo "✓ Deployed to $URL"
-
   # ===========================================
-  # Firebase Indexes
+  # 2. Deploy Infrastructure (Terraform)
   # ===========================================
-  firebase:
-    needs: changes
-    if: needs.changes.outputs.firebase == 'true' || github.event.inputs.firebase == 'true'
+  deploy-infra:
+    needs: build-backend
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
-    environment: production
+    outputs:
+      api_url: ${{ steps.get-url.outputs.api_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -170,8 +73,96 @@ jobs:
           workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ env.SERVICE_ACCOUNT }}
 
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Create Terraform State Bucket
+        run: |
+          if ! gcloud storage buckets describe gs://${{ env.TF_STATE_BUCKET }} 2>/dev/null; then
+            echo "Creating Terraform state bucket..."
+            gcloud storage buckets create gs://${{ env.TF_STATE_BUCKET }} --location=${{ env.REGION }}
+          else
+            echo "Terraform state bucket exists."
+          fi
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: terraform
+        run: |
+          terraform apply -auto-approve \
+            -var="project_id=${{ env.PROJECT_ID }}" \
+            -var="region=${{ env.REGION }}" \
+            -var="service_name=${{ env.SERVICE_NAME }}" \
+            -var="image_name=${{ needs.build-backend.outputs.image }}"
+
+      - name: Get Service URL
+        id: get-url
+        working-directory: terraform
+        run: |
+          URL=$(terraform output -raw service_url)
+          echo "api_url=$URL" >> $GITHUB_OUTPUT
+          echo "Backend deployed to: $URL"
+
+  # ===========================================
+  # 3. Deploy Frontend (Vercel)
+  # ===========================================
+  deploy-frontend:
+    needs: deploy-infra
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://pfinance.dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install Vercel CLI
+        run: npm i -g vercel@latest
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: team_xE5DMN3hIo8aPqyHNkBybg8r
+          VERCEL_PROJECT_ID: prj_TakUttZsa4fdddSwfVp08YFfyAdF
+          API_URL: ${{ needs.deploy-infra.outputs.api_url }}
+        run: |
+          cd web
+          # Pull latest environment variables and project config
+          vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+          
+          # Build with the dynamic API URL from Terraform
+          vercel build --prod --token=$VERCEL_TOKEN
+          
+          # Deploy using the build artifacts and injecting the API URL env var
+          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN --env NEXT_PUBLIC_API_URL=$API_URL --env NEXT_PUBLIC_DEV_MODE=false
+
+  # ===========================================
+  # 4. Deploy Firebase Indexes
+  # ===========================================
+  firebase:
+    needs: deploy-infra
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
       - name: Deploy indexes
         run: |
           npm i -g firebase-tools
           firebase deploy --only firestore:indexes --project ${{ env.PROJECT_ID }}
-          echo "✓ Firestore indexes deployed"

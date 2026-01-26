@@ -57,26 +57,30 @@ Add these DNS records at your domain registrar:
 
 ## Deployment Commands
 
-### Manual Deploy
-```bash
-# Deploy frontend to Vercel
-cd web
-vercel --prod
+### Automated Deploy (Preferred)
 
-# Deploy backend to Cloud Run
-cd backend
-gcloud run deploy pfinance-backend \
-  --source . \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --port 8111
+The entire deployment is handled automatically by GitHub Actions:
+
+1. Push to `main` branch
+2. **Build Backend**: Docker image built and pushed to Container Registry
+3. **Deploy Infra**: Terraform provisions Cloud Run and outputs API URL
+4. **Deploy Frontend**: Vercel deploys frontend with injected API_URL
+5. **Firebase**: Firestore indexes updated
+
+### Manual Terraform Deploy (Infrastructure Only)
+```bash
+cd terraform
+terraform init
+terraform apply \
+  -var="project_id=pfinance-app-1748773335" \
+  -var="image_name=gcr.io/pfinance-app-1748773335/pfinance-backend:latest"
 ```
 
-### Automated Deploy (CI/CD)
-
-Push to `main` branch triggers:
-1. **Frontend** → Vercel (if `web/` changed)
-2. **Backend** → Cloud Run (if `backend/` changed)
+### Manual Vercel Deploy (Frontend Only)
+```bash
+cd web
+vercel --prod
+```
 
 ## Post-Deployment Checklist
 
