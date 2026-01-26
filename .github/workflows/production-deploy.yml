@@ -1,20 +1,26 @@
-name: Production Deploy
+name: Deploy Production
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
     inputs:
-      deploy_frontend:
+      frontend:
         description: 'Deploy frontend'
-        required: false
-        default: true
         type: boolean
-      deploy_backend:
+        default: true
+      backend:
         description: 'Deploy backend'
-        required: false
-        default: true
         type: boolean
+        default: true
+      firebase:
+        description: 'Deploy Firebase indexes'
+        type: boolean
+        default: false
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
 
 env:
   PROJECT_ID: pfinance-app-1748773335
@@ -26,20 +32,21 @@ env:
 
 jobs:
   # ===========================================
-  # Detect Changes
+  # Change Detection
   # ===========================================
   changes:
     runs-on: ubuntu-latest
     outputs:
-      frontend: ${{ steps.changes.outputs.frontend }}
-      backend: ${{ steps.changes.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+      firebase: ${{ steps.filter.outputs.firebase }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-      
+
       - uses: dorny/paths-filter@v3
-        id: changes
+        id: filter
         with:
           filters: |
             frontend:
@@ -48,99 +55,83 @@ jobs:
             backend:
               - 'backend/**'
               - 'proto/**'
+            firebase:
+              - 'firebase.json'
+              - 'firestore.indexes.json'
 
   # ===========================================
-  # Frontend Production (Vercel)
+  # Frontend → Vercel
   # ===========================================
-  frontend-production:
+  frontend:
     needs: changes
-    if: |
-      (needs.changes.outputs.frontend == 'true' || github.event.inputs.deploy_frontend == 'true') &&
-      github.ref == 'refs/heads/main'
+    if: needs.changes.outputs.frontend == 'true' || github.event.inputs.frontend == 'true'
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://pfinance.app
+      url: https://pfinance.dev
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
-      - name: Pull Vercel Environment
+      - name: Deploy to Vercel
         run: |
+          npm i -g vercel@latest
           cd web
           vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build
-        run: |
-          cd web
           vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy to Production
-        run: |
-          cd web
           vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
 
   # ===========================================
-  # Backend Production (Cloud Run)
+  # Backend → Cloud Run
   # ===========================================
-  backend-production:
+  backend:
     needs: changes
-    if: |
-      (needs.changes.outputs.backend == 'true' || github.event.inputs.deploy_backend == 'true') &&
-      github.ref == 'refs/heads/main'
+    if: needs.changes.outputs.backend == 'true' || github.event.inputs.backend == 'true'
     runs-on: ubuntu-latest
     permissions:
-      contents: 'read'
-      id-token: 'write'
+      contents: read
+      id-token: write
     environment:
       name: production
-      url: https://api.pfinance.app
+      url: https://api.pfinance.dev
     steps:
       - uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ env.SERVICE_ACCOUNT }}
 
-      - name: Setup Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.PROJECT_ID }}
 
-      - name: Configure Docker for GCR
-        run: gcloud auth configure-docker
+      - run: gcloud auth configure-docker
 
-      - name: Setup buf CLI
-        uses: bufbuild/buf-setup-action@v1
+      - uses: bufbuild/buf-setup-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate protobuf code
-        run: cd proto && buf generate
-
-      - name: Build Docker image
+      - name: Build & Push
         run: |
-          cd backend
+          cd proto && buf generate
+          cd ../backend
           docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} .
-          docker tag ${{ env.IMAGE_NAME }}:${{ github.sha }} ${{ env.IMAGE_NAME }}:latest
-
-      - name: Push Docker image
-        run: |
           docker push ${{ env.IMAGE_NAME }}:${{ github.sha }}
-          docker push ${{ env.IMAGE_NAME }}:latest
 
-      - name: Deploy to Cloud Run
+      - name: Security scan
+        run: |
+          docker run --rm aquasec/trivy:latest image \
+            --severity HIGH,CRITICAL \
+            --exit-code 0 \
+            ${{ env.IMAGE_NAME }}:${{ github.sha }} || echo "::warning::Trivy found vulnerabilities"
+
+      - name: Deploy
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image ${{ env.IMAGE_NAME }}:${{ github.sha }} \
@@ -149,40 +140,38 @@ jobs:
             --allow-unauthenticated \
             --port 8111 \
             --memory 512Mi \
-            --cpu 1 \
             --max-instances 10 \
             --set-env-vars GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }} \
             --quiet
 
-      - name: Verify Deployment
+      - name: Verify
         run: |
-          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
-            --region ${{ env.REGION }} \
-            --format 'value(status.url)')
-          
-          echo "Service deployed to: $SERVICE_URL"
-          
-          # Wait for deployment
-          sleep 30
-          
-          # Health check
-          curl -f $SERVICE_URL/health || exit 1
-          echo "✅ Health check passed"
+          URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} --region ${{ env.REGION }} --format 'value(status.url)')
+          sleep 15
+          curl -sf $URL/health || exit 1
+          echo "✓ Deployed to $URL"
 
-      - name: Create Release Tag
-        if: success()
-        uses: actions/github-script@v7
+  # ===========================================
+  # Firebase Indexes
+  # ===========================================
+  firebase:
+    needs: changes
+    if: needs.changes.outputs.firebase == 'true' || github.event.inputs.firebase == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
         with:
-          script: |
-            const tag = `backend-${new Date().toISOString().split('T')[0]}-${context.sha.substring(0, 7)}`;
-            try {
-              await github.rest.git.createRef({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                ref: `refs/tags/${tag}`,
-                sha: context.sha
-              });
-              console.log(`Created tag: ${tag}`);
-            } catch (e) {
-              console.log('Tag already exists or could not be created');
-            }
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
+
+      - name: Deploy indexes
+        run: |
+          npm i -g firebase-tools
+          firebase deploy --only firestore:indexes --project ${{ env.PROJECT_ID }}
+          echo "✓ Firestore indexes deployed"

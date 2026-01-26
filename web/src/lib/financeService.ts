@@ -1,6 +1,51 @@
 import { createPromiseClient } from "@bufbuild/connect";
 import { createConnectTransport } from "@bufbuild/connect-web";
 import { FinanceService } from "@/gen/pfinance/v1/finance_service_connect";
+import { onAuthStateChanged } from 'firebase/auth';
+
+// Helper to get auth token, waiting for auth state to be ready if needed
+async function getAuthToken(): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+  
+  try {
+    const { auth } = await import('./firebase');
+    if (!auth) {
+      console.log('[financeService] getAuthToken: Firebase auth not initialized');
+      return null;
+    }
+    
+    // If currentUser is already available, get token immediately
+    if (auth.currentUser) {
+      console.log('[financeService] getAuthToken: Getting token for current user:', auth.currentUser.uid);
+      return auth.currentUser.getIdToken();
+    }
+    
+    console.log('[financeService] getAuthToken: Waiting for auth state...');
+    // Wait for auth state to be determined (with timeout)
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        console.log('[financeService] getAuthToken: Timeout - no user');
+        resolve(null); // Timeout - no user
+      }, 2000);
+      
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        clearTimeout(timeout);
+        unsubscribe();
+        if (user) {
+          console.log('[financeService] getAuthToken: Got user from auth state:', user.uid);
+          const token = await user.getIdToken();
+          resolve(token);
+        } else {
+          console.log('[financeService] getAuthToken: No user from auth state');
+          resolve(null);
+        }
+      });
+    });
+  } catch (err) {
+    console.debug('[financeService] Firebase auth not available:', err);
+    return null;
+  }
+}
 
 // Create transport with the backend URL
 // NOTE: Default port is 8111 (not 8080) to avoid conflicts
@@ -9,19 +54,20 @@ const transport = createConnectTransport({
   // Add auth token if available
   interceptors: [
     (next) => async (req) => {
-      // Add Firebase auth token if user is logged in
-      if (typeof window !== 'undefined') {
-        try {
-          const { auth } = await import('./firebase');
-          if (auth?.currentUser) {
-            const token = await auth.currentUser.getIdToken();
-            req.header.set('Authorization', `Bearer ${token}`);
-          }
-        } catch (error) {
-          // If Firebase is not initialized or there's an error, continue without auth
-          console.debug('Firebase auth not available, continuing without authentication');
+      const token = await getAuthToken();
+      if (token) {
+        req.header.set('Authorization', `Bearer ${token}`);
+      }
+      
+      // Add impersonation header in dev mode
+      if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_DEV_MODE === 'true') {
+        const impersonatedUser = localStorage.getItem('debug_impersonated_user');
+        if (impersonatedUser) {
+          req.header.set('X-Debug-Impersonate-User', impersonatedUser);
+          console.log('[financeService] Using impersonated user:', impersonatedUser);
         }
       }
+      
       return next(req);
     },
   ],

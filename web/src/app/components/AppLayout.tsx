@@ -2,6 +2,7 @@
 
 import { ReactNode } from 'react';
 import SidebarNav from './SidebarNav';
+import DebugPanel from './DebugPanel';
 import { cn } from '@/lib/utils';
 
 interface AppLayoutProps {
@@ -26,6 +27,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
           {children}
         </main>
       </div>
+
+      {/* Debug Panel - only shows when NEXT_PUBLIC_DEV_MODE=true */}
+      <DebugPanel />
     </div>
   );
 }

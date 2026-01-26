@@ -40,6 +40,28 @@ func AuthInterceptor(firebaseAuth *FirebaseAuth) connect.UnaryInterceptorFunc {
 	}
 }
 
+// DebugAuthInterceptor creates an interceptor that allows impersonation via header
+// ONLY use this in development - never in production!
+func DebugAuthInterceptor(skipAuth bool) connect.UnaryInterceptorFunc {
+	return func(next connect.UnaryFunc) connect.UnaryFunc {
+		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+			// Only allow impersonation when auth is skipped (dev mode)
+			if skipAuth {
+				impersonateUser := req.Header().Get("X-Debug-Impersonate-User")
+				if impersonateUser != "" {
+					// Create fake claims for the impersonated user
+					claims := &UserClaims{
+						UID:   impersonateUser,
+						Email: impersonateUser + "@debug.local",
+					}
+					ctx = withUserClaims(ctx, claims)
+				}
+			}
+			return next(ctx, req)
+		}
+	}
+}
+
 // isPublicEndpoint checks if an endpoint should be accessible without authentication
 func isPublicEndpoint(procedure string) bool {
 	publicEndpoints := []string{
@@ -80,4 +102,3 @@ func GetUserID(ctx context.Context) (string, bool) {
 	}
 	return "", false
 }
-

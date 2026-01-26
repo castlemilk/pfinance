@@ -13,7 +13,6 @@ import TransactionImport from './TransactionImport';
 import ReportGenerator from './ReportGenerator';
 import GroupExpenseForm from './GroupExpenseForm';
 import GroupExpenseList from './GroupExpenseList';
-import GroupSelector from './GroupSelector';
 import EnhancedGroupSelector from './EnhancedGroupSelector';
 import BudgetDashboard from './BudgetDashboard';
 import { useAuth } from '../context/AuthWithAdminContext';
@@ -54,19 +53,24 @@ export default function FinanceDashboard({ mode }: FinanceDashboardProps) {
     );
   }
 
-  // Show group selection prompt for shared mode
+  // Show group selection prompt for shared mode - but include the selector!
   if (mode === 'shared' && !activeGroup) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-6 text-center">
-            <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Select a Finance Group</h3>
-            <p className="text-muted-foreground">
-              Please select or create a finance group from the Groups page to continue.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="space-y-6">
+        {/* Show the group selector so user can actually select a group */}
+        <EnhancedGroupSelector />
+        
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Card className="max-w-md w-full">
+            <CardContent className="pt-6 text-center">
+              <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Select a Finance Group</h3>
+              <p className="text-muted-foreground">
+                Please select a finance group from the dropdown above, or create a new one to continue.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
