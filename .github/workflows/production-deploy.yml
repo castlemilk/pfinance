@@ -43,13 +43,20 @@ jobs:
 
       - run: gcloud auth configure-docker
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
       - uses: bufbuild/buf-setup-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build & Push
         run: |
-          cd proto && buf generate
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install github.com/bufbuild/connect-go/cmd/protoc-gen-connect-go@latest
+          export PATH=$PATH:$(go env GOPATH)/bin
+          cd proto && buf generate --template buf.gen.go.yaml
           cd ../backend
           docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} .
           docker push ${{ env.IMAGE_NAME }}:${{ github.sha }}
