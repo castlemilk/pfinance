@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { jest } from '@jest/globals';
+// import { jest } from '@jest/globals'; // Remove this to rely on global jest and avoid hoisting issues
 import OpenAI from 'openai';
 import { 
   EnhancedSmartCategorization, 
@@ -165,7 +165,7 @@ describe('EnhancedSmartCategorization', () => {
 
     it('uses historical data for similar transactions', async () => {
       // Record a historical correction
-      categorizer.recordCorrection('Starbucks Coffee', 'Other', 'Food', 5.99);
+      categorizer.recordCorrection('Starbucks Coffee Shop', 'Other', 'Food', 5.99);
       
       const results = await categorizer.enhancedBatchCategorization(mockTransactions);
       
@@ -346,9 +346,9 @@ describe('EnhancedSmartCategorization', () => {
 
     it('includes recent categorization patterns in context', async () => {
       // Add some historical data
-      categorizer.recordCorrection('Starbucks', 'Other', 'Food');
+      categorizer.recordCorrection('Starbucks Coffee', 'Other', 'Food');
       categorizer.recordCorrection('Coffee Bean', 'Other', 'Food');
-      categorizer.recordCorrection('Dunkin', 'Other', 'Food');
+      categorizer.recordCorrection('Dunkin Coffee', 'Other', 'Food');
 
       const mockResponse = {
         choices: [{

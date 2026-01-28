@@ -16,26 +16,82 @@ jest.mock('@/lib/financeService', () => ({
 
 // Mock Firebase
 jest.mock('@/lib/firebase', () => ({
-  auth: {
+  auth: { 
     currentUser: {
       uid: 'test-user-id',
       email: 'test@example.com',
       getIdToken: jest.fn().mockResolvedValue('test-token'),
-    },
+    }
   },
   db: {},
 }));
 
-const mockGroup = {
-  id: 'test-group-id',
-  name: 'Test Group',
-  members: [
-    { userId: 'test-user-id', email: 'test@example.com', displayName: 'Test User', role: 'owner' },
-    { userId: 'user2', email: 'user2@example.com', displayName: 'User 2', role: 'member' },
-  ],
-};
+jest.mock('firebase/auth', () => ({
+  getAuth: jest.fn(),
+  onAuthStateChanged: jest.fn((auth, callback) => {
+    callback({
+      uid: 'test-user-id',
+      email: 'test@example.com',
+      getIdToken: jest.fn().mockResolvedValue('test-token'),
+    });
+    return jest.fn();
+  }),
+  signInWithEmailAndPassword: jest.fn().mockResolvedValue({ user: { uid: 'test' } }),
+  createUserWithEmailAndPassword: jest.fn().mockResolvedValue({ user: { uid: 'test' } }),
+  signOut: jest.fn().mockResolvedValue(undefined),
+  updateProfile: jest.fn().mockResolvedValue(undefined),
+  GoogleAuthProvider: jest.fn(),
+  signInWithPopup: jest.fn().mockResolvedValue({ user: { uid: 'test' } }),
+  setPersistence: jest.fn().mockResolvedValue(undefined),
+  browserLocalPersistence: 'local',
+}));
+
+// Override useMultiUserFinance to return mock data
+jest.mock('../../context/MultiUserFinanceContext', () => {
+    const mockGroup = {
+        id: 'test-group-id',
+        name: 'Test Group',
+        members: [
+            { userId: 'test-user-id', email: 'test@example.com', displayName: 'Test User', role: 'owner' },
+            { userId: 'user2', email: 'user2@example.com', displayName: 'User 2', role: 'member' },
+        ],
+    };
+    
+    return {
+        ...jest.requireActual('../../context/MultiUserFinanceContext'),
+        useMultiUserFinance: () => ({
+            activeGroup: mockGroup,
+            groupExpenses: [],
+            groupIncomes: [],
+            loading: false,
+            error: null,
+            addGroupExpense: (groupId: any, description: any, amount: any, category: any, frequency: any, paidByUserId: any, splitType: any, allocations: any) => {
+                const { financeClient } = require('@/lib/financeService');
+                return financeClient.createExpense({
+                    userId: 'test-user-id',
+                    groupId,
+                    description,
+                    amount,
+                    category,
+                    frequency,
+                    paidByUserId,
+                    splitType,
+                    allocations
+                });
+            },
+        }),
+    };
+});
 
 describe('Group Expense Creation', () => {
+  beforeAll(() => {
+    Object.defineProperty(global, 'crypto', {
+        value: {
+            randomUUID: () => 'test-uuid-group'
+        }
+    });
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     (financeClient.createExpense as jest.Mock).mockResolvedValue({
@@ -60,18 +116,6 @@ describe('Group Expense Creation', () => {
         </AuthWithAdminProvider>
       </AdminProvider>
     );
-
-    // Override useMultiUserFinance to return mock data
-    jest.mock('../../context/MultiUserFinanceContext', () => ({
-      ...jest.requireActual('../../context/MultiUserFinanceContext'),
-      useMultiUserFinance: () => ({
-        activeGroup: mockGroup,
-        groupExpenses: [],
-        groupIncomes: [],
-        loading: false,
-        error: null,
-      }),
-    }));
 
     render(
       <MockedProvider>

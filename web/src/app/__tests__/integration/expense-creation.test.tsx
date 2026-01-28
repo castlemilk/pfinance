@@ -2,7 +2,31 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ExpenseForm from '../../components/ExpenseForm';
 import { FinanceProvider } from '../../context/FinanceContext';
+import { AuthWithAdminProvider } from '../../context/AuthWithAdminContext';
 import { AdminProvider } from '../../context/AdminContext';
+
+// Mock Firebase Auth
+jest.mock('firebase/auth', () => ({
+  getAuth: jest.fn(),
+  onAuthStateChanged: jest.fn((auth, callback) => {
+    callback(null);
+    return jest.fn();
+  }),
+  signInWithEmailAndPassword: jest.fn().mockResolvedValue({ user: { uid: 'test' } }),
+  createUserWithEmailAndPassword: jest.fn().mockResolvedValue({ user: { uid: 'test' } }),
+  signOut: jest.fn().mockResolvedValue(undefined),
+  updateProfile: jest.fn().mockResolvedValue(undefined),
+  GoogleAuthProvider: jest.fn(),
+  signInWithPopup: jest.fn().mockResolvedValue({ user: { uid: 'test' } }),
+  setPersistence: jest.fn().mockResolvedValue(undefined),
+  browserLocalPersistence: 'local',
+}));
+
+// Mock Firebase Lib
+jest.mock('@/lib/firebase', () => ({
+  auth: { currentUser: null },
+  db: {},
+}));
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -20,6 +44,14 @@ Object.defineProperty(window, 'localStorage', {
 });
 
 describe('Personal Expense Creation', () => {
+    beforeAll(() => {
+        Object.defineProperty(global, 'crypto', {
+            value: {
+                randomUUID: () => 'test-uuid-1234'
+            }
+        });
+    });
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockLocalStorage.getItem.mockReturnValue(null);
@@ -30,9 +62,11 @@ describe('Personal Expense Creation', () => {
 
     render(
       <AdminProvider>
-        <FinanceProvider>
-          <ExpenseForm />
-        </FinanceProvider>
+        <AuthWithAdminProvider>
+          <FinanceProvider>
+            <ExpenseForm />
+          </FinanceProvider>
+        </AuthWithAdminProvider>
       </AdminProvider>
     );
 
@@ -85,9 +119,11 @@ describe('Personal Expense Creation', () => {
 
     render(
       <AdminProvider>
-        <FinanceProvider>
-          <ExpenseForm />
-        </FinanceProvider>
+        <AuthWithAdminProvider>
+          <FinanceProvider>
+            <ExpenseForm />
+          </FinanceProvider>
+        </AuthWithAdminProvider>
       </AdminProvider>
     );
 
