@@ -135,7 +135,6 @@ jobs:
           VERCEL_PROJECT_ID: prj_TakUttZsa4fdddSwfVp08YFfyAdF
           API_URL: ${{ needs.deploy-backend.outputs.api_url }}
         run: |
-          cd web
           # Pull latest environment variables and project config
           vercel pull --yes --environment=production --token=$VERCEL_TOKEN
           
