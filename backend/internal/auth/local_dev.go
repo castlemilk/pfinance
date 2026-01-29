@@ -3,7 +3,7 @@ package auth
 import (
 	"context"
 
-	"github.com/bufbuild/connect-go"
+	"connectrpc.com/connect"
 )
 
 // LocalDevInterceptor provides a mock user context for local development

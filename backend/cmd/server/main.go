@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"cloud.google.com/go/firestore"
-	"github.com/bufbuild/connect-go"
+	"connectrpc.com/connect"
 	"github.com/castlemilk/pfinance/backend/gen/pfinance/v1/pfinancev1connect"
 	"github.com/castlemilk/pfinance/backend/internal/auth"
 	"github.com/castlemilk/pfinance/backend/internal/service"

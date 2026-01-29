@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/bufbuild/connect-go"
+	"connectrpc.com/connect"
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 	"github.com/castlemilk/pfinance/backend/gen/pfinance/v1/pfinancev1connect"
 	"google.golang.org/protobuf/types/known/timestamppb"

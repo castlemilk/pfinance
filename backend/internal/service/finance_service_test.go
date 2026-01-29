@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bufbuild/connect-go"
+	"connectrpc.com/connect"
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 	"github.com/castlemilk/pfinance/backend/internal/store"
 	"go.uber.org/mock/gomock"

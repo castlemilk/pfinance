@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { useMultiUserFinance } from '../context/MultiUserFinanceContext';
 import { useAuth } from '../context/AuthWithAdminContext';
@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Select,
   SelectContent,
@@ -21,10 +23,15 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
-  Users
+  Users,
+  BarChart3,
+  Loader2,
+  Image as ImageIcon
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { ExpenseCategory, IncomeFrequency } from '../types';
+import DashboardReport from './DashboardReport';
+import { exportDashboardToPdf } from '../utils/dashboardExport';
 
 interface ReportData {
   title: string;
@@ -61,7 +68,7 @@ interface ReportGeneratorProps {
   groupId?: string;
 }
 
-export default function ReportGenerator({ }: ReportGeneratorProps) {
+export default function ReportGenerator({ mode, groupId }: ReportGeneratorProps) {
   const { user } = useAuth();
   const { 
     getTotalIncome, 
@@ -83,6 +90,42 @@ export default function ReportGenerator({ }: ReportGeneratorProps) {
   const [customEndDate, setCustomEndDate] = useState('');
   const [reportTitle, setReportTitle] = useState('Financial Report');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [includeCharts, setIncludeCharts] = useState(true);
+  const [activeTab, setActiveTab] = useState<'data' | 'visual'>('visual');
+  const [exportProgress, setExportProgress] = useState<string>('');
+  
+  // Ref for the visual dashboard
+  const dashboardRef = useRef<HTMLDivElement>(null);
+
+  // Handle visual PDF export
+  const handleVisualExport = useCallback(async () => {
+    if (!dashboardRef.current) {
+      console.error('Dashboard ref not available');
+      return;
+    }
+    
+    setIsGenerating(true);
+    setExportProgress('Starting export...');
+    
+    try {
+      await exportDashboardToPdf(dashboardRef.current, {
+        title: reportTitle || 'Financial Dashboard Report',
+        subtitle: `${reportPeriod === 'custom' ? 'Custom Period' : reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1) + 'ly'} Report`,
+        includeTimestamp: true,
+        scale: 2,
+        orientation: 'portrait',
+        pageSize: 'a4',
+        onProgress: (progress, message) => {
+          setExportProgress(message);
+        },
+      });
+    } catch (error) {
+      console.error('Failed to export visual PDF:', error);
+    } finally {
+      setIsGenerating(false);
+      setExportProgress('');
+    }
+  }, [reportTitle, reportPeriod]);
 
   // Calculate date range based on period
   const dateRange = useMemo(() => {
@@ -348,133 +391,195 @@ export default function ReportGenerator({ }: ReportGeneratorProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Report Configuration */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="report-title">Report Title</Label>
-                <Input
-                  id="report-title"
-                  value={reportTitle}
-                  onChange={(e) => setReportTitle(e.target.value)}
-                  placeholder="Monthly Financial Report"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="report-type">Report Type</Label>
-                <Select value={reportType} onValueChange={(value) => setReportType(value as ReportType)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="personal">Personal Finance</SelectItem>
-                    <SelectItem value="group" disabled={!activeGroup}>Group Finance</SelectItem>
-                    <SelectItem value="comparison">Comparison Report</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="report-period">Time Period</Label>
-                <Select value={reportPeriod} onValueChange={(value) => setReportPeriod(value as ReportPeriod)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="week">Last 7 Days</SelectItem>
-                    <SelectItem value="month">This Month</SelectItem>
-                    <SelectItem value="quarter">This Quarter</SelectItem>
-                    <SelectItem value="year">This Year</SelectItem>
-                    <SelectItem value="custom">Custom Range</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {reportPeriod === 'custom' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="start-date">Start Date</Label>
-                    <Input
-                      id="start-date"
-                      type="date"
-                      value={customStartDate}
-                      onChange={(e) => setCustomStartDate(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="end-date">End Date</Label>
-                    <Input
-                      id="end-date"
-                      type="date"
-                      value={customEndDate}
-                      onChange={(e) => setCustomEndDate(e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-2 mt-6">
-                <Button onClick={generatePDFReport} disabled={isGenerating} className="flex-1">
-                  <Download className="w-4 h-4 mr-2" />
-                  {isGenerating ? 'Generating...' : 'Download PDF'}
-                </Button>
-                <Button variant="outline" onClick={generateCSVReport} className="flex-1">
-                  <FileText className="w-4 h-4 mr-2" />
-                  Export CSV
-                </Button>
-              </div>
-            </div>
-
-            {/* Report Preview */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Report Preview</h3>
-              
-              <div className="border rounded-lg p-4 space-y-4 bg-muted/10">
-                <div className="text-center">
-                  <h4 className="text-xl font-semibold">{reportData.title}</h4>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'data' | 'visual')}>
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="visual" className="flex items-center gap-2">
+                <ImageIcon className="w-4 h-4" />
+                Visual Report
+              </TabsTrigger>
+              <TabsTrigger value="data" className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4" />
+                Data Report
+              </TabsTrigger>
+            </TabsList>
+            
+            {/* Visual Report Tab - Dashboard with Charts */}
+            <TabsContent value="visual" className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-medium">Visual Dashboard Report</h3>
                   <p className="text-sm text-muted-foreground">
-                    {reportData.period.start.toLocaleDateString()} - {reportData.period.end.toLocaleDateString()}
+                    Export a beautiful PDF with charts and visualizations
                   </p>
                 </div>
+                <Button 
+                  onClick={handleVisualExport} 
+                  disabled={isGenerating}
+                  size="lg"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      {exportProgress || 'Generating...'}
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      Export Visual PDF
+                    </>
+                  )}
+                </Button>
+              </div>
+              
+              {/* Visual Dashboard Preview */}
+              <div className="border rounded-lg overflow-hidden">
+                <DashboardReport 
+                  ref={dashboardRef}
+                  showExportButton={false}
+                />
+              </div>
+            </TabsContent>
+            
+            {/* Data Report Tab - Traditional Text Report */}
+            <TabsContent value="data">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Report Configuration */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="report-title">Report Title</Label>
+                    <Input
+                      id="report-title"
+                      value={reportTitle}
+                      onChange={(e) => setReportTitle(e.target.value)}
+                      placeholder="Monthly Financial Report"
+                    />
+                  </div>
 
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="p-3 border rounded">
-                    <DollarSign className="w-6 h-6 mx-auto mb-1 text-green-500" />
-                    <p className="text-sm text-muted-foreground">Income</p>
-                    <p className="font-semibold">${reportData.income.total.toFixed(2)}</p>
+                  <div className="space-y-2">
+                    <Label htmlFor="report-type">Report Type</Label>
+                    <Select value={reportType} onValueChange={(value) => setReportType(value as ReportType)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="personal">Personal Finance</SelectItem>
+                        <SelectItem value="group" disabled={!activeGroup}>Group Finance</SelectItem>
+                        <SelectItem value="comparison">Comparison Report</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="p-3 border rounded">
-                    <TrendingDown className="w-6 h-6 mx-auto mb-1 text-red-500" />
-                    <p className="text-sm text-muted-foreground">Expenses</p>
-                    <p className="font-semibold">${reportData.expenses.total.toFixed(2)}</p>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="report-period">Time Period</Label>
+                    <Select value={reportPeriod} onValueChange={(value) => setReportPeriod(value as ReportPeriod)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="week">Last 7 Days</SelectItem>
+                        <SelectItem value="month">This Month</SelectItem>
+                        <SelectItem value="quarter">This Quarter</SelectItem>
+                        <SelectItem value="year">This Year</SelectItem>
+                        <SelectItem value="custom">Custom Range</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="p-3 border rounded">
-                    <TrendingUp className="w-6 h-6 mx-auto mb-1 text-blue-500" />
-                    <p className="text-sm text-muted-foreground">Savings</p>
-                    <p className="font-semibold">${reportData.savings.amount.toFixed(2)}</p>
+
+                  {reportPeriod === 'custom' && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="start-date">Start Date</Label>
+                        <Input
+                          id="start-date"
+                          type="date"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="end-date">End Date</Label>
+                        <Input
+                          id="end-date"
+                          type="date"
+                          value={customEndDate}
+                          onChange={(e) => setCustomEndDate(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between py-2">
+                    <Label htmlFor="include-charts" className="text-sm">Include chart descriptions</Label>
+                    <Switch
+                      id="include-charts"
+                      checked={includeCharts}
+                      onCheckedChange={setIncludeCharts}
+                    />
+                  </div>
+
+                  <div className="flex gap-2 mt-6">
+                    <Button onClick={generatePDFReport} disabled={isGenerating} className="flex-1">
+                      <Download className="w-4 h-4 mr-2" />
+                      {isGenerating ? 'Generating...' : 'Download PDF'}
+                    </Button>
+                    <Button variant="outline" onClick={generateCSVReport} className="flex-1">
+                      <FileText className="w-4 h-4 mr-2" />
+                      Export CSV
+                    </Button>
                   </div>
                 </div>
 
-                {reportData.groupData && (
-                  <div className="border-t pt-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Users className="w-4 h-4" />
-                      <span className="font-medium">{reportData.groupData.name}</span>
+                {/* Report Preview */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Report Preview</h3>
+                  
+                  <div className="border rounded-lg p-4 space-y-4 bg-muted/10">
+                    <div className="text-center">
+                      <h4 className="text-xl font-semibold">{reportData.title}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {reportData.period.start.toLocaleDateString()} - {reportData.period.end.toLocaleDateString()}
+                      </p>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>You are owed: <span className="font-medium text-green-600">${reportData.groupData.userOwed.toFixed(2)}</span></div>
-                      <div>You owe: <span className="font-medium text-red-600">${reportData.groupData.userOwes.toFixed(2)}</span></div>
+
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div className="p-3 border rounded">
+                        <DollarSign className="w-6 h-6 mx-auto mb-1 text-green-500" />
+                        <p className="text-sm text-muted-foreground">Income</p>
+                        <p className="font-semibold">${reportData.income.total.toFixed(2)}</p>
+                      </div>
+                      <div className="p-3 border rounded">
+                        <TrendingDown className="w-6 h-6 mx-auto mb-1 text-red-500" />
+                        <p className="text-sm text-muted-foreground">Expenses</p>
+                        <p className="font-semibold">${reportData.expenses.total.toFixed(2)}</p>
+                      </div>
+                      <div className="p-3 border rounded">
+                        <TrendingUp className="w-6 h-6 mx-auto mb-1 text-blue-500" />
+                        <p className="text-sm text-muted-foreground">Savings</p>
+                        <p className="font-semibold">${reportData.savings.amount.toFixed(2)}</p>
+                      </div>
+                    </div>
+
+                    {reportData.groupData && (
+                      <div className="border-t pt-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Users className="w-4 h-4" />
+                          <span className="font-medium">{reportData.groupData.name}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>You are owed: <span className="font-medium text-green-600">${reportData.groupData.userOwed.toFixed(2)}</span></div>
+                          <div>You owe: <span className="font-medium text-red-600">${reportData.groupData.userOwes.toFixed(2)}</span></div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="text-xs text-muted-foreground text-center">
+                      Report includes {reportData.income.breakdown.length} income sources and {reportData.expenses.breakdown.length} expense categories
                     </div>
                   </div>
-                )}
-
-                <div className="text-xs text-muted-foreground text-center">
-                  Report includes {reportData.income.breakdown.length} income sources and {reportData.expenses.breakdown.length} expense categories
                 </div>
               </div>
-            </div>
-          </div>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>

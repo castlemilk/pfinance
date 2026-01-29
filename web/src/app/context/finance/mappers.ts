@@ -13,6 +13,7 @@ import {
   Expense as ProtoExpense,
   Income as ProtoIncome,
 } from '@/gen/pfinance/v1/types_pb';
+import { timestampDate } from '@bufbuild/protobuf/wkt';
 import { 
   Expense, 
   ExpenseCategory, 
@@ -142,7 +143,7 @@ export function mapProtoExpenseToLocal(proto: ProtoExpense): Expense {
     amount: proto.amount,
     category: protoToCategory[proto.category],
     frequency: protoToExpenseFrequency[proto.frequency],
-    date: proto.date?.toDate() ?? new Date(),
+    date: proto.date ? timestampDate(proto.date) : new Date(),
   };
 }
 
@@ -159,7 +160,7 @@ export function mapProtoIncomeToLocal(proto: ProtoIncome): Income {
       amount: d.amount,
       isTaxDeductible: d.isTaxDeductible,
     })),
-    date: proto.date?.toDate() ?? new Date(),
+    date: proto.date ? timestampDate(proto.date) : new Date(),
   };
 }
 

@@ -14,7 +14,7 @@ import { createContext, useContext, useState, ReactNode, useEffect, useCallback,
 import { useAdmin } from './AdminContext';
 import { useAuth } from './AuthWithAdminContext';
 import { financeClient } from '@/lib/financeService';
-import { Timestamp } from '@bufbuild/protobuf';
+import { Timestamp, timestampDate, timestampFromDate } from '@bufbuild/protobuf/wkt';
 import {
   ExpenseCategory as ProtoExpenseCategory,
   ExpenseFrequency as ProtoExpenseFrequency,
@@ -126,7 +126,7 @@ function mapProtoExpenseToLocal(proto: ProtoExpense): Expense {
     amount: proto.amount,
     category: protoToCategory[proto.category],
     frequency: protoToExpenseFrequency[proto.frequency],
-    date: proto.date?.toDate() ?? new Date(),
+    date: proto.date ? timestampDate(proto.date) : new Date(),
   };
 }
 
@@ -144,7 +144,7 @@ function mapProtoIncomeToLocal(proto: ProtoIncome): Income {
       amount: d.amount,
       isTaxDeductible: d.isTaxDeductible,
     })),
-    date: proto.date?.toDate() ?? new Date(),
+    date: proto.date ? timestampDate(proto.date) : new Date(),
   };
 }
 
@@ -425,7 +425,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
           amount,
           category: categoryToProto[category],
           frequency: expenseFrequencyToProto[frequency],
-          date: Timestamp.now(),
+          date: timestampFromDate(new Date()),
         });
         if (response.expense) {
           setExpenses(prev => [...prev, mapProtoExpenseToLocal(response.expense!)]);
@@ -461,7 +461,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             amount: exp.amount,
             category: categoryToProto[exp.category],
             frequency: expenseFrequencyToProto[exp.frequency || 'monthly'],
-            date: Timestamp.now(),
+            date: timestampFromDate(new Date()),
           })),
         });
         if (response.expenses) {
@@ -575,7 +575,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             amount: d.amount,
             isTaxDeductible: d.isTaxDeductible,
           })),
-          date: Timestamp.now(),
+          date: timestampFromDate(new Date()),
         });
         if (response.income) {
           setIncomes(prev => [...prev, mapProtoIncomeToLocal(response.income!)]);

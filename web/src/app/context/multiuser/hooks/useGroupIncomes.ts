@@ -10,7 +10,7 @@ import { financeClient } from '@/lib/financeService';
 import { 
   TaxStatus as ProtoTaxStatus,
 } from '@/gen/pfinance/v1/types_pb';
-import { Timestamp } from '@bufbuild/protobuf';
+import { timestampFromDate, timestampDate } from '@bufbuild/protobuf/wkt';
 import { FinanceGroup, GroupIncome } from '../types';
 import { incomeFrequencyToProto, protoToIncomeFrequency } from '../mappers';
 
@@ -61,7 +61,7 @@ export function useGroupIncomes({ user, activeGroup }: UseGroupIncomesOptions): 
         source: i.source,
         amount: i.amount,
         frequency: protoToIncomeFrequency[i.frequency],
-        date: i.date?.toDate() ?? new Date(),
+        date: i.date ? timestampDate(i.date) : new Date(),
       })));
       setError(null);
     } catch (err) {
@@ -99,7 +99,7 @@ export function useGroupIncomes({ user, activeGroup }: UseGroupIncomesOptions): 
       amount: income.amount,
       frequency: incomeFrequencyToProto[income.frequency],
       taxStatus: ProtoTaxStatus.POST_TAX,
-      date: Timestamp.now(),
+      date: timestampFromDate(new Date()),
     });
 
     if (response.income) {
@@ -110,7 +110,7 @@ export function useGroupIncomes({ user, activeGroup }: UseGroupIncomesOptions): 
         source: response.income!.source,
         amount: response.income!.amount,
         frequency: income.frequency,
-        date: response.income!.date?.toDate() ?? new Date(),
+        date: response.income!.date ? timestampDate(response.income!.date) : new Date(),
       }]);
       return response.income.id;
     }

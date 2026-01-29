@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/bufbuild/connect-go"
+	"connectrpc.com/connect"
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 	"github.com/castlemilk/pfinance/backend/gen/pfinance/v1/pfinancev1connect"
 	"github.com/castlemilk/pfinance/backend/internal/service"

@@ -3,43 +3,39 @@
 import { useMemo } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { ParentSize } from '@visx/responsive';
-import { Group } from '@visx/group';
+import { Sankey } from '@visx/sankey';
 import { scaleOrdinal } from '@visx/scale';
-import { Text } from '@visx/text';
-import { hierarchy, Tree } from '@visx/hierarchy';
 import { ExpenseCategory, IncomeFrequency } from '../types';
 
-// Define colors for each category
+// Define colors for categories and main nodes
 const categoryColors = [
-  '#0EA5E9', // Blue
-  '#10B981', // Green
-  '#F59E0B', // Yellow
-  '#EF4444', // Red
-  '#8B5CF6', // Purple
-  '#EC4899', // Pink
-  '#F97316', // Orange
-  '#6366F1', // Indigo
-  '#14B8A6', // Teal
-  '#6B7280', // Gray
+  '#0EA5E9', // Blue (Food)
+  '#10B981', // Green (Housing)
+  '#F59E0B', // Yellow (Transport)
+  '#EF4444', // Red (Entertainment)
+  '#8B5CF6', // Purple (Health)
+  '#EC4899', // Pink (Utilities)
+  '#F97316', // Orange (Shopping)
+  '#6366F1', // Indigo (Education)
+  '#14B8A6', // Teal (Travel)
+  '#6B7280', // Gray (Other)
 ];
-
-// Type definitions for hierarchical data
-interface TreeNode {
-  name: string;
-  value?: number;
-  children?: TreeNode[];
-}
 
 interface ExpenseSankeyProps {
   displayPeriod: IncomeFrequency;
 }
 
 export default function ExpenseSankey({ displayPeriod }: ExpenseSankeyProps) {
-  const { getExpenseSummary, getTotalExpenses } = useFinance();
+  const { getExpenseSummary, getTotalExpenses, getTotalIncome } = useFinance();
+  
   const expenseSummary = getExpenseSummary();
   const totalExpenses = getTotalExpenses();
-  
+  // Get monthly income by default from context, need to adjust calculation if needed
+  // getTotalIncome accepts a frequency argument
+  const totalIncome = getTotalIncome(displayPeriod); 
+
   // Convert expenses to the selected frequency
+  // expenseSummary always returns annual amounts
   const convertedExpenses = useMemo(() => {
     return expenseSummary.map(expense => {
       const annualAmount = expense.totalAmount;
@@ -56,135 +52,176 @@ export default function ExpenseSankey({ displayPeriod }: ExpenseSankeyProps) {
     });
   }, [expenseSummary, displayPeriod]);
   
-  // Convert total expenses to the selected frequency
+  // Calculate derived values for the flow
   const convertedTotalExpenses = useMemo(() => {
-    return displayPeriod === 'weekly' ? totalExpenses / 52 :
-           displayPeriod === 'fortnightly' ? totalExpenses / 26 :
-           displayPeriod === 'monthly' ? totalExpenses / 12 :
-           totalExpenses;
-  }, [totalExpenses, displayPeriod]);
+    return convertedExpenses.reduce((sum, item) => sum + item.totalAmount, 0);
+  }, [convertedExpenses]);
+
+  // Savings is Income - Expenses
+  // If expenses > income, savings is 0 (or we could show deficit, but Sankey handles positive flows best)
+  const savings = Math.max(0, totalIncome - convertedTotalExpenses);
   
-  // Format currency based on amount
+  // If income is less than expenses, we artificially bump income for the visual to balance
+  const effectiveTotalIncome = Math.max(totalIncome, convertedTotalExpenses);
+  const isDeficit = totalIncome < convertedTotalExpenses;
+
+  // Prepare Sankey Data
+  const data = useMemo(() => {
+    const nodes: { name: string }[] = [];
+    const links: { source: number; target: number; value: number }[] = [];
+
+    // Node 0: Income Source
+    nodes.push({ name: isDeficit ? 'Total Funding (Deficit)' : 'Total Income' });
+    
+    // Node 1: Expenses Pool
+    nodes.push({ name: 'Expenses' });
+
+    // Node 2 (Optional): Savings
+    if (savings > 0) {
+      nodes.push({ name: 'Savings' });
+    }
+
+    // Add links from Income
+    // Link to Expenses
+    links.push({ source: 0, target: 1, value: convertedTotalExpenses });
+    
+    // Link to Savings (if any)
+    if (savings > 0) {
+      links.push({ source: 0, target: 2, value: savings });
+    }
+
+    // Category Nodes start index
+    const categoryStartIndex = nodes.length;
+
+    // Add Category Nodes and Links from Expenses Pool
+    convertedExpenses.forEach((expense, index) => {
+      nodes.push({ name: expense.category });
+      links.push({ 
+        source: 1, // From Expenses Pool
+        target: categoryStartIndex + index, 
+        value: expense.totalAmount 
+      });
+    });
+
+    return { nodes, links };
+  }, [effectiveTotalIncome, convertedTotalExpenses, savings, convertedExpenses, isDeficit]);
+
+  // Color scale
+  const colorScale = scaleOrdinal({
+    domain: ['Total Income', 'Total Funding (Deficit)', 'Expenses', 'Savings', ...convertedExpenses.map(d => d.category)],
+    range: ['#10B981', '#EF4444', '#F59E0B', '#3B82F6', ...categoryColors],
+  });
+
+  // Format currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-      maximumFractionDigits: amount < 10 ? 2 : 0
+      maximumFractionDigits: 0
     }).format(amount);
   };
-  
-  // Prepare data for tree visualization (simplified Sankey)
-  const treeData = useMemo(() => {
-    if (convertedExpenses.length === 0) return null;
-    
-    const data: TreeNode = {
-      name: 'Total',
-      value: convertedTotalExpenses,
-      children: convertedExpenses.map(item => ({
-        name: item.category,
-        value: item.totalAmount,
-      })),
-    };
-    
-    return data;
-  }, [convertedExpenses, convertedTotalExpenses]);
-  
-  // Create color scale and node color helper
-  const colorScale = useMemo(
-    () => scaleOrdinal<string, string>({
-      domain: convertedExpenses.map(d => d.category),
-      range: categoryColors,
-    }),
-    [convertedExpenses]
-  );
-  
-  // Helper to get color safely
-  const getColor = (name: string): string => {
-    if (name === 'Total') return '#999999';
-    return colorScale(name as ExpenseCategory) || '#6B7280'; // Default to gray if not found
-  };
-  
-  if (!treeData || convertedExpenses.length === 0) {
-    return (
+
+  if (convertedTotalExpenses === 0 && totalIncome === 0) {
+     return (
       <div className="flex justify-center items-center h-64">
         <p className="text-center text-muted-foreground">
-          No expense data to visualize yet.
+          No data to visualize. Add income or expenses to see the flow.
         </p>
       </div>
     );
   }
-  
+
   return (
-    <div>
+    <div className="flex flex-col h-full">
       <div className="text-center mb-2 text-sm text-muted-foreground">
-        Showing {displayPeriod} expenses
+        Flow: Income → Expenses/Savings → Categories ({displayPeriod})
       </div>
-      <ParentSize>
-        {({ width }) => {
-          const height = 400;
-          const margin = { top: 40, left: 40, right: 120, bottom: 40 };
-          const innerWidth = width - margin.left - margin.right;
-          const innerHeight = height - margin.top - margin.bottom;
-          
-          // Create hierarchical data structure
-          const root = hierarchy(treeData);
-          
-          return (
-            <svg width={width} height={height}>
-              <rect width={width} height={height} fill="transparent" />
-              <Group top={margin.top} left={margin.left}>
-                <Tree
-                  root={root}
-                  size={[innerHeight, innerWidth]}
-                  separation={(a, b) => (a.parent === b.parent ? 1 : 2) / a.depth}
-                >
-                  {tree => (
-                    <Group>
-                      {/* Draw links between parent and children */}
-                      {tree.links().map((link, i) => (
-                        <line
-                          key={`link-${i}`}
-                          x1={link.source.y}
-                          y1={link.source.x}
-                          x2={link.target.y}
-                          y2={link.target.x}
-                          stroke={getColor(link.target.data.name)}
-                          strokeWidth={Math.max(1, (link.target.data.value || 0) / convertedTotalExpenses * 20)}
-                          opacity={0.6}
-                          strokeLinecap="round"
+      <div className="flex-1 min-h-[400px]">
+        <ParentSize>
+          {({ width, height }) => (
+            <Sankey
+              root={data}
+              size={[width, height]}
+              nodeWidth={15}
+              nodePadding={10}
+              extent={[[1, 1], [width - 1, height - 6]]}
+            >
+              {({ graph }) => (
+                <svg width={width} height={height}>
+                  <defs>
+                   {/* Gradients could go here */}
+                  </defs>
+                  
+                  {/* Links */}
+                  <g>
+                    {graph.links.map((link: any, i: number) => (
+                      <path
+                        key={`link-${i}`}
+                        d={link.path || ''}
+                        stroke={link.source.name === 'Total Income' || link.source.name === 'Total Funding (Deficit)' 
+                          ? colorScale(link.target.name ?? '') 
+                          : colorScale(link.target.name ?? '')}
+                        strokeWidth={Math.max(1, link.width || 1)}
+                        strokeOpacity={0.25}
+                        fill="none"
+                        onMouseEnter={(e: React.MouseEvent<SVGPathElement>) => {
+                           e.currentTarget.style.strokeOpacity = '0.5';
+                        }}
+                        onMouseLeave={(e: React.MouseEvent<SVGPathElement>) => {
+                           e.currentTarget.style.strokeOpacity = '0.25';
+                        }}
+                      >
+                        <title>{`${link.source.name} → ${link.target.name}: ${formatCurrency(link.value)}`}</title>
+                      </path>
+                    ))}
+                  </g>
+
+                  {/* Nodes */}
+                  <g>
+                    {graph.nodes.map((node, i) => (
+                      <g key={`node-${i}`}>
+                        <rect
+                          x={node.x0}
+                          y={node.y0}
+                          width={Math.max(0, (node.x1 || 0) - (node.x0 || 0))}
+                          height={Math.max(0, (node.y1 || 0) - (node.y0 || 0))}
+                          fill={colorScale(node.name ?? '')}
+                          stroke="#fff"
                         />
-                      ))}
-                      
-                      {/* Draw nodes */}
-                      {tree.descendants().map((node, i) => {
-                        const isRoot = i === 0;
-                        return (
-                          <Group key={`node-${i}`} top={node.x} left={node.y}>
-                            <circle
-                              r={isRoot ? 20 : 15}
-                              fill={isRoot ? '#999999' : getColor(node.data.name)}
-                              opacity={0.8}
-                            />
-                            <Text
-                              dx={isRoot ? -60 : 20}
-                              dy={5}
-                              fontSize={12}
-                              fontWeight="bold"
-                              textAnchor={isRoot ? 'end' : 'start'}
-                            >
-                              {`${node.data.name} (${formatCurrency(node.data.value || 0)})`}
-                            </Text>
-                          </Group>
-                        );
-                      })}
-                    </Group>
-                  )}
-                </Tree>
-              </Group>
-            </svg>
-          );
-        }}
-      </ParentSize>
+                        <text
+                          x={(node.x0 || 0) < width / 2 ? (node.x1 || 0) + 6 : (node.x0 || 0) - 6}
+                          y={((node.y1 || 0) + (node.y0 || 0)) / 2}
+                          dy=".35em"
+                          fontSize={12}
+                          fontWeight="500"
+                          textAnchor={(node.x0 || 0) < width / 2 ? 'start' : 'end'}
+                          className="fill-foreground text-xs pointer-events-none"
+                        >
+                          {node.name}
+                        </text>
+                        {/* Value label below name */}
+                        <text
+                          x={(node.x0 || 0) < width / 2 ? (node.x1 || 0) + 6 : (node.x0 || 0) - 6}
+                          y={((node.y1 || 0) + (node.y0 || 0)) / 2 + 14}
+                          dy=".35em"
+                          fontSize={10}
+                          className="fill-muted-foreground pointer-events-none"
+                           textAnchor={(node.x0 || 0) < width / 2 ? 'start' : 'end'}
+                        >
+                          {formatCurrency(node.value || 0)}
+                        </text>
+                         <title>
+                          {`${node.name}\n${formatCurrency(node.value || 0)}`}
+                        </title>
+                      </g>
+                    ))}
+                  </g>
+                </svg>
+              )}
+            </Sankey>
+          )}
+        </ParentSize>
+      </div>
     </div>
   );
 } 

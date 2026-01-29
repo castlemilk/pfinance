@@ -3,7 +3,7 @@ package auth
 import (
 	"context"
 
-	"github.com/bufbuild/connect-go"
+	"connectrpc.com/connect"
 )
 
 // AuthInterceptor creates a Connect interceptor for Firebase authentication

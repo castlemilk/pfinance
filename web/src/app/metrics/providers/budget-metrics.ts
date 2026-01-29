@@ -14,6 +14,7 @@ import {
   Expense
 } from '../../types';
 import { Budget, BudgetPeriod, BudgetProgress } from '@/gen/pfinance/v1/types_pb';
+import { timestampDate } from '@bufbuild/protobuf/wkt';
 import {
   BudgetProgressMetric,
   BudgetMetrics,
@@ -95,7 +96,7 @@ function calculateDaysRemaining(budget: Budget, asOfDate: Date): number {
     return 0;
   }
 
-  const startDate = budget.startDate.toDate();
+  const startDate = timestampDate(budget.startDate);
   const periodDays = getDaysInPeriod(budgetPeriodToFrequency(budget.period));
   
   // Calculate current period start

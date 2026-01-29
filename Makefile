@@ -76,13 +76,13 @@ FRONTEND_PORT := 1234
 # Development Environment  
 # ===================
 
-dev: check-ports generate
+dev: clean-ports generate
 	@echo "🚀 Starting full development environment (memory store)..."
 	@echo "   Backend:  http://localhost:$(BACKEND_PORT)"
 	@echo "   Frontend: http://localhost:$(FRONTEND_PORT)"
 	@make -j2 dev-backend dev-frontend
 
-dev-firebase: check-ports check-firebase-creds generate
+dev-firebase: clean-ports check-firebase-creds generate
 	@echo "🔥 Starting full development environment (Firestore)..."
 	@echo "   Backend:  http://localhost:$(BACKEND_PORT)"
 	@echo "   Frontend: http://localhost:$(FRONTEND_PORT)"
@@ -156,6 +156,20 @@ check-port-frontend:
 		echo "   Run 'make stop' or 'make kill-port-frontend' to free it"; \
 		exit 1; \
 	fi
+
+# Clean up ports before starting (auto-cleanup for dev)
+clean-ports:
+	@if lsof -Pi :$(BACKEND_PORT) -sTCP:LISTEN -t >/dev/null 2>&1; then \
+		echo "🧹 Cleaning up port $(BACKEND_PORT)..."; \
+		pgrep -f "go run cmd/server/main.go" | xargs -r ps -o pid,ppid,command 2>/dev/null | grep -F "$$PWD/backend" | awk '{print $$1}' | xargs -r kill -9 2>/dev/null || true; \
+		lsof -ti:$(BACKEND_PORT) | xargs kill -9 2>/dev/null || true; \
+	fi
+	@if lsof -Pi :$(FRONTEND_PORT) -sTCP:LISTEN -t >/dev/null 2>&1; then \
+		echo "🧹 Cleaning up port $(FRONTEND_PORT)..."; \
+		pgrep -f "next dev" | xargs -r ps -o pid,ppid,command 2>/dev/null | grep -F "$$PWD/web" | awk '{print $$1}' | xargs -r kill -9 2>/dev/null || true; \
+		lsof -ti:$(FRONTEND_PORT) | xargs kill -9 2>/dev/null || true; \
+	fi
+	@sleep 1
 
 kill-port-backend:
 	@echo "🔪 Killing process on port $(BACKEND_PORT)..."

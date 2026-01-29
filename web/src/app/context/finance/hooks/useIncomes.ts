@@ -7,7 +7,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import { financeClient } from '@/lib/financeService';
-import { Timestamp } from '@bufbuild/protobuf';
+import { timestampFromDate } from '@bufbuild/protobuf/wkt';
 import { Income, IncomeFrequency, TaxStatus, Deduction } from '@/app/types';
 import { 
   incomeFrequencyToProto, 
@@ -107,7 +107,7 @@ export function useIncomes({
             amount: d.amount,
             isTaxDeductible: d.isTaxDeductible,
           })),
-          date: Timestamp.now(),
+          date: timestampFromDate(new Date()),
         });
         if (response.income) {
           setIncomes(prev => [...prev, mapProtoIncomeToLocal(response.income!)]);

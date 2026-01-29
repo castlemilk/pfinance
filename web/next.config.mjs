@@ -14,6 +14,13 @@ const nextConfig = {
   experimental: {
     forceSwcTransforms: true,
   },
+  // Turbopack config (Next.js 16+ default bundler)
+  turbopack: {
+    resolveAlias: {
+      './finance_service_pb.js': './finance_service_pb.ts',
+    },
+  },
+  // Keep webpack config for production builds
   webpack: (config) => {
     // Add alias to resolve .js imports to .ts files for protobuf
     config.resolve.alias = {

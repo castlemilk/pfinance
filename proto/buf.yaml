@@ -1,7 +1,7 @@
-version: v1
-breaking:
-  use:
-    - FILE
+version: v2
 lint:
   use:
     - DEFAULT
+breaking:
+  use:
+    - FILE

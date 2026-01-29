@@ -1,6 +1,6 @@
-import { createPromiseClient } from "@connectrpc/connect";
+import { createClient } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
-import { FinanceService } from "@/gen/pfinance/v1/finance_service_connect";
+import { FinanceService } from "@/gen/pfinance/v1/finance_service_pb";
 import { onAuthStateChanged } from 'firebase/auth';
 
 // Helper to get auth token, waiting for auth state to be ready if needed
@@ -74,7 +74,7 @@ const transport = createConnectTransport({
 });
 
 // Create the client
-export const financeClient = createPromiseClient(FinanceService, transport);
+export const financeClient = createClient(FinanceService, transport);
 
 // Export types for convenience
 export type { 
