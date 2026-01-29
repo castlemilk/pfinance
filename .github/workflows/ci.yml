@@ -62,9 +62,10 @@ jobs:
       - name: Install
         run: |
           cd web
-          npm ci --legacy-peer-deps
-          # Ensure platform-specific Tailwind CSS v4 dependencies are installed
-          npm install --legacy-peer-deps @tailwindcss/oxide-linux-x64-gnu || true
+          # Use npm install instead of npm ci to get platform-specific native dependencies
+          # (Tailwind CSS v4 + lightningcss use platform-specific binaries)
+          rm -rf node_modules package-lock.json
+          npm install --legacy-peer-deps
 
       - name: Security audit
         run: cd web && npm audit --audit-level=high || echo "::warning::npm audit found vulnerabilities"

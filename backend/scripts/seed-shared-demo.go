@@ -73,7 +73,7 @@ func main() {
 	// Create expenses paid by the second user (roommate)
 	log.Println("")
 	log.Println("💸 Creating expenses paid by roommate...")
-	
+
 	secondUserExpenses := []struct {
 		description string
 		amount      float64
@@ -91,15 +91,15 @@ func main() {
 	for _, exp := range secondUserExpenses {
 		date := time.Now().AddDate(0, 0, -exp.daysAgo)
 		_, err := client.CreateExpense(ctx, connect.NewRequest(&pfinancev1.CreateExpenseRequest{
-			UserId:       secondUserID,
-			GroupId:      groupID,
-			Description:  exp.description,
-			Amount:       exp.amount,
-			Category:     exp.category,
-			Frequency:    pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_ONCE,
-			Date:         timestamppb.New(date),
-			PaidByUserId: secondUserID, // Paid by roommate
-			SplitType:    pfinancev1.SplitType_SPLIT_TYPE_EQUAL,
+			UserId:           secondUserID,
+			GroupId:          groupID,
+			Description:      exp.description,
+			Amount:           exp.amount,
+			Category:         exp.category,
+			Frequency:        pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_ONCE,
+			Date:             timestamppb.New(date),
+			PaidByUserId:     secondUserID, // Paid by roommate
+			SplitType:        pfinancev1.SplitType_SPLIT_TYPE_EQUAL,
 			AllocatedUserIds: []string{primaryUserID, secondUserID}, // Split between both
 		}))
 		if err != nil {
@@ -120,4 +120,3 @@ func main() {
 	log.Println("💡 To test: Check the 'Shared' section in the app")
 	log.Println("   You should see expenses you owe to your roommate!")
 }
-
