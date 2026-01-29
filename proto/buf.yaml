@@ -1,7 +1,11 @@
 version: v2
 lint:
   use:
-    - DEFAULT
+    - STANDARD
+  except:
+    # Allow google.protobuf.Empty for simple delete operations
+    - RPC_REQUEST_RESPONSE_UNIQUE
+    - RPC_RESPONSE_STANDARD_NAME
 breaking:
   use:
     - FILE

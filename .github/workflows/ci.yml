@@ -60,7 +60,11 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Install
-        run: cd web && npm ci --legacy-peer-deps
+        run: |
+          cd web
+          npm ci --legacy-peer-deps
+          # Ensure platform-specific Tailwind CSS v4 dependencies are installed
+          npm install --legacy-peer-deps @tailwindcss/oxide-linux-x64-gnu || true
 
       - name: Security audit
         run: cd web && npm audit --audit-level=high || echo "::warning::npm audit found vulnerabilities"
@@ -96,6 +100,8 @@ jobs:
 
       - name: Generate code
         run: |
+          # Install mockgen for generating mocks
+          go install go.uber.org/mock/mockgen@latest
           cd proto && buf generate
           cd ../backend && go generate ./internal/store
 
