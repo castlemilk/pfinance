@@ -107,10 +107,12 @@ func main() {
 	// NOTE: Frontend runs on port 1234, not 3000
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{
-			"http://localhost:1234",    // Local frontend
-			"http://127.0.0.1:1234",    // Alternative local
-			"https://pfinance.dev",     // Production custom domain
-			"https://www.pfinance.dev", // Production www subdomain
+			"http://localhost:1234",          // Local frontend
+			"http://127.0.0.1:1234",          // Alternative local
+			"https://pfinance.dev",           // Production custom domain
+			"https://www.pfinance.dev",       // Production www subdomain
+			"https://preview.pfinance.dev",   // Preview custom domain
+			"https://*.preview.pfinance.dev", // PR preview custom domains (pr-123.preview.pfinance.dev)
 			"https://pfinance-app-1748773335.web.app",
 			"https://pfinance-app-1748773335.firebaseapp.com",
 			"https://*.vercel.app", // Vercel preview deployments
