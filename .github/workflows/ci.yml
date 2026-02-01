@@ -160,11 +160,13 @@ jobs:
 
       - name: Install Playwright (Chromium only)
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: cd web && ./node_modules/.bin/playwright install chromium --with-deps
+        working-directory: web
+        run: npx playwright install chromium --with-deps
 
       - name: Install Playwright deps (if cached)
         if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: cd web && ./node_modules/.bin/playwright install-deps chromium
+        working-directory: web
+        run: npx playwright install-deps chromium
 
       - name: Build & start services
         run: |
@@ -187,7 +189,8 @@ jobs:
           echo "Frontend ready!"
 
       - name: Run E2E tests
-        run: cd web && ./node_modules/.bin/playwright test --project=chromium --reporter=list
+        working-directory: web
+        run: npx playwright test --project=chromium --reporter=list
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8111
 
