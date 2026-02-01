@@ -21,9 +21,10 @@ func TestCreateBudget(t *testing.T) {
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore)
 
-	ctx := context.Background()
+	userID := "user123"
+	ctx := testContextWithUser(userID)
 	req := &pfinancev1.CreateBudgetRequest{
-		UserId:      "user123",
+		UserId:      userID,
 		Name:        "Monthly Food Budget",
 		Description: "Budget for dining and groceries",
 		Amount:      500.00,
@@ -69,7 +70,8 @@ func TestGetBudgetProgress(t *testing.T) {
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore)
 
-	ctx := context.Background()
+	userID := "user123"
+	ctx := testContextWithUser(userID)
 	budgetID := "budget123"
 	now := time.Now()
 
@@ -121,8 +123,8 @@ func TestListBudgets(t *testing.T) {
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore)
 
-	ctx := context.Background()
 	userID := "user123"
+	ctx := testContextWithUser(userID)
 
 	// Create test budgets
 	testBudgets := []*pfinancev1.Budget{
@@ -173,11 +175,12 @@ func TestGetBudget(t *testing.T) {
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore)
 
-	ctx := context.Background()
+	userID := "user-123"
+	ctx := testContextWithUser(userID)
 
 	testBudget := &pfinancev1.Budget{
 		Id:          "budget-123",
-		UserId:      "user-123",
+		UserId:      userID,
 		Name:        "Food Budget",
 		Description: "Monthly food spending",
 		Amount:      500.00,
@@ -257,11 +260,12 @@ func TestUpdateBudget(t *testing.T) {
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore)
 
-	ctx := context.Background()
+	userID := "user-123"
+	ctx := testContextWithUser(userID)
 
 	existingBudget := &pfinancev1.Budget{
 		Id:          "budget-123",
-		UserId:      "user-123",
+		UserId:      userID,
 		Name:        "Original Budget",
 		Description: "Original description",
 		Amount:      500.00,
@@ -403,7 +407,8 @@ func TestDeleteBudget(t *testing.T) {
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore)
 
-	ctx := context.Background()
+	userID := "user-123"
+	ctx := testContextWithUser(userID)
 
 	tests := []struct {
 		name          string

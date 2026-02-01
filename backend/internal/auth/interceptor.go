@@ -89,6 +89,11 @@ func withUserClaims(ctx context.Context, claims *UserClaims) context.Context {
 	return context.WithValue(ctx, userClaimsKey, claims)
 }
 
+// WithUserClaims is the exported version for testing purposes
+func WithUserClaims(ctx context.Context, claims *UserClaims) context.Context {
+	return withUserClaims(ctx, claims)
+}
+
 // GetUserClaims extracts user claims from context
 func GetUserClaims(ctx context.Context) (*UserClaims, bool) {
 	claims, ok := ctx.Value(userClaimsKey).(*UserClaims)
@@ -102,3 +107,4 @@ func GetUserID(ctx context.Context) (string, bool) {
 	}
 	return "", false
 }
+

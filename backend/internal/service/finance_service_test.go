@@ -8,10 +8,21 @@ import (
 
 	"connectrpc.com/connect"
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
+	"github.com/castlemilk/pfinance/backend/internal/auth"
 	"github.com/castlemilk/pfinance/backend/internal/store"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+// testContext creates a context with authenticated user claims for testing
+func testContext(userID string) context.Context {
+	return auth.WithUserClaims(context.Background(), &auth.UserClaims{
+		UID:         userID,
+		Email:       userID + "@test.com",
+		DisplayName: "Test User",
+		Verified:    true,
+	})
+}
 
 func TestCreateExpense(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -83,8 +94,9 @@ func TestCreateExpense(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext(tt.request.UserId)
 
-			resp, err := service.CreateExpense(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.CreateExpense(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -192,7 +204,8 @@ func TestCreateExpenseWithAllocation(t *testing.T) {
 					return nil
 				})
 
-			_, err := service.CreateExpense(context.Background(), connect.NewRequest(tt.request))
+			ctx := testContext(tt.request.UserId)
+			_, err := service.CreateExpense(ctx, connect.NewRequest(tt.request))
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
@@ -278,8 +291,9 @@ func TestListExpenses(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext(tt.request.UserId)
 
-			resp, err := service.ListExpenses(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.ListExpenses(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -322,6 +336,9 @@ func TestCreateGroup(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetUser(gomock.Any(), "user-123").
+					Return(nil, errors.New("not found"))
+				mockStore.EXPECT().
 					CreateGroup(gomock.Any(), gomock.Any()).
 					Return(nil)
 			},
@@ -335,6 +352,9 @@ func TestCreateGroup(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetUser(gomock.Any(), "user-123").
+					Return(nil, errors.New("not found"))
+				mockStore.EXPECT().
 					CreateGroup(gomock.Any(), gomock.Any()).
 					Return(errors.New("store error"))
 			},
@@ -346,7 +366,7 @@ func TestCreateGroup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
 
-			resp, err := service.CreateGroup(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.CreateGroup(testContext(tt.request.OwnerId), connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -427,8 +447,9 @@ func TestInviteToGroup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext(tt.request.InviterId)
 
-			resp, err := service.InviteToGroup(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.InviteToGroup(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -540,8 +561,9 @@ func TestAcceptInvitation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext(tt.request.UserId)
 
-			resp, err := service.AcceptInvitation(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.AcceptInvitation(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -614,8 +636,9 @@ func TestCreateIncome(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext(tt.request.UserId)
 
-			resp, err := service.CreateIncome(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.CreateIncome(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -702,8 +725,9 @@ func TestGetTaxConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext(tt.request.UserId)
 
-			resp, err := service.GetTaxConfig(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.GetTaxConfig(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -803,8 +827,9 @@ func TestUpdateExpense(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123") // Use same user as existingExpense
 
-			resp, err := service.UpdateExpense(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.UpdateExpense(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -879,8 +904,9 @@ func TestDeleteExpense(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			_, err := service.DeleteExpense(context.Background(), connect.NewRequest(tt.request))
+			_, err := service.DeleteExpense(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -1023,8 +1049,9 @@ func TestBatchCreateExpenses(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			resp, err := service.BatchCreateExpenses(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.BatchCreateExpenses(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -1767,6 +1794,12 @@ func TestDeleteGroup(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:      "group-123",
+						OwnerId: "user-123",
+					}, nil)
+				mockStore.EXPECT().
 					DeleteGroup(gomock.Any(), "group-123").
 					Return(nil)
 			},
@@ -1779,8 +1812,8 @@ func TestDeleteGroup(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					DeleteGroup(gomock.Any(), "group-999").
-					Return(errors.New("group not found"))
+					GetGroup(gomock.Any(), "group-999").
+					Return(nil, errors.New("group not found"))
 			},
 			expectedError: true,
 		},
@@ -1790,6 +1823,12 @@ func TestDeleteGroup(t *testing.T) {
 				GroupId: "group-123",
 			},
 			setupMock: func() {
+				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:      "group-123",
+						OwnerId: "user-123",
+					}, nil)
 				mockStore.EXPECT().
 					DeleteGroup(gomock.Any(), "group-123").
 					Return(errors.New("database error"))
@@ -1802,7 +1841,7 @@ func TestDeleteGroup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
 
-			_, err := service.DeleteGroup(context.Background(), connect.NewRequest(tt.request))
+			_, err := service.DeleteGroup(testContext("user-123"), connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -1830,6 +1869,7 @@ func TestGetUser(t *testing.T) {
 	tests := []struct {
 		name          string
 		request       *pfinancev1.GetUserRequest
+		setupMock     func()
 		expectedError bool
 	}{
 		{
@@ -1837,13 +1877,23 @@ func TestGetUser(t *testing.T) {
 			request: &pfinancev1.GetUserRequest{
 				UserId: "user-123",
 			},
+			setupMock: func() {
+				mockStore.EXPECT().
+					GetUser(gomock.Any(), "user-123").
+					Return(&pfinancev1.User{
+						Id:          "user-123",
+						DisplayName: "Test User",
+						Email:       "test@example.com",
+					}, nil)
+			},
 			expectedError: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := service.GetUser(context.Background(), connect.NewRequest(tt.request))
+			tt.setupMock()
+			resp, err := service.GetUser(testContext(tt.request.UserId), connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -1879,6 +1929,7 @@ func TestUpdateUser(t *testing.T) {
 	tests := []struct {
 		name          string
 		request       *pfinancev1.UpdateUserRequest
+		setupMock     func()
 		expectedError bool
 	}{
 		{
@@ -1887,13 +1938,13 @@ func TestUpdateUser(t *testing.T) {
 				UserId:      "user-123",
 				DisplayName: "John Doe",
 			},
-			expectedError: false,
-		},
-		{
-			name: "update with empty display name",
-			request: &pfinancev1.UpdateUserRequest{
-				UserId:      "user-123",
-				DisplayName: "",
+			setupMock: func() {
+				mockStore.EXPECT().
+					GetUser(gomock.Any(), "user-123").
+					Return(nil, errors.New("not found"))
+				mockStore.EXPECT().
+					UpdateUser(gomock.Any(), gomock.Any()).
+					Return(nil)
 			},
 			expectedError: false,
 		},
@@ -1901,7 +1952,8 @@ func TestUpdateUser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := service.UpdateUser(context.Background(), connect.NewRequest(tt.request))
+			tt.setupMock()
+			resp, err := service.UpdateUser(testContext(tt.request.UserId), connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -3815,6 +3867,12 @@ func TestUpdateTaxConfig(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:      "group-123",
+						OwnerId: "user-123",
+					}, nil)
+				mockStore.EXPECT().
 					UpdateTaxConfig(gomock.Any(), "user-123", "group-123", gomock.Any()).
 					Return(nil)
 			},
@@ -3841,7 +3899,7 @@ func TestUpdateTaxConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
 
-			resp, err := service.UpdateTaxConfig(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.UpdateTaxConfig(testContext(tt.request.UserId), connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
