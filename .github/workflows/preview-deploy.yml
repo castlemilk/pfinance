@@ -259,6 +259,8 @@ jobs:
     needs: [frontend]
     if: needs.frontend.result == 'success'
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
