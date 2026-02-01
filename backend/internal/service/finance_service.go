@@ -8,6 +8,7 @@ import (
 	"connectrpc.com/connect"
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 	"github.com/castlemilk/pfinance/backend/gen/pfinance/v1/pfinancev1connect"
+	"github.com/castlemilk/pfinance/backend/internal/auth"
 	"github.com/castlemilk/pfinance/backend/internal/store"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -98,6 +99,32 @@ func (s *FinanceService) ListExpenses(ctx context.Context, req *connect.Request[
 
 // CreateGroup creates a new finance group
 func (s *FinanceService) CreateGroup(ctx context.Context, req *connect.Request[pfinancev1.CreateGroupRequest]) (*connect.Response[pfinancev1.CreateGroupResponse], error) {
+	// Try to get user details for the owner
+	var email, displayName string //, photoUrl string
+
+	// 1. Try fetching from store
+	user, err := s.store.GetUser(ctx, req.Msg.OwnerId)
+	if err == nil {
+		email = user.Email
+		displayName = user.DisplayName
+		// photoUrl = user.PhotoUrl
+	}
+
+	// 2. If missing details, try context claims (if owner is the caller)
+	if email == "" || displayName == "" { // || photoUrl == "" {
+		if claims, ok := auth.GetUserClaims(ctx); ok && claims.UID == req.Msg.OwnerId {
+			if email == "" {
+				email = claims.Email
+			}
+			if displayName == "" {
+				displayName = claims.DisplayName
+			}
+			// if photoUrl == "" {
+			// 	photoUrl = claims.Picture
+			// }
+		}
+	}
+
 	group := &pfinancev1.FinanceGroup{
 		Id:          uuid.New().String(),
 		Name:        req.Msg.Name,
@@ -106,9 +133,12 @@ func (s *FinanceService) CreateGroup(ctx context.Context, req *connect.Request[p
 		MemberIds:   []string{req.Msg.OwnerId},
 		Members: []*pfinancev1.GroupMember{
 			{
-				UserId:   req.Msg.OwnerId,
-				Role:     pfinancev1.GroupRole_GROUP_ROLE_OWNER,
-				JoinedAt: timestamppb.Now(),
+				UserId:      req.Msg.OwnerId,
+				Role:        pfinancev1.GroupRole_GROUP_ROLE_OWNER,
+				JoinedAt:    timestamppb.Now(),
+				Email:       email,
+				DisplayName: displayName,
+				// Note: GroupMember doesn't have PhotoUrl yet, but we have it for the user
 			},
 		},
 		CreatedAt: timestamppb.Now(),
@@ -121,6 +151,66 @@ func (s *FinanceService) CreateGroup(ctx context.Context, req *connect.Request[p
 
 	return connect.NewResponse(&pfinancev1.CreateGroupResponse{
 		Group: group,
+	}), nil
+}
+
+// ... (InviteToGroup implementations etc) ...
+
+func (s *FinanceService) GetUser(ctx context.Context, req *connect.Request[pfinancev1.GetUserRequest]) (*connect.Response[pfinancev1.GetUserResponse], error) {
+	user, err := s.store.GetUser(ctx, req.Msg.UserId)
+	if err != nil {
+		// If user not found in store, return a basic object (fallback behavior)
+		return connect.NewResponse(&pfinancev1.GetUserResponse{
+			User: &pfinancev1.User{
+				Id: req.Msg.UserId,
+			},
+		}), nil
+	}
+
+	return connect.NewResponse(&pfinancev1.GetUserResponse{
+		User: user,
+	}), nil
+}
+
+func (s *FinanceService) UpdateUser(ctx context.Context, req *connect.Request[pfinancev1.UpdateUserRequest]) (*connect.Response[pfinancev1.UpdateUserResponse], error) {
+	user := &pfinancev1.User{
+		Id:          req.Msg.UserId,
+		DisplayName: req.Msg.DisplayName,
+		UpdatedAt:   timestamppb.Now(),
+	}
+
+	// 1. Try to get email and photo from existing record
+	existing, err := s.store.GetUser(ctx, req.Msg.UserId)
+	if err == nil {
+		user.Email = existing.Email
+		// user.PhotoUrl = existing.PhotoUrl
+		user.CreatedAt = existing.CreatedAt
+	} else {
+		user.CreatedAt = timestamppb.Now()
+	}
+
+	// 2. If details still missing/empty, try to get from auth context
+	// We always want to trust the auth token for the picture if it's there
+	if claims, ok := auth.GetUserClaims(ctx); ok && claims.UID == req.Msg.UserId {
+		if user.Email == "" {
+			user.Email = claims.Email
+		}
+		// If display name wasn't provided in request, maybe use claim?
+		if user.DisplayName == "" {
+			user.DisplayName = claims.DisplayName
+		}
+		// Always update photo URL from claims if available
+		// if claims.Picture != "" {
+		// 	user.PhotoUrl = claims.Picture
+		// }
+	}
+
+	if err := s.store.UpdateUser(ctx, user); err != nil {
+		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.UpdateUserResponse{
+		User: user,
 	}), nil
 }
 
@@ -394,28 +484,6 @@ func (s *FinanceService) BatchCreateExpenses(ctx context.Context, req *connect.R
 	}), nil
 }
 
-func (s *FinanceService) GetUser(ctx context.Context, req *connect.Request[pfinancev1.GetUserRequest]) (*connect.Response[pfinancev1.GetUserResponse], error) {
-	// For now, return a basic user object based on the ID
-	// In a real implementation, this would fetch from a user store
-	return connect.NewResponse(&pfinancev1.GetUserResponse{
-		User: &pfinancev1.User{
-			Id: req.Msg.UserId,
-		},
-	}), nil
-}
-
-func (s *FinanceService) UpdateUser(ctx context.Context, req *connect.Request[pfinancev1.UpdateUserRequest]) (*connect.Response[pfinancev1.UpdateUserResponse], error) {
-	// For now, return the updated user
-	// In a real implementation, this would update the user store
-	return connect.NewResponse(&pfinancev1.UpdateUserResponse{
-		User: &pfinancev1.User{
-			Id:          req.Msg.UserId,
-			DisplayName: req.Msg.DisplayName,
-			UpdatedAt:   timestamppb.Now(),
-		},
-	}), nil
-}
-
 func (s *FinanceService) UpdateIncome(ctx context.Context, req *connect.Request[pfinancev1.UpdateIncomeRequest]) (*connect.Response[pfinancev1.UpdateIncomeResponse], error) {
 	income, err := s.store.GetIncome(ctx, req.Msg.IncomeId)
 	if err != nil {
@@ -640,6 +708,33 @@ func (s *FinanceService) UpdateGroup(ctx context.Context, req *connect.Request[p
 }
 
 func (s *FinanceService) DeleteGroup(ctx context.Context, req *connect.Request[pfinancev1.DeleteGroupRequest]) (*connect.Response[emptypb.Empty], error) {
+	// 1. Get the group to check ownership/admin status
+	group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get group: %w", err)
+	}
+
+	// 2. Check if user is authenticated
+	claims, ok := auth.GetUserClaims(ctx)
+	if !ok {
+		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("unauthenticated"))
+	}
+
+	// 3. Check if user is owner or admin
+	isOwner := group.OwnerId == claims.UID
+	isAdmin := false
+	for _, member := range group.Members {
+		if member.UserId == claims.UID && member.Role == pfinancev1.GroupRole_GROUP_ROLE_ADMIN {
+			isAdmin = true
+			break
+		}
+	}
+
+	if !isOwner && !isAdmin {
+		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("only group owners or admins can delete the group"))
+	}
+
+	// 4. Delete the group
 	if err := s.store.DeleteGroup(ctx, req.Msg.GroupId); err != nil {
 		return nil, fmt.Errorf("failed to delete group: %w", err)
 	}
@@ -1168,7 +1263,7 @@ func (s *FinanceService) ContributeExpenseToGroup(ctx context.Context, req *conn
 		Id:           uuid.New().String(),
 		UserId:       req.Msg.ContributedBy,
 		GroupId:      req.Msg.TargetGroupId,
-		Description:  sourceExpense.Description + " (contributed)",
+		Description:  sourceExpense.Description,
 		Amount:       amount,
 		Category:     sourceExpense.Category,
 		Frequency:    sourceExpense.Frequency,
@@ -1241,6 +1336,82 @@ func (s *FinanceService) ListContributions(ctx context.Context, req *connect.Req
 	}
 
 	return connect.NewResponse(&pfinancev1.ListContributionsResponse{
+		Contributions: contributions,
+	}), nil
+}
+
+// ContributeIncomeToGroup contributes personal income to a group
+func (s *FinanceService) ContributeIncomeToGroup(ctx context.Context, req *connect.Request[pfinancev1.ContributeIncomeToGroupRequest]) (*connect.Response[pfinancev1.ContributeIncomeToGroupResponse], error) {
+	// Get the source income
+	sourceIncome, err := s.store.GetIncome(ctx, req.Msg.SourceIncomeId)
+	if err != nil {
+		return nil, fmt.Errorf("source income not found: %w", err)
+	}
+
+	// Validate the target group exists
+	_, err = s.store.GetGroup(ctx, req.Msg.TargetGroupId)
+	if err != nil {
+		return nil, fmt.Errorf("target group not found: %w", err)
+	}
+
+	// Calculate amount to contribute
+	amount := req.Msg.Amount
+	if amount <= 0 {
+		amount = sourceIncome.Amount
+	}
+
+	// Create the group income
+	groupIncome := &pfinancev1.Income{
+		Id:        uuid.New().String(),
+		UserId:    req.Msg.ContributedBy,
+		GroupId:   req.Msg.TargetGroupId,
+		Source:    sourceIncome.Source + " (contributed)",
+		Amount:    amount,
+		Frequency: sourceIncome.Frequency,
+		TaxStatus: pfinancev1.TaxStatus_TAX_STATUS_POST_TAX, // Group income is typically post-tax
+		Date:      sourceIncome.Date,
+		CreatedAt: timestamppb.Now(),
+		UpdatedAt: timestamppb.Now(),
+	}
+
+	if err := s.store.CreateIncome(ctx, groupIncome); err != nil {
+		return nil, fmt.Errorf("failed to create group income: %w", err)
+	}
+
+	// Create the contribution record
+	contribution := &pfinancev1.IncomeContribution{
+		Id:                   uuid.New().String(),
+		SourceIncomeId:       req.Msg.SourceIncomeId,
+		TargetGroupId:        req.Msg.TargetGroupId,
+		ContributedBy:        req.Msg.ContributedBy,
+		Amount:               amount,
+		CreatedGroupIncomeId: groupIncome.Id,
+		ContributedAt:        timestamppb.Now(),
+	}
+
+	if err := s.store.CreateIncomeContribution(ctx, contribution); err != nil {
+		return nil, fmt.Errorf("failed to create income contribution record: %w", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.ContributeIncomeToGroupResponse{
+		Contribution:       contribution,
+		CreatedGroupIncome: groupIncome,
+	}), nil
+}
+
+// ListIncomeContributions lists income contributions
+func (s *FinanceService) ListIncomeContributions(ctx context.Context, req *connect.Request[pfinancev1.ListIncomeContributionsRequest]) (*connect.Response[pfinancev1.ListIncomeContributionsResponse], error) {
+	pageSize := req.Msg.PageSize
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+
+	contributions, err := s.store.ListIncomeContributions(ctx, req.Msg.GroupId, req.Msg.UserId, pageSize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list income contributions: %w", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.ListIncomeContributionsResponse{
 		Contributions: contributions,
 	}), nil
 }

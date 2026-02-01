@@ -558,6 +558,65 @@ func (s *FirestoreStore) ListContributions(ctx context.Context, groupID, userID 
 	return contributions, nil
 }
 
+// Income contribution operations
+
+// CreateIncomeContribution creates a new income contribution in Firestore
+func (s *FirestoreStore) CreateIncomeContribution(ctx context.Context, contribution *pfinancev1.IncomeContribution) error {
+	_, err := s.client.Collection("incomeContributions").Doc(contribution.Id).Set(ctx, contribution)
+	return err
+}
+
+// GetIncomeContribution retrieves an income contribution from Firestore
+func (s *FirestoreStore) GetIncomeContribution(ctx context.Context, contributionID string) (*pfinancev1.IncomeContribution, error) {
+	doc, err := s.client.Collection("incomeContributions").Doc(contributionID).Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("income contribution not found: %w", err)
+	}
+
+	var contribution pfinancev1.IncomeContribution
+	if err := doc.DataTo(&contribution); err != nil {
+		return nil, fmt.Errorf("failed to parse income contribution: %w", err)
+	}
+	return &contribution, nil
+}
+
+// ListIncomeContributions lists income contributions for a group or user
+func (s *FirestoreStore) ListIncomeContributions(ctx context.Context, groupID, userID string, pageSize int32) ([]*pfinancev1.IncomeContribution, error) {
+	var query firestore.Query
+	query = s.client.Collection("incomeContributions").Query
+
+	// NOTE: Field names must match Go struct field names (PascalCase) as that's how Firestore serializes protobuf structs
+	if groupID != "" {
+		query = query.Where("TargetGroupId", "==", groupID)
+	}
+	if userID != "" {
+		query = query.Where("ContributedBy", "==", userID)
+	}
+
+	// Apply pagination
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+	query = query.Limit(int(pageSize))
+
+	// Execute query
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list income contributions: %w", err)
+	}
+
+	contributions := make([]*pfinancev1.IncomeContribution, 0, len(docs))
+	for _, doc := range docs {
+		var contribution pfinancev1.IncomeContribution
+		if err := doc.DataTo(&contribution); err != nil {
+			return nil, fmt.Errorf("failed to parse income contribution: %w", err)
+		}
+		contributions = append(contributions, &contribution)
+	}
+
+	return contributions, nil
+}
+
 // Budget operations
 
 // CreateBudget creates a new budget in Firestore
@@ -817,4 +876,26 @@ func (s *FirestoreStore) calculateBudgetPeriod(budget *pfinancev1.Budget, asOfDa
 	periodEnd = time.Date(periodEnd.Year(), periodEnd.Month(), periodEnd.Day(), 23, 59, 59, 999999999, periodEnd.Location())
 
 	return periodStart, periodEnd
+}
+
+// User operations
+
+// GetUser retrieves a user from Firestore
+func (s *FirestoreStore) GetUser(ctx context.Context, userID string) (*pfinancev1.User, error) {
+	doc, err := s.client.Collection("users").Doc(userID).Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
+	var user pfinancev1.User
+	if err := doc.DataTo(&user); err != nil {
+		return nil, fmt.Errorf("failed to parse user: %w", err)
+	}
+	return &user, nil
+}
+
+// UpdateUser updates a user in Firestore
+func (s *FirestoreStore) UpdateUser(ctx context.Context, user *pfinancev1.User) error {
+	_, err := s.client.Collection("users").Doc(user.Id).Set(ctx, user)
+	return err
 }

@@ -107,9 +107,9 @@ func main() {
 	// NOTE: Frontend runs on port 1234, not 3000
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{
-			"http://localhost:1234",  // Local frontend
-			"http://127.0.0.1:1234",  // Alternative local
-			"https://pfinance.dev",   // Production custom domain
+			"http://localhost:1234",    // Local frontend
+			"http://127.0.0.1:1234",    // Alternative local
+			"https://pfinance.dev",     // Production custom domain
 			"https://www.pfinance.dev", // Production www subdomain
 			"https://pfinance-app-1748773335.web.app",
 			"https://pfinance-app-1748773335.firebaseapp.com",
@@ -132,6 +132,10 @@ func main() {
 			"User-Agent",
 			"X-Grpc-Web",
 			"X-User-Agent",
+			"X-Debug-User-ID",
+			"X-Debug-User-Email",
+			"X-Debug-User-Name",
+			"X-Debug-Impersonate-User",
 		},
 		ExposedHeaders: []string{
 			"Grpc-Status",

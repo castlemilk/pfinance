@@ -45,10 +45,15 @@ type Store interface {
 	UpdateInviteLink(ctx context.Context, link *pfinancev1.GroupInviteLink) error
 	ListInviteLinks(ctx context.Context, groupID string, includeInactive bool, pageSize int32) ([]*pfinancev1.GroupInviteLink, error)
 
-	// Contribution operations
+	// Expense contribution operations
 	CreateContribution(ctx context.Context, contribution *pfinancev1.ExpenseContribution) error
 	GetContribution(ctx context.Context, contributionID string) (*pfinancev1.ExpenseContribution, error)
 	ListContributions(ctx context.Context, groupID, userID string, pageSize int32) ([]*pfinancev1.ExpenseContribution, error)
+
+	// Income contribution operations
+	CreateIncomeContribution(ctx context.Context, contribution *pfinancev1.IncomeContribution) error
+	GetIncomeContribution(ctx context.Context, contributionID string) (*pfinancev1.IncomeContribution, error)
+	ListIncomeContributions(ctx context.Context, groupID, userID string, pageSize int32) ([]*pfinancev1.IncomeContribution, error)
 
 	// Tax config operations
 	GetTaxConfig(ctx context.Context, userID, groupID string) (*pfinancev1.TaxConfig, error)
@@ -61,4 +66,8 @@ type Store interface {
 	DeleteBudget(ctx context.Context, budgetID string) error
 	ListBudgets(ctx context.Context, userID, groupID string, includeInactive bool, pageSize int32) ([]*pfinancev1.Budget, error)
 	GetBudgetProgress(ctx context.Context, budgetID string, asOfDate time.Time) (*pfinancev1.BudgetProgress, error)
+
+	// User operations
+	GetUser(ctx context.Context, userID string) (*pfinancev1.User, error)
+	UpdateUser(ctx context.Context, user *pfinancev1.User) error
 }
