@@ -167,18 +167,19 @@ jobs:
           VERCEL_ORG_ID: team_xE5DMN3hIo8aPqyHNkBybg8r
           VERCEL_PROJECT_ID: prj_TakUttZsa4fdddSwfVp08YFfyAdF
           BACKEND_URL: ${{ needs.backend.outputs.url }}
-        working-directory: web
         run: |
           npm i -g vercel@latest
+          cd web
 
           PR_NUMBER=${{ github.event.pull_request.number }}
           PR_ALIAS="pr-${PR_NUMBER}.${{ env.PREVIEW_DOMAIN }}"
           LATEST_ALIAS="${{ env.PREVIEW_DOMAIN }}"
 
-          # Link to Vercel project and pull config
+          # Link to Vercel project and pull config (run from repo root)
+          cd ..
           vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
 
-          # Build the project
+          # Build the project (Vercel knows web/ is the root)
           vercel build --token=$VERCEL_TOKEN
 
           # Deploy the prebuilt project and capture the URL
