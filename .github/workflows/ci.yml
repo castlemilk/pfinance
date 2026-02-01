@@ -169,13 +169,13 @@ jobs:
       - name: Build & start services
         run: |
           # Build backend
-          cd backend && go build -o server cmd/server/main.go
+          (cd backend && go build -o server cmd/server/main.go)
 
           # Start backend in background
-          cd backend && PORT=8111 USE_MEMORY_STORE=true ./server &
+          (cd backend && PORT=8111 USE_MEMORY_STORE=true ./server) &
 
           # Start frontend in dev mode (faster than build)
-          cd web && npm run dev &
+          (cd web && npm run dev) &
 
           # Wait for services to be ready
           echo "Waiting for backend..."

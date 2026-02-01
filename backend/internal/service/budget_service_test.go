@@ -98,9 +98,18 @@ func TestGetBudgetProgress(t *testing.T) {
 		BudgetId: budgetID,
 	}
 
+	// Mock budget for authorization check
+	mockBudget := &pfinancev1.Budget{
+		Id:     budgetID,
+		UserId: userID,
+	}
+
 	// Set up expectations
 	mockStore.EXPECT().
-		GetBudgetProgress(ctx, budgetID, gomock.Any()).
+		GetBudget(gomock.Any(), budgetID).
+		Return(mockBudget, nil)
+	mockStore.EXPECT().
+		GetBudgetProgress(gomock.Any(), budgetID, gomock.Any()).
 		Return(testProgress, nil)
 
 	// Execute
@@ -410,6 +419,12 @@ func TestDeleteBudget(t *testing.T) {
 	userID := "user-123"
 	ctx := testContextWithUser(userID)
 
+	// Mock budget for authorization
+	mockBudget := &pfinancev1.Budget{
+		Id:     "budget-123",
+		UserId: userID,
+	}
+
 	tests := []struct {
 		name          string
 		request       *pfinancev1.DeleteBudgetRequest
@@ -423,7 +438,10 @@ func TestDeleteBudget(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					DeleteBudget(ctx, "budget-123").
+					GetBudget(gomock.Any(), "budget-123").
+					Return(mockBudget, nil)
+				mockStore.EXPECT().
+					DeleteBudget(gomock.Any(), "budget-123").
 					Return(nil)
 			},
 			expectedError: false,
@@ -435,8 +453,8 @@ func TestDeleteBudget(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					DeleteBudget(ctx, "budget-999").
-					Return(assert.AnError)
+					GetBudget(gomock.Any(), "budget-999").
+					Return(nil, assert.AnError)
 			},
 			expectedError: true,
 		},
@@ -447,7 +465,10 @@ func TestDeleteBudget(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					DeleteBudget(ctx, "budget-123").
+					GetBudget(gomock.Any(), "budget-123").
+					Return(mockBudget, nil)
+				mockStore.EXPECT().
+					DeleteBudget(gomock.Any(), "budget-123").
 					Return(assert.AnError)
 			},
 			expectedError: true,
