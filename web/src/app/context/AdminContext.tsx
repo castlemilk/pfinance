@@ -2,6 +2,9 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
+// SECURITY: Only enable admin features in development
+const isDevelopment = process.env.NODE_ENV === 'development';
+
 // Test users for impersonation
 export const TEST_USERS = [
   {
@@ -50,16 +53,20 @@ export function AdminProvider({ children }: AdminProviderProps) {
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [impersonatedUser, setImpersonatedUser] = useState<typeof TEST_USERS[0] | null>(null);
 
-  // Load admin mode from localStorage
+  // Load admin mode from localStorage (development only)
   useEffect(() => {
+    if (!isDevelopment) return; // SECURITY: Never load admin mode in production
+
     const savedAdminMode = localStorage.getItem('pfinance-admin-mode');
     if (savedAdminMode === 'true') {
       setIsAdminMode(true);
     }
   }, []);
 
-  // Add keyboard shortcut for admin mode (Ctrl/Cmd + Shift + A)
+  // Add keyboard shortcut for admin mode (Ctrl/Cmd + Shift + A) - development only
   useEffect(() => {
+    if (!isDevelopment) return; // SECURITY: Disable keyboard shortcut in production
+
     const handleKeyPress = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'A') {
         e.preventDefault();
@@ -77,6 +84,8 @@ export function AdminProvider({ children }: AdminProviderProps) {
   }, [isAdminMode]);
 
   const switchToUser = (userId: string) => {
+    if (!isDevelopment) return; // SECURITY: Never allow user switching in production
+
     const user = TEST_USERS.find(u => u.uid === userId);
     if (user && isAdminMode) {
       setImpersonatedUser(user);
@@ -90,8 +99,10 @@ export function AdminProvider({ children }: AdminProviderProps) {
     localStorage.removeItem('pfinance-impersonated-user');
   };
 
-  // Load impersonated user from localStorage
+  // Load impersonated user from localStorage (development only)
   useEffect(() => {
+    if (!isDevelopment) return; // SECURITY: Never load impersonated user in production
+
     if (isAdminMode) {
       const savedUser = localStorage.getItem('pfinance-impersonated-user');
       if (savedUser) {
@@ -108,12 +119,18 @@ export function AdminProvider({ children }: AdminProviderProps) {
     }
   }, [isAdminMode]);
 
+  // Wrap setIsAdminMode with production guard
+  const safeSetIsAdminMode = (value: boolean) => {
+    if (!isDevelopment) return; // SECURITY: Never enable admin mode in production
+    setIsAdminMode(value);
+  };
+
   const value = {
-    isAdminMode,
-    setIsAdminMode,
-    impersonatedUser,
-    setImpersonatedUser,
-    availableTestUsers: TEST_USERS,
+    isAdminMode: isDevelopment ? isAdminMode : false, // SECURITY: Always false in production
+    setIsAdminMode: safeSetIsAdminMode,
+    impersonatedUser: isDevelopment ? impersonatedUser : null, // SECURITY: Always null in production
+    setImpersonatedUser: isDevelopment ? setImpersonatedUser : () => {}, // SECURITY: No-op in production
+    availableTestUsers: isDevelopment ? TEST_USERS : [], // SECURITY: Empty in production
     switchToUser,
     exitImpersonation,
   };

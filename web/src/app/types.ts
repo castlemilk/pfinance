@@ -1,4 +1,4 @@
-export type IncomeFrequency = 'weekly' | 'fortnightly' | 'monthly' | 'annually';
+export type IncomeFrequency = 'hourly' | 'daily' | 'weekly' | 'fortnightly' | 'monthly' | 'annually';
 export type TaxStatus = 'preTax' | 'postTax';
 
 export interface TaxSettings {

@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/bufbuild/connect-go"
+	"connectrpc.com/connect"
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 	"github.com/castlemilk/pfinance/backend/gen/pfinance/v1/pfinancev1connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -141,7 +141,7 @@ type expenseData struct {
 
 func createGroupExpenses(ctx context.Context, client pfinancev1connect.FinanceServiceClient, groupID, paidByUserID, userName string, allUserIDs []string, expenses []expenseData) {
 	log.Printf("\n  👤 %s's expenses:", userName)
-	
+
 	for _, exp := range expenses {
 		date := time.Now().AddDate(0, 0, -exp.daysAgo)
 		_, err := client.CreateExpense(ctx, connect.NewRequest(&pfinancev1.CreateExpenseRequest{

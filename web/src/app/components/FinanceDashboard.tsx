@@ -9,7 +9,7 @@ import ExpenseVisualization from './ExpenseVisualization';
 import IncomeForm from './IncomeForm';
 import IncomeList from './IncomeList';
 import FinanceSummary from './FinanceSummary';
-import TransactionImport from './TransactionImport';
+import TransactionImport from './EnhancedTransactionImport';
 import ReportGenerator from './ReportGenerator';
 import GroupExpenseForm from './GroupExpenseForm';
 import GroupExpenseList from './GroupExpenseList';

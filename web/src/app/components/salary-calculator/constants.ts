@@ -56,6 +56,7 @@ export const MEDICARE_LEVY_RATE = 0.02; // 2%
 export const DEFAULT_FORM_VALUES = {
   salary: '105000',
   frequency: 'annually' as const,
+  salaryInputMode: 'gross' as const,
   voluntarySuper: '0',
   isProratedHours: false,
   proratedHours: '38',

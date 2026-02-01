@@ -10,6 +10,7 @@ import {
   GroupInviteLink,
   IncomeFrequency as ProtoIncomeFrequency,
 } from '@/gen/pfinance/v1/types_pb';
+import { timestampDate } from '@bufbuild/protobuf/wkt';
 import { FinanceGroup, GroupMember, InviteLink, GroupIncome } from './types';
 
 // ============================================================================
@@ -66,10 +67,10 @@ export function mapProtoGroupToLocal(proto: ProtoFinanceGroup): FinanceGroup {
       email: m.email,
       displayName: m.displayName,
       role: protoRoleToLocal[m.role],
-      joinedAt: m.joinedAt?.toDate() ?? new Date(),
+      joinedAt: m.joinedAt ? timestampDate(m.joinedAt) : new Date(),
     })),
-    createdAt: proto.createdAt?.toDate() ?? new Date(),
-    updatedAt: proto.updatedAt?.toDate() ?? new Date(),
+    createdAt: proto.createdAt ? timestampDate(proto.createdAt) : new Date(),
+    updatedAt: proto.updatedAt ? timestampDate(proto.updatedAt) : new Date(),
   };
 }
 
@@ -82,8 +83,8 @@ export function mapProtoInviteLinkToLocal(proto: GroupInviteLink): InviteLink {
     defaultRole: protoRoleToLocal[proto.defaultRole] as 'member' | 'admin' | 'viewer',
     maxUses: proto.maxUses,
     currentUses: proto.currentUses,
-    expiresAt: proto.expiresAt?.toDate(),
+    expiresAt: proto.expiresAt ? timestampDate(proto.expiresAt) : undefined,
     isActive: proto.isActive,
-    createdAt: proto.createdAt?.toDate() ?? new Date(),
+    createdAt: proto.createdAt ? timestampDate(proto.createdAt) : new Date(),
   };
 }

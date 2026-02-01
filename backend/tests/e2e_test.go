@@ -6,9 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/bufbuild/connect-go"
+	"connectrpc.com/connect"
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 	"github.com/castlemilk/pfinance/backend/gen/pfinance/v1/pfinancev1connect"
+	"github.com/castlemilk/pfinance/backend/internal/auth"
 	"github.com/castlemilk/pfinance/backend/internal/service"
 	"github.com/castlemilk/pfinance/backend/internal/store"
 	"go.uber.org/mock/gomock"
@@ -25,8 +26,9 @@ func TestE2EFinanceService(t *testing.T) {
 	// Create service
 	financeService := service.NewFinanceService(mockStore)
 
-	// Create Connect handler
-	path, handler := pfinancev1connect.NewFinanceServiceHandler(financeService)
+	// Create Connect handler with auth interceptor
+	interceptors := connect.WithInterceptors(auth.LocalDevInterceptor())
+	path, handler := pfinancev1connect.NewFinanceServiceHandler(financeService, interceptors)
 
 	// Create test server
 	mux := http.NewServeMux()
@@ -64,7 +66,7 @@ func TestE2EFinanceService(t *testing.T) {
 		ctx := context.Background()
 
 		resp, err := client.CreateExpense(ctx, connect.NewRequest(&pfinancev1.CreateExpenseRequest{
-			UserId:      "test-user",
+			UserId:      "local-dev-user",
 			Description: "Test expense",
 			Amount:      10.50,
 			Category:    pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
@@ -80,8 +82,8 @@ func TestE2EFinanceService(t *testing.T) {
 			t.Error("Expected expense in response")
 		}
 
-		if resp.Msg.Expense.UserId != "test-user" {
-			t.Errorf("Expected UserId 'test-user', got %s", resp.Msg.Expense.UserId)
+		if resp.Msg.Expense.UserId != "local-dev-user" {
+			t.Errorf("Expected UserId 'local-dev-user', got %s", resp.Msg.Expense.UserId)
 		}
 	})
 
@@ -90,7 +92,7 @@ func TestE2EFinanceService(t *testing.T) {
 		mockExpenses := []*pfinancev1.Expense{
 			{
 				Id:          "exp-1",
-				UserId:      "test-user",
+				UserId:      "local-dev-user",
 				Description: "Mock expense",
 				Amount:      25.00,
 				Category:    pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
@@ -98,13 +100,13 @@ func TestE2EFinanceService(t *testing.T) {
 		}
 
 		mockStore.EXPECT().
-			ListExpenses(gomock.Any(), "test-user", "", gomock.Any(), gomock.Any(), int32(10)).
+			ListExpenses(gomock.Any(), "local-dev-user", "", gomock.Any(), gomock.Any(), int32(10)).
 			Return(mockExpenses, nil)
 
 		ctx := context.Background()
 
 		resp, err := client.ListExpenses(ctx, connect.NewRequest(&pfinancev1.ListExpensesRequest{
-			UserId:   "test-user",
+			UserId:   "local-dev-user",
 			PageSize: 10,
 		}))
 

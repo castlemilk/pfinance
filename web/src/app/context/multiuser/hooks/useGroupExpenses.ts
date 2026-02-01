@@ -14,7 +14,7 @@ import {
   ExpenseFrequency,
   SplitType,
 } from '@/gen/pfinance/v1/types_pb';
-import { Timestamp } from '@bufbuild/protobuf';
+import { timestampFromDate, timestampDate } from '@bufbuild/protobuf/wkt';
 import { FinanceGroup } from '../types';
 
 interface UseGroupExpensesOptions {
@@ -132,7 +132,7 @@ export function useGroupExpenses({ user, activeGroup }: UseGroupExpensesOptions)
       paidByUserId,
       splitType,
       allocations,
-      date: Timestamp.now(),
+      date: timestampFromDate(new Date()),
     });
 
     if (response.expense) {

@@ -7,7 +7,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import { financeClient } from '@/lib/financeService';
-import { Timestamp } from '@bufbuild/protobuf';
+import { timestampFromDate } from '@bufbuild/protobuf/wkt';
 import { Expense, ExpenseCategory, ExpenseFrequency } from '@/app/types';
 import { 
   categoryToProto, 
@@ -108,7 +108,7 @@ export function useExpenses({
           amount,
           category: categoryToProto[category],
           frequency: expenseFrequencyToProto[frequency],
-          date: Timestamp.now(),
+          date: timestampFromDate(new Date()),
         });
         if (response.expense) {
           setExpenses(prev => [...prev, mapProtoExpenseToLocal(response.expense!)]);
@@ -144,7 +144,7 @@ export function useExpenses({
             amount: exp.amount,
             category: categoryToProto[exp.category],
             frequency: expenseFrequencyToProto[exp.frequency || 'monthly'],
-            date: Timestamp.now(),
+            date: timestampFromDate(new Date()),
           })),
         });
         if (response.expenses) {

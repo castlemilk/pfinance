@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"firebase.google.com/go/v4"
+	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/auth"
 	"google.golang.org/api/option"
 )
@@ -21,32 +21,28 @@ type UserClaims struct {
 	UID         string
 	Email       string
 	DisplayName string
+	Picture     string
 	Verified    bool
 }
 
-// NewFirebaseAuth creates a new Firebase auth client
+// NewFirebaseAuth creates a new FirebaseAuth instance
 func NewFirebaseAuth(ctx context.Context) (*FirebaseAuth, error) {
-	// Initialize Firebase app
-	var app *firebase.App
-	var err error
+	opts := []option.ClientOption{}
 
-	// Try to use service account key if available
-	if credentialsPath := getServiceAccountPath(); credentialsPath != "" {
-		opt := option.WithCredentialsFile(credentialsPath)
-		app, err = firebase.NewApp(ctx, nil, opt)
-	} else {
-		// Use default credentials (for Cloud Run)
-		app, err = firebase.NewApp(ctx, nil)
+	// Check if running on Cloud Run (default credentials work automatically)
+	// If locally, check for service account key
+	if creds := getServiceAccountPath(); creds != "" {
+		opts = append(opts, option.WithCredentialsFile(creds))
 	}
 
+	app, err := firebase.NewApp(ctx, nil, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize Firebase app: %w", err)
+		return nil, fmt.Errorf("error initializing app: %v", err)
 	}
 
-	// Get Auth client
 	client, err := app.Auth(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize Firebase Auth client: %w", err)
+		return nil, fmt.Errorf("error getting Auth client: %v", err)
 	}
 
 	return &FirebaseAuth{
@@ -76,6 +72,11 @@ func (f *FirebaseAuth) VerifyToken(ctx context.Context, idToken string) (*UserCl
 	// Get display name if available
 	if name, ok := token.Claims["name"].(string); ok {
 		claims.DisplayName = name
+	}
+
+	// Get picture URL if available
+	if picture, ok := token.Claims["picture"].(string); ok {
+		claims.Picture = picture
 	}
 
 	return claims, nil

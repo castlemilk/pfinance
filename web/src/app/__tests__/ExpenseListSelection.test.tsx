@@ -5,7 +5,7 @@ import { FinanceProvider, useFinance } from '../context/FinanceContext';
 import { AdminProvider } from '../context/AdminContext';
 import { AuthWithAdminProvider } from '../context/AuthWithAdminContext';
 import { MultiUserFinanceProvider } from '../context/MultiUserFinanceContext';
-import { Expense, ExpenseCategory, IncomeFrequency, TaxCountry } from '../types';
+import { Expense, ExpenseCategory, ExpenseFrequency, IncomeFrequency, TaxCountry } from '../types';
 
 // Mock financeService to prevent network calls
 jest.mock('@/lib/financeService', () => ({
@@ -41,7 +41,7 @@ const createFinanceMock = (customExpenses?: Expense[]) => {
     description: `Test Expense ${i + 1}`,
     amount: (i + 1) * 100,
     category: 'Food' as ExpenseCategory,
-    frequency: 'monthly' as IncomeFrequency,
+    frequency: 'monthly' as ExpenseFrequency,
     date: new Date(`2023-01-${i + 1}`)
   }));
   

@@ -1,6 +1,15 @@
 // Add custom jest matchers from testing-library
 import '@testing-library/jest-dom';
 
+// Polyfill TextEncoder/TextDecoder for Node.js (required by @bufbuild/protobuf v2)
+import { TextEncoder, TextDecoder } from 'util';
+if (typeof globalThis.TextEncoder === 'undefined') {
+  globalThis.TextEncoder = TextEncoder;
+}
+if (typeof globalThis.TextDecoder === 'undefined') {
+  globalThis.TextDecoder = TextDecoder;
+}
+
 // Polyfill fetch for Node.js test environment
 // OpenAI client requires fetch to be available globally
 if (typeof globalThis.fetch === 'undefined') {

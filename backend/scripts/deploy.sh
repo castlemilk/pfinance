@@ -12,24 +12,13 @@ echo "🚀 Deploying PFinance Backend to Cloud Run"
 echo "==========================================="
 
 echo ""
-echo "📦 Building and pushing Docker image..."
+echo "☁️  Building and deploying to Cloud Run..."
 
-# Build and tag image
-docker build -t $IMAGE_NAME:latest .
-
-# Configure Docker for GCR
-gcloud auth configure-docker
-
-# Push image
-docker push $IMAGE_NAME:latest
-
-echo ""
-echo "☁️  Deploying to Cloud Run..."
-
-# Deploy to Cloud Run
+# Deploy directly from source (handles building automatically)
 gcloud run deploy $SERVICE_NAME \
-  --image $IMAGE_NAME:latest \
+  --source . \
   --region $REGION \
+  --project $PROJECT_ID \
   --platform managed \
   --allow-unauthenticated \
   --port 8080 \
@@ -45,6 +34,7 @@ echo "🔗 Getting service URL..."
 # Get service URL
 SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
   --region $REGION \
+  --project $PROJECT_ID \
   --format 'value(status.url)')
 
 echo ""

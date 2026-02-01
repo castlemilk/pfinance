@@ -11,13 +11,14 @@ import { IncomeFrequency, ExpenseFrequency } from '../../types';
  * Multipliers to convert from a given frequency to annual
  */
 const TO_ANNUAL_MULTIPLIERS: Record<IncomeFrequency | ExpenseFrequency, number> = {
+  hourly: 2080, // 40 hours/week * 52 weeks
+  daily: 365,
   weekly: 52,
   fortnightly: 26,
   monthly: 12,
   annually: 1,
   // ExpenseFrequency extras
   once: 1,
-  daily: 365,
   quarterly: 4,
 };
 
@@ -54,6 +55,8 @@ export function convertPeriod(
  */
 export function getPeriodLabel(frequency: IncomeFrequency): string {
   const labels: Record<IncomeFrequency, string> = {
+    hourly: 'per hour',
+    daily: 'per day',
     weekly: 'per week',
     fortnightly: 'per fortnight',
     monthly: 'per month',
@@ -67,6 +70,8 @@ export function getPeriodLabel(frequency: IncomeFrequency): string {
  */
 export function getShortPeriodLabel(frequency: IncomeFrequency): string {
   const labels: Record<IncomeFrequency, string> = {
+    hourly: '/hr',
+    daily: '/day',
     weekly: '/wk',
     fortnightly: '/fn',
     monthly: '/mo',

@@ -3,7 +3,7 @@ package auth
 import (
 	"context"
 
-	"github.com/bufbuild/connect-go"
+	"connectrpc.com/connect"
 )
 
 // AuthInterceptor creates a Connect interceptor for Firebase authentication
@@ -87,6 +87,11 @@ const userClaimsKey contextKey = "user_claims"
 // withUserClaims adds user claims to the context
 func withUserClaims(ctx context.Context, claims *UserClaims) context.Context {
 	return context.WithValue(ctx, userClaimsKey, claims)
+}
+
+// WithUserClaims is the exported version for testing purposes
+func WithUserClaims(ctx context.Context, claims *UserClaims) context.Context {
+	return withUserClaims(ctx, claims)
 }
 
 // GetUserClaims extracts user claims from context

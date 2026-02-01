@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { useMultiUserFinance } from '../context/MultiUserFinanceContext';
 import { Expense, ExpenseAllocation, SplitType, ExpenseCategory } from '@/gen/pfinance/v1/types_pb';
+import { Timestamp, timestampDate } from '@bufbuild/protobuf/wkt';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -39,12 +40,13 @@ export default function GroupExpenseList({ }: GroupExpenseListProps) {
   // Use expenses from context which are already being refreshed
   const expenses = groupExpenses;
 
-  const formatDate = (date: { toDate?: () => Date } | Date | string | number | undefined) => {
+  const formatDate = (date: Timestamp | Date | string | number | undefined) => {
     if (!date) return '';
     
     let d: Date;
-    if (typeof date === 'object' && date !== null && 'toDate' in date && typeof date.toDate === 'function') {
-      d = date.toDate();
+    if (typeof date === 'object' && date !== null && 'seconds' in date) {
+      // Protobuf Timestamp
+      d = timestampDate(date as Timestamp);
     } else {
       d = new Date(date as string | number | Date);
     }

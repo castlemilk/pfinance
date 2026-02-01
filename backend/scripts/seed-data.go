@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package main
@@ -10,7 +11,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/bufbuild/connect-go"
+	"connectrpc.com/connect"
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 	"github.com/castlemilk/pfinance/backend/gen/pfinance/v1/pfinancev1connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -37,7 +38,7 @@ func main() {
 
 	// Create HTTP client with optional auth
 	httpClient := &http.Client{}
-	
+
 	var opts []connect.ClientOption
 	if authToken != "" {
 		log.Println("🔐 Using provided auth token")
@@ -108,26 +109,26 @@ func seedExpenses(ctx context.Context, client pfinancev1connect.FinanceServiceCl
 		{"Dinner at restaurant", 78.50, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD, 4},
 		{"Gym membership", 65.00, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_HEALTHCARE, 5},
 		{"Amazon purchase - headphones", 149.00, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_SHOPPING, 5},
-		
+
 		// Last week
 		{"Petrol", 95.00, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_TRANSPORTATION, 8},
 		{"Phone bill", 79.00, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UTILITIES, 9},
 		{"Lunch with colleagues", 32.50, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD, 10},
 		{"Movie tickets", 36.00, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_ENTERTAINMENT, 11},
 		{"Pharmacy - vitamins", 42.00, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_HEALTHCARE, 12},
-		
+
 		// Two weeks ago
 		{"Weekly groceries", 142.30, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD, 14},
 		{"Internet bill", 89.00, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UTILITIES, 15},
 		{"Spotify subscription", 12.99, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_ENTERTAINMENT, 16},
 		{"Car service", 350.00, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_TRANSPORTATION, 18},
-		
+
 		// Three weeks ago
 		{"Home insurance", 125.00, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_HOUSING, 21},
 		{"New shoes", 189.00, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_SHOPPING, 22},
 		{"Doctor visit", 85.00, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_HEALTHCARE, 23},
 		{"Takeaway dinner", 45.00, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD, 24},
-		
+
 		// Last month
 		{"Rent payment", 2200.00, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_HOUSING, 30},
 		{"Water bill", 65.00, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UTILITIES, 32},
@@ -167,11 +168,11 @@ func seedIncomes(ctx context.Context, client pfinancev1connect.FinanceServiceCli
 		// Regular salary
 		{"Software Engineer Salary", 8500.00, pfinancev1.IncomeFrequency_INCOME_FREQUENCY_MONTHLY, pfinancev1.TaxStatus_TAX_STATUS_PRE_TAX, 0},
 		{"Software Engineer Salary", 8500.00, pfinancev1.IncomeFrequency_INCOME_FREQUENCY_MONTHLY, pfinancev1.TaxStatus_TAX_STATUS_PRE_TAX, 30},
-		
+
 		// Side income
 		{"Freelance project", 1500.00, pfinancev1.IncomeFrequency_INCOME_FREQUENCY_MONTHLY, pfinancev1.TaxStatus_TAX_STATUS_POST_TAX, 15},
 		{"Dividend payment", 250.00, pfinancev1.IncomeFrequency_INCOME_FREQUENCY_MONTHLY, pfinancev1.TaxStatus_TAX_STATUS_POST_TAX, 20},
-		
+
 		// One-off income
 		{"Tax refund", 1200.00, pfinancev1.IncomeFrequency_INCOME_FREQUENCY_ANNUALLY, pfinancev1.TaxStatus_TAX_STATUS_POST_TAX, 45},
 		{"Sold old laptop", 450.00, pfinancev1.IncomeFrequency_INCOME_FREQUENCY_ANNUALLY, pfinancev1.TaxStatus_TAX_STATUS_POST_TAX, 25},
@@ -314,15 +315,15 @@ func seedGroup(ctx context.Context, client pfinancev1connect.FinanceServiceClien
 	for _, exp := range sharedExpenses {
 		date := time.Now().AddDate(0, 0, -exp.daysAgo)
 		_, err := client.CreateExpense(ctx, connect.NewRequest(&pfinancev1.CreateExpenseRequest{
-			UserId:       userID,
-			GroupId:      groupID,
-			Description:  exp.description,
-			Amount:       exp.amount,
-			Category:     exp.category,
-			Frequency:    pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_ONCE,
-			Date:         timestamppb.New(date),
-			PaidByUserId: userID,
-			SplitType:    pfinancev1.SplitType_SPLIT_TYPE_EQUAL,
+			UserId:           userID,
+			GroupId:          groupID,
+			Description:      exp.description,
+			Amount:           exp.amount,
+			Category:         exp.category,
+			Frequency:        pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_ONCE,
+			Date:             timestamppb.New(date),
+			PaidByUserId:     userID,
+			SplitType:        pfinancev1.SplitType_SPLIT_TYPE_EQUAL,
 			AllocatedUserIds: []string{userID}, // In real scenario, would have multiple users
 		}))
 		if err != nil {

@@ -15,27 +15,31 @@ type MemoryStore struct {
 	mu sync.RWMutex
 
 	// Storage maps
-	expenses      map[string]*pfinancev1.Expense
-	incomes       map[string]*pfinancev1.Income
-	groups        map[string]*pfinancev1.FinanceGroup
-	invitations   map[string]*pfinancev1.GroupInvitation
-	inviteLinks   map[string]*pfinancev1.GroupInviteLink
-	contributions map[string]*pfinancev1.ExpenseContribution
-	taxConfigs    map[string]*pfinancev1.TaxConfig
-	budgets       map[string]*pfinancev1.Budget
+	expenses            map[string]*pfinancev1.Expense
+	incomes             map[string]*pfinancev1.Income
+	groups              map[string]*pfinancev1.FinanceGroup
+	invitations         map[string]*pfinancev1.GroupInvitation
+	inviteLinks         map[string]*pfinancev1.GroupInviteLink
+	contributions       map[string]*pfinancev1.ExpenseContribution
+	incomeContributions map[string]*pfinancev1.IncomeContribution
+	taxConfigs          map[string]*pfinancev1.TaxConfig
+	budgets             map[string]*pfinancev1.Budget
+	users               map[string]*pfinancev1.User
 }
 
 // NewMemoryStore creates a new in-memory store
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
-		expenses:      make(map[string]*pfinancev1.Expense),
-		incomes:       make(map[string]*pfinancev1.Income),
-		groups:        make(map[string]*pfinancev1.FinanceGroup),
-		invitations:   make(map[string]*pfinancev1.GroupInvitation),
-		inviteLinks:   make(map[string]*pfinancev1.GroupInviteLink),
-		contributions: make(map[string]*pfinancev1.ExpenseContribution),
-		taxConfigs:    make(map[string]*pfinancev1.TaxConfig),
-		budgets:       make(map[string]*pfinancev1.Budget),
+		expenses:            make(map[string]*pfinancev1.Expense),
+		incomes:             make(map[string]*pfinancev1.Income),
+		groups:              make(map[string]*pfinancev1.FinanceGroup),
+		invitations:         make(map[string]*pfinancev1.GroupInvitation),
+		inviteLinks:         make(map[string]*pfinancev1.GroupInviteLink),
+		contributions:       make(map[string]*pfinancev1.ExpenseContribution),
+		incomeContributions: make(map[string]*pfinancev1.IncomeContribution),
+		taxConfigs:          make(map[string]*pfinancev1.TaxConfig),
+		budgets:             make(map[string]*pfinancev1.Budget),
+		users:               make(map[string]*pfinancev1.User),
 	}
 }
 
@@ -470,6 +474,56 @@ func (m *MemoryStore) ListContributions(ctx context.Context, groupID, userID str
 	return result, nil
 }
 
+// Income contribution operations
+
+func (m *MemoryStore) CreateIncomeContribution(ctx context.Context, contribution *pfinancev1.IncomeContribution) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if contribution.Id == "" {
+		contribution.Id = uuid.New().String()
+	}
+
+	m.incomeContributions[contribution.Id] = contribution
+	return nil
+}
+
+func (m *MemoryStore) GetIncomeContribution(ctx context.Context, contributionID string) (*pfinancev1.IncomeContribution, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	contribution, ok := m.incomeContributions[contributionID]
+	if !ok {
+		return nil, fmt.Errorf("income contribution not found: %s", contributionID)
+	}
+
+	return contribution, nil
+}
+
+func (m *MemoryStore) ListIncomeContributions(ctx context.Context, groupID, userID string, pageSize int32) ([]*pfinancev1.IncomeContribution, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var result []*pfinancev1.IncomeContribution
+
+	for _, contribution := range m.incomeContributions {
+		if groupID != "" && contribution.TargetGroupId != groupID {
+			continue
+		}
+		if userID != "" && contribution.ContributedBy != userID {
+			continue
+		}
+
+		result = append(result, contribution)
+
+		if pageSize > 0 && int32(len(result)) >= pageSize {
+			break
+		}
+	}
+
+	return result, nil
+}
+
 // Tax config operations
 
 func (m *MemoryStore) GetTaxConfig(ctx context.Context, userID, groupID string) (*pfinancev1.TaxConfig, error) {
@@ -638,4 +692,26 @@ func (m *MemoryStore) GetBudgetProgress(ctx context.Context, budgetID string, as
 		PercentageUsed:  percentageUsed,
 		// IsOverBudget field removed from proto, calculate on frontend
 	}, nil
+}
+
+// User operations
+
+func (m *MemoryStore) GetUser(ctx context.Context, userID string) (*pfinancev1.User, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	user, ok := m.users[userID]
+	if !ok {
+		return nil, fmt.Errorf("user not found: %s", userID)
+	}
+
+	return user, nil
+}
+
+func (m *MemoryStore) UpdateUser(ctx context.Context, user *pfinancev1.User) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.users[user.Id] = user
+	return nil
 }
