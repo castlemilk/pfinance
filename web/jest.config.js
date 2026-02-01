@@ -17,9 +17,11 @@ const customJestConfig = {
   moduleNameMapper: {
     '^@/components/(.*)$': '<rootDir>/src/components/$1',
     '^@/lib/(.*)$': '<rootDir>/src/lib/$1',
-    '^@/(.*)$': '<rootDir>/src/$1'
+    '^@/(.*)$': '<rootDir>/src/$1',
+    // Handle ESM .js imports to .ts files (Protobuf-ES v2 generates .js imports)
+    '^(\\.{1,2}/.*)\\.js$': '$1'
   },
-  testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/'],
+  testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/', '<rootDir>/e2e/'],
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

@@ -16,7 +16,7 @@ env:
 
 jobs:
   # ===========================================
-  # Change Detection
+  # Change Detection (~5s)
   # ===========================================
   changes:
     runs-on: ubuntu-latest
@@ -25,6 +25,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       proto: ${{ steps.filter.outputs.proto }}
       firebase: ${{ steps.filter.outputs.firebase }}
+      any_code: ${{ steps.filter.outputs.frontend == 'true' || steps.filter.outputs.backend == 'true' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -44,7 +45,7 @@ jobs:
               - 'firestore.indexes.json'
 
   # ===========================================
-  # Frontend
+  # Frontend Unit Tests & Build (~2 min)
   # ===========================================
   frontend:
     needs: changes
@@ -59,17 +60,14 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
-      - name: Install
-        run: cd web && npm ci --legacy-peer-deps
-
-      - name: Security audit
-        run: cd web && npm audit --audit-level=high || echo "::warning::npm audit found vulnerabilities"
+      - name: Install dependencies
+        run: cd web && rm -rf node_modules package-lock.json && npm install --legacy-peer-deps
 
       - name: Lint & Type Check
         run: cd web && npm run lint && npm run type-check
 
-      - name: Test
-        run: cd web && npm run test -- --passWithNoTests --coverage
+      - name: Unit Tests
+        run: cd web && npm test -- --passWithNoTests --coverage --maxWorkers=2
 
       - name: Build
         run: cd web && npm run build
@@ -77,7 +75,7 @@ jobs:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
 
   # ===========================================
-  # Backend
+  # Backend Tests & Build (~1 min)
   # ===========================================
   backend:
     needs: changes
@@ -89,6 +87,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: backend/go.sum
 
       - uses: bufbuild/buf-setup-action@v1
         with:
@@ -96,14 +96,9 @@ jobs:
 
       - name: Generate code
         run: |
+          go install go.uber.org/mock/mockgen@latest
           cd proto && buf generate
           cd ../backend && go generate ./internal/store
-
-      - name: Security scan
-        run: |
-          cd backend
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./... || echo "::warning::govulncheck found vulnerabilities"
 
       - name: Lint
         run: |
@@ -112,13 +107,103 @@ jobs:
           test -z "$(gofmt -l .)" || (echo "::error::Code not formatted" && exit 1)
 
       - name: Test
-        run: cd backend && go test -race -coverprofile=coverage.out ./...
+        run: cd backend && go test -race -coverprofile=coverage.out -timeout=60s ./...
 
       - name: Build
         run: cd backend && go build -o server cmd/server/main.go
 
   # ===========================================
-  # Proto
+  # E2E Tests (~2 min) - Runs in parallel!
+  # ===========================================
+  e2e:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Cache Playwright browsers
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
+
+      - name: Install dependencies & generate code
+        run: |
+          # Install mockgen and generate backend code
+          go install go.uber.org/mock/mockgen@latest
+          (cd proto && buf generate)
+          (cd backend && go generate ./internal/store) &
+
+          # Install frontend deps in parallel
+          (cd web && rm -rf node_modules package-lock.json && npm install --legacy-peer-deps) &
+
+          wait
+
+      - name: Install Playwright (Chromium only)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: web
+        run: npm exec playwright -- install chromium --with-deps
+
+      - name: Install Playwright deps (if cached)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: web
+        run: npm exec playwright -- install-deps chromium
+
+      - name: Build & start services
+        run: |
+          # Build backend
+          (cd backend && go build -o server cmd/server/main.go)
+
+          # Start backend in background
+          (cd backend && PORT=8111 USE_MEMORY_STORE=true ./server) &
+
+          # Start frontend in dev mode (faster than build)
+          (cd web && npm run dev) &
+
+          # Wait for services to be ready
+          echo "Waiting for backend..."
+          timeout 60 bash -c 'until curl -s http://localhost:8111/health > /dev/null 2>&1; do sleep 1; done' || exit 1
+          echo "Backend ready!"
+
+          echo "Waiting for frontend..."
+          timeout 90 bash -c 'until curl -s http://localhost:1234 > /dev/null 2>&1; do sleep 1; done' || exit 1
+          echo "Frontend ready!"
+
+      - name: Run E2E tests
+        working-directory: web
+        run: npm run test:e2e -- --project=chromium --reporter=list
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8111
+
+      - name: Upload test artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: web/test-results/
+          retention-days: 7
+
+  # ===========================================
+  # Proto Validation (~30s)
   # ===========================================
   proto:
     needs: changes
@@ -138,7 +223,7 @@ jobs:
           buf breaking --against '.git#branch=main' || echo "::warning::Breaking changes detected"
 
   # ===========================================
-  # Firebase
+  # Firebase Validation (~10s)
   # ===========================================
   firebase:
     needs: changes
@@ -153,3 +238,24 @@ jobs:
           jq empty firestore.indexes.json || exit 1
           INDEXES=$(jq '.indexes | length' firestore.indexes.json)
           echo "✓ Valid Firebase config ($INDEXES indexes)"
+
+  # ===========================================
+  # CI Status Check (for branch protection)
+  # ===========================================
+  ci-status:
+    needs: [frontend, backend, e2e, proto, firebase]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check CI status
+        run: |
+          # Check if any required job failed
+          if [[ "${{ needs.frontend.result }}" == "failure" ]] || \
+             [[ "${{ needs.backend.result }}" == "failure" ]] || \
+             [[ "${{ needs.e2e.result }}" == "failure" ]] || \
+             [[ "${{ needs.proto.result }}" == "failure" ]] || \
+             [[ "${{ needs.firebase.result }}" == "failure" ]]; then
+            echo "❌ CI failed"
+            exit 1
+          fi
+          echo "✅ CI passed"

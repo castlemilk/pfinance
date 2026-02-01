@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bufbuild/connect-go"
+	"connectrpc.com/connect"
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 	"github.com/castlemilk/pfinance/backend/internal/store"
 	"github.com/stretchr/testify/assert"
@@ -21,9 +21,10 @@ func TestCreateBudget(t *testing.T) {
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore)
 
-	ctx := context.Background()
+	userID := "user123"
+	ctx := testContextWithUser(userID)
 	req := &pfinancev1.CreateBudgetRequest{
-		UserId:      "user123",
+		UserId:      userID,
 		Name:        "Monthly Food Budget",
 		Description: "Budget for dining and groceries",
 		Amount:      500.00,
@@ -69,7 +70,8 @@ func TestGetBudgetProgress(t *testing.T) {
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore)
 
-	ctx := context.Background()
+	userID := "user123"
+	ctx := testContextWithUser(userID)
 	budgetID := "budget123"
 	now := time.Now()
 
@@ -96,9 +98,18 @@ func TestGetBudgetProgress(t *testing.T) {
 		BudgetId: budgetID,
 	}
 
+	// Mock budget for authorization check
+	mockBudget := &pfinancev1.Budget{
+		Id:     budgetID,
+		UserId: userID,
+	}
+
 	// Set up expectations
 	mockStore.EXPECT().
-		GetBudgetProgress(ctx, budgetID, gomock.Any()).
+		GetBudget(gomock.Any(), budgetID).
+		Return(mockBudget, nil)
+	mockStore.EXPECT().
+		GetBudgetProgress(gomock.Any(), budgetID, gomock.Any()).
 		Return(testProgress, nil)
 
 	// Execute
@@ -121,8 +132,8 @@ func TestListBudgets(t *testing.T) {
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore)
 
-	ctx := context.Background()
 	userID := "user123"
+	ctx := testContextWithUser(userID)
 
 	// Create test budgets
 	testBudgets := []*pfinancev1.Budget{
@@ -173,11 +184,12 @@ func TestGetBudget(t *testing.T) {
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore)
 
-	ctx := context.Background()
+	userID := "user-123"
+	ctx := testContextWithUser(userID)
 
 	testBudget := &pfinancev1.Budget{
 		Id:          "budget-123",
-		UserId:      "user-123",
+		UserId:      userID,
 		Name:        "Food Budget",
 		Description: "Monthly food spending",
 		Amount:      500.00,
@@ -257,11 +269,12 @@ func TestUpdateBudget(t *testing.T) {
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore)
 
-	ctx := context.Background()
+	userID := "user-123"
+	ctx := testContextWithUser(userID)
 
 	existingBudget := &pfinancev1.Budget{
 		Id:          "budget-123",
-		UserId:      "user-123",
+		UserId:      userID,
 		Name:        "Original Budget",
 		Description: "Original description",
 		Amount:      500.00,
@@ -403,7 +416,14 @@ func TestDeleteBudget(t *testing.T) {
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore)
 
-	ctx := context.Background()
+	userID := "user-123"
+	ctx := testContextWithUser(userID)
+
+	// Mock budget for authorization
+	mockBudget := &pfinancev1.Budget{
+		Id:     "budget-123",
+		UserId: userID,
+	}
 
 	tests := []struct {
 		name          string
@@ -418,7 +438,10 @@ func TestDeleteBudget(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					DeleteBudget(ctx, "budget-123").
+					GetBudget(gomock.Any(), "budget-123").
+					Return(mockBudget, nil)
+				mockStore.EXPECT().
+					DeleteBudget(gomock.Any(), "budget-123").
 					Return(nil)
 			},
 			expectedError: false,
@@ -430,8 +453,8 @@ func TestDeleteBudget(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					DeleteBudget(ctx, "budget-999").
-					Return(assert.AnError)
+					GetBudget(gomock.Any(), "budget-999").
+					Return(nil, assert.AnError)
 			},
 			expectedError: true,
 		},
@@ -442,7 +465,10 @@ func TestDeleteBudget(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					DeleteBudget(ctx, "budget-123").
+					GetBudget(gomock.Any(), "budget-123").
+					Return(mockBudget, nil)
+				mockStore.EXPECT().
+					DeleteBudget(gomock.Any(), "budget-123").
 					Return(assert.AnError)
 			},
 			expectedError: true,

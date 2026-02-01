@@ -9,13 +9,13 @@ import {
   BudgetProgress,
   ExpenseCategory
 } from '@/gen/pfinance/v1/types_pb';
-import { 
+import type { 
   CreateBudgetRequest,
   UpdateBudgetRequest,
   ListBudgetsRequest,
   GetBudgetProgressRequest
 } from '@/gen/pfinance/v1/finance_service_pb';
-import { Timestamp } from '@bufbuild/protobuf';
+import { timestampFromDate } from '@bufbuild/protobuf/wkt';
 
 interface BudgetContextType {
   // Budget data
@@ -104,12 +104,10 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const request = new GetBudgetProgressRequest({
+      const response = await financeClient.getBudgetProgress({
         budgetId,
-        asOfDate: asOfDate ? Timestamp.fromDate(asOfDate) : undefined
+        asOfDate: asOfDate ? timestampFromDate(asOfDate) : undefined
       });
-
-      const response = await financeClient.getBudgetProgress(request);
       return response.progress || null;
     } catch (err) {
       console.error('Failed to get budget progress:', err);
@@ -172,14 +170,12 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
 
     try {
       console.log('[BudgetContext] Fetching budgets for user:', targetUserId);
-      const request = new ListBudgetsRequest({
+      const response = await financeClient.listBudgets({
         userId: targetUserId,
         groupId: financeGroupId || '',
         includeInactive: true,
         pageSize: 100
       });
-
-      const response = await financeClient.listBudgets(request);
       const newBudgets = response.budgets || [];
       console.log('[BudgetContext] Budgets loaded:', newBudgets.length);
       
@@ -259,7 +255,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const request = new CreateBudgetRequest({
+      const response = await financeClient.createBudget({
         userId: effectiveUserId,
         groupId: params.financeGroupId || '',
         name: params.name,
@@ -267,11 +263,9 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         amount: params.amount,
         period: params.period,
         categoryIds: params.categoryIds,
-        startDate: params.startDate ? Timestamp.fromDate(params.startDate) : undefined,
-        endDate: params.endDate ? Timestamp.fromDate(params.endDate) : undefined
+        startDate: params.startDate ? timestampFromDate(params.startDate) : undefined,
+        endDate: params.endDate ? timestampFromDate(params.endDate) : undefined
       });
-
-      const response = await financeClient.createBudget(request);
       const newBudget = response.budget;
 
       if (newBudget) {
@@ -294,7 +288,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const request = new UpdateBudgetRequest({
+      const response = await financeClient.updateBudget({
         budgetId,
         name: params.name || '',
         description: params.description || '',
@@ -302,10 +296,8 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         period: params.period || BudgetPeriod.UNSPECIFIED,
         categoryIds: params.categoryIds || [],
         isActive: params.isActive ?? true,
-        endDate: params.endDate ? Timestamp.fromDate(params.endDate) : undefined
+        endDate: params.endDate ? timestampFromDate(params.endDate) : undefined
       });
-
-      const response = await financeClient.updateBudget(request);
       const updatedBudget = response.budget;
 
       if (updatedBudget) {

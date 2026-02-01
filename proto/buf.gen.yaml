@@ -1,28 +1,23 @@
-version: v1
+version: v2
+clean: true
 managed:
   enabled: true
-  go_package_prefix:
-    default: github.com/castlemilk/pfinance/backend/gen
+  override:
+    - file_option: go_package_prefix
+      value: github.com/castlemilk/pfinance/backend/gen
 plugins:
-  # Go
-  - plugin: buf.build/protocolbuffers/go:v1.32.0
+  # Go - Protocol Buffers message types
+  - remote: buf.build/protocolbuffers/go
     out: ../backend/gen
     opt:
       - paths=source_relative
-  - plugin: buf.build/grpc/go:v1.3.0
+  # Go - Connect-RPC service stubs (replaces grpc/go for Connect protocol)
+  - remote: buf.build/connectrpc/go
     out: ../backend/gen
     opt:
       - paths=source_relative
-  - plugin: buf.build/bufbuild/connect-go:v1.10.0
-    out: ../backend/gen
-    opt:
-      - paths=source_relative
-  # TypeScript/JavaScript for web client
-  - plugin: buf.build/connectrpc/es:latest
-    out: ../web/src/gen
-    opt:
-      - target=ts
-  - plugin: buf.build/connectrpc/connect-es:latest
+  # TypeScript/JavaScript - Protobuf-ES v2 (generates messages AND service definitions)
+  - remote: buf.build/bufbuild/es
     out: ../web/src/gen
     opt:
       - target=ts

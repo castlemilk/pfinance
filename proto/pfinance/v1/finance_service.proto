@@ -14,6 +14,7 @@ service FinanceService {
   
   // Expense operations
   rpc CreateExpense(CreateExpenseRequest) returns (CreateExpenseResponse);
+  rpc GetExpense(GetExpenseRequest) returns (GetExpenseResponse);
   rpc UpdateExpense(UpdateExpenseRequest) returns (UpdateExpenseResponse);
   rpc DeleteExpense(DeleteExpenseRequest) returns (google.protobuf.Empty);
   rpc ListExpenses(ListExpensesRequest) returns (ListExpensesResponse);
@@ -21,6 +22,7 @@ service FinanceService {
   
   // Income operations
   rpc CreateIncome(CreateIncomeRequest) returns (CreateIncomeResponse);
+  rpc GetIncome(GetIncomeRequest) returns (GetIncomeResponse);
   rpc UpdateIncome(UpdateIncomeRequest) returns (UpdateIncomeResponse);
   rpc DeleteIncome(DeleteIncomeRequest) returns (google.protobuf.Empty);
   rpc ListIncomes(ListIncomesRequest) returns (ListIncomesResponse);
@@ -68,7 +70,9 @@ service FinanceService {
   
   // Contribution operations
   rpc ContributeExpenseToGroup(ContributeExpenseToGroupRequest) returns (ContributeExpenseToGroupResponse);
+  rpc ContributeIncomeToGroup(ContributeIncomeToGroupRequest) returns (ContributeIncomeToGroupResponse);
   rpc ListContributions(ListContributionsRequest) returns (ListContributionsResponse);
+  rpc ListIncomeContributions(ListIncomeContributionsRequest) returns (ListIncomeContributionsResponse);
 }
 
 // User operations
@@ -108,6 +112,14 @@ message CreateExpenseRequest {
 }
 
 message CreateExpenseResponse {
+  Expense expense = 1;
+}
+
+message GetExpenseRequest {
+  string expense_id = 1;
+}
+
+message GetExpenseResponse {
   Expense expense = 1;
 }
 
@@ -171,6 +183,14 @@ message CreateIncomeRequest {
 }
 
 message CreateIncomeResponse {
+  Income income = 1;
+}
+
+message GetIncomeRequest {
+  string income_id = 1;
+}
+
+message GetIncomeResponse {
   Income income = 1;
 }
 
@@ -502,5 +522,30 @@ message ListContributionsRequest {
 
 message ListContributionsResponse {
   repeated ExpenseContribution contributions = 1;
+  string next_page_token = 2;
+}
+
+// Income contribution operations
+message ContributeIncomeToGroupRequest {
+  string source_income_id = 1;
+  string target_group_id = 2;
+  string contributed_by = 3;
+  double amount = 4; // Amount to contribute (can be partial, defaults to full income amount)
+}
+
+message ContributeIncomeToGroupResponse {
+  IncomeContribution contribution = 1;
+  Income created_group_income = 2;
+}
+
+message ListIncomeContributionsRequest {
+  string group_id = 1; // Optional - filter by group
+  string user_id = 2; // Optional - filter by contributor
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+message ListIncomeContributionsResponse {
+  repeated IncomeContribution contributions = 1;
   string next_page_token = 2;
 }

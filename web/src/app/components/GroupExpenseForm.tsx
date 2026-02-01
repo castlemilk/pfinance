@@ -94,36 +94,36 @@ export default function GroupExpenseForm({ groupId, onSuccess }: GroupExpenseFor
       switch (data.splitType) {
         case SplitType.EQUAL:
           const equalAmount = parseFloat(data.amount) / selectedMembers.length;
-          allocations = selectedMembers.map(userId => new ExpenseAllocation({
+          allocations = selectedMembers.map(userId => ({
             userId,
             amount: equalAmount,
             percentage: 0,
             shares: 0,
             isPaid: false,
             paidAt: undefined,
-          }));
+          })) as ExpenseAllocation[];
           break;
           
         case SplitType.AMOUNT:
-          allocations = Object.entries(data.customAllocations).map(([userId, amount]) => new ExpenseAllocation({
+          allocations = Object.entries(data.customAllocations).map(([userId, amount]) => ({
             userId,
             amount,
             percentage: 0,
             shares: 0,
             isPaid: false,
             paidAt: undefined,
-          }));
+          })) as ExpenseAllocation[];
           break;
           
         case SplitType.PERCENTAGE:
-          allocations = Object.entries(data.customAllocations).map(([userId, percentage]) => new ExpenseAllocation({
+          allocations = Object.entries(data.customAllocations).map(([userId, percentage]) => ({
             userId,
             amount: (parseFloat(data.amount) * percentage) / 100,
             percentage,
             shares: 0,
             isPaid: false,
             paidAt: undefined,
-          }));
+          })) as ExpenseAllocation[];
           break;
       }
 

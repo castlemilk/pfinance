@@ -2,6 +2,6 @@
   "framework": "nextjs",
   "regions": ["iad1"],
   "buildCommand": "npm run build",
-  "installCommand": "npm install --legacy-peer-deps",
+  "installCommand": "rm -f package-lock.json && npm install --legacy-peer-deps",
   "outputDirectory": ".next"
 }

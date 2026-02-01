@@ -13,23 +13,36 @@ import { SalaryCalculator } from './SalaryCalculator';
 import FinanceView from './FinanceView';
 import AuthModal from './AuthModal';
 import ReportGenerator from './ReportGenerator';
-import { useState } from 'react';
+import DashboardReport from './DashboardReport';
+import { useState, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { LogOut, Users, UserPlus } from 'lucide-react';
+import { LogOut, Users, UserPlus, Download, Loader2 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { AdminPanel } from './AdminPanel';
 import { MultiUserDemo } from './MultiUserDemo';
 import { useAdmin } from '../context/AdminContext';
 import BudgetDashboard from './BudgetDashboard';
+import { exportDashboardToPdf } from '../utils/dashboardExport';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export default function Dashboard() {
   const { user, logout, isImpersonating } = useAuth();
   const { isAdminMode } = useAdmin();
   const [activeIncomeView, setActiveIncomeView] = useState<'income' | 'salary'>('salary');
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [activeTab, setActiveTab] = useState('budgets');
+  
+  // Ref for quick export dashboard
+  const quickExportRef = useRef<HTMLDivElement>(null);
 
   const getInitials = (name: string) => {
     return name
@@ -39,6 +52,33 @@ export default function Dashboard() {
       .toUpperCase()
       .slice(0, 2);
   };
+
+  // Quick export handler - exports the current visible dashboard
+  const handleQuickExport = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      // Navigate to reports tab and wait for render
+      setActiveTab('reports');
+      
+      // Give it a moment to render
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Find the dashboard report element
+      const reportElement = document.querySelector('.export-container') as HTMLElement;
+      
+      if (reportElement) {
+        await exportDashboardToPdf(reportElement, {
+          title: 'Financial Dashboard Report',
+          subtitle: 'Quick Export',
+          includeTimestamp: true,
+        });
+      }
+    } catch (error) {
+      console.error('Quick export failed:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  }, []);
 
   // Don't show loading screen - app works without auth
   
@@ -51,6 +91,29 @@ export default function Dashboard() {
             <h1 className="text-2xl sm:text-3xl font-bold">Income & Expense Tracker</h1>
             
             <div className="flex items-center gap-2 sm:gap-4">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleQuickExport}
+                      disabled={isExporting}
+                      className="hidden sm:flex"
+                    >
+                      {isExporting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4" />
+                      )}
+                      <span className="ml-2 hidden md:inline">Export PDF</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Export dashboard as PDF</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <AdminPanel />
               <ThemeToggle />
           
@@ -103,7 +166,7 @@ export default function Dashboard() {
             </div>
           )}
       
-      <Tabs defaultValue="budgets" className="w-full mb-8">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-8">
         <TabsList className={`grid w-full ${user ? 'grid-cols-6' : 'grid-cols-5'}`}>
           <TabsTrigger value="budgets">Budgets</TabsTrigger>
           {user && (

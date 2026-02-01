@@ -5,7 +5,7 @@ import { MultiUserFinanceProvider, useMultiUserFinance } from '../MultiUserFinan
 import { useAuth } from '../AuthWithAdminContext';
 
 import { financeClient } from '@/lib/financeService';
-import { Timestamp } from '@bufbuild/protobuf';
+import { timestampFromDate } from '@bufbuild/protobuf/wkt';
 
 // Mock financeService
 jest.mock('@/lib/financeService', () => ({
@@ -185,11 +185,11 @@ describe('MultiUserFinanceContext', () => {
           email: 'test@example.com',
           displayName: 'Test User',
           role: 4, // OWNER
-          joinedAt: Timestamp.fromDate(new Date())
+          joinedAt: timestampFromDate(new Date())
         }],
         ownerId: 'user123',
-        createdAt: Timestamp.fromDate(new Date()),
-        updatedAt: Timestamp.fromDate(new Date()),
+        createdAt: timestampFromDate(new Date()),
+        updatedAt: timestampFromDate(new Date()),
         settings: {
           currency: 'USD',
           allowMemberInvites: true,
@@ -240,11 +240,11 @@ describe('MultiUserFinanceContext', () => {
         email: 'test@example.com',
         displayName: 'Test User',
         role: 4, // OWNER
-        joinedAt: Timestamp.fromDate(new Date())
+        joinedAt: timestampFromDate(new Date())
       }],
       ownerId: 'user123',
-      createdAt: Timestamp.fromDate(new Date()),
-      updatedAt: Timestamp.fromDate(new Date()),
+      createdAt: timestampFromDate(new Date()),
+      updatedAt: timestampFromDate(new Date()),
     };
 
     (financeClient.createGroup as jest.Mock).mockResolvedValue({ 

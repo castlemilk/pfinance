@@ -1,7 +1,7 @@
 'use client';
 
 import { useForm } from 'react-hook-form';
-import { ExpenseCategory, IncomeFrequency } from '../types';
+import { ExpenseCategory, ExpenseFrequency } from '../types';
 import { useFinance } from '../context/FinanceContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +26,7 @@ type FormData = {
   description: string;
   amount: string;
   category: ExpenseCategory;
-  frequency: IncomeFrequency;
+  frequency: ExpenseFrequency;
 };
 
 export default function ExpenseForm() {
@@ -63,7 +63,7 @@ export default function ExpenseForm() {
     'Other'
   ];
 
-  const frequencies: IncomeFrequency[] = [
+  const frequencies: ExpenseFrequency[] = [
     'weekly',
     'fortnightly',
     'monthly',
