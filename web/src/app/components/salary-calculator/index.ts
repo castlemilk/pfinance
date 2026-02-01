@@ -4,9 +4,31 @@
  * Barrel exports for the salary calculator module.
  */
 
+// Main Component
+export { SalaryCalculatorNew } from './SalaryCalculatorNew';
+
+// Sub-components
+export { IncomeSection } from './IncomeSection';
+export { SummaryPanel } from './SummaryPanel';
+export { SaveIncomeModal } from './SaveIncomeModal';
+export { PresetSelector, PRESETS } from './PresetSelector';
+export type { Preset, PresetType } from './PresetSelector';
+export { TaxYearSelector } from './TaxYearSelector';
+export { 
+  ExtraSettings,
+  SettingsSection,
+  SuperannuationSettings,
+  OvertimeSettings,
+  FringeBenefitsSettings,
+  SalarySacrificeSettings,
+  MedicareSettings,
+  StudentLoanSettings,
+} from './ExtraSettings';
+
 // Types
 export type {
   SalaryFormData,
+  SalaryInputMode,
   OvertimeEntry,
   FringeBenefitEntry,
   SalarySacrificeEntry,

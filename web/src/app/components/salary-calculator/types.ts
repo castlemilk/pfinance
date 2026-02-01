@@ -6,9 +6,12 @@
 
 import { IncomeFrequency } from '@/app/types';
 
+export type SalaryInputMode = 'gross' | 'net';
+
 export type SalaryFormData = {
   salary: string;
   frequency: IncomeFrequency;
+  salaryInputMode: SalaryInputMode;
   voluntarySuper: string;
   isProratedHours: boolean;
   proratedHours: string;
@@ -39,6 +42,14 @@ export type SalarySacrificeEntry = {
   amount: string;
   frequency: IncomeFrequency;
   isTaxDeductible: boolean;
+};
+
+export type NovatedLeaseEntry = {
+  id: string;
+  description: string;
+  amount: string;
+  frequency: IncomeFrequency;
+  isPreTax: boolean;
 };
 
 export type SalaryBreakdown = {
