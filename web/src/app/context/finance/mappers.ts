@@ -86,6 +86,8 @@ export const protoToExpenseFrequency: Record<ProtoExpenseFrequency, ExpenseFrequ
 // ============================================================================
 
 export const incomeFrequencyToProto: Record<IncomeFrequency, ProtoIncomeFrequency> = {
+  'hourly': ProtoIncomeFrequency.WEEKLY, // Hourly mapped to weekly for storage (display-only frequency)
+  'daily': ProtoIncomeFrequency.WEEKLY, // Daily mapped to weekly for storage (display-only frequency)
   'weekly': ProtoIncomeFrequency.WEEKLY,
   'fortnightly': ProtoIncomeFrequency.FORTNIGHTLY,
   'monthly': ProtoIncomeFrequency.MONTHLY,

@@ -125,7 +125,17 @@ const DashboardReport = forwardRef<HTMLDivElement, DashboardReportProps>(
         >
           {/* Report Header */}
           <div className="text-center pb-4 border-b">
-            <h1 className="text-3xl font-bold text-foreground">PFinance Report</h1>
+            <div className="flex items-center justify-center gap-3 mb-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img 
+                src="/logo.png" 
+                alt="PFinance Logo" 
+                width={48} 
+                height={48}
+                className="rounded-lg"
+              />
+              <h1 className="text-3xl font-bold text-foreground">PFinance Report</h1>
+            </div>
             <p className="text-muted-foreground mt-1">{periodLabel} Financial Summary</p>
             <p className="text-sm text-muted-foreground">Generated on {reportDate}</p>
           </div>
@@ -150,14 +160,14 @@ const DashboardReport = forwardRef<HTMLDivElement, DashboardReportProps>(
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900">
-                    <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900/50">
+                    <TrendingUp className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   </div>
                   <span className="text-sm font-medium text-muted-foreground">Net Income</span>
                 </div>
                 <p className="text-2xl font-bold">{formatCurrency(netIncome)}</p>
                 {taxAmount > 0 && (
-                  <p className="text-xs text-red-500">-{formatCurrency(taxAmount)} tax</p>
+                  <p className="text-xs text-[#D16A47]">-{formatCurrency(taxAmount)} tax</p>
                 )}
               </CardContent>
             </Card>
@@ -180,8 +190,8 @@ const DashboardReport = forwardRef<HTMLDivElement, DashboardReportProps>(
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="p-2 rounded-full bg-purple-100 dark:bg-purple-900">
-                    <PiggyBank className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <div className="p-2 rounded-full bg-[#87A96B]/20 dark:bg-[#A0C080]/20">
+                    <PiggyBank className="w-4 h-4 text-[#87A96B] dark:text-[#A0C080]" />
                   </div>
                   <span className="text-sm font-medium text-muted-foreground">Savings</span>
                 </div>
@@ -216,7 +226,7 @@ const DashboardReport = forwardRef<HTMLDivElement, DashboardReportProps>(
               <CardTitle>Expense Breakdown by Category</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[350px]">
+              <div className="h-[350px] overflow-hidden">
                 <ExpenseChart displayPeriod={displayPeriod} />
               </div>
             </CardContent>

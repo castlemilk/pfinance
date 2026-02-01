@@ -39,6 +39,7 @@ import {
 // Use centralized utilities from the metrics layer
 import { toAnnual, fromAnnual } from '../metrics/utils/period';
 import { getTaxSystem, calculateTaxWithBrackets } from '../constants/taxSystems';
+import { useLocalDataMigration } from './finance/hooks/useLocalDataMigration';
 
 // ============================================================================
 // Type Mapping Utilities
@@ -93,6 +94,8 @@ const protoToExpenseFrequency: Record<ProtoExpenseFrequency, ExpenseFrequency> =
 };
 
 const incomeFrequencyToProto: Record<IncomeFrequency, ProtoIncomeFrequency> = {
+  'hourly': ProtoIncomeFrequency.WEEKLY, // Display-only frequency
+  'daily': ProtoIncomeFrequency.WEEKLY, // Display-only frequency
   'weekly': ProtoIncomeFrequency.WEEKLY,
   'fortnightly': ProtoIncomeFrequency.FORTNIGHTLY,
   'monthly': ProtoIncomeFrequency.MONTHLY,
@@ -219,6 +222,13 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const useApi = !!user || isDevMode;
   const effectiveUserId = user?.uid || (isDevMode ? devUserId : '');
   
+  // Local data migration hook - migrates localStorage data to remote on first login
+  const { migrateLocalData, isMigrationNeeded } = useLocalDataMigration({
+    effectiveUserId,
+    useApi,
+    getStorageKey,
+  });
+  
   // Loading is true if:
   // 1. Auth is still loading (we don't know if there's a user yet), OR
   // 2. We have a user/dev mode but haven't loaded data yet
@@ -301,7 +311,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
           pageSize: 1000,
         });
         console.log('[FinanceContext] Expenses loaded:', expensesResponse.expenses.length);
-        setExpenses(expensesResponse.expenses.map(mapProtoExpenseToLocal));
+        const remoteExpenses = expensesResponse.expenses.map(mapProtoExpenseToLocal);
 
         // Load incomes from API
         console.log('[FinanceContext] Fetching incomes...');
@@ -310,7 +320,29 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
           pageSize: 1000,
         });
         console.log('[FinanceContext] Incomes loaded:', incomesResponse.incomes.length);
-        setIncomes(incomesResponse.incomes.map(mapProtoIncomeToLocal));
+        const remoteIncomes = incomesResponse.incomes.map(mapProtoIncomeToLocal);
+
+        // Check if we need to migrate local data to remote
+        // This happens when remote is empty but user has local data from before login
+        if (remoteExpenses.length === 0 && remoteIncomes.length === 0 && isMigrationNeeded()) {
+          console.log('[FinanceContext] Remote is empty, checking for local data to migrate...');
+          try {
+            const migrationResult = await migrateLocalData();
+            if (migrationResult.migratedExpenses > 0 || migrationResult.migratedIncomes > 0) {
+              console.log('[FinanceContext] Migration complete, reloading from API...');
+              // Reload from API to get the migrated data with server-generated IDs
+              isLoadingRef.current = false; // Reset guard for recursive call
+              await loadData(userId, shouldUseApi);
+              return; // Exit early, the recursive call will handle the rest
+            }
+          } catch (migrationErr) {
+            console.error('[FinanceContext] Migration failed, continuing with remote data:', migrationErr);
+          }
+        }
+
+        // Set the loaded data
+        setExpenses(remoteExpenses);
+        setIncomes(remoteIncomes);
 
         // Load tax config from API
         try {
@@ -355,7 +387,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       setDataLoaded(true);
       isLoadingRef.current = false;
     }
-  }, [loadFromLocalStorage]);
+  }, [loadFromLocalStorage, isMigrationNeeded, migrateLocalData]);
 
   // Load data when user changes
   useEffect(() => {
@@ -390,18 +422,14 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     };
   }, [effectiveUserId, useApi, loadData, dataLoaded]);
 
-  // Persist to localStorage when data changes (for demo mode or as cache)
+  // Always persist to localStorage as cache (for offline access and recovery)
   useEffect(() => {
-    if (!useApi) {
-      localStorage.setItem(getStorageKey('expenses'), JSON.stringify(expenses));
-    }
-  }, [expenses, useApi, getStorageKey]);
+    localStorage.setItem(getStorageKey('expenses'), JSON.stringify(expenses));
+  }, [expenses, getStorageKey]);
 
   useEffect(() => {
-    if (!useApi) {
-      localStorage.setItem(getStorageKey('incomes'), JSON.stringify(incomes));
-    }
-  }, [incomes, useApi, getStorageKey]);
+    localStorage.setItem(getStorageKey('incomes'), JSON.stringify(incomes));
+  }, [incomes, getStorageKey]);
 
   useEffect(() => {
     localStorage.setItem(getStorageKey('taxConfig'), JSON.stringify(taxConfig));
