@@ -107,4 +107,3 @@ func GetUserID(ctx context.Context) (string, bool) {
 	}
 	return "", false
 }
-

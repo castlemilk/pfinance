@@ -365,8 +365,9 @@ func TestCreateGroup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext(tt.request.OwnerId)
 
-			resp, err := service.CreateGroup(testContext(tt.request.OwnerId), connect.NewRequest(tt.request))
+			resp, err := service.CreateGroup(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -1194,8 +1195,9 @@ func TestUpdateIncome(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			resp, err := service.UpdateIncome(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.UpdateIncome(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -1270,8 +1272,9 @@ func TestDeleteIncome(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			_, err := service.DeleteIncome(context.Background(), connect.NewRequest(tt.request))
+			_, err := service.DeleteIncome(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -1408,8 +1411,9 @@ func TestListIncomes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			resp, err := service.ListIncomes(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.ListIncomes(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -1520,8 +1524,9 @@ func TestListGroups(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			resp, err := service.ListGroups(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.ListGroups(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -1608,8 +1613,9 @@ func TestGetGroup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			resp, err := service.GetGroup(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.GetGroup(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -1752,8 +1758,9 @@ func TestUpdateGroup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			resp, err := service.UpdateGroup(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.UpdateGroup(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -1840,6 +1847,7 @@ func TestDeleteGroup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
 			_, err := service.DeleteGroup(testContext("user-123"), connect.NewRequest(tt.request))
 
@@ -1893,6 +1901,7 @@ func TestGetUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 			resp, err := service.GetUser(testContext(tt.request.UserId), connect.NewRequest(tt.request))
 
 			if tt.expectedError {
@@ -1953,6 +1962,7 @@ func TestUpdateUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 			resp, err := service.UpdateUser(testContext(tt.request.UserId), connect.NewRequest(tt.request))
 
 			if tt.expectedError {
@@ -2090,8 +2100,9 @@ func TestListInvitations(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			resp, err := service.ListInvitations(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.ListInvitations(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -2188,8 +2199,9 @@ func TestDeclineInvitation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			_, err := service.DeclineInvitation(context.Background(), connect.NewRequest(tt.request))
+			_, err := service.DeclineInvitation(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -2297,8 +2309,9 @@ func TestRemoveFromGroup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			_, err := service.RemoveFromGroup(context.Background(), connect.NewRequest(tt.request))
+			_, err := service.RemoveFromGroup(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -2416,8 +2429,9 @@ func TestUpdateMemberRole(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			resp, err := service.UpdateMemberRole(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.UpdateMemberRole(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -2545,8 +2559,9 @@ func TestGetMemberBalances(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			resp, err := service.GetMemberBalances(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.GetMemberBalances(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -2731,8 +2746,9 @@ func TestSettleExpense(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			resp, err := service.SettleExpense(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.SettleExpense(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -2913,8 +2929,9 @@ func TestGetGroupSummary(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			resp, err := service.GetGroupSummary(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.GetGroupSummary(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -3023,8 +3040,9 @@ func TestCreateInviteLink(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			resp, err := service.CreateInviteLink(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.CreateInviteLink(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -3171,8 +3189,9 @@ func TestGetInviteLinkByCode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			resp, err := service.GetInviteLinkByCode(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.GetInviteLinkByCode(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -3317,8 +3336,9 @@ func TestJoinGroupByLink(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			resp, err := service.JoinGroupByLink(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.JoinGroupByLink(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -3415,8 +3435,9 @@ func TestListInviteLinks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			resp, err := service.ListInviteLinks(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.ListInviteLinks(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -3515,8 +3536,9 @@ func TestDeactivateInviteLink(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			_, err := service.DeactivateInviteLink(context.Background(), connect.NewRequest(tt.request))
+			_, err := service.DeactivateInviteLink(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -3680,8 +3702,9 @@ func TestContributeExpenseToGroup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			resp, err := service.ContributeExpenseToGroup(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.ContributeExpenseToGroup(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -3795,8 +3818,9 @@ func TestListContributions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
-			resp, err := service.ListContributions(context.Background(), connect.NewRequest(tt.request))
+			resp, err := service.ListContributions(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -3898,6 +3922,7 @@ func TestUpdateTaxConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
+			ctx := testContext("user-123")
 
 			resp, err := service.UpdateTaxConfig(testContext(tt.request.UserId), connect.NewRequest(tt.request))
 
