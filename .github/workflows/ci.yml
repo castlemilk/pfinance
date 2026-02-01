@@ -190,7 +190,7 @@ jobs:
 
       - name: Run E2E tests
         working-directory: web
-        run: npm exec playwright -- test --project=chromium --reporter=list
+        run: npm run test:e2e -- --project=chromium --reporter=list
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8111
 
