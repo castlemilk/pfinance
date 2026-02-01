@@ -28,6 +28,29 @@ func NewFinanceService(store store.Store) *FinanceService {
 
 // CreateExpense creates a new expense
 func (s *FinanceService) CreateExpense(ctx context.Context, req *connect.Request[pfinancev1.CreateExpenseRequest]) (*connect.Response[pfinancev1.CreateExpenseResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// For personal expenses, verify ownership
+	if req.Msg.GroupId == "" {
+		if req.Msg.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot create expense for another user"))
+		}
+	} else {
+		// For group expenses, verify group membership
+		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
 	// Default paid_by_user_id to user_id if not specified
 	paidByUserId := req.Msg.PaidByUserId
 	if paidByUserId == "" {
@@ -61,7 +84,7 @@ func (s *FinanceService) CreateExpense(ctx context.Context, req *connect.Request
 	}
 
 	if err := s.store.CreateExpense(ctx, expense); err != nil {
-		return nil, fmt.Errorf("failed to create expense: %w", err)
+		return nil, auth.WrapStoreError("create expense", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.CreateExpenseResponse{
@@ -69,60 +92,115 @@ func (s *FinanceService) CreateExpense(ctx context.Context, req *connect.Request
 	}), nil
 }
 
+// GetExpense retrieves a single expense by ID
+func (s *FinanceService) GetExpense(ctx context.Context, req *connect.Request[pfinancev1.GetExpenseRequest]) (*connect.Response[pfinancev1.GetExpenseResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	expense, err := s.store.GetExpense(ctx, req.Msg.ExpenseId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("expense not found"))
+	}
+
+	// For personal expenses, verify ownership
+	if expense.GroupId == "" {
+		if expense.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot access another user's expense"))
+		}
+	} else {
+		// For group expenses, verify group membership
+		group, err := s.store.GetGroup(ctx, expense.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	return connect.NewResponse(&pfinancev1.GetExpenseResponse{
+		Expense: expense,
+	}), nil
+}
+
 // ListExpenses lists expenses for a user or group
 func (s *FinanceService) ListExpenses(ctx context.Context, req *connect.Request[pfinancev1.ListExpensesRequest]) (*connect.Response[pfinancev1.ListExpensesResponse], error) {
-	var startTime, endTime *time.Time
-	if req.Msg.StartDate != nil {
-		t := req.Msg.StartDate.AsTime()
-		startTime = &t
-	}
-	if req.Msg.EndDate != nil {
-		t := req.Msg.EndDate.AsTime()
-		endTime = &t
-	}
-
-	pageSize := req.Msg.PageSize
-	if pageSize <= 0 {
-		pageSize = 100
-	}
-
-	expenses, err := s.store.ListExpenses(ctx, req.Msg.UserId, req.Msg.GroupId, startTime, endTime, pageSize)
+	claims, err := auth.RequireAuth(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list expenses: %w", err)
+		return nil, err
+	}
+
+	// For personal expenses, verify ownership
+	if req.Msg.GroupId == "" {
+		if req.Msg.UserId != "" && req.Msg.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot list another user's expenses"))
+		}
+	} else {
+		// For group expenses, verify group membership
+		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	startTime, endTime := auth.ConvertDateRange(req.Msg.StartDate, req.Msg.EndDate)
+	pageSize := auth.NormalizePageSize(req.Msg.PageSize)
+
+	// Use authenticated user ID if not specified
+	userID := req.Msg.UserId
+	if userID == "" && req.Msg.GroupId == "" {
+		userID = claims.UID
+	}
+
+	expenses, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, startTime, endTime, pageSize)
+	if err != nil {
+		return nil, auth.WrapStoreError("list expenses", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.ListExpensesResponse{
 		Expenses: expenses,
-		// TODO: Implement pagination token
 	}), nil
 }
 
 // CreateGroup creates a new finance group
 func (s *FinanceService) CreateGroup(ctx context.Context, req *connect.Request[pfinancev1.CreateGroupRequest]) (*connect.Response[pfinancev1.CreateGroupResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// User can only create a group where they are the owner
+	if req.Msg.OwnerId != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("cannot create group owned by another user"))
+	}
+
 	// Try to get user details for the owner
-	var email, displayName string //, photoUrl string
+	var email, displayName string
 
 	// 1. Try fetching from store
 	user, err := s.store.GetUser(ctx, req.Msg.OwnerId)
 	if err == nil {
 		email = user.Email
 		displayName = user.DisplayName
-		// photoUrl = user.PhotoUrl
 	}
 
-	// 2. If missing details, try context claims (if owner is the caller)
-	if email == "" || displayName == "" { // || photoUrl == "" {
-		if claims, ok := auth.GetUserClaims(ctx); ok && claims.UID == req.Msg.OwnerId {
-			if email == "" {
-				email = claims.Email
-			}
-			if displayName == "" {
-				displayName = claims.DisplayName
-			}
-			// if photoUrl == "" {
-			// 	photoUrl = claims.Picture
-			// }
-		}
+	// 2. If missing details, try context claims
+	if email == "" {
+		email = claims.Email
+	}
+	if displayName == "" {
+		displayName = claims.DisplayName
 	}
 
 	group := &pfinancev1.FinanceGroup{
@@ -138,7 +216,6 @@ func (s *FinanceService) CreateGroup(ctx context.Context, req *connect.Request[p
 				JoinedAt:    timestamppb.Now(),
 				Email:       email,
 				DisplayName: displayName,
-				// Note: GroupMember doesn't have PhotoUrl yet, but we have it for the user
 			},
 		},
 		CreatedAt: timestamppb.Now(),
@@ -146,7 +223,7 @@ func (s *FinanceService) CreateGroup(ctx context.Context, req *connect.Request[p
 	}
 
 	if err := s.store.CreateGroup(ctx, group); err != nil {
-		return nil, fmt.Errorf("failed to create group: %w", err)
+		return nil, auth.WrapStoreError("create group", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.CreateGroupResponse{
@@ -154,9 +231,22 @@ func (s *FinanceService) CreateGroup(ctx context.Context, req *connect.Request[p
 	}), nil
 }
 
-// ... (InviteToGroup implementations etc) ...
-
 func (s *FinanceService) GetUser(ctx context.Context, req *connect.Request[pfinancev1.GetUserRequest]) (*connect.Response[pfinancev1.GetUserResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Users can only get their own profile, or profiles of group co-members
+	if req.Msg.UserId != claims.UID {
+		// Check if they share a group
+		sharedGroup, err := s.checkSharedGroupMembership(ctx, claims.UID, req.Msg.UserId)
+		if err != nil || !sharedGroup {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot access user profile"))
+		}
+	}
+
 	user, err := s.store.GetUser(ctx, req.Msg.UserId)
 	if err != nil {
 		// If user not found in store, return a basic object (fallback behavior)
@@ -173,40 +263,42 @@ func (s *FinanceService) GetUser(ctx context.Context, req *connect.Request[pfina
 }
 
 func (s *FinanceService) UpdateUser(ctx context.Context, req *connect.Request[pfinancev1.UpdateUserRequest]) (*connect.Response[pfinancev1.UpdateUserResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Users can only update their own profile
+	if req.Msg.UserId != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("cannot update another user's profile"))
+	}
+
 	user := &pfinancev1.User{
 		Id:          req.Msg.UserId,
 		DisplayName: req.Msg.DisplayName,
 		UpdatedAt:   timestamppb.Now(),
 	}
 
-	// 1. Try to get email and photo from existing record
+	// Try to get email from existing record
 	existing, err := s.store.GetUser(ctx, req.Msg.UserId)
 	if err == nil {
 		user.Email = existing.Email
-		// user.PhotoUrl = existing.PhotoUrl
 		user.CreatedAt = existing.CreatedAt
 	} else {
 		user.CreatedAt = timestamppb.Now()
 	}
 
-	// 2. If details still missing/empty, try to get from auth context
-	// We always want to trust the auth token for the picture if it's there
-	if claims, ok := auth.GetUserClaims(ctx); ok && claims.UID == req.Msg.UserId {
-		if user.Email == "" {
-			user.Email = claims.Email
-		}
-		// If display name wasn't provided in request, maybe use claim?
-		if user.DisplayName == "" {
-			user.DisplayName = claims.DisplayName
-		}
-		// Always update photo URL from claims if available
-		// if claims.Picture != "" {
-		// 	user.PhotoUrl = claims.Picture
-		// }
+	// Fall back to auth claims for missing data
+	if user.Email == "" {
+		user.Email = claims.Email
+	}
+	if user.DisplayName == "" {
+		user.DisplayName = claims.DisplayName
 	}
 
 	if err := s.store.UpdateUser(ctx, user); err != nil {
-		return nil, fmt.Errorf("failed to update user: %w", err)
+		return nil, auth.WrapStoreError("update user", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.UpdateUserResponse{
@@ -216,7 +308,27 @@ func (s *FinanceService) UpdateUser(ctx context.Context, req *connect.Request[pf
 
 // InviteToGroup creates an invitation to join a group
 func (s *FinanceService) InviteToGroup(ctx context.Context, req *connect.Request[pfinancev1.InviteToGroupRequest]) (*connect.Response[pfinancev1.InviteToGroupResponse], error) {
-	// TODO: Add validation to ensure inviter has permission to invite
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify inviter is the authenticated user
+	if req.Msg.InviterId != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("cannot create invitation as another user"))
+	}
+
+	// Verify inviter is group admin/owner
+	group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+	if err != nil {
+		return nil, auth.WrapStoreError("get group", err)
+	}
+
+	if !auth.CanInviteToGroup(claims.UID, group) {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("only owners or admins can invite to the group"))
+	}
 
 	invitation := &pfinancev1.GroupInvitation{
 		Id:           uuid.New().String(),
@@ -230,10 +342,8 @@ func (s *FinanceService) InviteToGroup(ctx context.Context, req *connect.Request
 	}
 
 	if err := s.store.CreateInvitation(ctx, invitation); err != nil {
-		return nil, fmt.Errorf("failed to create invitation: %w", err)
+		return nil, auth.WrapStoreError("create invitation", err)
 	}
-
-	// TODO: Send email notification to invitee
 
 	return connect.NewResponse(&pfinancev1.InviteToGroupResponse{
 		Invitation: invitation,
@@ -242,34 +352,54 @@ func (s *FinanceService) InviteToGroup(ctx context.Context, req *connect.Request
 
 // AcceptInvitation accepts a group invitation
 func (s *FinanceService) AcceptInvitation(ctx context.Context, req *connect.Request[pfinancev1.AcceptInvitationRequest]) (*connect.Response[pfinancev1.AcceptInvitationResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify userId matches authenticated user
+	if req.Msg.UserId != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("cannot accept invitation as another user"))
+	}
+
 	// Get the invitation
 	invitation, err := s.store.GetInvitation(ctx, req.Msg.InvitationId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get invitation: %w", err)
+		return nil, auth.WrapStoreError("get invitation", err)
+	}
+
+	// Verify user's email matches invitation
+	if claims.Email != invitation.InviteeEmail {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("invitation is for a different email address"))
 	}
 
 	// Check if invitation is still pending
 	if invitation.Status != pfinancev1.InvitationStatus_INVITATION_STATUS_PENDING {
-		return nil, fmt.Errorf("invitation is no longer pending")
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("invitation is no longer pending"))
 	}
 
 	// Check if invitation is expired
 	if invitation.ExpiresAt.AsTime().Before(timestamppb.Now().AsTime()) {
-		return nil, fmt.Errorf("invitation has expired")
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("invitation has expired"))
 	}
 
 	// Get the group
 	group, err := s.store.GetGroup(ctx, invitation.GroupId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get group: %w", err)
+		return nil, auth.WrapStoreError("get group", err)
 	}
 
 	// Add user to group
 	newMember := &pfinancev1.GroupMember{
-		UserId:   req.Msg.UserId,
-		Email:    invitation.InviteeEmail,
-		Role:     invitation.Role,
-		JoinedAt: timestamppb.Now(),
+		UserId:      req.Msg.UserId,
+		Email:       claims.Email,
+		DisplayName: claims.DisplayName,
+		Role:        invitation.Role,
+		JoinedAt:    timestamppb.Now(),
 	}
 
 	group.MemberIds = append(group.MemberIds, req.Msg.UserId)
@@ -278,13 +408,13 @@ func (s *FinanceService) AcceptInvitation(ctx context.Context, req *connect.Requ
 
 	// Update group
 	if err := s.store.UpdateGroup(ctx, group); err != nil {
-		return nil, fmt.Errorf("failed to update group: %w", err)
+		return nil, auth.WrapStoreError("update group", err)
 	}
 
 	// Update invitation status
 	invitation.Status = pfinancev1.InvitationStatus_INVITATION_STATUS_ACCEPTED
 	if err := s.store.UpdateInvitation(ctx, invitation); err != nil {
-		return nil, fmt.Errorf("failed to update invitation: %w", err)
+		return nil, auth.WrapStoreError("update invitation", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.AcceptInvitationResponse{
@@ -294,6 +424,29 @@ func (s *FinanceService) AcceptInvitation(ctx context.Context, req *connect.Requ
 
 // CreateIncome creates a new income entry
 func (s *FinanceService) CreateIncome(ctx context.Context, req *connect.Request[pfinancev1.CreateIncomeRequest]) (*connect.Response[pfinancev1.CreateIncomeResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// For personal income, verify ownership
+	if req.Msg.GroupId == "" {
+		if req.Msg.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot create income for another user"))
+		}
+	} else {
+		// For group income, verify group membership
+		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
 	income := &pfinancev1.Income{
 		Id:         uuid.New().String(),
 		UserId:     req.Msg.UserId,
@@ -309,7 +462,7 @@ func (s *FinanceService) CreateIncome(ctx context.Context, req *connect.Request[
 	}
 
 	if err := s.store.CreateIncome(ctx, income); err != nil {
-		return nil, fmt.Errorf("failed to create income: %w", err)
+		return nil, auth.WrapStoreError("create income", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.CreateIncomeResponse{
@@ -317,11 +470,70 @@ func (s *FinanceService) CreateIncome(ctx context.Context, req *connect.Request[
 	}), nil
 }
 
+// GetIncome retrieves a single income by ID
+func (s *FinanceService) GetIncome(ctx context.Context, req *connect.Request[pfinancev1.GetIncomeRequest]) (*connect.Response[pfinancev1.GetIncomeResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	income, err := s.store.GetIncome(ctx, req.Msg.IncomeId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("income not found"))
+	}
+
+	// For personal income, verify ownership
+	if income.GroupId == "" {
+		if income.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot access another user's income"))
+		}
+	} else {
+		// For group income, verify group membership
+		group, err := s.store.GetGroup(ctx, income.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	return connect.NewResponse(&pfinancev1.GetIncomeResponse{
+		Income: income,
+	}), nil
+}
+
 // GetTaxConfig gets tax configuration for a user or group
 func (s *FinanceService) GetTaxConfig(ctx context.Context, req *connect.Request[pfinancev1.GetTaxConfigRequest]) (*connect.Response[pfinancev1.GetTaxConfigResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// For personal tax config, verify ownership
+	if req.Msg.GroupId == "" {
+		if req.Msg.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot access another user's tax config"))
+		}
+	} else {
+		// For group tax config, verify group membership
+		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
 	taxConfig, err := s.store.GetTaxConfig(ctx, req.Msg.UserId, req.Msg.GroupId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get tax config: %w", err)
+		return nil, auth.WrapStoreError("get tax config", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.GetTaxConfigResponse{
@@ -331,51 +543,96 @@ func (s *FinanceService) GetTaxConfig(ctx context.Context, req *connect.Request[
 
 // ListGroups lists groups for a user
 func (s *FinanceService) ListGroups(ctx context.Context, req *connect.Request[pfinancev1.ListGroupsRequest]) (*connect.Response[pfinancev1.ListGroupsResponse], error) {
-	pageSize := req.Msg.PageSize
-	if pageSize <= 0 {
-		pageSize = 100
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	groups, err := s.store.ListGroups(ctx, req.Msg.UserId, pageSize)
+	// Users can only list their own groups
+	userID := req.Msg.UserId
+	if userID == "" {
+		userID = claims.UID
+	} else if userID != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("cannot list another user's groups"))
+	}
+
+	pageSize := auth.NormalizePageSize(req.Msg.PageSize)
+
+	groups, err := s.store.ListGroups(ctx, userID, pageSize)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list groups: %w", err)
+		return nil, auth.WrapStoreError("list groups", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.ListGroupsResponse{
 		Groups: groups,
-		// TODO: Implement pagination token
 	}), nil
 }
 
 // ListInvitations lists invitations for a user
 func (s *FinanceService) ListInvitations(ctx context.Context, req *connect.Request[pfinancev1.ListInvitationsRequest]) (*connect.Response[pfinancev1.ListInvitationsResponse], error) {
-	pageSize := req.Msg.PageSize
-	if pageSize <= 0 {
-		pageSize = 100
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
 	}
+
+	// Users can only list invitations for their own email
+	userEmail := req.Msg.UserEmail
+	if userEmail == "" {
+		userEmail = claims.Email
+	} else if userEmail != claims.Email {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("cannot list invitations for another email address"))
+	}
+
+	pageSize := auth.NormalizePageSize(req.Msg.PageSize)
 
 	var status *pfinancev1.InvitationStatus
 	if req.Msg.Status != pfinancev1.InvitationStatus_INVITATION_STATUS_UNSPECIFIED {
 		status = &req.Msg.Status
 	}
 
-	invitations, err := s.store.ListInvitations(ctx, req.Msg.UserEmail, status, pageSize)
+	invitations, err := s.store.ListInvitations(ctx, userEmail, status, pageSize)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list invitations: %w", err)
+		return nil, auth.WrapStoreError("list invitations", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.ListInvitationsResponse{
 		Invitations: invitations,
-		// TODO: Implement pagination token
 	}), nil
 }
 
 // UpdateExpense updates an existing expense
 func (s *FinanceService) UpdateExpense(ctx context.Context, req *connect.Request[pfinancev1.UpdateExpenseRequest]) (*connect.Response[pfinancev1.UpdateExpenseResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	// Get existing expense
 	expense, err := s.store.GetExpense(ctx, req.Msg.ExpenseId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get expense: %w", err)
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("expense not found"))
+	}
+
+	// Check authorization
+	if expense.GroupId == "" {
+		// Personal expense - must be owner
+		if expense.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot update another user's expense"))
+		}
+	} else {
+		// Group expense - must be group member
+		group, err := s.store.GetGroup(ctx, expense.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
 	}
 
 	// Update fields
@@ -403,7 +660,6 @@ func (s *FinanceService) UpdateExpense(ctx context.Context, req *connect.Request
 
 	// Recalculate allocations if split type or amount changed
 	if req.Msg.SplitType != pfinancev1.SplitType_SPLIT_TYPE_UNSPECIFIED || req.Msg.Amount > 0 {
-		// Create a temporary CreateExpenseRequest for allocation calculation
 		createReq := &pfinancev1.CreateExpenseRequest{
 			UserId:           expense.UserId,
 			Amount:           expense.Amount,
@@ -423,7 +679,7 @@ func (s *FinanceService) UpdateExpense(ctx context.Context, req *connect.Request
 	expense.UpdatedAt = timestamppb.Now()
 
 	if err := s.store.UpdateExpense(ctx, expense); err != nil {
-		return nil, fmt.Errorf("failed to update expense: %w", err)
+		return nil, auth.WrapStoreError("update expense", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.UpdateExpenseResponse{
@@ -432,16 +688,71 @@ func (s *FinanceService) UpdateExpense(ctx context.Context, req *connect.Request
 }
 
 func (s *FinanceService) DeleteExpense(ctx context.Context, req *connect.Request[pfinancev1.DeleteExpenseRequest]) (*connect.Response[emptypb.Empty], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get expense to check ownership
+	expense, err := s.store.GetExpense(ctx, req.Msg.ExpenseId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("expense not found"))
+	}
+
+	// Check authorization
+	if expense.GroupId == "" {
+		// Personal expense - must be owner
+		if expense.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot delete another user's expense"))
+		}
+	} else {
+		// Group expense - must be group admin/owner or expense creator
+		group, err := s.store.GetGroup(ctx, expense.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		isCreator := expense.UserId == claims.UID || expense.PaidByUserId == claims.UID
+		if !isCreator && !auth.IsGroupAdminOrOwner(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("only expense creator or group admin can delete this expense"))
+		}
+	}
+
 	if err := s.store.DeleteExpense(ctx, req.Msg.ExpenseId); err != nil {
-		return nil, fmt.Errorf("failed to delete expense: %w", err)
+		return nil, auth.WrapStoreError("delete expense", err)
 	}
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FinanceService) BatchCreateExpenses(ctx context.Context, req *connect.Request[pfinancev1.BatchCreateExpensesRequest]) (*connect.Response[pfinancev1.BatchCreateExpensesResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify group membership if group expenses
+	if req.Msg.GroupId != "" {
+		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
 	expenses := make([]*pfinancev1.Expense, 0, len(req.Msg.Expenses))
 
 	for _, expReq := range req.Msg.Expenses {
+		// Verify each expense is for the authenticated user
+		if req.Msg.GroupId == "" && expReq.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot create expense for another user"))
+		}
+
 		paidByUserId := expReq.PaidByUserId
 		if paidByUserId == "" {
 			paidByUserId = expReq.UserId
@@ -473,7 +784,7 @@ func (s *FinanceService) BatchCreateExpenses(ctx context.Context, req *connect.R
 		}
 
 		if err := s.store.CreateExpense(ctx, expense); err != nil {
-			return nil, fmt.Errorf("failed to create expense: %w", err)
+			return nil, auth.WrapStoreError("create expense", err)
 		}
 
 		expenses = append(expenses, expense)
@@ -485,9 +796,34 @@ func (s *FinanceService) BatchCreateExpenses(ctx context.Context, req *connect.R
 }
 
 func (s *FinanceService) UpdateIncome(ctx context.Context, req *connect.Request[pfinancev1.UpdateIncomeRequest]) (*connect.Response[pfinancev1.UpdateIncomeResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	income, err := s.store.GetIncome(ctx, req.Msg.IncomeId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get income: %w", err)
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("income not found"))
+	}
+
+	// Check authorization
+	if income.GroupId == "" {
+		// Personal income - must be owner
+		if income.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot update another user's income"))
+		}
+	} else {
+		// Group income - must be group member
+		group, err := s.store.GetGroup(ctx, income.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
 	}
 
 	if req.Msg.Source != "" {
@@ -508,7 +844,7 @@ func (s *FinanceService) UpdateIncome(ctx context.Context, req *connect.Request[
 	income.UpdatedAt = timestamppb.Now()
 
 	if err := s.store.UpdateIncome(ctx, income); err != nil {
-		return nil, fmt.Errorf("failed to update income: %w", err)
+		return nil, auth.WrapStoreError("update income", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.UpdateIncomeResponse{
@@ -517,31 +853,79 @@ func (s *FinanceService) UpdateIncome(ctx context.Context, req *connect.Request[
 }
 
 func (s *FinanceService) DeleteIncome(ctx context.Context, req *connect.Request[pfinancev1.DeleteIncomeRequest]) (*connect.Response[emptypb.Empty], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	income, err := s.store.GetIncome(ctx, req.Msg.IncomeId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("income not found"))
+	}
+
+	// Check authorization
+	if income.GroupId == "" {
+		// Personal income - must be owner
+		if income.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot delete another user's income"))
+		}
+	} else {
+		// Group income - must be creator or group admin
+		group, err := s.store.GetGroup(ctx, income.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		isCreator := income.UserId == claims.UID
+		if !isCreator && !auth.IsGroupAdminOrOwner(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("only income creator or group admin can delete this income"))
+		}
+	}
+
 	if err := s.store.DeleteIncome(ctx, req.Msg.IncomeId); err != nil {
-		return nil, fmt.Errorf("failed to delete income: %w", err)
+		return nil, auth.WrapStoreError("delete income", err)
 	}
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FinanceService) ListIncomes(ctx context.Context, req *connect.Request[pfinancev1.ListIncomesRequest]) (*connect.Response[pfinancev1.ListIncomesResponse], error) {
-	var startTime, endTime *time.Time
-	if req.Msg.StartDate != nil {
-		t := req.Msg.StartDate.AsTime()
-		startTime = &t
-	}
-	if req.Msg.EndDate != nil {
-		t := req.Msg.EndDate.AsTime()
-		endTime = &t
-	}
-
-	pageSize := req.Msg.PageSize
-	if pageSize <= 0 {
-		pageSize = 100
-	}
-
-	incomes, err := s.store.ListIncomes(ctx, req.Msg.UserId, req.Msg.GroupId, startTime, endTime, pageSize)
+	claims, err := auth.RequireAuth(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list incomes: %w", err)
+		return nil, err
+	}
+
+	// For personal income, verify ownership
+	if req.Msg.GroupId == "" {
+		if req.Msg.UserId != "" && req.Msg.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot list another user's income"))
+		}
+	} else {
+		// For group income, verify group membership
+		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	startTime, endTime := auth.ConvertDateRange(req.Msg.StartDate, req.Msg.EndDate)
+	pageSize := auth.NormalizePageSize(req.Msg.PageSize)
+
+	// Use authenticated user ID if not specified
+	userID := req.Msg.UserId
+	if userID == "" && req.Msg.GroupId == "" {
+		userID = claims.UID
+	}
+
+	incomes, err := s.store.ListIncomes(ctx, userID, req.Msg.GroupId, startTime, endTime, pageSize)
+	if err != nil {
+		return nil, auth.WrapStoreError("list incomes", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.ListIncomesResponse{
@@ -550,8 +934,31 @@ func (s *FinanceService) ListIncomes(ctx context.Context, req *connect.Request[p
 }
 
 func (s *FinanceService) UpdateTaxConfig(ctx context.Context, req *connect.Request[pfinancev1.UpdateTaxConfigRequest]) (*connect.Response[pfinancev1.UpdateTaxConfigResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// For personal tax config, verify ownership
+	if req.Msg.GroupId == "" {
+		if req.Msg.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot update another user's tax config"))
+		}
+	} else {
+		// For group tax config, verify user is group admin/owner
+		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupAdminOrOwner(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("only group admins can update group tax config"))
+		}
+	}
+
 	if err := s.store.UpdateTaxConfig(ctx, req.Msg.UserId, req.Msg.GroupId, req.Msg.TaxConfig); err != nil {
-		return nil, fmt.Errorf("failed to update tax config: %w", err)
+		return nil, auth.WrapStoreError("update tax config", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.UpdateTaxConfigResponse{
@@ -563,6 +970,29 @@ func (s *FinanceService) UpdateTaxConfig(ctx context.Context, req *connect.Reque
 
 // CreateBudget creates a new budget
 func (s *FinanceService) CreateBudget(ctx context.Context, req *connect.Request[pfinancev1.CreateBudgetRequest]) (*connect.Response[pfinancev1.CreateBudgetResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// For personal budget, verify ownership
+	if req.Msg.GroupId == "" {
+		if req.Msg.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot create budget for another user"))
+		}
+	} else {
+		// For group budget, verify group membership
+		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
 	budget := &pfinancev1.Budget{
 		Id:          uuid.New().String(),
 		UserId:      req.Msg.UserId,
@@ -580,7 +1010,7 @@ func (s *FinanceService) CreateBudget(ctx context.Context, req *connect.Request[
 	}
 
 	if err := s.store.CreateBudget(ctx, budget); err != nil {
-		return nil, fmt.Errorf("failed to create budget: %w", err)
+		return nil, auth.WrapStoreError("create budget", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.CreateBudgetResponse{
@@ -590,9 +1020,34 @@ func (s *FinanceService) CreateBudget(ctx context.Context, req *connect.Request[
 
 // GetBudget retrieves a budget by ID
 func (s *FinanceService) GetBudget(ctx context.Context, req *connect.Request[pfinancev1.GetBudgetRequest]) (*connect.Response[pfinancev1.GetBudgetResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	budget, err := s.store.GetBudget(ctx, req.Msg.BudgetId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get budget: %w", err)
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("budget not found"))
+	}
+
+	// Check authorization
+	if budget.GroupId == "" {
+		// Personal budget - must be owner
+		if budget.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot access another user's budget"))
+		}
+	} else {
+		// Group budget - must be group member
+		group, err := s.store.GetGroup(ctx, budget.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
 	}
 
 	return connect.NewResponse(&pfinancev1.GetBudgetResponse{
@@ -602,10 +1057,34 @@ func (s *FinanceService) GetBudget(ctx context.Context, req *connect.Request[pfi
 
 // UpdateBudget updates an existing budget
 func (s *FinanceService) UpdateBudget(ctx context.Context, req *connect.Request[pfinancev1.UpdateBudgetRequest]) (*connect.Response[pfinancev1.UpdateBudgetResponse], error) {
-	// Get existing budget to preserve fields not being updated
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	existing, err := s.store.GetBudget(ctx, req.Msg.BudgetId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get existing budget: %w", err)
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("budget not found"))
+	}
+
+	// Check authorization
+	if existing.GroupId == "" {
+		// Personal budget - must be owner
+		if existing.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot update another user's budget"))
+		}
+	} else {
+		// Group budget - must be group admin/owner
+		group, err := s.store.GetGroup(ctx, existing.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupAdminOrOwner(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("only group admins can update group budgets"))
+		}
 	}
 
 	// Update fields
@@ -621,7 +1100,7 @@ func (s *FinanceService) UpdateBudget(ctx context.Context, req *connect.Request[
 	existing.UpdatedAt = timestamppb.Now()
 
 	if err := s.store.UpdateBudget(ctx, existing); err != nil {
-		return nil, fmt.Errorf("failed to update budget: %w", err)
+		return nil, auth.WrapStoreError("update budget", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.UpdateBudgetResponse{
@@ -631,8 +1110,38 @@ func (s *FinanceService) UpdateBudget(ctx context.Context, req *connect.Request[
 
 // DeleteBudget deletes a budget
 func (s *FinanceService) DeleteBudget(ctx context.Context, req *connect.Request[pfinancev1.DeleteBudgetRequest]) (*connect.Response[emptypb.Empty], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	budget, err := s.store.GetBudget(ctx, req.Msg.BudgetId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("budget not found"))
+	}
+
+	// Check authorization
+	if budget.GroupId == "" {
+		// Personal budget - must be owner
+		if budget.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot delete another user's budget"))
+		}
+	} else {
+		// Group budget - must be group admin/owner
+		group, err := s.store.GetGroup(ctx, budget.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupAdminOrOwner(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("only group admins can delete group budgets"))
+		}
+	}
+
 	if err := s.store.DeleteBudget(ctx, req.Msg.BudgetId); err != nil {
-		return nil, fmt.Errorf("failed to delete budget: %w", err)
+		return nil, auth.WrapStoreError("delete budget", err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -640,24 +1149,79 @@ func (s *FinanceService) DeleteBudget(ctx context.Context, req *connect.Request[
 
 // ListBudgets lists budgets for a user or group
 func (s *FinanceService) ListBudgets(ctx context.Context, req *connect.Request[pfinancev1.ListBudgetsRequest]) (*connect.Response[pfinancev1.ListBudgetsResponse], error) {
-	pageSize := req.Msg.PageSize
-	if pageSize <= 0 {
-		pageSize = 100
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	budgets, err := s.store.ListBudgets(ctx, req.Msg.UserId, req.Msg.GroupId, req.Msg.IncludeInactive, pageSize)
+	// For personal budgets, verify ownership
+	if req.Msg.GroupId == "" {
+		if req.Msg.UserId != "" && req.Msg.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot list another user's budgets"))
+		}
+	} else {
+		// For group budgets, verify group membership
+		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	pageSize := auth.NormalizePageSize(req.Msg.PageSize)
+
+	// Use authenticated user ID if not specified
+	userID := req.Msg.UserId
+	if userID == "" && req.Msg.GroupId == "" {
+		userID = claims.UID
+	}
+
+	budgets, err := s.store.ListBudgets(ctx, userID, req.Msg.GroupId, req.Msg.IncludeInactive, pageSize)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list budgets: %w", err)
+		return nil, auth.WrapStoreError("list budgets", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.ListBudgetsResponse{
 		Budgets: budgets,
-		// TODO: Implement pagination token
 	}), nil
 }
 
 // GetBudgetProgress gets the current progress of a budget
 func (s *FinanceService) GetBudgetProgress(ctx context.Context, req *connect.Request[pfinancev1.GetBudgetProgressRequest]) (*connect.Response[pfinancev1.GetBudgetProgressResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	budget, err := s.store.GetBudget(ctx, req.Msg.BudgetId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("budget not found"))
+	}
+
+	// Check authorization
+	if budget.GroupId == "" {
+		// Personal budget - must be owner
+		if budget.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot access another user's budget progress"))
+		}
+	} else {
+		// Group budget - must be group member
+		group, err := s.store.GetGroup(ctx, budget.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
 	asOfDate := time.Now()
 	if req.Msg.AsOfDate != nil {
 		asOfDate = req.Msg.AsOfDate.AsTime()
@@ -665,7 +1229,7 @@ func (s *FinanceService) GetBudgetProgress(ctx context.Context, req *connect.Req
 
 	progress, err := s.store.GetBudgetProgress(ctx, req.Msg.BudgetId, asOfDate)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get budget progress: %w", err)
+		return nil, auth.WrapStoreError("get budget progress", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.GetBudgetProgressResponse{
@@ -674,9 +1238,21 @@ func (s *FinanceService) GetBudgetProgress(ctx context.Context, req *connect.Req
 }
 
 func (s *FinanceService) GetGroup(ctx context.Context, req *connect.Request[pfinancev1.GetGroupRequest]) (*connect.Response[pfinancev1.GetGroupResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get group: %w", err)
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("group not found"))
+	}
+
+	// Verify user is group member
+	if !auth.IsGroupMember(claims.UID, group) {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("user is not a member of this group"))
 	}
 
 	return connect.NewResponse(&pfinancev1.GetGroupResponse{
@@ -685,9 +1261,21 @@ func (s *FinanceService) GetGroup(ctx context.Context, req *connect.Request[pfin
 }
 
 func (s *FinanceService) UpdateGroup(ctx context.Context, req *connect.Request[pfinancev1.UpdateGroupRequest]) (*connect.Response[pfinancev1.UpdateGroupResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get group: %w", err)
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("group not found"))
+	}
+
+	// Only admins and owners can update group
+	if !auth.IsGroupAdminOrOwner(claims.UID, group) {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("only group admins can update group settings"))
 	}
 
 	if req.Msg.Name != "" {
@@ -699,7 +1287,7 @@ func (s *FinanceService) UpdateGroup(ctx context.Context, req *connect.Request[p
 	group.UpdatedAt = timestamppb.Now()
 
 	if err := s.store.UpdateGroup(ctx, group); err != nil {
-		return nil, fmt.Errorf("failed to update group: %w", err)
+		return nil, auth.WrapStoreError("update group", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.UpdateGroupResponse{
@@ -708,57 +1296,79 @@ func (s *FinanceService) UpdateGroup(ctx context.Context, req *connect.Request[p
 }
 
 func (s *FinanceService) DeleteGroup(ctx context.Context, req *connect.Request[pfinancev1.DeleteGroupRequest]) (*connect.Response[emptypb.Empty], error) {
-	// 1. Get the group to check ownership/admin status
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get group: %w", err)
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("group not found"))
 	}
 
-	// 2. Check if user is authenticated
-	claims, ok := auth.GetUserClaims(ctx)
-	if !ok {
-		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("unauthenticated"))
+	// Only owners and admins can delete
+	if !auth.IsGroupAdminOrOwner(claims.UID, group) {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("only group owners or admins can delete the group"))
 	}
 
-	// 3. Check if user is owner or admin
-	isOwner := group.OwnerId == claims.UID
-	isAdmin := false
-	for _, member := range group.Members {
-		if member.UserId == claims.UID && member.Role == pfinancev1.GroupRole_GROUP_ROLE_ADMIN {
-			isAdmin = true
-			break
-		}
-	}
-
-	if !isOwner && !isAdmin {
-		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("only group owners or admins can delete the group"))
-	}
-
-	// 4. Delete the group
 	if err := s.store.DeleteGroup(ctx, req.Msg.GroupId); err != nil {
-		return nil, fmt.Errorf("failed to delete group: %w", err)
+		return nil, auth.WrapStoreError("delete group", err)
 	}
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FinanceService) DeclineInvitation(ctx context.Context, req *connect.Request[pfinancev1.DeclineInvitationRequest]) (*connect.Response[emptypb.Empty], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	invitation, err := s.store.GetInvitation(ctx, req.Msg.InvitationId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get invitation: %w", err)
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("invitation not found"))
+	}
+
+	// Verify user's email matches invitation
+	if claims.Email != invitation.InviteeEmail {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("can only decline your own invitations"))
 	}
 
 	invitation.Status = pfinancev1.InvitationStatus_INVITATION_STATUS_DECLINED
 	if err := s.store.UpdateInvitation(ctx, invitation); err != nil {
-		return nil, fmt.Errorf("failed to update invitation: %w", err)
+		return nil, auth.WrapStoreError("update invitation", err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FinanceService) RemoveFromGroup(ctx context.Context, req *connect.Request[pfinancev1.RemoveFromGroupRequest]) (*connect.Response[emptypb.Empty], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get group: %w", err)
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("group not found"))
+	}
+
+	// Users can remove themselves, or admins/owners can remove others
+	if req.Msg.UserId != claims.UID {
+		if !auth.CanModifyGroupMember(claims.UID, req.Msg.UserId, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot remove this member from the group"))
+		}
+	}
+
+	// Cannot remove the owner
+	if req.Msg.UserId == group.OwnerId {
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("cannot remove the group owner"))
 	}
 
 	// Remove user from member IDs
@@ -781,16 +1391,34 @@ func (s *FinanceService) RemoveFromGroup(ctx context.Context, req *connect.Reque
 	group.UpdatedAt = timestamppb.Now()
 
 	if err := s.store.UpdateGroup(ctx, group); err != nil {
-		return nil, fmt.Errorf("failed to update group: %w", err)
+		return nil, auth.WrapStoreError("update group", err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FinanceService) UpdateMemberRole(ctx context.Context, req *connect.Request[pfinancev1.UpdateMemberRoleRequest]) (*connect.Response[pfinancev1.UpdateMemberRoleResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get group: %w", err)
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("group not found"))
+	}
+
+	// Only admins and owners can update roles
+	if !auth.IsGroupAdminOrOwner(claims.UID, group) {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("only group admins can update member roles"))
+	}
+
+	// Cannot change owner's role
+	if req.Msg.UserId == group.OwnerId {
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("cannot change the owner's role"))
 	}
 
 	var updatedMember *pfinancev1.GroupMember
@@ -803,13 +1431,14 @@ func (s *FinanceService) UpdateMemberRole(ctx context.Context, req *connect.Requ
 	}
 
 	if updatedMember == nil {
-		return nil, fmt.Errorf("member not found in group")
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("member not found in group"))
 	}
 
 	group.UpdatedAt = timestamppb.Now()
 
 	if err := s.store.UpdateGroup(ctx, group); err != nil {
-		return nil, fmt.Errorf("failed to update group: %w", err)
+		return nil, auth.WrapStoreError("update group", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.UpdateMemberRoleResponse{
@@ -859,11 +1488,9 @@ func (s *FinanceService) calculateAllocations(req *pfinancev1.CreateExpenseReque
 		}
 
 	case pfinancev1.SplitType_SPLIT_TYPE_PERCENTAGE:
-		// Percentage-based split requires custom allocations
 		return nil, fmt.Errorf("percentage split requires custom allocations with percentages")
 
 	case pfinancev1.SplitType_SPLIT_TYPE_SHARES:
-		// Share-based split requires custom allocations
 		return nil, fmt.Errorf("share-based split requires custom allocations with share counts")
 
 	default:
@@ -875,19 +1502,27 @@ func (s *FinanceService) calculateAllocations(req *pfinancev1.CreateExpenseReque
 
 // GetMemberBalances calculates member balances for a group
 func (s *FinanceService) GetMemberBalances(ctx context.Context, req *connect.Request[pfinancev1.GetMemberBalancesRequest]) (*connect.Response[pfinancev1.GetMemberBalancesResponse], error) {
-	var startTime, endTime *time.Time
-	if req.Msg.StartDate != nil {
-		t := req.Msg.StartDate.AsTime()
-		startTime = &t
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
 	}
-	if req.Msg.EndDate != nil {
-		t := req.Msg.EndDate.AsTime()
-		endTime = &t
+
+	// Verify user is group member
+	group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("group not found"))
 	}
+	if !auth.IsGroupMember(claims.UID, group) {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("user is not a member of this group"))
+	}
+
+	startTime, endTime := auth.ConvertDateRange(req.Msg.StartDate, req.Msg.EndDate)
 
 	expenses, err := s.store.ListExpenses(ctx, "", req.Msg.GroupId, startTime, endTime, 1000)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list expenses: %w", err)
+		return nil, auth.WrapStoreError("list expenses", err)
 	}
 
 	// Calculate balances: for each user, track total paid vs total owed
@@ -914,7 +1549,7 @@ func (s *FinanceService) GetMemberBalances(ctx context.Context, req *connect.Req
 	for userID := range userPaid {
 		paid := userPaid[userID]
 		owed := userOwed[userID]
-		balance := paid - owed // Positive = owed money, Negative = owes money
+		balance := paid - owed
 
 		memberBalance := &pfinancev1.MemberBalance{
 			UserId:    userID,
@@ -952,9 +1587,31 @@ func (s *FinanceService) GetMemberBalances(ctx context.Context, req *connect.Req
 
 // SettleExpense marks an expense allocation as settled
 func (s *FinanceService) SettleExpense(ctx context.Context, req *connect.Request[pfinancev1.SettleExpenseRequest]) (*connect.Response[pfinancev1.SettleExpenseResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	expense, err := s.store.GetExpense(ctx, req.Msg.ExpenseId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get expense: %w", err)
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("expense not found"))
+	}
+
+	// Verify user is settling their own allocation OR is group admin
+	if req.Msg.UserId != claims.UID {
+		if expense.GroupId == "" {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot settle expense for another user"))
+		}
+		group, err := s.store.GetGroup(ctx, expense.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupAdminOrOwner(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("only user or group admin can settle this allocation"))
+		}
 	}
 
 	var updatedAllocation *pfinancev1.ExpenseAllocation
@@ -972,14 +1629,15 @@ func (s *FinanceService) SettleExpense(ctx context.Context, req *connect.Request
 	}
 
 	if updatedAllocation == nil {
-		return nil, fmt.Errorf("user allocation not found for expense")
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("user allocation not found for expense"))
 	}
 
 	expense.IsSettled = allSettled
 	expense.UpdatedAt = timestamppb.Now()
 
 	if err := s.store.UpdateExpense(ctx, expense); err != nil {
-		return nil, fmt.Errorf("failed to update expense: %w", err)
+		return nil, auth.WrapStoreError("update expense", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.SettleExpenseResponse{
@@ -990,24 +1648,32 @@ func (s *FinanceService) SettleExpense(ctx context.Context, req *connect.Request
 
 // GetGroupSummary gets a summary of group finances
 func (s *FinanceService) GetGroupSummary(ctx context.Context, req *connect.Request[pfinancev1.GetGroupSummaryRequest]) (*connect.Response[pfinancev1.GetGroupSummaryResponse], error) {
-	var startTime, endTime *time.Time
-	if req.Msg.StartDate != nil {
-		t := req.Msg.StartDate.AsTime()
-		startTime = &t
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
 	}
-	if req.Msg.EndDate != nil {
-		t := req.Msg.EndDate.AsTime()
-		endTime = &t
+
+	// Verify user is group member
+	group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("group not found"))
 	}
+	if !auth.IsGroupMember(claims.UID, group) {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("user is not a member of this group"))
+	}
+
+	startTime, endTime := auth.ConvertDateRange(req.Msg.StartDate, req.Msg.EndDate)
 
 	expenses, err := s.store.ListExpenses(ctx, "", req.Msg.GroupId, startTime, endTime, 1000)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list expenses: %w", err)
+		return nil, auth.WrapStoreError("list expenses", err)
 	}
 
 	incomes, err := s.store.ListIncomes(ctx, "", req.Msg.GroupId, startTime, endTime, 1000)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list incomes: %w", err)
+		return nil, auth.WrapStoreError("list incomes", err)
 	}
 
 	// Calculate totals
@@ -1084,6 +1750,29 @@ func generateInviteCode() string {
 
 // CreateInviteLink creates a shareable invite link for a group
 func (s *FinanceService) CreateInviteLink(ctx context.Context, req *connect.Request[pfinancev1.CreateInviteLinkRequest]) (*connect.Response[pfinancev1.CreateInviteLinkResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify createdBy matches authenticated user
+	if req.Msg.CreatedBy != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("cannot create invite link as another user"))
+	}
+
+	// Verify user has permission in the group
+	group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("group not found"))
+	}
+
+	if !auth.CanInviteToGroup(claims.UID, group) {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("only owners or admins can create invite links"))
+	}
+
 	defaultRole := req.Msg.DefaultRole
 	if defaultRole == pfinancev1.GroupRole_GROUP_ROLE_UNSPECIFIED {
 		defaultRole = pfinancev1.GroupRole_GROUP_ROLE_MEMBER
@@ -1108,7 +1797,7 @@ func (s *FinanceService) CreateInviteLink(ctx context.Context, req *connect.Requ
 	}
 
 	if err := s.store.CreateInviteLink(ctx, link); err != nil {
-		return nil, fmt.Errorf("failed to create invite link: %w", err)
+		return nil, auth.WrapStoreError("create invite link", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.CreateInviteLinkResponse{
@@ -1117,26 +1806,31 @@ func (s *FinanceService) CreateInviteLink(ctx context.Context, req *connect.Requ
 }
 
 // GetInviteLinkByCode retrieves an invite link and group preview by code
+// This is a public endpoint (no auth required for previewing invite)
 func (s *FinanceService) GetInviteLinkByCode(ctx context.Context, req *connect.Request[pfinancev1.GetInviteLinkByCodeRequest]) (*connect.Response[pfinancev1.GetInviteLinkByCodeResponse], error) {
 	link, err := s.store.GetInviteLinkByCode(ctx, req.Msg.Code)
 	if err != nil {
-		return nil, fmt.Errorf("invite link not found: %w", err)
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("invite link not found"))
 	}
 
 	// Check if link is active and not expired
 	if !link.IsActive {
-		return nil, fmt.Errorf("invite link is no longer active")
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("invite link is no longer active"))
 	}
 	if link.ExpiresAt != nil && link.ExpiresAt.AsTime().Before(time.Now()) {
-		return nil, fmt.Errorf("invite link has expired")
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("invite link has expired"))
 	}
 	if link.MaxUses > 0 && link.CurrentUses >= link.MaxUses {
-		return nil, fmt.Errorf("invite link has reached maximum uses")
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("invite link has reached maximum uses"))
 	}
 
 	group, err := s.store.GetGroup(ctx, link.GroupId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get group: %w", err)
+		return nil, auth.WrapStoreError("get group", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.GetInviteLinkByCodeResponse{
@@ -1147,49 +1841,63 @@ func (s *FinanceService) GetInviteLinkByCode(ctx context.Context, req *connect.R
 
 // JoinGroupByLink allows a user to join a group using an invite code
 func (s *FinanceService) JoinGroupByLink(ctx context.Context, req *connect.Request[pfinancev1.JoinGroupByLinkRequest]) (*connect.Response[pfinancev1.JoinGroupByLinkResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify userId matches authenticated user
+	if req.Msg.UserId != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("cannot join group as another user"))
+	}
+
 	link, err := s.store.GetInviteLinkByCode(ctx, req.Msg.Code)
 	if err != nil {
-		return nil, fmt.Errorf("invite link not found: %w", err)
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("invite link not found"))
 	}
 
 	// Validate link
 	if !link.IsActive {
-		return nil, fmt.Errorf("invite link is no longer active")
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("invite link is no longer active"))
 	}
 	if link.ExpiresAt != nil && link.ExpiresAt.AsTime().Before(time.Now()) {
-		return nil, fmt.Errorf("invite link has expired")
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("invite link has expired"))
 	}
 	if link.MaxUses > 0 && link.CurrentUses >= link.MaxUses {
-		return nil, fmt.Errorf("invite link has reached maximum uses")
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("invite link has reached maximum uses"))
 	}
 
 	group, err := s.store.GetGroup(ctx, link.GroupId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get group: %w", err)
+		return nil, auth.WrapStoreError("get group", err)
 	}
 
 	// Check if user is already a member
-	for _, member := range group.Members {
-		if member.UserId == req.Msg.UserId {
-			return nil, fmt.Errorf("user is already a member of this group")
-		}
+	if auth.IsGroupMember(claims.UID, group) {
+		return nil, connect.NewError(connect.CodeAlreadyExists,
+			fmt.Errorf("user is already a member of this group"))
 	}
 
-	// Add user to group
+	// Add user to group using authenticated claims
 	newMember := &pfinancev1.GroupMember{
-		UserId:      req.Msg.UserId,
-		Email:       req.Msg.UserEmail,
-		DisplayName: req.Msg.DisplayName,
+		UserId:      claims.UID,
+		Email:       claims.Email,
+		DisplayName: claims.DisplayName,
 		Role:        link.DefaultRole,
 		JoinedAt:    timestamppb.Now(),
 	}
 
-	group.MemberIds = append(group.MemberIds, req.Msg.UserId)
+	group.MemberIds = append(group.MemberIds, claims.UID)
 	group.Members = append(group.Members, newMember)
 	group.UpdatedAt = timestamppb.Now()
 
 	if err := s.store.UpdateGroup(ctx, group); err != nil {
-		return nil, fmt.Errorf("failed to update group: %w", err)
+		return nil, auth.WrapStoreError("update group", err)
 	}
 
 	// Increment link usage
@@ -1206,14 +1914,27 @@ func (s *FinanceService) JoinGroupByLink(ctx context.Context, req *connect.Reque
 
 // ListInviteLinks lists invite links for a group
 func (s *FinanceService) ListInviteLinks(ctx context.Context, req *connect.Request[pfinancev1.ListInviteLinksRequest]) (*connect.Response[pfinancev1.ListInviteLinksResponse], error) {
-	pageSize := req.Msg.PageSize
-	if pageSize <= 0 {
-		pageSize = 100
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
 	}
+
+	// Verify user is group member
+	group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("group not found"))
+	}
+	if !auth.IsGroupMember(claims.UID, group) {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("user is not a member of this group"))
+	}
+
+	pageSize := auth.NormalizePageSize(req.Msg.PageSize)
 
 	links, err := s.store.ListInviteLinks(ctx, req.Msg.GroupId, req.Msg.IncludeInactive, pageSize)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list invite links: %w", err)
+		return nil, auth.WrapStoreError("list invite links", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.ListInviteLinksResponse{
@@ -1223,14 +1944,31 @@ func (s *FinanceService) ListInviteLinks(ctx context.Context, req *connect.Reque
 
 // DeactivateInviteLink deactivates an invite link
 func (s *FinanceService) DeactivateInviteLink(ctx context.Context, req *connect.Request[pfinancev1.DeactivateInviteLinkRequest]) (*connect.Response[emptypb.Empty], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	link, err := s.store.GetInviteLink(ctx, req.Msg.LinkId)
 	if err != nil {
-		return nil, fmt.Errorf("invite link not found: %w", err)
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("invite link not found"))
+	}
+
+	// Verify user has permission in the group
+	group, err := s.store.GetGroup(ctx, link.GroupId)
+	if err != nil {
+		return nil, auth.WrapStoreError("get group", err)
+	}
+
+	if !auth.IsGroupAdminOrOwner(claims.UID, group) {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("only owners or admins can deactivate invite links"))
 	}
 
 	link.IsActive = false
 	if err := s.store.UpdateInviteLink(ctx, link); err != nil {
-		return nil, fmt.Errorf("failed to deactivate invite link: %w", err)
+		return nil, auth.WrapStoreError("deactivate invite link", err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -1240,16 +1978,39 @@ func (s *FinanceService) DeactivateInviteLink(ctx context.Context, req *connect.
 
 // ContributeExpenseToGroup contributes a personal expense to a group
 func (s *FinanceService) ContributeExpenseToGroup(ctx context.Context, req *connect.Request[pfinancev1.ContributeExpenseToGroupRequest]) (*connect.Response[pfinancev1.ContributeExpenseToGroupResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify contributedBy matches authenticated user
+	if req.Msg.ContributedBy != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("cannot contribute as another user"))
+	}
+
 	// Get the source expense
 	sourceExpense, err := s.store.GetExpense(ctx, req.Msg.SourceExpenseId)
 	if err != nil {
-		return nil, fmt.Errorf("source expense not found: %w", err)
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("source expense not found"))
 	}
 
-	// Get the target group to validate it exists and get members
+	// Verify user owns the source expense
+	if sourceExpense.UserId != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("can only contribute your own expenses"))
+	}
+
+	// Get the target group to validate membership
 	group, err := s.store.GetGroup(ctx, req.Msg.TargetGroupId)
 	if err != nil {
-		return nil, fmt.Errorf("target group not found: %w", err)
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("target group not found"))
+	}
+	if !auth.IsGroupMember(claims.UID, group) {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("user is not a member of the target group"))
 	}
 
 	// Calculate amount to contribute
@@ -1279,7 +2040,6 @@ func (s *FinanceService) ContributeExpenseToGroup(ctx context.Context, req *conn
 	// Calculate allocations
 	allocatedUserIds := req.Msg.AllocatedUserIds
 	if len(allocatedUserIds) == 0 {
-		// Default to all group members
 		allocatedUserIds = group.MemberIds
 	}
 
@@ -1289,7 +2049,7 @@ func (s *FinanceService) ContributeExpenseToGroup(ctx context.Context, req *conn
 			groupExpense.Allocations = append(groupExpense.Allocations, &pfinancev1.ExpenseAllocation{
 				UserId: userId,
 				Amount: shareAmount,
-				IsPaid: userId == req.Msg.ContributedBy, // Contributor already "paid" their share
+				IsPaid: userId == req.Msg.ContributedBy,
 			})
 		}
 	} else if len(req.Msg.Allocations) > 0 {
@@ -1297,7 +2057,7 @@ func (s *FinanceService) ContributeExpenseToGroup(ctx context.Context, req *conn
 	}
 
 	if err := s.store.CreateExpense(ctx, groupExpense); err != nil {
-		return nil, fmt.Errorf("failed to create group expense: %w", err)
+		return nil, auth.WrapStoreError("create group expense", err)
 	}
 
 	// Create the contribution record
@@ -1314,7 +2074,7 @@ func (s *FinanceService) ContributeExpenseToGroup(ctx context.Context, req *conn
 	}
 
 	if err := s.store.CreateContribution(ctx, contribution); err != nil {
-		return nil, fmt.Errorf("failed to create contribution record: %w", err)
+		return nil, auth.WrapStoreError("create contribution record", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.ContributeExpenseToGroupResponse{
@@ -1325,14 +2085,36 @@ func (s *FinanceService) ContributeExpenseToGroup(ctx context.Context, req *conn
 
 // ListContributions lists expense contributions
 func (s *FinanceService) ListContributions(ctx context.Context, req *connect.Request[pfinancev1.ListContributionsRequest]) (*connect.Response[pfinancev1.ListContributionsResponse], error) {
-	pageSize := req.Msg.PageSize
-	if pageSize <= 0 {
-		pageSize = 100
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
 	}
+
+	// If group is specified, verify group membership
+	if req.Msg.GroupId != "" {
+		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeNotFound,
+				fmt.Errorf("group not found"))
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	// If user is specified, verify it's the authenticated user
+	userID := req.Msg.UserId
+	if userID != "" && userID != claims.UID && req.Msg.GroupId == "" {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("cannot list another user's contributions"))
+	}
+
+	pageSize := auth.NormalizePageSize(req.Msg.PageSize)
 
 	contributions, err := s.store.ListContributions(ctx, req.Msg.GroupId, req.Msg.UserId, pageSize)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list contributions: %w", err)
+		return nil, auth.WrapStoreError("list contributions", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.ListContributionsResponse{
@@ -1342,16 +2124,39 @@ func (s *FinanceService) ListContributions(ctx context.Context, req *connect.Req
 
 // ContributeIncomeToGroup contributes personal income to a group
 func (s *FinanceService) ContributeIncomeToGroup(ctx context.Context, req *connect.Request[pfinancev1.ContributeIncomeToGroupRequest]) (*connect.Response[pfinancev1.ContributeIncomeToGroupResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify contributedBy matches authenticated user
+	if req.Msg.ContributedBy != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("cannot contribute as another user"))
+	}
+
 	// Get the source income
 	sourceIncome, err := s.store.GetIncome(ctx, req.Msg.SourceIncomeId)
 	if err != nil {
-		return nil, fmt.Errorf("source income not found: %w", err)
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("source income not found"))
 	}
 
-	// Validate the target group exists
-	_, err = s.store.GetGroup(ctx, req.Msg.TargetGroupId)
+	// Verify user owns the source income
+	if sourceIncome.UserId != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("can only contribute your own income"))
+	}
+
+	// Validate the target group exists and user is member
+	group, err := s.store.GetGroup(ctx, req.Msg.TargetGroupId)
 	if err != nil {
-		return nil, fmt.Errorf("target group not found: %w", err)
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("target group not found"))
+	}
+	if !auth.IsGroupMember(claims.UID, group) {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("user is not a member of the target group"))
 	}
 
 	// Calculate amount to contribute
@@ -1368,14 +2173,14 @@ func (s *FinanceService) ContributeIncomeToGroup(ctx context.Context, req *conne
 		Source:    sourceIncome.Source + " (contributed)",
 		Amount:    amount,
 		Frequency: sourceIncome.Frequency,
-		TaxStatus: pfinancev1.TaxStatus_TAX_STATUS_POST_TAX, // Group income is typically post-tax
+		TaxStatus: pfinancev1.TaxStatus_TAX_STATUS_POST_TAX,
 		Date:      sourceIncome.Date,
 		CreatedAt: timestamppb.Now(),
 		UpdatedAt: timestamppb.Now(),
 	}
 
 	if err := s.store.CreateIncome(ctx, groupIncome); err != nil {
-		return nil, fmt.Errorf("failed to create group income: %w", err)
+		return nil, auth.WrapStoreError("create group income", err)
 	}
 
 	// Create the contribution record
@@ -1390,7 +2195,7 @@ func (s *FinanceService) ContributeIncomeToGroup(ctx context.Context, req *conne
 	}
 
 	if err := s.store.CreateIncomeContribution(ctx, contribution); err != nil {
-		return nil, fmt.Errorf("failed to create income contribution record: %w", err)
+		return nil, auth.WrapStoreError("create income contribution record", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.ContributeIncomeToGroupResponse{
@@ -1401,17 +2206,57 @@ func (s *FinanceService) ContributeIncomeToGroup(ctx context.Context, req *conne
 
 // ListIncomeContributions lists income contributions
 func (s *FinanceService) ListIncomeContributions(ctx context.Context, req *connect.Request[pfinancev1.ListIncomeContributionsRequest]) (*connect.Response[pfinancev1.ListIncomeContributionsResponse], error) {
-	pageSize := req.Msg.PageSize
-	if pageSize <= 0 {
-		pageSize = 100
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
 	}
+
+	// If group is specified, verify group membership
+	if req.Msg.GroupId != "" {
+		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeNotFound,
+				fmt.Errorf("group not found"))
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	// If user is specified, verify it's the authenticated user
+	userID := req.Msg.UserId
+	if userID != "" && userID != claims.UID && req.Msg.GroupId == "" {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("cannot list another user's income contributions"))
+	}
+
+	pageSize := auth.NormalizePageSize(req.Msg.PageSize)
 
 	contributions, err := s.store.ListIncomeContributions(ctx, req.Msg.GroupId, req.Msg.UserId, pageSize)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list income contributions: %w", err)
+		return nil, auth.WrapStoreError("list income contributions", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.ListIncomeContributionsResponse{
 		Contributions: contributions,
 	}), nil
+}
+
+// checkSharedGroupMembership checks if two users share a group
+func (s *FinanceService) checkSharedGroupMembership(ctx context.Context, userID1, userID2 string) (bool, error) {
+	// Get all groups for user1
+	groups, err := s.store.ListGroups(ctx, userID1, 100)
+	if err != nil {
+		return false, err
+	}
+
+	// Check if user2 is a member of any of these groups
+	for _, group := range groups {
+		if auth.IsGroupMember(userID2, group) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

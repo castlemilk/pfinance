@@ -14,6 +14,7 @@ service FinanceService {
   
   // Expense operations
   rpc CreateExpense(CreateExpenseRequest) returns (CreateExpenseResponse);
+  rpc GetExpense(GetExpenseRequest) returns (GetExpenseResponse);
   rpc UpdateExpense(UpdateExpenseRequest) returns (UpdateExpenseResponse);
   rpc DeleteExpense(DeleteExpenseRequest) returns (google.protobuf.Empty);
   rpc ListExpenses(ListExpensesRequest) returns (ListExpensesResponse);
@@ -21,6 +22,7 @@ service FinanceService {
   
   // Income operations
   rpc CreateIncome(CreateIncomeRequest) returns (CreateIncomeResponse);
+  rpc GetIncome(GetIncomeRequest) returns (GetIncomeResponse);
   rpc UpdateIncome(UpdateIncomeRequest) returns (UpdateIncomeResponse);
   rpc DeleteIncome(DeleteIncomeRequest) returns (google.protobuf.Empty);
   rpc ListIncomes(ListIncomesRequest) returns (ListIncomesResponse);
@@ -113,6 +115,14 @@ message CreateExpenseResponse {
   Expense expense = 1;
 }
 
+message GetExpenseRequest {
+  string expense_id = 1;
+}
+
+message GetExpenseResponse {
+  Expense expense = 1;
+}
+
 message UpdateExpenseRequest {
   string expense_id = 1;
   string description = 2;
@@ -173,6 +183,14 @@ message CreateIncomeRequest {
 }
 
 message CreateIncomeResponse {
+  Income income = 1;
+}
+
+message GetIncomeRequest {
+  string income_id = 1;
+}
+
+message GetIncomeResponse {
   Income income = 1;
 }
 

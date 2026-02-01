@@ -136,6 +136,125 @@ func TestCreateExpense(t *testing.T) {
 	}
 }
 
+func TestGetExpense(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	service := NewFinanceService(mockStore)
+
+	userID := "user-123"
+	ctx := testContextWithUser(userID)
+
+	mockExpense := &pfinancev1.Expense{
+		Id:          "exp-123",
+		UserId:      userID,
+		Description: "Test Expense",
+		Amount:      50.00,
+		Category:    pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
+		Frequency:   pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_ONCE,
+	}
+
+	mockGroupExpense := &pfinancev1.Expense{
+		Id:          "exp-456",
+		UserId:      "other-user",
+		GroupId:     "group-123",
+		Description: "Group Expense",
+		Amount:      100.00,
+	}
+
+	tests := []struct {
+		name          string
+		request       *pfinancev1.GetExpenseRequest
+		setupMock     func()
+		expectedError bool
+	}{
+		{
+			name: "successful retrieval of personal expense",
+			request: &pfinancev1.GetExpenseRequest{
+				ExpenseId: "exp-123",
+			},
+			setupMock: func() {
+				mockStore.EXPECT().
+					GetExpense(gomock.Any(), "exp-123").
+					Return(mockExpense, nil)
+			},
+			expectedError: false,
+		},
+		{
+			name: "successful retrieval of group expense",
+			request: &pfinancev1.GetExpenseRequest{
+				ExpenseId: "exp-456",
+			},
+			setupMock: func() {
+				mockStore.EXPECT().
+					GetExpense(gomock.Any(), "exp-456").
+					Return(mockGroupExpense, nil)
+
+				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   userID,
+						MemberIds: []string{userID, "other-user"},
+					}, nil)
+			},
+			expectedError: false,
+		},
+		{
+			name: "expense not found",
+			request: &pfinancev1.GetExpenseRequest{
+				ExpenseId: "exp-999",
+			},
+			setupMock: func() {
+				mockStore.EXPECT().
+					GetExpense(gomock.Any(), "exp-999").
+					Return(nil, errors.New("not found"))
+			},
+			expectedError: true,
+		},
+		{
+			name: "permission denied for another user's expense",
+			request: &pfinancev1.GetExpenseRequest{
+				ExpenseId: "exp-789",
+			},
+			setupMock: func() {
+				mockStore.EXPECT().
+					GetExpense(gomock.Any(), "exp-789").
+					Return(&pfinancev1.Expense{
+						Id:     "exp-789",
+						UserId: "different-user",
+					}, nil)
+			},
+			expectedError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setupMock()
+
+			resp, err := service.GetExpense(ctx, connect.NewRequest(tt.request))
+
+			if tt.expectedError {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if resp.Msg.Expense == nil {
+				t.Error("Expected expense in response")
+			}
+		})
+	}
+}
+
 func TestCreateExpenseWithAllocation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -184,6 +303,17 @@ func TestCreateExpenseWithAllocation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Add GetGroup mock for group expenses
+			if tt.request.GroupId != "" {
+				mockStore.EXPECT().
+					GetGroup(gomock.Any(), tt.request.GroupId).
+					Return(&pfinancev1.FinanceGroup{
+						Id:        tt.request.GroupId,
+						OwnerId:   tt.request.UserId,
+						MemberIds: []string{tt.request.UserId},
+					}, nil)
+			}
+
 			mockStore.EXPECT().
 				CreateExpense(gomock.Any(), gomock.Any()).
 				DoAndReturn(func(_ context.Context, expense *pfinancev1.Expense) error {
@@ -273,6 +403,13 @@ func TestListExpenses(t *testing.T) {
 				PageSize: 10,
 			},
 			setupMock: func() {
+				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-456").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-456",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil)
 				mockStore.EXPECT().
 					ListExpenses(gomock.Any(), "user-123", "group-456", gomock.Any(), gomock.Any(), int32(10)).
 					Return(mockExpenses, nil)
@@ -430,6 +567,13 @@ func TestInviteToGroup(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-456",
+						MemberIds: []string{"user-456"},
+					}, nil)
+				mockStore.EXPECT().
 					CreateInvitation(gomock.Any(), gomock.Any()).
 					Return(nil)
 			},
@@ -444,6 +588,13 @@ func TestInviteToGroup(t *testing.T) {
 				Role:         pfinancev1.GroupRole_GROUP_ROLE_MEMBER,
 			},
 			setupMock: func() {
+				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-456",
+						MemberIds: []string{"user-456"},
+					}, nil)
 				mockStore.EXPECT().
 					CreateInvitation(gomock.Any(), gomock.Any()).
 					Return(errors.New("store error"))
@@ -501,7 +652,7 @@ func TestAcceptInvitation(t *testing.T) {
 		Id:           "inv-123",
 		GroupId:      "group-456",
 		InviterId:    "user-789",
-		InviteeEmail: "invite@example.com",
+		InviteeEmail: "user-999@test.com", // Must match test context email
 		Role:         pfinancev1.GroupRole_GROUP_ROLE_MEMBER,
 		Status:       pfinancev1.InvitationStatus_INVITATION_STATUS_PENDING,
 		ExpiresAt:    timestamppb.New(time.Now().Add(24 * time.Hour)), // Not expired
@@ -679,6 +830,124 @@ func TestCreateIncome(t *testing.T) {
 	}
 }
 
+func TestGetIncome(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	service := NewFinanceService(mockStore)
+
+	userID := "user-123"
+	ctx := testContextWithUser(userID)
+
+	mockIncome := &pfinancev1.Income{
+		Id:        "inc-123",
+		UserId:    userID,
+		Source:    "Salary",
+		Amount:    5000.00,
+		Frequency: pfinancev1.IncomeFrequency_INCOME_FREQUENCY_MONTHLY,
+	}
+
+	mockGroupIncome := &pfinancev1.Income{
+		Id:      "inc-456",
+		UserId:  "other-user",
+		GroupId: "group-123",
+		Source:  "Shared Income",
+		Amount:  1000.00,
+	}
+
+	tests := []struct {
+		name          string
+		request       *pfinancev1.GetIncomeRequest
+		setupMock     func()
+		expectedError bool
+	}{
+		{
+			name: "successful retrieval of personal income",
+			request: &pfinancev1.GetIncomeRequest{
+				IncomeId: "inc-123",
+			},
+			setupMock: func() {
+				mockStore.EXPECT().
+					GetIncome(gomock.Any(), "inc-123").
+					Return(mockIncome, nil)
+			},
+			expectedError: false,
+		},
+		{
+			name: "successful retrieval of group income",
+			request: &pfinancev1.GetIncomeRequest{
+				IncomeId: "inc-456",
+			},
+			setupMock: func() {
+				mockStore.EXPECT().
+					GetIncome(gomock.Any(), "inc-456").
+					Return(mockGroupIncome, nil)
+
+				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   userID,
+						MemberIds: []string{userID, "other-user"},
+					}, nil)
+			},
+			expectedError: false,
+		},
+		{
+			name: "income not found",
+			request: &pfinancev1.GetIncomeRequest{
+				IncomeId: "inc-999",
+			},
+			setupMock: func() {
+				mockStore.EXPECT().
+					GetIncome(gomock.Any(), "inc-999").
+					Return(nil, errors.New("not found"))
+			},
+			expectedError: true,
+		},
+		{
+			name: "permission denied for another user's income",
+			request: &pfinancev1.GetIncomeRequest{
+				IncomeId: "inc-789",
+			},
+			setupMock: func() {
+				mockStore.EXPECT().
+					GetIncome(gomock.Any(), "inc-789").
+					Return(&pfinancev1.Income{
+						Id:     "inc-789",
+						UserId: "different-user",
+					}, nil)
+			},
+			expectedError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setupMock()
+
+			resp, err := service.GetIncome(ctx, connect.NewRequest(tt.request))
+
+			if tt.expectedError {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if resp.Msg.Income == nil {
+				t.Error("Expected income in response")
+			}
+		})
+	}
+}
+
 func TestGetTaxConfig(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -794,6 +1063,15 @@ func TestUpdateExpense(t *testing.T) {
 					GetExpense(gomock.Any(), "expense-123").
 					Return(existingExpense, nil)
 
+				// Group membership check for group expense
+				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-456").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-456",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil)
+
 				mockStore.EXPECT().
 					UpdateExpense(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(_ context.Context, expense *pfinancev1.Expense) error {
@@ -865,6 +1143,12 @@ func TestDeleteExpense(t *testing.T) {
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore)
 
+	// Mock expense for authorization check
+	mockExpense := &pfinancev1.Expense{
+		Id:     "expense-123",
+		UserId: "user-123",
+	}
+
 	tests := []struct {
 		name          string
 		request       *pfinancev1.DeleteExpenseRequest
@@ -878,6 +1162,9 @@ func TestDeleteExpense(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetExpense(gomock.Any(), "expense-123").
+					Return(mockExpense, nil)
+				mockStore.EXPECT().
 					DeleteExpense(gomock.Any(), "expense-123").
 					Return(nil)
 			},
@@ -890,8 +1177,8 @@ func TestDeleteExpense(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					DeleteExpense(gomock.Any(), "expense-999").
-					Return(errors.New("expense not found"))
+					GetExpense(gomock.Any(), "expense-999").
+					Return(nil, errors.New("expense not found"))
 			},
 			expectedError: true,
 		},
@@ -901,6 +1188,9 @@ func TestDeleteExpense(t *testing.T) {
 				ExpenseId: "expense-123",
 			},
 			setupMock: func() {
+				mockStore.EXPECT().
+					GetExpense(gomock.Any(), "expense-123").
+					Return(mockExpense, nil)
 				mockStore.EXPECT().
 					DeleteExpense(gomock.Any(), "expense-123").
 					Return(errors.New("database connection error"))
@@ -969,6 +1259,13 @@ func TestBatchCreateExpenses(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-456").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-456",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil)
+				mockStore.EXPECT().
 					CreateExpense(gomock.Any(), gomock.Any()).
 					Return(nil).
 					Times(2)
@@ -982,7 +1279,15 @@ func TestBatchCreateExpenses(t *testing.T) {
 				GroupId:  "group-456",
 				Expenses: []*pfinancev1.CreateExpenseRequest{},
 			},
-			setupMock:     func() {},
+			setupMock: func() {
+				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-456").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-456",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil)
+			},
 			expectedError: false,
 			expectedCount: 0,
 		},
@@ -1005,6 +1310,13 @@ func TestBatchCreateExpenses(t *testing.T) {
 				},
 			},
 			setupMock: func() {
+				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-456").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-456",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil)
 				mockStore.EXPECT().
 					CreateExpense(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(_ context.Context, expense *pfinancev1.Expense) error {
@@ -1046,6 +1358,13 @@ func TestBatchCreateExpenses(t *testing.T) {
 				},
 			},
 			setupMock: func() {
+				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-456").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-456",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil)
 				mockStore.EXPECT().
 					CreateExpense(gomock.Any(), gomock.Any()).
 					Return(errors.New("store error"))
@@ -1232,6 +1551,11 @@ func TestDeleteIncome(t *testing.T) {
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore)
 
+	mockIncome := &pfinancev1.Income{
+		Id:     "income-123",
+		UserId: "user-123",
+	}
+
 	tests := []struct {
 		name          string
 		request       *pfinancev1.DeleteIncomeRequest
@@ -1245,6 +1569,9 @@ func TestDeleteIncome(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetIncome(gomock.Any(), "income-123").
+					Return(mockIncome, nil)
+				mockStore.EXPECT().
 					DeleteIncome(gomock.Any(), "income-123").
 					Return(nil)
 			},
@@ -1257,8 +1584,8 @@ func TestDeleteIncome(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					DeleteIncome(gomock.Any(), "income-999").
-					Return(errors.New("income not found"))
+					GetIncome(gomock.Any(), "income-999").
+					Return(nil, errors.New("income not found"))
 			},
 			expectedError: true,
 		},
@@ -1268,6 +1595,9 @@ func TestDeleteIncome(t *testing.T) {
 				IncomeId: "income-123",
 			},
 			setupMock: func() {
+				mockStore.EXPECT().
+					GetIncome(gomock.Any(), "income-123").
+					Return(mockIncome, nil)
 				mockStore.EXPECT().
 					DeleteIncome(gomock.Any(), "income-123").
 					Return(errors.New("database connection error"))
@@ -1350,6 +1680,13 @@ func TestListIncomes(t *testing.T) {
 				PageSize: 10,
 			},
 			setupMock: func() {
+				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-456").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-456",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil)
 				mockStore.EXPECT().
 					ListIncomes(gomock.Any(), "user-123", "group-456", gomock.Any(), gomock.Any(), int32(10)).
 					Return(mockIncomes, nil)
@@ -2107,7 +2444,8 @@ func TestListInvitations(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
-			ctx := testContext("user-123")
+			// Use email matching the test request
+			ctx := testContextWithUserEmail("user-123", tt.request.UserEmail)
 
 			resp, err := service.ListInvitations(ctx, connect.NewRequest(tt.request))
 
@@ -2206,7 +2544,8 @@ func TestDeclineInvitation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
-			ctx := testContext("user-123")
+			// Use email matching the invitation
+			ctx := testContextWithUserEmail("user-123", "test@example.com")
 
 			_, err := service.DeclineInvitation(ctx, connect.NewRequest(tt.request))
 
@@ -2505,6 +2844,13 @@ func TestGetMemberBalances(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil)
+				mockStore.EXPECT().
 					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000)).
 					Return(mockExpenses, nil)
 			},
@@ -2525,6 +2871,13 @@ func TestGetMemberBalances(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil)
+				mockStore.EXPECT().
 					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000)).
 					Return([]*pfinancev1.Expense{}, nil)
 			},
@@ -2544,6 +2897,13 @@ func TestGetMemberBalances(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil)
+				mockStore.EXPECT().
 					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000)).
 					Return(mockExpenses, nil)
 			},
@@ -2555,6 +2915,13 @@ func TestGetMemberBalances(t *testing.T) {
 				GroupId: "group-123",
 			},
 			setupMock: func() {
+				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil)
 				mockStore.EXPECT().
 					ListExpenses(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(nil, errors.New("store error"))
@@ -2753,7 +3120,8 @@ func TestSettleExpense(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
-			ctx := testContext("user-123")
+			// Use the user ID from the request for the context
+			ctx := testContextWithUser(tt.request.UserId)
 
 			resp, err := service.SettleExpense(ctx, connect.NewRequest(tt.request))
 
@@ -2835,6 +3203,15 @@ func TestGetGroupSummary(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil).
+					Times(2) // Once for GetGroupSummary auth, once for GetMemberBalances auth
+
+				mockStore.EXPECT().
 					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000)).
 					Return(mockExpenses, nil).
 					Times(2) // Once for summary, once for balances
@@ -2866,6 +3243,15 @@ func TestGetGroupSummary(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil).
+					Times(2) // Once for GetGroupSummary auth, once for GetMemberBalances auth
+
+				mockStore.EXPECT().
 					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000)).
 					Return([]*pfinancev1.Expense{}, nil).
 					Times(2)
@@ -2893,6 +3279,15 @@ func TestGetGroupSummary(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil).
+					Times(2) // Once for GetGroupSummary auth, once for GetMemberBalances auth
+
+				mockStore.EXPECT().
 					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000)).
 					Return(mockExpenses, nil).
 					Times(2)
@@ -2910,6 +3305,14 @@ func TestGetGroupSummary(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil)
+
+				mockStore.EXPECT().
 					ListExpenses(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(nil, errors.New("store error"))
 			},
@@ -2921,6 +3324,14 @@ func TestGetGroupSummary(t *testing.T) {
 				GroupId: "group-123",
 			},
 			setupMock: func() {
+				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil)
+
 				mockStore.EXPECT().
 					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000)).
 					Return(mockExpenses, nil)
@@ -2986,6 +3397,17 @@ func TestCreateInviteLink(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+						Members: []*pfinancev1.GroupMember{
+							{UserId: "user-123", Role: pfinancev1.GroupRole_GROUP_ROLE_OWNER},
+						},
+					}, nil)
+
+				mockStore.EXPECT().
 					CreateInviteLink(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(_ context.Context, link *pfinancev1.GroupInviteLink) error {
 						if link.GroupId != "group-123" {
@@ -3019,6 +3441,17 @@ func TestCreateInviteLink(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+						Members: []*pfinancev1.GroupMember{
+							{UserId: "user-123", Role: pfinancev1.GroupRole_GROUP_ROLE_OWNER},
+						},
+					}, nil)
+
+				mockStore.EXPECT().
 					CreateInviteLink(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(_ context.Context, link *pfinancev1.GroupInviteLink) error {
 						if link.DefaultRole != pfinancev1.GroupRole_GROUP_ROLE_MEMBER {
@@ -3036,6 +3469,17 @@ func TestCreateInviteLink(t *testing.T) {
 				CreatedBy: "user-123",
 			},
 			setupMock: func() {
+				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+						Members: []*pfinancev1.GroupMember{
+							{UserId: "user-123", Role: pfinancev1.GroupRole_GROUP_ROLE_OWNER},
+						},
+					}, nil)
+
 				mockStore.EXPECT().
 					CreateInviteLink(gomock.Any(), gomock.Any()).
 					Return(errors.New("store error"))
@@ -3343,7 +3787,8 @@ func TestJoinGroupByLink(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
-			ctx := testContext("user-123")
+			// Use the user ID from the request for the context
+			ctx := testContextWithUser(tt.request.UserId)
 
 			resp, err := service.JoinGroupByLink(ctx, connect.NewRequest(tt.request))
 
@@ -3403,6 +3848,17 @@ func TestListInviteLinks(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+						Members: []*pfinancev1.GroupMember{
+							{UserId: "user-123", Role: pfinancev1.GroupRole_GROUP_ROLE_OWNER},
+						},
+					}, nil)
+
+				mockStore.EXPECT().
 					ListInviteLinks(gomock.Any(), "group-123", false, int32(10)).
 					Return(mockLinks, nil)
 			},
@@ -3418,6 +3874,17 @@ func TestListInviteLinks(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+						Members: []*pfinancev1.GroupMember{
+							{UserId: "user-123", Role: pfinancev1.GroupRole_GROUP_ROLE_OWNER},
+						},
+					}, nil)
+
+				mockStore.EXPECT().
 					ListInviteLinks(gomock.Any(), "group-123", true, int32(10)).
 					Return(mockLinks, nil)
 			},
@@ -3432,6 +3899,17 @@ func TestListInviteLinks(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+						Members: []*pfinancev1.GroupMember{
+							{UserId: "user-123", Role: pfinancev1.GroupRole_GROUP_ROLE_OWNER},
+						},
+					}, nil)
+
+				mockStore.EXPECT().
 					ListInviteLinks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(nil, errors.New("store error"))
 			},
@@ -3442,7 +3920,7 @@ func TestListInviteLinks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
-			ctx := testContext("user-123")
+			ctx := testContextWithUser("user-123")
 
 			resp, err := service.ListInviteLinks(ctx, connect.NewRequest(tt.request))
 
@@ -3495,6 +3973,17 @@ func TestDeactivateInviteLink(t *testing.T) {
 					Return(mockLink, nil)
 
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+						Members: []*pfinancev1.GroupMember{
+							{UserId: "user-123", Role: pfinancev1.GroupRole_GROUP_ROLE_OWNER},
+						},
+					}, nil)
+
+				mockStore.EXPECT().
 					UpdateInviteLink(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(_ context.Context, link *pfinancev1.GroupInviteLink) error {
 						if link.IsActive {
@@ -3525,12 +4014,24 @@ func TestDeactivateInviteLink(t *testing.T) {
 			setupMock: func() {
 				mockLink := &pfinancev1.GroupInviteLink{
 					Id:       "link-123",
+					GroupId:  "group-123",
 					IsActive: true,
 				}
 
 				mockStore.EXPECT().
 					GetInviteLink(gomock.Any(), "link-123").
 					Return(mockLink, nil)
+
+				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+						Members: []*pfinancev1.GroupMember{
+							{UserId: "user-123", Role: pfinancev1.GroupRole_GROUP_ROLE_OWNER},
+						},
+					}, nil)
 
 				mockStore.EXPECT().
 					UpdateInviteLink(gomock.Any(), gomock.Any()).
@@ -3543,7 +4044,7 @@ func TestDeactivateInviteLink(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
-			ctx := testContext("user-123")
+			ctx := testContextWithUser("user-123")
 
 			_, err := service.DeactivateInviteLink(ctx, connect.NewRequest(tt.request))
 
@@ -3653,6 +4154,7 @@ func TestContributeExpenseToGroup(t *testing.T) {
 			setupMock: func() {
 				mockExpense := &pfinancev1.Expense{
 					Id:     "exp-123",
+					UserId: "user-123", // Must match auth context for ownership check
 					Amount: 100.00,
 				}
 
@@ -3678,6 +4180,7 @@ func TestContributeExpenseToGroup(t *testing.T) {
 			setupMock: func() {
 				mockExpense := &pfinancev1.Expense{
 					Id:          "exp-123",
+					UserId:      "user-123", // Must match auth context for ownership check
 					Amount:      100.00,
 					Description: "Test",
 					Category:    pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
@@ -3772,6 +4275,14 @@ func TestListContributions(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil)
+
+				mockStore.EXPECT().
 					ListContributions(gomock.Any(), "group-123", "", int32(10)).
 					Return(mockContributions, nil)
 			},
@@ -3787,6 +4298,14 @@ func TestListContributions(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil)
+
+				mockStore.EXPECT().
 					ListContributions(gomock.Any(), "group-123", "user-123", int32(10)).
 					Return(mockContributions[:1], nil)
 			},
@@ -3800,6 +4319,14 @@ func TestListContributions(t *testing.T) {
 				PageSize: 10,
 			},
 			setupMock: func() {
+				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil)
+
 				mockStore.EXPECT().
 					ListContributions(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 					Return([]*pfinancev1.ExpenseContribution{}, nil)
@@ -3815,6 +4342,14 @@ func TestListContributions(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-123").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-123",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil)
+
+				mockStore.EXPECT().
 					ListContributions(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(nil, errors.New("store error"))
 			},
@@ -3825,7 +4360,7 @@ func TestListContributions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
-			ctx := testContext("user-123")
+			ctx := testContextWithUser("user-123")
 
 			resp, err := service.ListContributions(ctx, connect.NewRequest(tt.request))
 
