@@ -67,6 +67,13 @@ func TestCreateExpense(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
+					GetGroup(gomock.Any(), "group-456").
+					Return(&pfinancev1.FinanceGroup{
+						Id:        "group-456",
+						OwnerId:   "user-123",
+						MemberIds: []string{"user-123"},
+					}, nil)
+				mockStore.EXPECT().
 					CreateExpense(gomock.Any(), gomock.Any()).
 					Return(nil)
 			},
@@ -1849,7 +1856,7 @@ func TestDeleteGroup(t *testing.T) {
 			tt.setupMock()
 			ctx := testContext("user-123")
 
-			_, err := service.DeleteGroup(testContext("user-123"), connect.NewRequest(tt.request))
+			_, err := service.DeleteGroup(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -1901,8 +1908,8 @@ func TestGetUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
-			ctx := testContext("user-123")
-			resp, err := service.GetUser(testContext(tt.request.UserId), connect.NewRequest(tt.request))
+			ctx := testContext(tt.request.UserId)
+			resp, err := service.GetUser(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -1962,8 +1969,8 @@ func TestUpdateUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
-			ctx := testContext("user-123")
-			resp, err := service.UpdateUser(testContext(tt.request.UserId), connect.NewRequest(tt.request))
+			ctx := testContext(tt.request.UserId)
+			resp, err := service.UpdateUser(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
@@ -3922,9 +3929,9 @@ func TestUpdateTaxConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMock()
-			ctx := testContext("user-123")
+			ctx := testContext(tt.request.UserId)
 
-			resp, err := service.UpdateTaxConfig(testContext(tt.request.UserId), connect.NewRequest(tt.request))
+			resp, err := service.UpdateTaxConfig(ctx, connect.NewRequest(tt.request))
 
 			if tt.expectedError {
 				if err == nil {
