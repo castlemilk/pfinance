@@ -7,6 +7,7 @@ import { Expense, ExpenseAllocation, SplitType, ExpenseCategory } from '@/gen/pf
 import { Timestamp, timestampDate } from '@bufbuild/protobuf/wkt';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Table,
   TableBody,
@@ -18,13 +19,12 @@ import {
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { 
-  Users, 
-  CheckCircle2, 
-  XCircle, 
+import {
+  Users,
+  CheckCircle2,
+  XCircle,
   DollarSign
 } from 'lucide-react';
 
@@ -66,19 +66,20 @@ export default function GroupExpenseList({ }: GroupExpenseListProps) {
   };
 
   const getCategoryColor = (category: ExpenseCategory): string => {
+    // Amber Terminal Glow palette - retro earth tones
     const colors: { [key in ExpenseCategory]?: string } = {
-      [ExpenseCategory.FOOD]: 'bg-orange-500',
-      [ExpenseCategory.HOUSING]: 'bg-blue-500',
-      [ExpenseCategory.TRANSPORTATION]: 'bg-green-500',
-      [ExpenseCategory.ENTERTAINMENT]: 'bg-purple-500',
-      [ExpenseCategory.HEALTHCARE]: 'bg-red-500',
-      [ExpenseCategory.UTILITIES]: 'bg-yellow-500',
-      [ExpenseCategory.SHOPPING]: 'bg-pink-500',
-      [ExpenseCategory.EDUCATION]: 'bg-indigo-500',
-      [ExpenseCategory.TRAVEL]: 'bg-teal-500',
-      [ExpenseCategory.OTHER]: 'bg-gray-500',
+      [ExpenseCategory.FOOD]: 'bg-amber-500',          // Warm amber
+      [ExpenseCategory.HOUSING]: 'bg-[#87A96B]',       // Avocado green
+      [ExpenseCategory.TRANSPORTATION]: 'bg-[#A0C080]', // Sage green
+      [ExpenseCategory.ENTERTAINMENT]: 'bg-[#E07E50]', // Tawny orange
+      [ExpenseCategory.HEALTHCARE]: 'bg-[#D16A47]',    // Rust red
+      [ExpenseCategory.UTILITIES]: 'bg-[#C4956A]',     // Tan
+      [ExpenseCategory.SHOPPING]: 'bg-[#B8A88A]',      // Sand
+      [ExpenseCategory.EDUCATION]: 'bg-[#8B7355]',     // Coffee brown
+      [ExpenseCategory.TRAVEL]: 'bg-[#6B8E6B]',        // Forest olive
+      [ExpenseCategory.OTHER]: 'bg-[#9A7B4F]',         // Sienna
     };
-    return colors[category] || 'bg-gray-500';
+    return colors[category] || 'bg-[#9A7B4F]';
   };
 
   const getCategoryLabel = (category: ExpenseCategory): string => {
@@ -119,7 +120,16 @@ export default function GroupExpenseList({ }: GroupExpenseListProps) {
 
   const getMemberName = (userId: string): string => {
     const member = activeGroup?.members.find(m => m.userId === userId);
-    return member?.displayName || userId;
+    return member?.displayName || member?.email || userId;
+  };
+
+  const getMemberInfo = (userId: string) => {
+    const member = activeGroup?.members.find(m => m.userId === userId);
+    return {
+      displayName: member?.displayName || 'Unknown',
+      email: member?.email || '',
+      initials: (member?.displayName || member?.email || 'U').slice(0, 2).toUpperCase(),
+    };
   };
 
   if (loading) {
@@ -138,7 +148,7 @@ export default function GroupExpenseList({ }: GroupExpenseListProps) {
               <TableHead>Date</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Amount</TableHead>
-              <TableHead>Paid By</TableHead>
+              <TableHead className="text-center">Paid By</TableHead>
               <TableHead>Split</TableHead>
               <TableHead>Your Share</TableHead>
               <TableHead>Status</TableHead>
@@ -172,11 +182,30 @@ export default function GroupExpenseList({ }: GroupExpenseListProps) {
                     <TableCell className="font-semibold">
                       {formatCurrency(expense.amount)}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        {getMemberName(expense.paidByUserId)}
-                        {isUserPayer && <Badge variant="outline">You</Badge>}
-                      </div>
+                    <TableCell className="text-center">
+                      {(() => {
+                        const payer = getMemberInfo(expense.paidByUserId);
+                        return (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Avatar className={`h-7 w-7 cursor-pointer mx-auto ${isUserPayer ? 'ring-2 ring-green-500 ring-offset-1' : ''}`}>
+                                {isUserPayer && user?.photoURL && (
+                                  <AvatarImage src={user.photoURL} alt={payer.displayName} />
+                                )}
+                                <AvatarFallback className={`text-xs ${isUserPayer ? 'bg-green-100 text-green-700' : ''}`}>
+                                  {payer.initials}
+                                </AvatarFallback>
+                              </Avatar>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="p-3">
+                              <div className="space-y-1">
+                                <p className="font-medium">{payer.displayName}{isUserPayer && ' (You)'}</p>
+                                <p className="text-xs opacity-80">{payer.email}</p>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -197,46 +226,58 @@ export default function GroupExpenseList({ }: GroupExpenseListProps) {
                       )}
                     </TableCell>
                     <TableCell>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            {expense.isSettled ? (
-                              <Badge variant="secondary" className="gap-1">
-                                <CheckCircle2 className="w-3 h-3" />
-                                Settled
-                              </Badge>
-                            ) : userAllocation?.isPaid ? (
-                              <Badge variant="default" className="gap-1">
-                                <CheckCircle2 className="w-3 h-3" />
-                                Paid
-                              </Badge>
-                            ) : (
-                              <Badge variant="destructive" className="gap-1">
-                                <XCircle className="w-3 h-3" />
-                                Unpaid
-                              </Badge>
-                            )}
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <div className="space-y-2">
-                              <p className="font-semibold">Payment Status</p>
-                              {expense.allocations?.map((allocation) => (
-                                <div key={allocation.userId} className="flex items-center gap-2 text-sm">
-                                  {allocation.isPaid ? (
-                                    <CheckCircle2 className="w-3 h-3 text-green-500" />
-                                  ) : (
-                                    <XCircle className="w-3 h-3 text-red-500" />
+                      <Tooltip>
+                        <TooltipTrigger>
+                          {expense.isSettled ? (
+                            <Badge variant="secondary" className="gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Settled
+                            </Badge>
+                          ) : userAllocation?.isPaid ? (
+                            <Badge variant="default" className="gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Paid
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive" className="gap-1">
+                              <XCircle className="w-3 h-3" />
+                              Unpaid
+                            </Badge>
+                          )}
+                        </TooltipTrigger>
+                        <TooltipContent className="p-3">
+                          <div className="space-y-3">
+                            <p className="font-semibold">Payment Status</p>
+                            {expense.allocations?.map((allocation) => {
+                              const memberInfo = getMemberInfo(allocation.userId);
+                              const isCurrentUser = allocation.userId === user?.uid;
+                              return (
+                              <div key={allocation.userId} className="flex items-center gap-2 text-sm">
+                                {allocation.isPaid ? (
+                                  <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                                ) : (
+                                  <XCircle className="w-4 h-4 text-red-500 shrink-0" />
+                                )}
+                                <Avatar className={`h-5 w-5 ${isCurrentUser ? 'ring-1 ring-green-500' : ''}`}>
+                                  {isCurrentUser && user?.photoURL && (
+                                    <AvatarImage src={user.photoURL} alt={memberInfo.displayName} />
                                   )}
-                                  <span>{getMemberName(allocation.userId)}</span>
-                                  <span className="text-muted-foreground">
-                                    {formatCurrency(allocation.amount)}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                                  <AvatarFallback className={`text-[9px] ${isCurrentUser ? 'bg-green-100 text-green-700' : ''}`}>
+                                    {memberInfo.initials}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className={isCurrentUser ? 'font-medium' : ''}>
+                                  {memberInfo.displayName}{isCurrentUser && ' (You)'}
+                                </span>
+                                <span className="text-muted-foreground ml-auto">
+                                  {formatCurrency(allocation.amount)}
+                                </span>
+                              </div>
+                            );
+                            })}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 );
