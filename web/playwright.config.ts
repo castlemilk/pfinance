@@ -4,9 +4,15 @@ import { defineConfig, devices } from '@playwright/test';
  * Playwright E2E Test Configuration for PFinance
  *
  * @see https://playwright.dev/docs/test-configuration
+ *
+ * Environment Variables:
+ * - PREVIEW_URL: Run tests against a preview deployment (e.g., https://pr-5.preview.pfinance.dev)
+ * - CI: Set automatically in CI environments
  */
 
 const isCI = !!process.env.CI;
+const previewUrl = process.env.PREVIEW_URL;
+const baseURL = previewUrl || 'http://localhost:1234';
 
 export default defineConfig({
   testDir: './e2e',
@@ -25,7 +31,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:1234',
+    baseURL,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
@@ -65,8 +71,11 @@ export default defineConfig({
     },
   ],
 
-  /* Run your local dev server before starting the tests - disabled in CI (servers started manually) */
-  webServer: isCI
+  /* Run your local dev server before starting the tests
+   * - Disabled in CI (servers started manually)
+   * - Disabled when PREVIEW_URL is set (testing against remote deployment)
+   */
+  webServer: isCI || previewUrl
     ? undefined
     : [
         {
