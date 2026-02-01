@@ -1,7 +1,7 @@
 # PFinance Makefile
 # ==================
 
-.PHONY: help dev dev-firebase dev-backend dev-backend-firebase dev-backend-seed dev-backend-firebase-seed dev-frontend stop restart status test test-unit test-e2e test-watch test-all proto generate build lint format type-check logs clean setup install health ports check-ports check-port-backend check-port-frontend kill-port-backend kill-port-frontend seed-data seed-data-auth check-firebase-creds deploy-indexes
+.PHONY: help dev dev-memory dev-firebase dev-backend dev-backend-memory dev-backend-firebase dev-backend-seed dev-backend-firebase-seed dev-frontend stop restart status test test-unit test-e2e test-e2e-ui test-e2e-headed test-e2e-report test-integration test-watch test-all proto generate build lint format type-check logs clean setup install health ports check-ports check-port-backend check-port-frontend kill-port-backend kill-port-frontend seed-data seed-data-auth check-firebase-creds deploy-indexes
 
 # Default target
 help:
@@ -11,10 +11,10 @@ help:
 	@echo "⚠️  Ports: Backend=$(BACKEND_PORT), Frontend=$(FRONTEND_PORT)"
 	@echo ""
 	@echo "Development Environment:"
-	@echo "  make dev              - Start full dev environment (memory store)"
-	@echo "  make dev-firebase     - Start full dev environment (Firestore)"
-	@echo "  make dev-backend      - Start only backend (memory store)"
-	@echo "  make dev-backend-firebase - Start only backend (Firestore)"
+	@echo "  make dev              - Start full dev environment (Firestore - default)"
+	@echo "  make dev-memory       - Start full dev environment (memory store)"
+	@echo "  make dev-backend      - Start only backend (Firestore - default)"
+	@echo "  make dev-backend-memory - Start only backend (memory store)"
 	@echo "  make dev-frontend     - Start only frontend (requires backend running)"
 	@echo "  make stop             - Stop all services"  
 	@echo "  make restart          - Restart all services"
@@ -30,6 +30,9 @@ help:
 	@echo "  make test             - Run all tests (lint + unit + integration)"
 	@echo "  make test-unit        - Run only unit tests"
 	@echo "  make test-integration - Run only integration tests"
+	@echo "  make test-e2e         - Run Playwright E2E tests"
+	@echo "  make test-e2e-ui      - Run Playwright E2E tests with UI"
+	@echo "  make test-e2e-headed  - Run Playwright E2E tests in headed mode"
 	@echo "  make test-watch       - Run tests in watch mode"
 	@echo "  make test-all         - Run comprehensive test suite with linting and coverage"
 	@echo "  make install-hooks    - Install git pre-commit hooks"
@@ -77,18 +80,33 @@ FRONTEND_PORT := 1234
 # ===================
 
 dev: clean-ports generate
-	@echo "🚀 Starting full development environment (memory store)..."
+	@echo "🔥 Starting full development environment (Firestore)..."
 	@echo "   Backend:  http://localhost:$(BACKEND_PORT)"
 	@echo "   Frontend: http://localhost:$(FRONTEND_PORT)"
 	@make -j2 dev-backend dev-frontend
 
-dev-firebase: clean-ports check-firebase-creds generate
+dev-memory: clean-ports generate
+	@echo "🚀 Starting full development environment (memory store)..."
+	@echo "   Backend:  http://localhost:$(BACKEND_PORT)"
+	@echo "   Frontend: http://localhost:$(FRONTEND_PORT)"
+	@make -j2 dev-backend-memory dev-frontend
+
+dev-firebase: clean-ports generate
 	@echo "🔥 Starting full development environment (Firestore)..."
 	@echo "   Backend:  http://localhost:$(BACKEND_PORT)"
 	@echo "   Frontend: http://localhost:$(FRONTEND_PORT)"
 	@make -j2 dev-backend-firebase dev-frontend
 
 dev-backend: check-port-backend
+	@echo "🔥 Starting backend service on port $(BACKEND_PORT) (Firestore)..."
+	@cd backend && \
+	export GOOGLE_CLOUD_PROJECT=pfinance-app-1748773335 && \
+	export PORT=$(BACKEND_PORT) && \
+	export USE_MEMORY_STORE=false && \
+	export GOOGLE_APPLICATION_CREDENTIALS=$(CURDIR)/pfinance-app-1748773335-firebase-adminsdk-fbsvc-4adcc18be2.json && \
+	go run cmd/server/main.go
+
+dev-backend-memory: check-port-backend
 	@echo "🔧 Starting backend service on port $(BACKEND_PORT) (memory store)..."
 	@cd backend && \
 	export GOOGLE_CLOUD_PROJECT=pfinance-app-1748773335 && \
@@ -96,12 +114,13 @@ dev-backend: check-port-backend
 	export USE_MEMORY_STORE=true && \
 	go run cmd/server/main.go
 
-dev-backend-firebase: check-port-backend check-firebase-creds
+dev-backend-firebase: check-port-backend
 	@echo "🔥 Starting backend service on port $(BACKEND_PORT) (Firestore)..."
 	@cd backend && \
 	export GOOGLE_CLOUD_PROJECT=pfinance-app-1748773335 && \
 	export PORT=$(BACKEND_PORT) && \
 	export USE_MEMORY_STORE=false && \
+	export GOOGLE_APPLICATION_CREDENTIALS=$(CURDIR)/pfinance-app-1748773335-firebase-adminsdk-fbsvc-4adcc18be2.json && \
 	go run cmd/server/main.go
 
 dev-frontend: check-port-frontend
@@ -245,6 +264,22 @@ test-frontend-unit:
 test-frontend-integration:
 	@echo "🧪 Running frontend integration tests..."
 	@cd web && npm run test -- app/__tests__/integration
+
+test-e2e:
+	@echo "🎭 Running Playwright E2E tests..."
+	@cd web && npm run test:e2e
+
+test-e2e-ui:
+	@echo "🎭 Running Playwright E2E tests with UI..."
+	@cd web && npm run test:e2e:ui
+
+test-e2e-headed:
+	@echo "🎭 Running Playwright E2E tests in headed mode..."
+	@cd web && npm run test:e2e:headed
+
+test-e2e-report:
+	@echo "📊 Opening Playwright test report..."
+	@cd web && npm run test:e2e:report
 
 test-watch:
 	@echo "👀 Running tests in watch mode..."
@@ -448,6 +483,44 @@ deploy-indexes:
 	@echo "   And logged in: firebase login"
 	@firebase deploy --only firestore:indexes --project pfinance-app-1748773335
 	@echo "✅ Indexes deployed (may take 1-3 minutes to build)"
+
+# ===================
+# CI Simulation
+# ===================
+
+ci-local: generate
+	@echo "🔄 Running CI checks locally..."
+	@echo ""
+	@echo "Step 1/4: Backend tests..."
+	@cd backend && go test -race -timeout=60s ./... || exit 1
+	@echo "✅ Backend tests passed"
+	@echo ""
+	@echo "Step 2/4: Frontend lint & type-check..."
+	@cd web && npm run lint && npm run type-check || exit 1
+	@echo "✅ Lint & type-check passed"
+	@echo ""
+	@echo "Step 3/4: Frontend unit tests..."
+	@cd web && npm test -- --passWithNoTests --maxWorkers=2 || exit 1
+	@echo "✅ Frontend unit tests passed"
+	@echo ""
+	@echo "Step 4/4: E2E tests (Chromium only)..."
+	@cd web && npx playwright test --project=chromium || exit 1
+	@echo "✅ E2E tests passed"
+	@echo ""
+	@echo "🎉 All CI checks passed!"
+
+ci-fast: generate
+	@echo "⚡ Running fast CI checks (no E2E)..."
+	@make -j2 ci-backend ci-frontend
+	@echo "🎉 Fast CI checks passed!"
+
+ci-backend:
+	@echo "🧪 Backend CI..."
+	@cd backend && go vet ./... && go test -race -timeout=60s ./...
+
+ci-frontend:
+	@echo "🧪 Frontend CI..."
+	@cd web && npm run lint && npm run type-check && npm test -- --passWithNoTests --maxWorkers=2
 
 # ===================
 # Health Checks

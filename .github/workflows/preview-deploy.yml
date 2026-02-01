@@ -15,6 +15,8 @@ env:
   IMAGE_NAME: gcr.io/pfinance-app-1748773335/pfinance-backend-preview
   WORKLOAD_IDENTITY_PROVIDER: projects/859800863588/locations/global/workloadIdentityPools/github-pool/providers/github-provider
   SERVICE_ACCOUNT: github-actions@pfinance-app-1748773335.iam.gserviceaccount.com
+  # Preview domain - configure *.preview.pfinance.dev in Vercel
+  PREVIEW_DOMAIN: preview.pfinance.dev
 
 jobs:
   # ===========================================
@@ -40,10 +42,7 @@ jobs:
               - 'proto/**'
 
   # ===========================================
-  # Frontend Preview → Vercel
-  # ===========================================
-  # ===========================================
-  # Backend Preview (or Prod Fallback)
+  # Backend Preview → Cloud Run
   # ===========================================
   backend:
     needs: changes
@@ -74,18 +73,14 @@ jobs:
         if: needs.changes.outputs.backend == 'true'
         run: |
           gcloud auth configure-docker
-          
-          # Setup Buf
-          # We can't use the action inside a conditional easily if it sets up env vars globally, 
-          # but we can try or just install it manually / use the action unconditionally?
-          # The action is fast. Let's move it out or just run it.
-          
           echo "deployed=true" >> $GITHUB_OUTPUT
 
       - uses: actions/setup-go@v5
         if: needs.changes.outputs.backend == 'true'
         with:
           go-version: '1.23'
+          cache: true
+          cache-dependency-path: backend/go.sum
 
       - uses: bufbuild/buf-setup-action@v1
         if: needs.changes.outputs.backend == 'true'
@@ -101,13 +96,13 @@ jobs:
           export PATH=$PATH:$(go env GOPATH)/bin
           cd proto && buf generate --template buf.gen.go.yaml
           cd ../backend
-          
+
           TAG="pr-${{ github.event.pull_request.number }}"
           SERVICE="pfinance-backend-preview-$TAG"
-          
+
           docker build -t ${{ env.IMAGE_NAME }}:$TAG .
           docker push ${{ env.IMAGE_NAME }}:$TAG
-          
+
           gcloud run deploy $SERVICE \
             --image ${{ env.IMAGE_NAME }}:$TAG \
             --region ${{ env.REGION }} \
@@ -118,21 +113,20 @@ jobs:
             --max-instances 2 \
             --set-env-vars GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }} \
             --quiet
-          
+
           URL=$(gcloud run services describe $SERVICE --region ${{ env.REGION }} --format 'value(status.url)')
           echo "url=$URL" >> $GITHUB_ENV
 
-      - name: Get Backend URL (Fallback)
+      - name: Get Backend URL (Fallback to Production)
         if: needs.changes.outputs.backend != 'true'
         run: |
-          # Fetch production URL
           URL=$(gcloud run services describe pfinance-backend --region ${{ env.REGION }} --format 'value(status.url)')
           echo "url=$URL" >> $GITHUB_ENV
 
       - id: get-url
         run: echo "url=${{ env.url }}" >> $GITHUB_OUTPUT
 
-      - name: Comment PR
+      - name: Comment PR (Backend)
         if: needs.changes.outputs.backend == 'true'
         continue-on-error: true
         uses: actions/github-script@v7
@@ -152,38 +146,110 @@ jobs:
     needs: [changes, backend]
     if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     environment:
       name: preview
-      url: ${{ steps.deploy.outputs.url }}
+      url: ${{ steps.deploy.outputs.preview_url }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
 
-      - name: Deploy
+      - name: Deploy to Vercel
         id: deploy
         env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: team_xE5DMN3hIo8aPqyHNkBybg8r
+          VERCEL_PROJECT_ID: prj_TakUttZsa4fdddSwfVp08YFfyAdF
           BACKEND_URL: ${{ needs.backend.outputs.url }}
         working-directory: web
         run: |
           npm i -g vercel@latest
-          # Deploy and let Vercel build on their servers (avoids platform-specific dep issues)
-          URL=$(vercel --token=${{ secrets.VERCEL_TOKEN }} --env NEXT_PUBLIC_API_URL=$BACKEND_URL --yes)
-          echo "url=$URL" >> $GITHUB_OUTPUT
+
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          PR_ALIAS="pr-${PR_NUMBER}.${{ env.PREVIEW_DOMAIN }}"
+          LATEST_ALIAS="${{ env.PREVIEW_DOMAIN }}"
+
+          # Link to Vercel project and pull config
+          vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
+
+          # Build the project
+          vercel build --token=$VERCEL_TOKEN
+
+          # Deploy the prebuilt project and capture the URL
+          DEPLOY_URL=$(vercel deploy --prebuilt --token=$VERCEL_TOKEN --env NEXT_PUBLIC_API_URL=$BACKEND_URL)
+          echo "Deployed to: $DEPLOY_URL"
+
+          # Alias to PR-specific preview domain (e.g., pr-123.preview.pfinance.dev)
+          echo "Aliasing to $PR_ALIAS..."
+          vercel alias set $DEPLOY_URL $PR_ALIAS --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID
+
+          # Also alias to latest preview domain (preview.pfinance.dev)
+          echo "Aliasing to $LATEST_ALIAS..."
+          vercel alias set $DEPLOY_URL $LATEST_ALIAS --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID
+
+          # Output URLs
+          echo "deploy_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          echo "preview_url=https://$PR_ALIAS" >> $GITHUB_OUTPUT
+          echo "latest_url=https://$LATEST_ALIAS" >> $GITHUB_OUTPUT
+          echo "alias_success=true" >> $GITHUB_OUTPUT
 
       - name: Comment PR
         continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            const aliasSuccess = '${{ steps.deploy.outputs.alias_success }}' === 'true';
+            const prUrl = aliasSuccess
+              ? 'https://pr-${{ github.event.pull_request.number }}.${{ env.PREVIEW_DOMAIN }}'
+              : '${{ steps.deploy.outputs.deploy_url }}';
+            const latestUrl = 'https://${{ env.PREVIEW_DOMAIN }}';
+
+            const body = `## 🚀 Preview Deployment Ready!
+
+            | Service | URL |
+            |---------|-----|
+            | **Frontend (this PR)** | ${prUrl} |
+            | **Frontend (latest)** | ${latestUrl} |
+            | **API** | ${{ needs.backend.outputs.url }} |
+
+            ${aliasSuccess ? '> ✨ This PR is now live at **preview.pfinance.dev**' : '> ⚠️ Custom domain alias not configured. Using Vercel URL.'}
+
+            ---
+            <sub>Preview deployments are automatically cleaned up when the PR is closed.</sub>`;
+
+            // Find and update existing comment or create new one
+            const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `🚀 **Frontend Preview:** ${{ steps.deploy.outputs.url }}\n🔗 **API:** ${{ needs.backend.outputs.url }}`
+              issue_number: context.issue.number,
             });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Preview Deployment Ready')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
 
   # ===========================================
   # Cleanup on PR Close
@@ -202,8 +268,17 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Delete preview
+      - name: Delete Cloud Run preview
         run: |
           SERVICE="pfinance-backend-preview-pr-${{ github.event.pull_request.number }}"
           gcloud run services delete $SERVICE --region ${{ env.REGION }} --quiet 2>/dev/null || true
-          echo "✓ Cleaned up $SERVICE"
+          echo "✓ Cleaned up Cloud Run service: $SERVICE"
+
+      - name: Remove Vercel alias
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          npm i -g vercel@latest
+          ALIAS="pr-${{ github.event.pull_request.number }}.${{ env.PREVIEW_DOMAIN }}"
+          vercel remove $ALIAS --token=$VERCEL_TOKEN --yes 2>/dev/null || true
+          echo "✓ Removed Vercel alias: $ALIAS"
