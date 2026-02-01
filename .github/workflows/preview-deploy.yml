@@ -179,11 +179,11 @@ jobs:
           cd ..
           vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
 
-          # Build the project (Vercel knows web/ is the root)
-          vercel build --token=$VERCEL_TOKEN
+          # Build the project with the backend URL (NEXT_PUBLIC_ vars need to be set at build time)
+          NEXT_PUBLIC_API_URL=$BACKEND_URL vercel build --token=$VERCEL_TOKEN
 
-          # Deploy the prebuilt project and capture the URL
-          DEPLOY_URL=$(vercel deploy --prebuilt --token=$VERCEL_TOKEN --env NEXT_PUBLIC_API_URL=$BACKEND_URL)
+          # Deploy the prebuilt project
+          DEPLOY_URL=$(vercel deploy --prebuilt --token=$VERCEL_TOKEN)
           echo "Deployed to: $DEPLOY_URL"
 
           # Alias to PR-specific preview domain (e.g., pr-123.preview.pfinance.dev)
