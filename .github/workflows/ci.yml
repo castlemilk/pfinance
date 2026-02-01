@@ -150,11 +150,11 @@ jobs:
         run: |
           # Install mockgen and generate backend code
           go install go.uber.org/mock/mockgen@latest
-          cd proto && buf generate
-          cd ../backend && go generate ./internal/store &
+          (cd proto && buf generate)
+          (cd backend && go generate ./internal/store) &
 
           # Install frontend deps in parallel
-          cd web && npm ci --legacy-peer-deps &
+          (cd web && npm ci --legacy-peer-deps) &
 
           wait
 
