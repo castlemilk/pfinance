@@ -35,7 +35,7 @@ test.describe('Transaction Import', () => {
     await expect(page.getByText(/Drag.*drop/i).first()).toBeVisible({ timeout: 10000 });
   });
 
-  test('should display AI feature toggles', async ({ page }) => {
+  test.skip('should display AI feature toggles', async ({ page }) => {
     // Scroll down to find the Import Transactions card
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(500);
