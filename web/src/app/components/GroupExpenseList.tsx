@@ -125,10 +125,26 @@ export default function GroupExpenseList({ }: GroupExpenseListProps) {
 
   const getMemberInfo = (userId: string) => {
     const member = activeGroup?.members.find(m => m.userId === userId);
+
+    // If it's the current user, use their auth data as fallback
+    if (userId === user?.uid) {
+      const displayName = member?.displayName || user.displayName || user.email || 'You';
+      const email = member?.email || user.email || '';
+      return {
+        displayName,
+        email,
+        initials: (displayName || 'U').slice(0, 2).toUpperCase(),
+        photoURL: user.photoURL,
+      };
+    }
+
+    // For other members, use group member data
+    const displayName = member?.displayName || member?.email || `User ${userId.slice(0, 6)}...`;
     return {
-      displayName: member?.displayName || 'Unknown',
+      displayName,
       email: member?.email || '',
-      initials: (member?.displayName || member?.email || 'U').slice(0, 2).toUpperCase(),
+      initials: (member?.displayName || member?.email || userId.slice(0, 2)).slice(0, 2).toUpperCase(),
+      photoURL: null,
     };
   };
 
@@ -189,8 +205,8 @@ export default function GroupExpenseList({ }: GroupExpenseListProps) {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Avatar className={`h-7 w-7 cursor-pointer mx-auto ${isUserPayer ? 'ring-2 ring-green-500 ring-offset-1' : ''}`}>
-                                {isUserPayer && user?.photoURL && (
-                                  <AvatarImage src={user.photoURL} alt={payer.displayName} />
+                                {payer.photoURL && (
+                                  <AvatarImage src={payer.photoURL} alt={payer.displayName} />
                                 )}
                                 <AvatarFallback className={`text-xs ${isUserPayer ? 'bg-green-100 text-green-700' : ''}`}>
                                   {payer.initials}
@@ -200,7 +216,7 @@ export default function GroupExpenseList({ }: GroupExpenseListProps) {
                             <TooltipContent side="top" className="p-3">
                               <div className="space-y-1">
                                 <p className="font-medium">{payer.displayName}{isUserPayer && ' (You)'}</p>
-                                <p className="text-xs opacity-80">{payer.email}</p>
+                                {payer.email && <p className="text-xs opacity-80">{payer.email}</p>}
                               </div>
                             </TooltipContent>
                           </Tooltip>
@@ -259,8 +275,8 @@ export default function GroupExpenseList({ }: GroupExpenseListProps) {
                                   <XCircle className="w-4 h-4 text-red-500 shrink-0" />
                                 )}
                                 <Avatar className={`h-5 w-5 ${isCurrentUser ? 'ring-1 ring-green-500' : ''}`}>
-                                  {isCurrentUser && user?.photoURL && (
-                                    <AvatarImage src={user.photoURL} alt={memberInfo.displayName} />
+                                  {memberInfo.photoURL && (
+                                    <AvatarImage src={memberInfo.photoURL} alt={memberInfo.displayName} />
                                   )}
                                   <AvatarFallback className={`text-[9px] ${isCurrentUser ? 'bg-green-100 text-green-700' : ''}`}>
                                     {memberInfo.initials}
