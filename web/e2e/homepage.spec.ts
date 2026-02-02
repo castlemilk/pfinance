@@ -12,7 +12,7 @@ test.describe('Homepage', () => {
     await page.goto('/');
 
     // Check that the page loads successfully
-    await expect(page).toHaveTitle(/Personal Finance Tracker/i);
+    await expect(page).toHaveTitle(/PFinance/i);
   });
 
   test('should display the main navigation', async ({ page }) => {
@@ -42,7 +42,7 @@ test.describe('Homepage', () => {
     await page.goto('/');
 
     // Page should still be functional on mobile
-    await expect(page).toHaveTitle(/Personal Finance Tracker/i);
+    await expect(page).toHaveTitle(/PFinance/i);
   });
 });
 
