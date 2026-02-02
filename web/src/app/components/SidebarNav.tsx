@@ -25,7 +25,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ThemeToggle } from './ThemeToggle';
 import { Skeleton } from '@/components/ui/skeleton';
-import { SyncStatusIndicator } from './SyncStatusIndicator';
 
 interface NavItem {
   title: string;
@@ -198,7 +197,6 @@ export default function SidebarNav() {
       <div className="mt-auto p-4 border-t space-y-4">
         <div className="flex items-center justify-between">
           <ThemeToggle />
-          <SyncStatusIndicator size="sm" />
         </div>
         
         {loading ? (
