@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -20,9 +21,10 @@ import {
   UserCog
 } from 'lucide-react';
 import { useAuth } from '../context/AuthWithAdminContext';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ThemeToggle } from './ThemeToggle';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface NavItem {
   title: string;
@@ -87,7 +89,7 @@ const sharedNavItems: NavItem[] = [
 ];
 
 export default function SidebarNav() {
-  const { user, logout, isImpersonating } = useAuth();
+  const { user, logout, isImpersonating, loading } = useAuth();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
@@ -103,11 +105,32 @@ export default function SidebarNav() {
       .slice(0, 2);
   };
 
-  const NavContent = () => (
+  const NavContent = ({ showCloseButton = false }: { showCloseButton?: boolean }) => (
     <>
       {/* Logo/Brand */}
       <div className="p-6 border-b">
-        <h1 className="text-2xl font-bold">PFinance</h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Image
+              src="/logo.png"
+              alt="PFinance Logo"
+              width={40}
+              height={40}
+              className="rounded-lg"
+            />
+            <h1 className="text-2xl font-bold">PFinance</h1>
+          </div>
+          {showCloseButton && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="lg:hidden"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Main Navigation Tabs */}
@@ -128,7 +151,7 @@ export default function SidebarNav() {
               variant={isShared ? 'default' : 'ghost'} 
               className="w-full justify-start"
               size="sm"
-              disabled={!user}
+              disabled={!loading && !user}
             >
               <Users className="w-4 h-4 mr-2" />
               Shared
@@ -153,7 +176,8 @@ export default function SidebarNav() {
         ))}
         
         {isShared && sharedNavItems.map((item) => {
-          if (item.requiresAuth && !user) return null;
+          // Don't filter out nav items while loading - only when we know there's no user
+          if (item.requiresAuth && !loading && !user) return null;
           return (
             <Link key={item.href} href={item.href}>
               <Button
@@ -171,15 +195,31 @@ export default function SidebarNav() {
 
       {/* User Section at Bottom */}
       <div className="mt-auto p-4 border-t space-y-4">
-        <ThemeToggle />
+        <div className="flex items-center justify-between">
+          <ThemeToggle />
+        </div>
         
-        {user ? (
+        {loading ? (
+          // Show skeleton while auth is loading
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 p-2 rounded-lg bg-muted">
+              <Skeleton className="w-8 h-8 rounded-full" />
+              <div className="flex-1 min-w-0 space-y-1">
+                <Skeleton className="h-4 w-24" />
+              </div>
+            </div>
+            <Skeleton className="h-8 w-full" />
+          </div>
+        ) : user ? (
           <div className="space-y-3">
             <div className="flex items-center gap-3 p-2 rounded-lg bg-muted">
               <Avatar className={cn(
                 "w-8 h-8",
                 isImpersonating && "ring-2 ring-amber-500 ring-offset-2 ring-offset-background"
               )}>
+                {user.photoURL && (
+                  <AvatarImage src={user.photoURL} alt={user.displayName || 'User'} />
+                )}
                 <AvatarFallback className="text-sm">
                   {getInitials(user.displayName || user.email || 'U')}
                 </AvatarFallback>
@@ -219,16 +259,18 @@ export default function SidebarNav() {
 
   return (
     <>
-      {/* Mobile Menu Button */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        >
-          {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-        </Button>
-      </div>
+      {/* Mobile Menu Button - only visible when sidebar is closed */}
+      {!isMobileMenuOpen && (
+        <div className="lg:hidden fixed top-4 left-4 z-50">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setIsMobileMenuOpen(true)}
+          >
+            <Menu className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
 
       {/* Mobile Sidebar */}
       <div className={cn(
@@ -236,7 +278,7 @@ export default function SidebarNav() {
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="h-full flex flex-col">
-          <NavContent />
+          <NavContent showCloseButton={true} />
         </div>
       </div>
 
