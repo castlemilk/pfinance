@@ -259,7 +259,7 @@ test-frontend:
 
 test-frontend-unit:
 	@echo "🧪 Running frontend unit tests..."
-	@cd web && npm run test -- --testPathIgnorePatterns=integration
+	@cd web && npm run test -- --testPathIgnorePatterns=integration --testPathIgnorePatterns=e2e
 
 test-frontend-integration:
 	@echo "🧪 Running frontend integration tests..."

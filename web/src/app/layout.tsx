@@ -7,6 +7,7 @@ import { AuthWithAdminProvider } from './context/AuthWithAdminContext';
 import { MultiUserFinanceProvider } from './context/MultiUserFinanceContext';
 import { FinanceProvider } from './context/FinanceContext';
 import { BudgetProvider } from './context/BudgetContext';
+import { SyncProvider } from './context/SyncContext';
 import AppLayout from './components/AppLayout';
 import { Toaster } from "../components/ui/toaster";
 
@@ -41,9 +42,11 @@ export default function RootLayout({
               <MultiUserFinanceProvider>
                 <FinanceProvider>
                   <BudgetProvider>
-                    <AppLayout>
-                      {children}
-                    </AppLayout>
+                    <SyncProvider>
+                      <AppLayout>
+                        {children}
+                      </AppLayout>
+                    </SyncProvider>
                   </BudgetProvider>
                 </FinanceProvider>
               </MultiUserFinanceProvider>
