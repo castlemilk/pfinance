@@ -6,19 +6,21 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { 
-  User, 
-  Users, 
+import {
+  User,
+  Users,
   Menu,
   X,
   Home,
   Receipt,
   TrendingUp,
   FileText,
-  Settings, 
+  Settings,
   LogOut,
   UserPlus,
-  UserCog
+  UserCog,
+  BookOpen,
+  ExternalLink
 } from 'lucide-react';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -107,19 +109,19 @@ export default function SidebarNav() {
 
   const NavContent = ({ showCloseButton = false }: { showCloseButton?: boolean }) => (
     <>
-      {/* Logo/Brand */}
+      {/* Logo/Brand - Links to landing page */}
       <div className="p-6 border-b">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 group">
             <Image
               src="/logo.png"
               alt="PFinance Logo"
               width={40}
               height={40}
-              className="rounded-lg"
+              className="rounded-lg group-hover:scale-105 transition-transform"
             />
-            <h1 className="text-2xl font-bold">PFinance</h1>
-          </div>
+            <h1 className="text-2xl font-bold group-hover:text-primary transition-colors">PFinance</h1>
+          </Link>
           {showCloseButton && (
             <Button
               variant="ghost"
@@ -135,26 +137,26 @@ export default function SidebarNav() {
 
       {/* Main Navigation Tabs */}
       <div className="p-4">
-        <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-lg">
+        <div className="grid grid-cols-2 gap-1 p-1 bg-muted rounded-lg">
           <Link href="/personal">
-            <Button 
-              variant={isPersonal ? 'default' : 'ghost'} 
-              className="w-full justify-start"
+            <Button
+              variant={isPersonal ? 'default' : 'ghost'}
+              className="w-full justify-center gap-1.5 px-2"
               size="sm"
             >
-              <User className="w-4 h-4 mr-2" />
-              Personal
+              <User className="w-4 h-4 shrink-0" />
+              <span className="truncate">Personal</span>
             </Button>
           </Link>
           <Link href="/shared">
-            <Button 
-              variant={isShared ? 'default' : 'ghost'} 
-              className="w-full justify-start"
+            <Button
+              variant={isShared ? 'default' : 'ghost'}
+              className="w-full justify-center gap-1.5 px-2"
               size="sm"
               disabled={!loading && !user}
             >
-              <Users className="w-4 h-4 mr-2" />
-              Shared
+              <Users className="w-4 h-4 shrink-0" />
+              <span className="truncate">Shared</span>
             </Button>
           </Link>
         </div>
@@ -195,6 +197,25 @@ export default function SidebarNav() {
 
       {/* User Section at Bottom */}
       <div className="mt-auto p-4 border-t space-y-4">
+        {/* Quick Links */}
+        <div className="flex items-center gap-2 text-xs">
+          <Link
+            href="/"
+            className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ExternalLink className="w-3 h-3" />
+            Home
+          </Link>
+          <span className="text-muted-foreground/50">•</span>
+          <Link
+            href="/blog"
+            className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <BookOpen className="w-3 h-3" />
+            Blog
+          </Link>
+        </div>
+
         <div className="flex items-center justify-between">
           <ThemeToggle />
         </div>

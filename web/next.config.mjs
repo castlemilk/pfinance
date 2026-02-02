@@ -1,5 +1,13 @@
+import createMDX from '@next/mdx';
+import remarkGfm from 'remark-gfm';
+import rehypeSlug from 'rehype-slug';
+import rehypeAutolinkHeadings from 'rehype-autolink-headings';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Configure pageExtensions to include MDX files
+  pageExtensions: ['js', 'jsx', 'md', 'mdx', 'ts', 'tsx'],
+
   // Remove standalone output for Vercel
   trailingSlash: true,
   images: {
@@ -31,4 +39,14 @@ const nextConfig = {
   },
 };
 
-export default nextConfig; 
+const withMDX = createMDX({
+  options: {
+    remarkPlugins: [remarkGfm],
+    rehypePlugins: [
+      rehypeSlug,
+      [rehypeAutolinkHeadings, { behavior: 'wrap' }],
+    ],
+  },
+});
+
+export default withMDX(nextConfig);
