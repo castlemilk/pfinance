@@ -15,6 +15,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:report": "playwright show-report",
+    "test:e2e:preview": "PREVIEW_URL=$PREVIEW_URL playwright test --project=chromium",
     "deploy": "npm run build && firebase deploy"
   },
   "dependencies": {
