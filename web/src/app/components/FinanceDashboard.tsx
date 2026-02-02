@@ -1,29 +1,18 @@
 'use client';
 
-import { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import ExpenseForm from './ExpenseForm';
 import ExpenseList from './ExpenseList';
-import ExpenseVisualization from './ExpenseVisualization';
-import IncomeForm from './IncomeForm';
-import IncomeList from './IncomeList';
 import FinanceSummary from './FinanceSummary';
-import TransactionImport from './EnhancedTransactionImport';
-import ReportGenerator from './ReportGenerator';
 import GroupExpenseForm from './GroupExpenseForm';
 import GroupExpenseList from './GroupExpenseList';
-import EnhancedGroupSelector from './EnhancedGroupSelector';
 import BudgetDashboard from './BudgetDashboard';
+import QuickActions from './QuickActions';
+import OnboardingChecklist from './OnboardingChecklist';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { useMultiUserFinance } from '../context/MultiUserFinanceContext';
-import { 
-  Receipt, 
-  TrendingUp, 
-  FileText, 
-  PiggyBank,
+import {
   Users,
-  AlertCircle
+  AlertCircle,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -34,7 +23,6 @@ interface FinanceDashboardProps {
 export default function FinanceDashboard({ mode }: FinanceDashboardProps) {
   const { user } = useAuth();
   const { activeGroup } = useMultiUserFinance();
-  const [activeTab, setActiveTab] = useState('overview');
 
   // Show auth prompt for shared mode
   if (mode === 'shared' && !user) {
@@ -53,141 +41,93 @@ export default function FinanceDashboard({ mode }: FinanceDashboardProps) {
     );
   }
 
-  // Show group selection prompt for shared mode - but include the selector!
+  // Show group selection prompt for shared mode
   if (mode === 'shared' && !activeGroup) {
     return (
-      <div className="space-y-6">
-        {/* Show the group selector so user can actually select a group */}
-        <EnhancedGroupSelector />
-        
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Card className="max-w-md w-full">
-            <CardContent className="pt-6 text-center">
-              <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Select a Finance Group</h3>
-              <p className="text-muted-foreground">
-                Please select a finance group from the dropdown above, or create a new one to continue.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6 text-center">
+            <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Select a Finance Group</h3>
+            <p className="text-muted-foreground">
+              Please select a finance group from the dropdown above, or create a new one to continue.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <>
-      {/* Enhanced Group Selector for shared mode */}
-      {mode === 'shared' && <EnhancedGroupSelector />}
-      
-      <div className={`space-y-6 ${mode === 'shared' ? 'mt-6' : ''}`}>
-        {/* Page Header - only show for personal mode since shared has header in selector */}
-        {mode === 'personal' && (
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Personal Finance</h1>
-            <p className="text-muted-foreground">
-              Manage your personal income and expenses
-            </p>
-          </div>
-        )}
+    <div className="space-y-6">
+      {/* Page Header - only show for personal mode since shared has header in selector */}
+      {mode === 'personal' && (
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Personal Finance</h1>
+          <p className="text-muted-foreground">
+            Manage your personal income and expenses
+          </p>
+        </div>
+      )}
 
-        {/* Finance Summary */}
-        <FinanceSummary mode={mode} groupId={mode === 'shared' ? activeGroup?.id : undefined} />
+      {/* Finance Summary */}
+      <FinanceSummary mode={mode} groupId={mode === 'shared' ? activeGroup?.id : undefined} />
 
-        {/* Main Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview" className="flex items-center gap-2">
-            <PiggyBank className="w-4 h-4" />
-            <span className="hidden sm:inline">Overview</span>
-          </TabsTrigger>
-          <TabsTrigger value="expenses" className="flex items-center gap-2">
-            <Receipt className="w-4 h-4" />
-            <span className="hidden sm:inline">Expenses</span>
-          </TabsTrigger>
-          {mode === 'personal' && (
-            <TabsTrigger value="income" className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" />
-              <span className="hidden sm:inline">Income</span>
-            </TabsTrigger>
-          )}
-          <TabsTrigger value="reports" className="flex items-center gap-2">
-            <FileText className="w-4 h-4" />
-            <span className="hidden sm:inline">Reports</span>
-          </TabsTrigger>
-        </TabsList>
+      {/* Quick Actions - personal mode only */}
+      {mode === 'personal' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <QuickActions />
+          </CardContent>
+        </Card>
+      )}
 
-        <TabsContent value="overview" className="mt-6 space-y-6">
-          {/* Budgets */}
-          <BudgetDashboard 
-            showGroupBudgets={mode === 'shared'} 
-            financeGroupId={mode === 'shared' ? activeGroup?.id : undefined}
+      {/* Onboarding Checklist - personal mode only */}
+      {mode === 'personal' && <OnboardingChecklist />}
+
+      {/* Shared mode: Group Expense Form */}
+      {mode === 'shared' && activeGroup && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <GroupExpenseForm
+            groupId={activeGroup.id}
+            onSuccess={() => {
+              // Refresh expense list
+            }}
           />
-          
-          {/* Recent Activity */}
           <Card>
             <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
+              <CardTitle>Group Balance Summary</CardTitle>
             </CardHeader>
             <CardContent>
-              {mode === 'personal' ? (
-                <ExpenseList limit={5} />
-              ) : (
-                <GroupExpenseList groupId={activeGroup!.id} />
-              )}
+              <GroupBalanceSummary groupId={activeGroup.id} />
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="expenses" className="mt-6 space-y-6">
+      {/* Budgets */}
+      <BudgetDashboard
+        showGroupBudgets={mode === 'shared'}
+        financeGroupId={mode === 'shared' ? activeGroup?.id : undefined}
+      />
+
+      {/* Recent Activity */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Activity</CardTitle>
+        </CardHeader>
+        <CardContent>
           {mode === 'personal' ? (
-            <>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <ExpenseForm />
-                <ExpenseVisualization />
-              </div>
-              <ExpenseList />
-              <TransactionImport />
-            </>
-          ) : (
-            <>
-              {/* Group Expense Management */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <GroupExpenseForm 
-                  groupId={activeGroup!.id} 
-                  onSuccess={() => {
-                    // Refresh expense list
-                  }}
-                />
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Group Balance Summary</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <GroupBalanceSummary groupId={activeGroup!.id} />
-                  </CardContent>
-                </Card>
-              </div>
-              <GroupExpenseList groupId={activeGroup!.id} />
-            </>
-          )}
-        </TabsContent>
-
-        {mode === 'personal' && (
-          <TabsContent value="income" className="mt-6 space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <IncomeForm />
-              <IncomeList />
-            </div>
-          </TabsContent>
-        )}
-
-        <TabsContent value="reports" className="mt-6">
-          <ReportGenerator mode={mode} groupId={mode === 'shared' ? activeGroup?.id : undefined} />
-        </TabsContent>
-      </Tabs>
-      </div>
-    </>
+            <ExpenseList limit={5} />
+          ) : activeGroup ? (
+            <GroupExpenseList groupId={activeGroup.id} />
+          ) : null}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
