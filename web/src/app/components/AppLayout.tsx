@@ -2,6 +2,7 @@
 
 import { ReactNode } from 'react';
 import SidebarNav from './SidebarNav';
+import Breadcrumbs from './Breadcrumbs';
 import DebugPanel from './DebugPanel';
 import { cn } from '@/lib/utils';
 
@@ -24,6 +25,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         
         {/* Page Content */}
         <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Breadcrumbs />
           {children}
         </main>
       </div>
