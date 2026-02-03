@@ -542,21 +542,33 @@ export default function ReportGenerator({ mode, groupId }: ReportGeneratorProps)
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                      <div className="p-3 border rounded">
-                        <DollarSign className="w-6 h-6 mx-auto mb-1 text-green-500" />
-                        <p className="text-sm text-muted-foreground">Income</p>
-                        <p className="font-semibold">${reportData.income.total.toFixed(2)}</p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <div className="flex-1 min-w-[100px] max-w-[140px] p-3 border rounded-lg text-center">
+                        <div className="p-1.5 rounded-full bg-green-100 dark:bg-green-900/30 w-fit mx-auto mb-1">
+                          <DollarSign className="w-4 h-4 text-green-600 dark:text-green-400" />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Income</p>
+                        <p className="font-semibold text-sm" title={`$${reportData.income.total.toFixed(2)}`}>
+                          {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1 }).format(reportData.income.total)}
+                        </p>
                       </div>
-                      <div className="p-3 border rounded">
-                        <TrendingDown className="w-6 h-6 mx-auto mb-1 text-red-500" />
-                        <p className="text-sm text-muted-foreground">Expenses</p>
-                        <p className="font-semibold">${reportData.expenses.total.toFixed(2)}</p>
+                      <div className="flex-1 min-w-[100px] max-w-[140px] p-3 border rounded-lg text-center">
+                        <div className="p-1.5 rounded-full bg-red-100 dark:bg-red-900/30 w-fit mx-auto mb-1">
+                          <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Expenses</p>
+                        <p className="font-semibold text-sm" title={`$${reportData.expenses.total.toFixed(2)}`}>
+                          {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1 }).format(reportData.expenses.total)}
+                        </p>
                       </div>
-                      <div className="p-3 border rounded">
-                        <TrendingUp className="w-6 h-6 mx-auto mb-1 text-blue-500" />
-                        <p className="text-sm text-muted-foreground">Savings</p>
-                        <p className="font-semibold">${reportData.savings.amount.toFixed(2)}</p>
+                      <div className="flex-1 min-w-[100px] max-w-[140px] p-3 border rounded-lg text-center">
+                        <div className="p-1.5 rounded-full bg-blue-100 dark:bg-blue-900/30 w-fit mx-auto mb-1">
+                          <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Savings</p>
+                        <p className="font-semibold text-sm" title={`$${reportData.savings.amount.toFixed(2)}`}>
+                          {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1 }).format(reportData.savings.amount)}
+                        </p>
                       </div>
                     </div>
 

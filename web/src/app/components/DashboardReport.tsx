@@ -12,14 +12,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
   PiggyBank,
   Download,
   FileText,
-  Loader2
+  Loader2,
+  Settings
 } from 'lucide-react';
 
 // Import from the metrics layer
@@ -30,10 +31,14 @@ import { SAVINGS_STATUS_CLASSES } from '../metrics/utils/colors';
 import ExpenseSankey from './ExpenseSankey';
 import ExpenseChart from './ExpenseChart';
 
+// Import reports components
+import { ExtraSettingsSummary, hasActiveSettings, type ExtraSettingsData } from './reports';
+
 interface DashboardReportProps {
   onExport?: () => Promise<void>;
   isExporting?: boolean;
   showExportButton?: boolean;
+  extraSettings?: ExtraSettingsData;
 }
 
 /**
@@ -42,7 +47,7 @@ interface DashboardReportProps {
  * print-friendly layout that can be captured and exported as a PDF.
  */
 const DashboardReport = forwardRef<HTMLDivElement, DashboardReportProps>(
-  function DashboardReport({ onExport, isExporting = false, showExportButton = true }, ref) {
+  function DashboardReport({ onExport, isExporting = false, showExportButton = true, extraSettings }, ref) {
     const { incomes, expenses, taxConfig } = useFinance();
     const [displayPeriod, setDisplayPeriod] = useState<IncomeFrequency>('monthly');
 
@@ -141,17 +146,19 @@ const DashboardReport = forwardRef<HTMLDivElement, DashboardReportProps>(
           </div>
 
           {/* Summary Metrics Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Total Income */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="p-2 rounded-full bg-green-100 dark:bg-green-900">
+                  <div className="p-2 rounded-full bg-green-100 dark:bg-green-900 shrink-0">
                     <DollarSign className="w-4 h-4 text-green-600 dark:text-green-400" />
                   </div>
-                  <span className="text-sm font-medium text-muted-foreground">Gross Income</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Gross Income</span>
                 </div>
-                <p className="text-2xl font-bold">{formatCurrency(totalIncome)}</p>
+                <p className="text-xl lg:text-2xl font-bold truncate" title={formatCurrency(totalIncome)}>
+                  {formatCurrency(totalIncome)}
+                </p>
                 <p className="text-xs text-muted-foreground">{periodLabel}</p>
               </CardContent>
             </Card>
@@ -160,14 +167,18 @@ const DashboardReport = forwardRef<HTMLDivElement, DashboardReportProps>(
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900/50">
+                  <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900/50 shrink-0">
                     <TrendingUp className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   </div>
-                  <span className="text-sm font-medium text-muted-foreground">Net Income</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Net Income</span>
                 </div>
-                <p className="text-2xl font-bold">{formatCurrency(netIncome)}</p>
+                <p className="text-xl lg:text-2xl font-bold truncate" title={formatCurrency(netIncome)}>
+                  {formatCurrency(netIncome)}
+                </p>
                 {taxAmount > 0 && (
-                  <p className="text-xs text-[#D16A47]">-{formatCurrency(taxAmount)} tax</p>
+                  <p className="text-xs text-[#D16A47] truncate" title={`-${formatCurrency(taxAmount)} tax`}>
+                    -{formatCurrency(taxAmount)} tax
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -176,12 +187,14 @@ const DashboardReport = forwardRef<HTMLDivElement, DashboardReportProps>(
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="p-2 rounded-full bg-red-100 dark:bg-red-900">
+                  <div className="p-2 rounded-full bg-red-100 dark:bg-red-900 shrink-0">
                     <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
                   </div>
-                  <span className="text-sm font-medium text-muted-foreground">Expenses</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Expenses</span>
                 </div>
-                <p className="text-2xl font-bold">{formatCurrency(totalExpenses)}</p>
+                <p className="text-xl lg:text-2xl font-bold truncate" title={formatCurrency(totalExpenses)}>
+                  {formatCurrency(totalExpenses)}
+                </p>
                 <p className="text-xs text-muted-foreground">{periodLabel}</p>
               </CardContent>
             </Card>
@@ -190,12 +203,12 @@ const DashboardReport = forwardRef<HTMLDivElement, DashboardReportProps>(
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="p-2 rounded-full bg-[#87A96B]/20 dark:bg-[#A0C080]/20">
+                  <div className="p-2 rounded-full bg-[#87A96B]/20 dark:bg-[#A0C080]/20 shrink-0">
                     <PiggyBank className="w-4 h-4 text-[#87A96B] dark:text-[#A0C080]" />
                   </div>
-                  <span className="text-sm font-medium text-muted-foreground">Savings</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Savings</span>
                 </div>
-                <p className={`text-2xl font-bold ${savingsStatusColors[savingsStatus]}`}>
+                <p className={`text-xl lg:text-2xl font-bold truncate ${savingsStatusColors[savingsStatus]}`} title={formatCurrency(savingsAmount)}>
                   {formatCurrency(savingsAmount)}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -282,6 +295,24 @@ const DashboardReport = forwardRef<HTMLDivElement, DashboardReportProps>(
               </div>
             </CardContent>
           </Card>
+
+          {/* Financial Configuration - Only show if extraSettings has active items */}
+          {extraSettings && hasActiveSettings(extraSettings) && (
+            <Card className="break-inside-avoid">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="w-5 h-5" />
+                  Financial Configuration
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ExtraSettingsSummary
+                  settings={extraSettings}
+                  formatCurrency={formatCurrency}
+                />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Expense Categories Breakdown */}
           {metrics.expenses.topCategories.length > 0 && (
