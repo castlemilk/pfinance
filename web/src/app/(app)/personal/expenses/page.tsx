@@ -1,6 +1,6 @@
 'use client';
 
-import ExpenseForm from '../../../components/ExpenseForm';
+import SmartExpenseEntry from '../../../components/SmartExpenseEntry';
 import ExpenseList from '../../../components/ExpenseList';
 import ExpenseVisualization from '../../../components/ExpenseVisualization';
 import TransactionImport from '../../../components/TransactionImport';
@@ -16,12 +16,12 @@ export default function PersonalExpensesPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ExpenseForm />
+        <SmartExpenseEntry />
         <ExpenseVisualization />
       </div>
 
       <ExpenseList />
-      
+
       <TransactionImport />
     </div>
   );
