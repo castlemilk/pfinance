@@ -130,8 +130,8 @@ test.describe('Personal Expenses Page', () => {
   });
 
   test('should display expense form', async ({ page }) => {
-    // Look for the Add Expense heading (SmartExpenseEntry component)
-    await expect(page.getByRole('heading', { name: 'Add Expense' })).toBeVisible();
+    // Look for the Add Expense card title (SmartExpenseEntry component)
+    await expect(page.getByText('Add Expense', { exact: false }).first()).toBeVisible();
   });
 
   test('should display expense entry modes', async ({ page }) => {
