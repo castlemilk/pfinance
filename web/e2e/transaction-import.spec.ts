@@ -130,12 +130,14 @@ test.describe('Personal Expenses Page', () => {
   });
 
   test('should display expense form', async ({ page }) => {
-    // Look for the Add New Expense heading
-    await expect(page.getByText('Add New Expense')).toBeVisible();
+    // Look for the Add Expense heading (SmartExpenseEntry component)
+    await expect(page.getByRole('heading', { name: 'Add Expense' })).toBeVisible();
   });
 
-  test('should display add expense button', async ({ page }) => {
-    // Look for the Add Expense button
-    await expect(page.getByRole('button', { name: 'Add Expense' })).toBeVisible();
+  test('should display expense entry modes', async ({ page }) => {
+    // Look for the mode selector buttons (Quick Add, Receipt, Manual)
+    await expect(page.getByRole('button', { name: /Quick Add/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Receipt/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Manual/i })).toBeVisible();
   });
 });
