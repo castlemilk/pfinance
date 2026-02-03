@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -p 1234 --webpack",
     "build": "next build --webpack",
+    "analyze": "ANALYZE=true next build --webpack",
     "start": "next start",
     "lint": "echo 'warning: linting disabled due to Next.js 16 conflict' && exit 0",
     "test": "jest",
@@ -85,6 +86,7 @@
   "devDependencies": {
     "@bufbuild/protoc-gen-es": "^2.11.0",
     "@eslint/eslintrc": "^3",
+    "@next/bundle-analyzer": "^16.1.6",
     "@playwright/test": "^1.58.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.4.2",

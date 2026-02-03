@@ -5,7 +5,7 @@ const footerLinks = {
   product: [
     { label: 'Features', href: '/#features' },
     { label: 'Pricing', href: '/#pricing' },
-    { label: 'Dashboard', href: '/personal' },
+    { label: 'Dashboard', href: '/personal/income/' },
   ],
   resources: [
     { label: 'Blog', href: '/blog' },
@@ -28,7 +28,7 @@ export default function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-border/50 bg-background/50 backdrop-blur-sm">
+    <footer role="contentinfo" className="border-t border-border/50 bg-background/50 backdrop-blur-sm">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
           {/* Brand Column */}

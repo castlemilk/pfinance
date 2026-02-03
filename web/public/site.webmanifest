@@ -1,0 +1,48 @@
+{
+  "name": "PFinance - Personal Finance Tracker",
+  "short_name": "PFinance",
+  "description": "Track expenses, manage budgets, and collaborate with your household",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f0f",
+  "theme_color": "#c98a4a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "productivity"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Track Expenses",
+      "url": "/personal/expenses/",
+      "description": "Add and manage your expenses"
+    },
+    {
+      "name": "View Dashboard",
+      "url": "/personal/income/",
+      "description": "View your financial dashboard"
+    }
+  ]
+}

@@ -17,9 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { 
-  FileText, 
-  Download, 
+import {
+  FileText,
+  Download,
   TrendingUp,
   TrendingDown,
   DollarSign,
@@ -28,7 +28,6 @@ import {
   Loader2,
   Image as ImageIcon
 } from 'lucide-react';
-import { jsPDF } from 'jspdf';
 import { ExpenseCategory, IncomeFrequency } from '../types';
 import DashboardReport from './DashboardReport';
 import { exportDashboardToPdf } from '../utils/dashboardExport';
@@ -222,6 +221,8 @@ export default function ReportGenerator({ mode, groupId }: ReportGeneratorProps)
   const generatePDFReport = async () => {
     setIsGenerating(true);
     try {
+      // Dynamically import jsPDF to reduce initial bundle size
+      const { jsPDF } = await import('jspdf');
       const pdf = new jsPDF();
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();

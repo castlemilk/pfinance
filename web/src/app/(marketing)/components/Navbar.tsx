@@ -22,7 +22,7 @@ export default function Navbar() {
       {/* Glassmorphism background */}
       <div className="absolute inset-0 bg-background/80 backdrop-blur-md border-b border-border/50" />
 
-      <nav className="relative container mx-auto px-4 sm:px-6 lg:px-8">
+      <nav role="navigation" aria-label="Main navigation" className="relative container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
@@ -55,12 +55,12 @@ export default function Navbar() {
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-3">
             <ThemeToggle />
-            <Link href="/personal">
+            <Link href="/personal/income/">
               <Button variant="ghost" size="sm">
                 Sign In
               </Button>
             </Link>
-            <Link href="/personal">
+            <Link href="/personal/income/">
               <Button variant="terminal" size="sm" className="group">
                 Get Started
                 <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -137,12 +137,12 @@ export default function Navbar() {
                   transition={{ delay: navLinks.length * 0.1 }}
                   className="pt-4 px-4 space-y-2"
                 >
-                  <Link href="/personal" className="block">
+                  <Link href="/personal/income/" className="block">
                     <Button variant="outline" className="w-full">
                       Sign In
                     </Button>
                   </Link>
-                  <Link href="/personal" className="block">
+                  <Link href="/personal/income/" className="block">
                     <Button variant="terminal" className="w-full">
                       Get Started Free
                     </Button>

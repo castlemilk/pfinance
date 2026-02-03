@@ -1,12 +1,13 @@
 /**
  * Dashboard Export Utility
- * 
+ *
  * Provides functions to export dashboard visualizations as PDF documents
  * using html2canvas for capturing DOM elements and jsPDF for PDF generation.
+ *
+ * NOTE: html2canvas and jsPDF are dynamically imported to reduce initial bundle size.
  */
 
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
+import type { jsPDF } from 'jspdf';
 
 /**
  * Export options for PDF generation
@@ -56,6 +57,22 @@ const pageDimensions = {
 };
 
 /**
+ * Dynamically imports html2canvas
+ */
+async function getHtml2Canvas() {
+  const html2canvas = (await import('html2canvas')).default;
+  return html2canvas;
+}
+
+/**
+ * Dynamically imports jsPDF
+ */
+async function getJsPDF() {
+  const { jsPDF } = await import('jspdf');
+  return jsPDF;
+}
+
+/**
  * Captures a DOM element as a canvas image
  */
 async function captureElement(
@@ -63,6 +80,9 @@ async function captureElement(
   options: Pick<ExportOptions, 'scale' | 'backgroundColor'>
 ): Promise<HTMLCanvasElement> {
   const { scale = 2, backgroundColor = '#ffffff' } = options;
+
+  // Dynamically import html2canvas
+  const html2canvas = await getHtml2Canvas();
 
   // Temporarily apply export-friendly styles
   const originalBackground = element.style.backgroundColor;
@@ -195,6 +215,9 @@ export async function exportDashboardToPdf(
     const pageWidth = orientation === 'portrait' ? dimensions.width : dimensions.height;
     const pageHeight = orientation === 'portrait' ? dimensions.height : dimensions.width;
 
+    // Dynamically import jsPDF
+    const jsPDF = await getJsPDF();
+
     // Create PDF
     const pdf = new jsPDF({
       orientation: orientation === 'portrait' ? 'p' : 'l',
@@ -326,7 +349,7 @@ export async function downloadAsImage(
   options: Pick<ExportOptions, 'scale' | 'backgroundColor'> = {}
 ): Promise<void> {
   const dataUrl = await captureAsImage(element, options);
-  
+
   const link = document.createElement('a');
   link.href = dataUrl;
   link.download = filename;

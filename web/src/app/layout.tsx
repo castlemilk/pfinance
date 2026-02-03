@@ -1,12 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Space_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from './context/ThemeContext';
-import { AdminProvider } from './context/AdminContext';
-import { AuthWithAdminProvider } from './context/AuthWithAdminContext';
-import { MultiUserFinanceProvider } from './context/MultiUserFinanceContext';
-import { FinanceProvider } from './context/FinanceContext';
-import { BudgetProvider } from './context/BudgetContext';
 import { Toaster } from "../components/ui/toaster";
 
 const ibmPlexMono = IBM_Plex_Mono({
@@ -22,6 +17,15 @@ const spaceMono = Space_Mono({
   weight: ["400", "700"],
   display: "swap",
 });
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f0f0f" },
+  ],
+  width: "device-width",
+  initialScale: 1,
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://pfinance.app'),
@@ -42,6 +46,9 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "PFinance" }],
   creator: "PFinance",
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     type: "website",
     locale: "en_US",
@@ -75,7 +82,10 @@ export const metadata: Metadata = {
     },
   },
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
     shortcut: "/favicon-16x16.png",
     apple: "/apple-touch-icon.png",
   },
@@ -89,22 +99,23 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      </head>
       <body
         className={`${ibmPlexMono.variable} ${spaceMono.variable} font-sans antialiased`}
       >
+        {/* Skip link for accessibility */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-4 focus:left-4 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        >
+          Skip to main content
+        </a>
         <ThemeProvider defaultTheme="system">
-          <AdminProvider>
-            <AuthWithAdminProvider>
-              <MultiUserFinanceProvider>
-                <FinanceProvider>
-                  <BudgetProvider>
-                    {children}
-                  </BudgetProvider>
-                </FinanceProvider>
-              </MultiUserFinanceProvider>
-            </AuthWithAdminProvider>
-            <Toaster />
-          </AdminProvider>
+          {children}
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>
