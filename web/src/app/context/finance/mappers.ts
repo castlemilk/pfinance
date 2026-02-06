@@ -135,6 +135,23 @@ export const protoToTaxCountry: Record<ProtoTaxCountry, TaxCountry> = {
 };
 
 // ============================================================================
+// Cents Conversion Helpers
+// ============================================================================
+
+/** Convert a dollar amount to cents (integer). */
+export function dollarsToCents(dollars: number): bigint {
+  return BigInt(Math.round(dollars * 100));
+}
+
+/** Prefer amountCents if non-zero, otherwise fall back to the float amount. */
+export function centsToAmount(cents: bigint, fallbackAmount: number): number {
+  if (cents !== BigInt(0)) {
+    return Number(cents) / 100;
+  }
+  return fallbackAmount;
+}
+
+// ============================================================================
 // Entity Mappers
 // ============================================================================
 
@@ -142,7 +159,7 @@ export function mapProtoExpenseToLocal(proto: ProtoExpense): Expense {
   return {
     id: proto.id,
     description: proto.description,
-    amount: proto.amount,
+    amount: centsToAmount(proto.amountCents, proto.amount),
     category: protoToCategory[proto.category],
     frequency: protoToExpenseFrequency[proto.frequency],
     date: proto.date ? timestampDate(proto.date) : new Date(),
@@ -153,13 +170,13 @@ export function mapProtoIncomeToLocal(proto: ProtoIncome): Income {
   return {
     id: proto.id,
     source: proto.source,
-    amount: proto.amount,
+    amount: centsToAmount(proto.amountCents, proto.amount),
     frequency: protoToIncomeFrequency[proto.frequency],
     taxStatus: protoToTaxStatus[proto.taxStatus],
     deductions: proto.deductions?.map(d => ({
       id: d.id,
       name: d.name,
-      amount: d.amount,
+      amount: centsToAmount(d.amountCents, d.amount),
       isTaxDeductible: d.isTaxDeductible,
     })),
     date: proto.date ? timestampDate(proto.date) : new Date(),

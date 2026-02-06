@@ -24,12 +24,15 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 let app: ReturnType<typeof initializeApp> | null;
 let auth: ReturnType<typeof getAuth> | null;
 let db: ReturnType<typeof getFirestore> | null;
+export let firebaseInitError: string | null = null;
 
 if (typeof window !== 'undefined') {
   // Client-side initialization
   // Check if we have valid configuration
   if (!firebaseConfig.apiKey || firebaseConfig.apiKey === '') {
-    console.error('Firebase configuration is missing. Please check environment variables.');
+    const msg = 'Firebase configuration is missing. Please check environment variables.';
+    console.error(msg);
+    firebaseInitError = msg;
     // Create mock objects to prevent crashes
     app = null;
     auth = null;
@@ -40,7 +43,9 @@ if (typeof window !== 'undefined') {
       auth = getAuth(app);
       db = getFirestore(app);
     } catch (error) {
+      const msg = `Firebase initialization failed: ${error instanceof Error ? error.message : String(error)}`;
       console.error('Firebase initialization error:', error);
+      firebaseInitError = msg;
       app = null;
       auth = null;
       db = null;

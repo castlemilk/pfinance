@@ -17,6 +17,10 @@ import {
 import { timestampFromDate, timestampDate } from '@bufbuild/protobuf/wkt';
 import { FinanceGroup } from '../types';
 
+function dollarsToCents(dollars: number): bigint {
+  return BigInt(Math.round(dollars * 100));
+}
+
 interface UseGroupExpensesOptions {
   user: User | null;
   activeGroup: FinanceGroup | null;
@@ -127,6 +131,7 @@ export function useGroupExpenses({ user, activeGroup }: UseGroupExpensesOptions)
       groupId,
       description,
       amount,
+      amountCents: dollarsToCents(amount),
       category,
       frequency,
       paidByUserId,
@@ -153,6 +158,7 @@ export function useGroupExpenses({ user, activeGroup }: UseGroupExpensesOptions)
     const response = await financeClient.updateExpense({
       expenseId,
       ...updates,
+      amountCents: updates.amount !== undefined ? dollarsToCents(updates.amount) : undefined,
     });
 
     if (response.expense) {
@@ -176,6 +182,7 @@ export function useGroupExpenses({ user, activeGroup }: UseGroupExpensesOptions)
       expenseId,
       userId,
       amount: 0, // Full settlement
+      amountCents: BigInt(0),
     });
 
     if (response.expense) {

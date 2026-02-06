@@ -1,0 +1,32 @@
+{
+  "document_type": "receipt",
+  "source": "CORD dataset (Indonesian receipts)",
+  "currency": "IDR",
+  "transactions": [
+    {
+      "description": "Ayam Bakar",
+      "amount": -55.0,
+      "quantity": "2"
+    },
+    {
+      "description": "Nasi Putih",
+      "amount": -20.0,
+      "quantity": "2"
+    },
+    {
+      "description": "Nila Bakar/Goreng",
+      "amount": -27500.0,
+      "quantity": "1"
+    },
+    {
+      "description": "Sop Gurame",
+      "amount": -87.0,
+      "quantity": "1"
+    },
+    {
+      "description": "Teh Poci",
+      "amount": -25.0,
+      "quantity": "1"
+    }
+  ]
+}

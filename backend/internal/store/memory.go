@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -25,6 +26,8 @@ type MemoryStore struct {
 	taxConfigs          map[string]*pfinancev1.TaxConfig
 	budgets             map[string]*pfinancev1.Budget
 	users               map[string]*pfinancev1.User
+	goals               map[string]*pfinancev1.FinancialGoal
+	goalContributions   map[string]*pfinancev1.GoalContribution
 }
 
 // NewMemoryStore creates a new in-memory store
@@ -40,7 +43,49 @@ func NewMemoryStore() *MemoryStore {
 		taxConfigs:          make(map[string]*pfinancev1.TaxConfig),
 		budgets:             make(map[string]*pfinancev1.Budget),
 		users:               make(map[string]*pfinancev1.User),
+		goals:               make(map[string]*pfinancev1.FinancialGoal),
+		goalContributions:   make(map[string]*pfinancev1.GoalContribution),
 	}
+}
+
+// paginateIDs applies cursor-based pagination to a sorted slice of IDs.
+// Returns the paginated IDs and the next page token (empty if no more pages).
+func paginateIDs(ids []string, pageSize int32, pageToken string) ([]string, string) {
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+
+	sort.Strings(ids)
+
+	// Find cursor position
+	startIdx := 0
+	if pageToken != "" {
+		cursorID, err := DecodePageToken(pageToken)
+		if err == nil {
+			for i, id := range ids {
+				if id > cursorID {
+					startIdx = i
+					break
+				}
+				// If we've reached the end without finding a greater ID
+				if i == len(ids)-1 {
+					return nil, ""
+				}
+			}
+		}
+	}
+
+	// Slice from startIdx
+	ids = ids[startIdx:]
+
+	// Apply page size
+	var nextToken string
+	if int32(len(ids)) > pageSize {
+		nextToken = EncodePageToken(ids[pageSize-1])
+		ids = ids[:pageSize]
+	}
+
+	return ids, nextToken
 }
 
 // Expense operations
@@ -81,22 +126,19 @@ func (m *MemoryStore) UpdateExpense(ctx context.Context, expense *pfinancev1.Exp
 	return nil
 }
 
-func (m *MemoryStore) ListExpenses(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, pageSize int32) ([]*pfinancev1.Expense, error) {
+func (m *MemoryStore) ListExpenses(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, pageSize int32, pageToken string) ([]*pfinancev1.Expense, string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var result []*pfinancev1.Expense
-
-	for _, expense := range m.expenses {
-		// Filter by user or group
+	// First pass: collect matching IDs
+	var matchingIDs []string
+	for id, expense := range m.expenses {
 		if userID != "" && expense.UserId != userID {
 			continue
 		}
 		if groupID != "" && expense.GroupId != groupID {
 			continue
 		}
-
-		// Filter by date range if provided
 		if startDate != nil || endDate != nil {
 			expenseTime := expense.Date.AsTime()
 			if startDate != nil && expenseTime.Before(*startDate) {
@@ -106,16 +148,15 @@ func (m *MemoryStore) ListExpenses(ctx context.Context, userID, groupID string, 
 				continue
 			}
 		}
-
-		result = append(result, expense)
-
-		// Limit by page size
-		if pageSize > 0 && int32(len(result)) >= pageSize {
-			break
-		}
+		matchingIDs = append(matchingIDs, id)
 	}
 
-	return result, nil
+	paginatedIDs, nextToken := paginateIDs(matchingIDs, pageSize, pageToken)
+	result := make([]*pfinancev1.Expense, 0, len(paginatedIDs))
+	for _, id := range paginatedIDs {
+		result = append(result, m.expenses[id])
+	}
+	return result, nextToken, nil
 }
 
 func (m *MemoryStore) DeleteExpense(ctx context.Context, expenseID string) error {
@@ -172,22 +213,18 @@ func (m *MemoryStore) DeleteIncome(ctx context.Context, incomeID string) error {
 	return nil
 }
 
-func (m *MemoryStore) ListIncomes(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, pageSize int32) ([]*pfinancev1.Income, error) {
+func (m *MemoryStore) ListIncomes(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, pageSize int32, pageToken string) ([]*pfinancev1.Income, string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var result []*pfinancev1.Income
-
-	for _, income := range m.incomes {
-		// Filter by user or group
+	var matchingIDs []string
+	for id, income := range m.incomes {
 		if userID != "" && income.UserId != userID {
 			continue
 		}
 		if groupID != "" && income.GroupId != groupID {
 			continue
 		}
-
-		// Filter by date range if provided
 		if startDate != nil || endDate != nil {
 			incomeTime := income.Date.AsTime()
 			if startDate != nil && incomeTime.Before(*startDate) {
@@ -197,16 +234,15 @@ func (m *MemoryStore) ListIncomes(ctx context.Context, userID, groupID string, s
 				continue
 			}
 		}
-
-		result = append(result, income)
-
-		// Limit by page size
-		if pageSize > 0 && int32(len(result)) >= pageSize {
-			break
-		}
+		matchingIDs = append(matchingIDs, id)
 	}
 
-	return result, nil
+	paginatedIDs, nextToken := paginateIDs(matchingIDs, pageSize, pageToken)
+	result := make([]*pfinancev1.Income, 0, len(paginatedIDs))
+	for _, id := range paginatedIDs {
+		result = append(result, m.incomes[id])
+	}
+	return result, nextToken, nil
 }
 
 // Group operations
@@ -247,14 +283,12 @@ func (m *MemoryStore) UpdateGroup(ctx context.Context, group *pfinancev1.Finance
 	return nil
 }
 
-func (m *MemoryStore) ListGroups(ctx context.Context, userID string, pageSize int32) ([]*pfinancev1.FinanceGroup, error) {
+func (m *MemoryStore) ListGroups(ctx context.Context, userID string, pageSize int32, pageToken string) ([]*pfinancev1.FinanceGroup, string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var result []*pfinancev1.FinanceGroup
-
-	for _, group := range m.groups {
-		// Check if user is a member
+	var matchingIDs []string
+	for id, group := range m.groups {
 		isMember := false
 		for _, member := range group.Members {
 			if member.UserId == userID {
@@ -262,19 +296,18 @@ func (m *MemoryStore) ListGroups(ctx context.Context, userID string, pageSize in
 				break
 			}
 		}
-
 		if !isMember {
 			continue
 		}
-
-		result = append(result, group)
-
-		if pageSize > 0 && int32(len(result)) >= pageSize {
-			break
-		}
+		matchingIDs = append(matchingIDs, id)
 	}
 
-	return result, nil
+	paginatedIDs, nextToken := paginateIDs(matchingIDs, pageSize, pageToken)
+	result := make([]*pfinancev1.FinanceGroup, 0, len(paginatedIDs))
+	for _, id := range paginatedIDs {
+		result = append(result, m.groups[id])
+	}
+	return result, nextToken, nil
 }
 
 func (m *MemoryStore) DeleteGroup(ctx context.Context, groupID string) error {
@@ -323,29 +356,27 @@ func (m *MemoryStore) UpdateInvitation(ctx context.Context, invitation *pfinance
 	return nil
 }
 
-func (m *MemoryStore) ListInvitations(ctx context.Context, userEmail string, status *pfinancev1.InvitationStatus, pageSize int32) ([]*pfinancev1.GroupInvitation, error) {
+func (m *MemoryStore) ListInvitations(ctx context.Context, userEmail string, status *pfinancev1.InvitationStatus, pageSize int32, pageToken string) ([]*pfinancev1.GroupInvitation, string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var result []*pfinancev1.GroupInvitation
-
-	for _, invitation := range m.invitations {
+	var matchingIDs []string
+	for id, invitation := range m.invitations {
 		if invitation.InviteeEmail != userEmail {
 			continue
 		}
-
 		if status != nil && invitation.Status != *status {
 			continue
 		}
-
-		result = append(result, invitation)
-
-		if pageSize > 0 && int32(len(result)) >= pageSize {
-			break
-		}
+		matchingIDs = append(matchingIDs, id)
 	}
 
-	return result, nil
+	paginatedIDs, nextToken := paginateIDs(matchingIDs, pageSize, pageToken)
+	result := make([]*pfinancev1.GroupInvitation, 0, len(paginatedIDs))
+	for _, id := range paginatedIDs {
+		result = append(result, m.invitations[id])
+	}
+	return result, nextToken, nil
 }
 
 // Invite link operations
@@ -399,29 +430,27 @@ func (m *MemoryStore) UpdateInviteLink(ctx context.Context, link *pfinancev1.Gro
 	return nil
 }
 
-func (m *MemoryStore) ListInviteLinks(ctx context.Context, groupID string, includeInactive bool, pageSize int32) ([]*pfinancev1.GroupInviteLink, error) {
+func (m *MemoryStore) ListInviteLinks(ctx context.Context, groupID string, includeInactive bool, pageSize int32, pageToken string) ([]*pfinancev1.GroupInviteLink, string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var result []*pfinancev1.GroupInviteLink
-
-	for _, link := range m.inviteLinks {
+	var matchingIDs []string
+	for id, link := range m.inviteLinks {
 		if groupID != "" && link.GroupId != groupID {
 			continue
 		}
-
 		if !includeInactive && !link.IsActive {
 			continue
 		}
-
-		result = append(result, link)
-
-		if pageSize > 0 && int32(len(result)) >= pageSize {
-			break
-		}
+		matchingIDs = append(matchingIDs, id)
 	}
 
-	return result, nil
+	paginatedIDs, nextToken := paginateIDs(matchingIDs, pageSize, pageToken)
+	result := make([]*pfinancev1.GroupInviteLink, 0, len(paginatedIDs))
+	for _, id := range paginatedIDs {
+		result = append(result, m.inviteLinks[id])
+	}
+	return result, nextToken, nil
 }
 
 // Contribution operations
@@ -450,28 +479,27 @@ func (m *MemoryStore) GetContribution(ctx context.Context, contributionID string
 	return contribution, nil
 }
 
-func (m *MemoryStore) ListContributions(ctx context.Context, groupID, userID string, pageSize int32) ([]*pfinancev1.ExpenseContribution, error) {
+func (m *MemoryStore) ListContributions(ctx context.Context, groupID, userID string, pageSize int32, pageToken string) ([]*pfinancev1.ExpenseContribution, string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var result []*pfinancev1.ExpenseContribution
-
-	for _, contribution := range m.contributions {
+	var matchingIDs []string
+	for id, contribution := range m.contributions {
 		if groupID != "" && contribution.TargetGroupId != groupID {
 			continue
 		}
 		if userID != "" && contribution.ContributedBy != userID {
 			continue
 		}
-
-		result = append(result, contribution)
-
-		if pageSize > 0 && int32(len(result)) >= pageSize {
-			break
-		}
+		matchingIDs = append(matchingIDs, id)
 	}
 
-	return result, nil
+	paginatedIDs, nextToken := paginateIDs(matchingIDs, pageSize, pageToken)
+	result := make([]*pfinancev1.ExpenseContribution, 0, len(paginatedIDs))
+	for _, id := range paginatedIDs {
+		result = append(result, m.contributions[id])
+	}
+	return result, nextToken, nil
 }
 
 // Income contribution operations
@@ -500,28 +528,27 @@ func (m *MemoryStore) GetIncomeContribution(ctx context.Context, contributionID 
 	return contribution, nil
 }
 
-func (m *MemoryStore) ListIncomeContributions(ctx context.Context, groupID, userID string, pageSize int32) ([]*pfinancev1.IncomeContribution, error) {
+func (m *MemoryStore) ListIncomeContributions(ctx context.Context, groupID, userID string, pageSize int32, pageToken string) ([]*pfinancev1.IncomeContribution, string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var result []*pfinancev1.IncomeContribution
-
-	for _, contribution := range m.incomeContributions {
+	var matchingIDs []string
+	for id, contribution := range m.incomeContributions {
 		if groupID != "" && contribution.TargetGroupId != groupID {
 			continue
 		}
 		if userID != "" && contribution.ContributedBy != userID {
 			continue
 		}
-
-		result = append(result, contribution)
-
-		if pageSize > 0 && int32(len(result)) >= pageSize {
-			break
-		}
+		matchingIDs = append(matchingIDs, id)
 	}
 
-	return result, nil
+	paginatedIDs, nextToken := paginateIDs(matchingIDs, pageSize, pageToken)
+	result := make([]*pfinancev1.IncomeContribution, 0, len(paginatedIDs))
+	for _, id := range paginatedIDs {
+		result = append(result, m.incomeContributions[id])
+	}
+	return result, nextToken, nil
 }
 
 // Tax config operations
@@ -608,32 +635,30 @@ func (m *MemoryStore) DeleteBudget(ctx context.Context, budgetID string) error {
 	return nil
 }
 
-func (m *MemoryStore) ListBudgets(ctx context.Context, userID, groupID string, includeInactive bool, pageSize int32) ([]*pfinancev1.Budget, error) {
+func (m *MemoryStore) ListBudgets(ctx context.Context, userID, groupID string, includeInactive bool, pageSize int32, pageToken string) ([]*pfinancev1.Budget, string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var result []*pfinancev1.Budget
-
-	for _, budget := range m.budgets {
+	var matchingIDs []string
+	for id, budget := range m.budgets {
 		if userID != "" && budget.UserId != userID {
 			continue
 		}
 		if groupID != "" && budget.GroupId != groupID {
 			continue
 		}
-
 		if !includeInactive && !budget.IsActive {
 			continue
 		}
-
-		result = append(result, budget)
-
-		if pageSize > 0 && int32(len(result)) >= pageSize {
-			break
-		}
+		matchingIDs = append(matchingIDs, id)
 	}
 
-	return result, nil
+	paginatedIDs, nextToken := paginateIDs(matchingIDs, pageSize, pageToken)
+	result := make([]*pfinancev1.Budget, 0, len(paginatedIDs))
+	for _, id := range paginatedIDs {
+		result = append(result, m.budgets[id])
+	}
+	return result, nextToken, nil
 }
 
 func (m *MemoryStore) GetBudgetProgress(ctx context.Context, budgetID string, asOfDate time.Time) (*pfinancev1.BudgetProgress, error) {
@@ -690,7 +715,6 @@ func (m *MemoryStore) GetBudgetProgress(ctx context.Context, budgetID string, as
 		SpentAmount:     spentAmount,
 		RemainingAmount: remainingAmount,
 		PercentageUsed:  percentageUsed,
-		// IsOverBudget field removed from proto, calculate on frontend
 	}, nil
 }
 
@@ -714,4 +738,184 @@ func (m *MemoryStore) UpdateUser(ctx context.Context, user *pfinancev1.User) err
 
 	m.users[user.Id] = user
 	return nil
+}
+
+// Goal operations
+
+func (m *MemoryStore) CreateGoal(ctx context.Context, goal *pfinancev1.FinancialGoal) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if goal.Id == "" {
+		goal.Id = uuid.New().String()
+	}
+
+	m.goals[goal.Id] = goal
+	return nil
+}
+
+func (m *MemoryStore) GetGoal(ctx context.Context, goalID string) (*pfinancev1.FinancialGoal, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	goal, ok := m.goals[goalID]
+	if !ok {
+		return nil, fmt.Errorf("goal not found: %s", goalID)
+	}
+
+	return goal, nil
+}
+
+func (m *MemoryStore) UpdateGoal(ctx context.Context, goal *pfinancev1.FinancialGoal) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.goals[goal.Id]; !ok {
+		return fmt.Errorf("goal not found: %s", goal.Id)
+	}
+
+	m.goals[goal.Id] = goal
+	return nil
+}
+
+func (m *MemoryStore) DeleteGoal(ctx context.Context, goalID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	delete(m.goals, goalID)
+	return nil
+}
+
+func (m *MemoryStore) ListGoals(ctx context.Context, userID, groupID string, status pfinancev1.GoalStatus, goalType pfinancev1.GoalType, pageSize int32, pageToken string) ([]*pfinancev1.FinancialGoal, string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var matchingIDs []string
+	for id, goal := range m.goals {
+		if userID != "" && goal.UserId != userID {
+			continue
+		}
+		if groupID != "" && goal.GroupId != groupID {
+			continue
+		}
+		if status != pfinancev1.GoalStatus_GOAL_STATUS_UNSPECIFIED && goal.Status != status {
+			continue
+		}
+		if goalType != pfinancev1.GoalType_GOAL_TYPE_UNSPECIFIED && goal.GoalType != goalType {
+			continue
+		}
+		matchingIDs = append(matchingIDs, id)
+	}
+
+	paginatedIDs, nextToken := paginateIDs(matchingIDs, pageSize, pageToken)
+	result := make([]*pfinancev1.FinancialGoal, 0, len(paginatedIDs))
+	for _, id := range paginatedIDs {
+		result = append(result, m.goals[id])
+	}
+	return result, nextToken, nil
+}
+
+func (m *MemoryStore) GetGoalProgress(ctx context.Context, goalID string, asOfDate time.Time) (*pfinancev1.GoalProgress, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	goal, ok := m.goals[goalID]
+	if !ok {
+		return nil, fmt.Errorf("goal not found: %s", goalID)
+	}
+
+	// Calculate progress
+	currentAmount := goal.CurrentAmount
+	targetAmount := goal.TargetAmount
+	percentageComplete := 0.0
+	if targetAmount > 0 {
+		percentageComplete = (currentAmount / targetAmount) * 100
+	}
+
+	// Calculate days remaining
+	daysRemaining := int32(0)
+	if goal.TargetDate != nil {
+		targetDate := goal.TargetDate.AsTime()
+		if asOfDate.Before(targetDate) {
+			daysRemaining = int32(targetDate.Sub(asOfDate).Hours() / 24)
+		}
+	}
+
+	// Calculate daily rates
+	remainingAmount := targetAmount - currentAmount
+	requiredDailyRate := 0.0
+	if daysRemaining > 0 && remainingAmount > 0 {
+		requiredDailyRate = remainingAmount / float64(daysRemaining)
+	}
+
+	// Calculate actual daily rate based on progress so far
+	actualDailyRate := 0.0
+	if goal.StartDate != nil {
+		startDate := goal.StartDate.AsTime()
+		daysSinceStart := asOfDate.Sub(startDate).Hours() / 24
+		if daysSinceStart > 0 {
+			actualDailyRate = currentAmount / daysSinceStart
+		}
+	}
+
+	// Determine if on track
+	onTrack := actualDailyRate >= requiredDailyRate || percentageComplete >= 100
+
+	// Find achieved milestones and next milestone
+	var achievedMilestones []*pfinancev1.GoalMilestone
+	var nextMilestone *pfinancev1.GoalMilestone
+	for _, milestone := range goal.Milestones {
+		if milestone.IsAchieved {
+			achievedMilestones = append(achievedMilestones, milestone)
+		} else if nextMilestone == nil || milestone.TargetPercentage < nextMilestone.TargetPercentage {
+			nextMilestone = milestone
+		}
+	}
+
+	return &pfinancev1.GoalProgress{
+		GoalId:             goalID,
+		CurrentAmount:      currentAmount,
+		TargetAmount:       targetAmount,
+		PercentageComplete: percentageComplete,
+		DaysRemaining:      daysRemaining,
+		RequiredDailyRate:  requiredDailyRate,
+		ActualDailyRate:    actualDailyRate,
+		OnTrack:            onTrack,
+		AchievedMilestones: achievedMilestones,
+		NextMilestone:      nextMilestone,
+	}, nil
+}
+
+// Goal contribution operations
+
+func (m *MemoryStore) CreateGoalContribution(ctx context.Context, contribution *pfinancev1.GoalContribution) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if contribution.Id == "" {
+		contribution.Id = uuid.New().String()
+	}
+
+	m.goalContributions[contribution.Id] = contribution
+	return nil
+}
+
+func (m *MemoryStore) ListGoalContributions(ctx context.Context, goalID string, pageSize int32, pageToken string) ([]*pfinancev1.GoalContribution, string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var matchingIDs []string
+	for id, contribution := range m.goalContributions {
+		if goalID != "" && contribution.GoalId != goalID {
+			continue
+		}
+		matchingIDs = append(matchingIDs, id)
+	}
+
+	paginatedIDs, nextToken := paginateIDs(matchingIDs, pageSize, pageToken)
+	result := make([]*pfinancev1.GoalContribution, 0, len(paginatedIDs))
+	for _, id := range paginatedIDs {
+		result = append(result, m.goalContributions[id])
+	}
+	return result, nextToken, nil
 }

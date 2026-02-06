@@ -11,6 +11,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/castlemilk/pfinance/backend/gen/pfinance/v1/pfinancev1connect"
 	"github.com/castlemilk/pfinance/backend/internal/auth"
+	"github.com/castlemilk/pfinance/backend/internal/extraction"
 	"github.com/castlemilk/pfinance/backend/internal/service"
 	"github.com/castlemilk/pfinance/backend/internal/store"
 	"github.com/rs/cors"
@@ -32,6 +33,12 @@ func main() {
 	// Determine if we're running locally
 	useMemoryStore := os.Getenv("USE_MEMORY_STORE") == "true" || os.Getenv("ENV") == "local"
 	skipAuth := os.Getenv("SKIP_AUTH") == "true"
+
+	// Guard: SKIP_AUTH must never be enabled in production
+	env := os.Getenv("ENV")
+	if skipAuth && env != "" && env != "local" && env != "development" {
+		log.Fatalf("FATAL: SKIP_AUTH=true is only allowed when ENV=local or ENV=development (current ENV=%q)", env)
+	}
 
 	var storeImpl store.Store
 	var firebaseAuth *auth.FirebaseAuth
@@ -70,6 +77,22 @@ func main() {
 
 		storeImpl = store.NewFirestoreStore(firestoreClient)
 	}
+
+	// Initialize extraction service if ML service URL is configured
+	mlServiceURL := os.Getenv("ML_SERVICE_URL")
+	if mlServiceURL == "" {
+		// Default to 7B Modal endpoint for production-quality extraction
+		mlServiceURL = "https://ben-ebsworth--pfinance-extraction-7b-web-app.modal.run"
+	}
+
+	extractionSvc := extraction.NewExtractionService(extraction.Config{
+		MLServiceURL:     mlServiceURL,
+		GeminiAPIKey:     os.Getenv("GEMINI_API_KEY"),
+		EnableML:         true,
+		EnableValidation: os.Getenv("GEMINI_API_KEY") != "",
+	})
+	service.SetExtractionService(extractionSvc)
+	log.Printf("✅ Document extraction enabled (ML service: %s)", mlServiceURL)
 
 	// Create the finance service
 	financeService := service.NewFinanceService(storeImpl)

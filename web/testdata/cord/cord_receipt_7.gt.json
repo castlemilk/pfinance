@@ -1,0 +1,27 @@
+{
+  "document_type": "receipt",
+  "source": "CORD dataset (Indonesian receipts)",
+  "currency": "IDR",
+  "transactions": [
+    {
+      "description": "NASI + AYAM KATSU TER...",
+      "amount": -31819.0,
+      "quantity": "1"
+    },
+    {
+      "description": "TEH PANAS",
+      "amount": -5455.0,
+      "quantity": "1"
+    },
+    {
+      "description": "ES TEH MANIS",
+      "amount": -7273.0,
+      "quantity": "1"
+    },
+    {
+      "description": "CH CORDON BLEU NASI",
+      "amount": -42728.0,
+      "quantity": "1"
+    }
+  ]
+}

@@ -3,6 +3,7 @@ import { IBM_Plex_Mono, Space_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from './context/ThemeContext';
 import { Toaster } from "../components/ui/toaster";
+import { FirebaseInitBanner } from './components/FirebaseInitBanner';
 
 const ibmPlexMono = IBM_Plex_Mono({
   variable: "--font-terminal",
@@ -102,6 +103,38 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* FOUC prevention for theme and palette */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('pfinance-theme');
+                  var palette = localStorage.getItem('pfinance-palette');
+                  var root = document.documentElement;
+
+                  // Apply theme class
+                  if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    root.classList.add('dark');
+                  } else if (theme === 'light') {
+                    root.classList.add('light');
+                  } else if (!theme || theme === 'system') {
+                    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                      root.classList.add('dark');
+                    } else {
+                      root.classList.add('light');
+                    }
+                  }
+
+                  // Apply palette attribute (only if not default amber-terminal)
+                  if (palette && palette !== 'amber-terminal') {
+                    root.dataset.palette = palette;
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
       </head>
       <body
         className={`${ibmPlexMono.variable} ${spaceMono.variable} font-sans antialiased`}
@@ -114,6 +147,7 @@ export default function RootLayout({
           Skip to main content
         </a>
         <ThemeProvider defaultTheme="system">
+          <FirebaseInitBanner />
           {children}
           <Toaster />
         </ThemeProvider>

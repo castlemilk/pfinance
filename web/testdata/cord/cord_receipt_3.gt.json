@@ -1,0 +1,70 @@
+{
+  "document_type": "receipt",
+  "source": "CORD dataset (Indonesian receipts)",
+  "transactions": [
+    {
+      "description": "HAKAU UDANG",
+      "amount": -92000.0,
+      "quantity": "4"
+    },
+    {
+      "description": "SIAO MAI BABI",
+      "amount": -80000.0,
+      "quantity": "4"
+    },
+    {
+      "description": "CEKER AYAM",
+      "amount": -60000.0,
+      "quantity": "3"
+    },
+    {
+      "description": "BAKPAO BKR C CRISPY",
+      "amount": -42000.0,
+      "quantity": "2"
+    },
+    {
+      "description": "TAHU GORENG CRISPY",
+      "amount": -60000.0,
+      "quantity": "3"
+    }
+  ],
+  "raw_ground_truth": {
+    "menu": [
+      {
+        "nm": "HAKAU UDANG",
+        "cnt": "4",
+        "price": "92,000"
+      },
+      {
+        "nm": "SIAO MAI BABI",
+        "cnt": "4",
+        "price": "80,000"
+      },
+      {
+        "nm": "CEKER AYAM",
+        "cnt": "3",
+        "price": "60,000"
+      },
+      {
+        "nm": "BAKPAO BKR C CRISPY",
+        "cnt": "2",
+        "price": "42,000"
+      },
+      {
+        "nm": "TAHU GORENG CRISPY",
+        "cnt": "3",
+        "price": "60,000"
+      }
+    ],
+    "sub_total": {
+      "subtotal_price": "334,000"
+    },
+    "total": {
+      "total_price": "334,000",
+      "cashprice": "350,000",
+      "changeprice": "-16,000",
+      "menutype_cnt": "5",
+      "menuqty_cnt": "16"
+    }
+  }
+}

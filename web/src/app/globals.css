@@ -7,8 +7,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-terminal);
+  --font-mono: var(--font-terminal-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -44,154 +44,494 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* ============================================
+   AMBER TERMINAL GLOW THEME
+   Retro-futuristic CRT aesthetic with 70s warmth
+   ============================================ */
+
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+
+  /* Light Mode - "Paper Ledger" */
+  --background: oklch(0.965 0.015 85);           /* Warm cream paper */
+  --foreground: oklch(0.32 0.03 50);              /* Chocolate brown */
+  --card: oklch(0.975 0.012 85);                  /* Slightly lighter cream */
+  --card-foreground: oklch(0.32 0.03 50);         /* Chocolate brown */
+  --popover: oklch(0.975 0.012 85);
+  --popover-foreground: oklch(0.32 0.03 50);
+  --primary: oklch(0.72 0.16 55);                 /* Amber orange */
+  --primary-foreground: oklch(0.25 0.02 50);      /* Dark brown */
+  --secondary: oklch(0.62 0.08 130);              /* Avocado green */
+  --secondary-foreground: oklch(0.98 0.01 85);    /* Light cream */
+  --muted: oklch(0.92 0.01 85);                   /* Muted cream */
+  --muted-foreground: oklch(0.45 0.02 50);        /* Warm gray-brown */
+  --accent: oklch(0.55 0.14 35);                  /* Rust red */
+  --accent-foreground: oklch(0.98 0.01 85);       /* Light cream */
+  --destructive: oklch(0.55 0.2 25);              /* Deep rust */
+  --border: oklch(0.85 0.025 70);                 /* Warm tan border */
+  --input: oklch(0.88 0.02 75);                   /* Input background */
+  --ring: oklch(0.72 0.16 55);                    /* Amber focus ring */
+
+  /* Chart colors - Amber Terminal palette */
+  --chart-1: oklch(0.72 0.16 55);                 /* Amber */
+  --chart-2: oklch(0.62 0.08 130);                /* Avocado */
+  --chart-3: oklch(0.55 0.14 35);                 /* Rust */
+  --chart-4: oklch(0.65 0.12 75);                 /* Golden tan */
+  --chart-5: oklch(0.58 0.06 130);                /* Olive */
+
+  /* Sidebar - Light mode */
+  --sidebar: oklch(0.96 0.012 85);
+  --sidebar-foreground: oklch(0.32 0.03 50);
+  --sidebar-primary: oklch(0.72 0.16 55);
+  --sidebar-primary-foreground: oklch(0.25 0.02 50);
+  --sidebar-accent: oklch(0.92 0.02 80);
+  --sidebar-accent-foreground: oklch(0.32 0.03 50);
+  --sidebar-border: oklch(0.85 0.025 70);
+  --sidebar-ring: oklch(0.72 0.16 55);
+
+  /* Glow color for amber terminal */
+  --glow-color: oklch(0.72 0.16 55);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Dark Mode - "CRT Terminal" */
+  --background: oklch(0.12 0.005 60);             /* CRT black */
+  --foreground: oklch(0.9 0.04 85);               /* Warm sand text */
+  --card: oklch(0.16 0.008 55);                   /* Slightly lifted dark */
+  --card-foreground: oklch(0.9 0.04 85);          /* Warm sand */
+  --popover: oklch(0.16 0.008 55);
+  --popover-foreground: oklch(0.9 0.04 85);
+  --primary: oklch(0.75 0.17 55);                 /* Bright amber */
+  --primary-foreground: oklch(0.12 0.005 60);     /* CRT black */
+  --secondary: oklch(0.7 0.1 130);                /* Sage green */
+  --secondary-foreground: oklch(0.12 0.005 60);   /* CRT black */
+  --muted: oklch(0.22 0.01 55);                   /* Dark muted */
+  --muted-foreground: oklch(0.65 0.03 75);        /* Dimmed amber */
+  --accent: oklch(0.65 0.16 45);                  /* Tawny orange */
+  --accent-foreground: oklch(0.12 0.005 60);      /* CRT black */
+  --destructive: oklch(0.6 0.18 30);              /* Warm red */
+  --border: oklch(0.75 0.17 55 / 20%);            /* Amber glow border */
+  --input: oklch(0.2 0.01 55);                    /* Input background */
+  --ring: oklch(0.75 0.17 55);                    /* Amber focus ring */
+
+  /* Chart colors - Amber Terminal palette (brighter for dark mode) */
+  --chart-1: oklch(0.75 0.17 55);                 /* Bright amber */
+  --chart-2: oklch(0.7 0.1 130);                  /* Sage green */
+  --chart-3: oklch(0.65 0.16 45);                 /* Tawny */
+  --chart-4: oklch(0.7 0.12 75);                  /* Golden */
+  --chart-5: oklch(0.65 0.08 130);                /* Muted olive */
+
+  /* Sidebar - Dark mode */
+  --sidebar: oklch(0.14 0.006 55);
+  --sidebar-foreground: oklch(0.9 0.04 85);
+  --sidebar-primary: oklch(0.75 0.17 55);
+  --sidebar-primary-foreground: oklch(0.12 0.005 60);
+  --sidebar-accent: oklch(0.22 0.01 55);
+  --sidebar-accent-foreground: oklch(0.9 0.04 85);
+  --sidebar-border: oklch(0.75 0.17 55 / 15%);
+  --sidebar-ring: oklch(0.75 0.17 55);
+
+  /* Glow color for amber terminal */
+  --glow-color: oklch(0.75 0.17 55);
+}
+
+/* ============================================
+   SOFT RETRO CHIC PALETTE
+   1980s pastel diary aesthetic
+   ============================================ */
+
+[data-palette="retro-chic"] {
+  /* Light Mode - "Pastel Diary" */
+  --background: oklch(0.98 0.01 70);              /* Soft cream */
+  --foreground: oklch(0.28 0.02 30);              /* Deep plum-brown */
+  --card: oklch(0.985 0.008 70);                  /* Slightly lighter cream */
+  --card-foreground: oklch(0.28 0.02 30);
+  --popover: oklch(0.985 0.008 70);
+  --popover-foreground: oklch(0.28 0.02 30);
+  --primary: oklch(0.72 0.08 350);                /* Dusty rose */
+  --primary-foreground: oklch(0.98 0.01 70);      /* Light cream */
+  --secondary: oklch(0.78 0.06 230);              /* Powder blue */
+  --secondary-foreground: oklch(0.25 0.02 230);   /* Deep blue */
+  --muted: oklch(0.94 0.01 70);                   /* Muted cream */
+  --muted-foreground: oklch(0.45 0.02 30);        /* Soft gray-brown */
+  --accent: oklch(0.68 0.08 90);                  /* Golden mustard */
+  --accent-foreground: oklch(0.25 0.02 90);       /* Dark mustard */
+  --destructive: oklch(0.55 0.18 15);             /* Muted coral */
+  --border: oklch(0.88 0.03 350);                 /* Rose-tinted border */
+  --input: oklch(0.92 0.02 70);                   /* Input background */
+  --ring: oklch(0.72 0.08 350);                   /* Rose focus ring */
+
+  /* Chart colors - Retro Chic palette */
+  --chart-1: oklch(0.72 0.08 350);                /* Dusty rose */
+  --chart-2: oklch(0.78 0.06 230);                /* Powder blue */
+  --chart-3: oklch(0.68 0.08 90);                 /* Golden mustard */
+  --chart-4: oklch(0.75 0.07 180);                /* Soft teal */
+  --chart-5: oklch(0.70 0.06 300);                /* Lavender */
+
+  /* Sidebar - Light mode */
+  --sidebar: oklch(0.975 0.01 70);
+  --sidebar-foreground: oklch(0.28 0.02 30);
+  --sidebar-primary: oklch(0.72 0.08 350);
+  --sidebar-primary-foreground: oklch(0.98 0.01 70);
+  --sidebar-accent: oklch(0.94 0.02 350);
+  --sidebar-accent-foreground: oklch(0.28 0.02 30);
+  --sidebar-border: oklch(0.88 0.03 350);
+  --sidebar-ring: oklch(0.72 0.08 350);
+
+  /* Glow color */
+  --glow-color: oklch(0.72 0.08 350);
+}
+
+[data-palette="retro-chic"].dark {
+  /* Dark Mode - "Oiled Bronze" */
+  --background: oklch(0.14 0.015 30);             /* Oiled bronze */
+  --foreground: oklch(0.92 0.02 70);              /* Warm cream text */
+  --card: oklch(0.18 0.015 30);                   /* Slightly lifted dark */
+  --card-foreground: oklch(0.92 0.02 70);
+  --popover: oklch(0.18 0.015 30);
+  --popover-foreground: oklch(0.92 0.02 70);
+  --primary: oklch(0.75 0.1 350);                 /* Bright dusty rose */
+  --primary-foreground: oklch(0.14 0.015 30);     /* Dark background */
+  --secondary: oklch(0.72 0.08 230);              /* Muted powder blue */
+  --secondary-foreground: oklch(0.14 0.015 30);
+  --muted: oklch(0.24 0.015 30);                  /* Dark muted */
+  --muted-foreground: oklch(0.68 0.04 350);       /* Dimmed rose */
+  --accent: oklch(0.7 0.1 90);                    /* Golden mustard */
+  --accent-foreground: oklch(0.14 0.015 30);
+  --destructive: oklch(0.6 0.16 15);              /* Coral */
+  --border: oklch(0.75 0.1 350 / 20%);            /* Rose glow border */
+  --input: oklch(0.22 0.015 30);                  /* Input background */
+  --ring: oklch(0.75 0.1 350);                    /* Rose focus ring */
+
+  /* Chart colors - Retro Chic palette (brighter for dark mode) */
+  --chart-1: oklch(0.75 0.1 350);                 /* Bright rose */
+  --chart-2: oklch(0.72 0.08 230);                /* Powder blue */
+  --chart-3: oklch(0.7 0.1 90);                   /* Golden */
+  --chart-4: oklch(0.72 0.08 180);                /* Teal */
+  --chart-5: oklch(0.7 0.08 300);                 /* Lavender */
+
+  /* Sidebar - Dark mode */
+  --sidebar: oklch(0.16 0.015 30);
+  --sidebar-foreground: oklch(0.92 0.02 70);
+  --sidebar-primary: oklch(0.75 0.1 350);
+  --sidebar-primary-foreground: oklch(0.14 0.015 30);
+  --sidebar-accent: oklch(0.24 0.015 30);
+  --sidebar-accent-foreground: oklch(0.92 0.02 70);
+  --sidebar-border: oklch(0.75 0.1 350 / 15%);
+  --sidebar-ring: oklch(0.75 0.1 350);
+
+  /* Glow color */
+  --glow-color: oklch(0.75 0.1 350);
+}
+
+/* ============================================
+   MID-CENTURY MINT & PEACH PALETTE
+   1950s kitchen appliance vibes
+   ============================================ */
+
+[data-palette="midcentury"] {
+  /* Light Mode - "Peach-tinted White" */
+  --background: oklch(0.98 0.015 60);             /* Peach-tinted white */
+  --foreground: oklch(0.25 0.03 160);             /* Deep pine */
+  --card: oklch(0.985 0.012 60);                  /* Slightly lighter */
+  --card-foreground: oklch(0.25 0.03 160);
+  --popover: oklch(0.985 0.012 60);
+  --popover-foreground: oklch(0.25 0.03 160);
+  --primary: oklch(0.72 0.1 165);                 /* Mint green */
+  --primary-foreground: oklch(0.2 0.03 165);      /* Deep mint */
+  --secondary: oklch(0.78 0.08 35);               /* Peach coral */
+  --secondary-foreground: oklch(0.3 0.05 35);     /* Deep coral */
+  --muted: oklch(0.94 0.01 60);                   /* Muted cream */
+  --muted-foreground: oklch(0.45 0.02 160);       /* Soft pine */
+  --accent: oklch(0.78 0.1 85);                   /* Honey gold */
+  --accent-foreground: oklch(0.3 0.05 85);        /* Dark honey */
+  --destructive: oklch(0.58 0.18 25);             /* Warm coral red */
+  --border: oklch(0.88 0.04 165);                 /* Mint-tinted border */
+  --input: oklch(0.92 0.02 60);                   /* Input background */
+  --ring: oklch(0.72 0.1 165);                    /* Mint focus ring */
+
+  /* Chart colors - Mid-century palette */
+  --chart-1: oklch(0.72 0.1 165);                 /* Mint green */
+  --chart-2: oklch(0.78 0.08 35);                 /* Peach coral */
+  --chart-3: oklch(0.78 0.1 85);                  /* Honey gold */
+  --chart-4: oklch(0.7 0.08 200);                 /* Sky blue */
+  --chart-5: oklch(0.72 0.06 130);                /* Sage */
+
+  /* Sidebar - Light mode */
+  --sidebar: oklch(0.975 0.012 60);
+  --sidebar-foreground: oklch(0.25 0.03 160);
+  --sidebar-primary: oklch(0.72 0.1 165);
+  --sidebar-primary-foreground: oklch(0.2 0.03 165);
+  --sidebar-accent: oklch(0.94 0.03 165);
+  --sidebar-accent-foreground: oklch(0.25 0.03 160);
+  --sidebar-border: oklch(0.88 0.04 165);
+  --sidebar-ring: oklch(0.72 0.1 165);
+
+  /* Glow color */
+  --glow-color: oklch(0.72 0.1 165);
+}
+
+[data-palette="midcentury"].dark {
+  /* Dark Mode - "Deep Pine Green" */
+  --background: oklch(0.13 0.025 160);            /* Deep pine green */
+  --foreground: oklch(0.92 0.02 60);              /* Warm cream text */
+  --card: oklch(0.17 0.025 160);                  /* Slightly lifted dark */
+  --card-foreground: oklch(0.92 0.02 60);
+  --popover: oklch(0.17 0.025 160);
+  --popover-foreground: oklch(0.92 0.02 60);
+  --primary: oklch(0.75 0.12 165);                /* Bright mint */
+  --primary-foreground: oklch(0.13 0.025 160);    /* Dark background */
+  --secondary: oklch(0.75 0.1 35);                /* Bright peach */
+  --secondary-foreground: oklch(0.13 0.025 160);
+  --muted: oklch(0.22 0.02 160);                  /* Dark muted pine */
+  --muted-foreground: oklch(0.68 0.06 165);       /* Dimmed mint */
+  --accent: oklch(0.75 0.12 85);                  /* Bright honey */
+  --accent-foreground: oklch(0.13 0.025 160);
+  --destructive: oklch(0.62 0.16 25);             /* Coral */
+  --border: oklch(0.75 0.12 165 / 20%);           /* Mint glow border */
+  --input: oklch(0.2 0.02 160);                   /* Input background */
+  --ring: oklch(0.75 0.12 165);                   /* Mint focus ring */
+
+  /* Chart colors - Mid-century palette (brighter for dark mode) */
+  --chart-1: oklch(0.75 0.12 165);                /* Bright mint */
+  --chart-2: oklch(0.75 0.1 35);                  /* Peach */
+  --chart-3: oklch(0.75 0.12 85);                 /* Honey */
+  --chart-4: oklch(0.7 0.1 200);                  /* Sky blue */
+  --chart-5: oklch(0.7 0.08 130);                 /* Sage */
+
+  /* Sidebar - Dark mode */
+  --sidebar: oklch(0.15 0.025 160);
+  --sidebar-foreground: oklch(0.92 0.02 60);
+  --sidebar-primary: oklch(0.75 0.12 165);
+  --sidebar-primary-foreground: oklch(0.13 0.025 160);
+  --sidebar-accent: oklch(0.22 0.02 160);
+  --sidebar-accent-foreground: oklch(0.92 0.02 60);
+  --sidebar-border: oklch(0.75 0.12 165 / 15%);
+  --sidebar-ring: oklch(0.75 0.12 165);
+
+  /* Glow color */
+  --glow-color: oklch(0.75 0.12 165);
+}
+
+/* ============================================
+   EARTHY TERRACOTTA & SAGE PALETTE
+   Organic rustic aesthetic
+   ============================================ */
+
+[data-palette="terracotta"] {
+  /* Light Mode - "Vintage Cream" */
+  --background: oklch(0.97 0.012 80);             /* Vintage cream */
+  --foreground: oklch(0.22 0.02 40);              /* Charcoal brown */
+  --card: oklch(0.975 0.01 80);                   /* Slightly lighter */
+  --card-foreground: oklch(0.22 0.02 40);
+  --popover: oklch(0.975 0.01 80);
+  --popover-foreground: oklch(0.22 0.02 40);
+  --primary: oklch(0.62 0.12 40);                 /* Terracotta clay */
+  --primary-foreground: oklch(0.97 0.01 80);      /* Light cream */
+  --secondary: oklch(0.65 0.05 120);              /* Sage green */
+  --secondary-foreground: oklch(0.25 0.03 120);   /* Deep sage */
+  --muted: oklch(0.93 0.01 80);                   /* Muted cream */
+  --muted-foreground: oklch(0.45 0.02 40);        /* Warm gray-brown */
+  --accent: oklch(0.58 0.04 130);                 /* Olive gray */
+  --accent-foreground: oklch(0.97 0.01 80);       /* Light cream */
+  --destructive: oklch(0.52 0.16 25);             /* Deep rust */
+  --border: oklch(0.85 0.03 40);                  /* Terra-tinted border */
+  --input: oklch(0.91 0.015 80);                  /* Input background */
+  --ring: oklch(0.62 0.12 40);                    /* Terracotta focus ring */
+
+  /* Chart colors - Terracotta palette */
+  --chart-1: oklch(0.62 0.12 40);                 /* Terracotta */
+  --chart-2: oklch(0.65 0.05 120);                /* Sage green */
+  --chart-3: oklch(0.58 0.04 130);                /* Olive gray */
+  --chart-4: oklch(0.68 0.08 70);                 /* Sandy tan */
+  --chart-5: oklch(0.55 0.06 90);                 /* Dark mustard */
+
+  /* Sidebar - Light mode */
+  --sidebar: oklch(0.965 0.01 80);
+  --sidebar-foreground: oklch(0.22 0.02 40);
+  --sidebar-primary: oklch(0.62 0.12 40);
+  --sidebar-primary-foreground: oklch(0.97 0.01 80);
+  --sidebar-accent: oklch(0.93 0.02 40);
+  --sidebar-accent-foreground: oklch(0.22 0.02 40);
+  --sidebar-border: oklch(0.85 0.03 40);
+  --sidebar-ring: oklch(0.62 0.12 40);
+
+  /* Glow color */
+  --glow-color: oklch(0.62 0.12 40);
+}
+
+[data-palette="terracotta"].dark {
+  /* Dark Mode - "Charcoal Brown" */
+  --background: oklch(0.12 0.01 40);              /* Charcoal brown */
+  --foreground: oklch(0.9 0.02 80);               /* Warm cream text */
+  --card: oklch(0.16 0.01 40);                    /* Slightly lifted dark */
+  --card-foreground: oklch(0.9 0.02 80);
+  --popover: oklch(0.16 0.01 40);
+  --popover-foreground: oklch(0.9 0.02 80);
+  --primary: oklch(0.68 0.14 40);                 /* Bright terracotta */
+  --primary-foreground: oklch(0.12 0.01 40);      /* Dark background */
+  --secondary: oklch(0.68 0.06 120);              /* Bright sage */
+  --secondary-foreground: oklch(0.12 0.01 40);
+  --muted: oklch(0.22 0.01 40);                   /* Dark muted */
+  --muted-foreground: oklch(0.62 0.06 40);        /* Dimmed terracotta */
+  --accent: oklch(0.62 0.05 130);                 /* Olive */
+  --accent-foreground: oklch(0.12 0.01 40);
+  --destructive: oklch(0.58 0.14 25);             /* Rust red */
+  --border: oklch(0.68 0.14 40 / 20%);            /* Terra glow border */
+  --input: oklch(0.2 0.01 40);                    /* Input background */
+  --ring: oklch(0.68 0.14 40);                    /* Terracotta focus ring */
+
+  /* Chart colors - Terracotta palette (brighter for dark mode) */
+  --chart-1: oklch(0.68 0.14 40);                 /* Bright terracotta */
+  --chart-2: oklch(0.68 0.06 120);                /* Sage */
+  --chart-3: oklch(0.62 0.05 130);                /* Olive */
+  --chart-4: oklch(0.7 0.08 70);                  /* Sandy tan */
+  --chart-5: oklch(0.6 0.06 90);                  /* Mustard */
+
+  /* Sidebar - Dark mode */
+  --sidebar: oklch(0.14 0.01 40);
+  --sidebar-foreground: oklch(0.9 0.02 80);
+  --sidebar-primary: oklch(0.68 0.14 40);
+  --sidebar-primary-foreground: oklch(0.12 0.01 40);
+  --sidebar-accent: oklch(0.22 0.01 40);
+  --sidebar-accent-foreground: oklch(0.9 0.02 80);
+  --sidebar-border: oklch(0.68 0.14 40 / 15%);
+  --sidebar-ring: oklch(0.68 0.14 40);
+
+  /* Glow color */
+  --glow-color: oklch(0.68 0.14 40);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  
+
   body {
     @apply bg-background text-foreground transition-colors duration-300;
+    font-feature-settings: "ss01", "ss02", "cv01";
   }
-  
+
   html {
     @apply scroll-smooth;
   }
-  
-  /* Enhanced focus styles for better accessibility */
+
+  /* Enhanced focus styles with amber glow */
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-ring;
+    @apply outline-2 outline-offset-2;
+    outline-color: oklch(0.75 0.17 55);
+    box-shadow: 0 0 0 3px oklch(0.75 0.17 55 / 20%);
   }
-  
+
   /* Smooth transitions for theme changes */
   *, *::before, *::after {
-    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity;
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     transition-duration: 150ms;
   }
-  
+
   /* Prevent transition on initial page load */
   .no-transitions * {
     transition: none !important;
   }
+
+  /* Respect reduced motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
 }
 
-/* Theme-specific enhancements */
+/* ============================================
+   THEME-SPECIFIC ENHANCEMENTS
+   ============================================ */
+
+/* Dark mode - Subtle CRT curvature gradient */
 .dark {
-  /* Enhanced dark mode with subtle gradients */
-  background-image: radial-gradient(ellipse at top, rgba(120, 119, 198, 0.03), transparent 50%);
+  background-image: radial-gradient(
+    ellipse at center,
+    oklch(0.15 0.01 55) 0%,
+    oklch(0.12 0.005 60) 70%,
+    oklch(0.10 0.003 60) 100%
+  );
   color-scheme: dark;
 }
 
+/* Light mode - Warm paper texture effect */
 .light {
-  /* Subtle light mode enhancement */
-  background-image: radial-gradient(ellipse at top, rgba(59, 130, 246, 0.02), transparent 50%);
+  background-image: radial-gradient(
+    ellipse at top,
+    oklch(0.97 0.018 80) 0%,
+    oklch(0.965 0.015 85) 100%
+  );
   color-scheme: light;
 }
 
-/* Ensure proper backgrounds for nested elements */
-.dark .border:not([class*="bg-"]) {
-  @apply bg-card/50;
+/* ============================================
+   PHOSPHOR GLOW EFFECTS (Subtle, hover/focus only)
+   Uses --glow-color CSS variable for palette adaptation
+   ============================================ */
+
+/* Glow for text (apply to headings on hover) */
+.amber-glow,
+.palette-glow {
+  text-shadow:
+    0 0 4px var(--glow-color, oklch(0.75 0.17 55)) / 30%,
+    0 0 8px var(--glow-color, oklch(0.75 0.17 55)) / 15%;
 }
 
-/* Better dark mode colors for status indicators */
-.dark .text-green-600 {
-  @apply text-green-400;
+/* Glow effect on hover for interactive elements */
+.glow-hover:hover {
+  box-shadow: 0 0 12px color-mix(in oklch, var(--glow-color, oklch(0.75 0.17 55)) 25%, transparent);
 }
 
-.dark .text-emerald-500 {
-  @apply text-emerald-400;
+/* Dark mode specific glow enhancements */
+.dark .glow-hover:hover {
+  box-shadow: 0 0 16px color-mix(in oklch, var(--glow-color, oklch(0.75 0.17 55)) 35%, transparent);
 }
 
-.dark .text-amber-500 {
-  @apply text-amber-400;
+/* ============================================
+   STATUS INDICATOR COLORS (Terminal palette)
+   ============================================ */
+
+.dark .text-green-600,
+.dark .text-green-500 {
+  color: oklch(0.7 0.12 130);  /* Sage green for dark mode */
 }
 
-.dark .text-red-500 {
-  @apply text-red-400;
+.dark .text-emerald-500,
+.dark .text-emerald-400 {
+  color: oklch(0.68 0.1 135);  /* Muted emerald */
 }
 
-/* Custom animations */
+.dark .text-amber-500,
+.dark .text-amber-400 {
+  color: oklch(0.75 0.17 55);  /* Bright amber */
+}
+
+.dark .text-red-500,
+.dark .text-red-400 {
+  color: oklch(0.65 0.16 35);  /* Rust/tawny red */
+}
+
+/* ============================================
+   CUSTOM ANIMATIONS
+   ============================================ */
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
 @keyframes slideIn {
-  from { 
-    opacity: 0; 
+  from {
+    opacity: 0;
     transform: translateY(-10px);
   }
-  to { 
-    opacity: 1; 
+  to {
+    opacity: 1;
     transform: translateY(0);
   }
 }
@@ -200,6 +540,20 @@
   0% { opacity: 0.8; }
   50% { opacity: 0.4; }
   100% { opacity: 1; }
+}
+
+@keyframes terminalBlink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes phosphorPulse {
+  0%, 100% {
+    text-shadow: 0 0 4px oklch(0.75 0.17 55 / 30%);
+  }
+  50% {
+    text-shadow: 0 0 8px oklch(0.75 0.17 55 / 50%);
+  }
 }
 
 .animate-fadeIn {
@@ -214,59 +568,114 @@
   animation: themeSwitch 0.5s ease-in-out;
 }
 
-/* Enhanced card styles for better theming */
+.animate-blink {
+  animation: terminalBlink 1s step-end infinite;
+}
+
+/* Phosphor pulse on focus (subtle) */
+.dark .focus-phosphor:focus {
+  animation: phosphorPulse 2s ease-in-out infinite;
+}
+
+/* ============================================
+   ENHANCED CARD STYLES
+   ============================================ */
+
 .card-enhanced {
   @apply bg-card/50 backdrop-blur-sm border border-border/50;
 }
 
 .dark .card-enhanced {
   @apply shadow-lg;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.4),
+    0 2px 4px -1px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 oklch(0.75 0.17 55 / 5%);
 }
 
 .light .card-enhanced {
   @apply shadow-md;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 4px 6px -1px rgba(74, 59, 52, 0.1),
+    0 2px 4px -1px rgba(74, 59, 52, 0.06);
 }
 
-/* Add these print styles at the end of the file */
+/* Terminal-style card with amber border glow */
+.card-terminal {
+  @apply bg-card border rounded-lg;
+  position: relative;
+}
+
+.dark .card-terminal {
+  border-color: oklch(0.75 0.17 55 / 20%);
+  box-shadow:
+    0 0 20px oklch(0.75 0.17 55 / 8%),
+    inset 0 1px 0 oklch(0.75 0.17 55 / 5%);
+}
+
+.dark .card-terminal:hover {
+  border-color: oklch(0.75 0.17 55 / 30%);
+  box-shadow: 0 0 25px oklch(0.75 0.17 55 / 12%);
+}
+
+/* ============================================
+   INPUT ENHANCEMENTS
+   ============================================ */
+
+/* Terminal-style inputs with amber focus */
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: oklch(0.75 0.17 55) !important;
+  box-shadow: 0 0 0 3px oklch(0.75 0.17 55 / 15%) !important;
+}
+
+.dark input,
+.dark textarea,
+.dark select {
+  caret-color: oklch(0.75 0.17 55);  /* Amber cursor */
+}
+
+/* ============================================
+   PRINT STYLES
+   ============================================ */
 
 @media print {
   /* Hide elements that shouldn't be printed */
   header, footer, nav, button, .no-print {
     display: none !important;
   }
-  
+
   /* Ensure the calculator takes up the full page */
   body {
     background-color: white;
     margin: 0;
     padding: 0;
   }
-  
+
   /* Set paper size */
   @page {
     size: A4;
     margin: 1cm;
   }
-  
+
   /* Ensure colors and backgrounds print properly */
   * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  
+
   /* Make the calculator fit on the page */
   .SalaryCalculator {
     page-break-inside: avoid;
     break-inside: avoid;
   }
-  
+
   /* Ensure text is readable */
   p, h1, h2, h3, h4, h5, h6, span, div {
     color: black !important;
   }
-  
+
   /* Make sure charts print properly */
   svg {
     max-width: 100%;

@@ -1,0 +1,377 @@
+---
+description: Code patterns, abstractions, and refactoring guidelines for pfinance
+globs: ["backend/**/*.go", "web/src/**/*.ts", "web/src/**/*.tsx"]
+alwaysApply: false
+---
+
+# PFinance Code Patterns & Refactoring Guide
+
+## Backend Patterns
+
+### Pagination Helper (Use This)
+
+```go
+// normalizePageSize returns a valid page size (default 100, max 1000)
+func normalizePageSize(pageSize int32) int32 {
+    if pageSize <= 0 {
+        return 100
+    }
+    if pageSize > 1000 {
+        return 1000
+    }
+    return pageSize
+}
+```
+
+### Date Range Conversion (Use This)
+
+```go
+// convertDateRange converts proto timestamps to time.Time pointers
+func convertDateRange(startDate, endDate *timestamppb.Timestamp) (*time.Time, *time.Time) {
+    var start, end *time.Time
+    if startDate != nil {
+        t := startDate.AsTime()
+        start = &t
+    }
+    if endDate != nil {
+        t := endDate.AsTime()
+        end = &t
+    }
+    return start, end
+}
+```
+
+### Collection Name Resolution (Use This)
+
+```go
+// CollectionConfig defines personal and group collection names
+type CollectionConfig struct {
+    Personal string
+    Group    string
+}
+
+var Collections = map[string]CollectionConfig{
+    "expenses": {Personal: "expenses", Group: "groupExpenses"},
+    "incomes":  {Personal: "incomes", Group: "groupIncomes"},
+    "budgets":  {Personal: "budgets", Group: "groupBudgets"},
+}
+
+// GetCollection returns the appropriate collection name
+func GetCollection(baseType string, groupID string) string {
+    config := Collections[baseType]
+    if groupID != "" {
+        return config.Group
+    }
+    return config.Personal
+}
+```
+
+### Store Error Wrapping (Use This)
+
+```go
+// wrapStoreError wraps store errors with operation context
+func wrapStoreError(operation string, err error) error {
+    if err == nil {
+        return nil
+    }
+    return fmt.Errorf("failed to %s: %w", operation, err)
+}
+
+// Usage:
+if err := s.store.CreateExpense(ctx, expense); err != nil {
+    return nil, wrapStoreError("create expense", err)
+}
+```
+
+### Firestore Query Builder (Use This)
+
+```go
+type QueryBuilder struct {
+    query firestore.Query
+}
+
+func NewQueryBuilder(collection *firestore.CollectionRef) *QueryBuilder {
+    return &QueryBuilder{query: collection.Query}
+}
+
+func (qb *QueryBuilder) WhereIfSet(field string, op string, value interface{}) *QueryBuilder {
+    if value != nil && value != "" {
+        qb.query = qb.query.Where(field, op, value)
+    }
+    return qb
+}
+
+func (qb *QueryBuilder) DateRange(field string, start, end *time.Time) *QueryBuilder {
+    if start != nil {
+        qb.query = qb.query.Where(field, ">=", *start)
+    }
+    if end != nil {
+        qb.query = qb.query.Where(field, "<=", *end)
+    }
+    return qb
+}
+
+func (qb *QueryBuilder) Limit(size int32) *QueryBuilder {
+    if size > 0 {
+        qb.query = qb.query.Limit(int(size))
+    }
+    return qb
+}
+
+func (qb *QueryBuilder) Execute(ctx context.Context) ([]*firestore.DocumentSnapshot, error) {
+    return qb.query.Documents(ctx).GetAll()
+}
+
+// Usage:
+docs, err := NewQueryBuilder(s.client.Collection(collection)).
+    WhereIfSet("user_id", "==", userID).
+    WhereIfSet("group_id", "==", groupID).
+    DateRange("date", startTime, endTime).
+    Limit(pageSize).
+    Execute(ctx)
+```
+
+---
+
+## Frontend Patterns
+
+### Generic CRUD Hook Pattern
+
+```typescript
+interface CRUDConfig<T, CreateParams, UpdateParams> {
+    entityName: string;
+    storageKey: string;
+    api: {
+        list: (userId: string) => Promise<T[]>;
+        create: (params: CreateParams) => Promise<T>;
+        update: (id: string, params: UpdateParams) => Promise<T>;
+        delete: (id: string) => Promise<void>;
+    };
+    mappers: {
+        toLocal: (proto: any) => T;
+    };
+    localCreate: (params: CreateParams) => T;
+}
+
+export function useGenericCRUD<T extends { id: string }, CreateParams, UpdateParams>(
+    config: CRUDConfig<T, CreateParams, UpdateParams>,
+    options: { effectiveUserId?: string; useApi: boolean; getStorageKey: (key: string) => string }
+) {
+    const [items, setItems] = useState<T[]>([]);
+
+    const loadItems = useCallback(async () => {
+        if (!options.useApi || !options.effectiveUserId) return [];
+        try {
+            const data = await config.api.list(options.effectiveUserId);
+            const mapped = data.map(config.mappers.toLocal);
+            setItems(mapped);
+            return mapped;
+        } catch (err) {
+            console.error(`Failed to load ${config.entityName}:`, err);
+            return [];
+        }
+    }, [options.useApi, options.effectiveUserId]);
+
+    const create = useCallback(async (params: CreateParams) => {
+        if (options.useApi && options.effectiveUserId) {
+            const created = await config.api.create(params);
+            setItems(prev => [...prev, config.mappers.toLocal(created)]);
+        } else {
+            setItems(prev => [...prev, config.localCreate(params)]);
+        }
+    }, [options.useApi, options.effectiveUserId]);
+
+    const update = useCallback(async (id: string, params: UpdateParams) => {
+        if (options.useApi) {
+            const updated = await config.api.update(id, params);
+            setItems(prev => prev.map(item => item.id === id ? config.mappers.toLocal(updated) : item));
+        } else {
+            setItems(prev => prev.map(item => item.id === id ? { ...item, ...params } : item));
+        }
+    }, [options.useApi]);
+
+    const deleteItem = useCallback(async (id: string) => {
+        if (options.useApi) {
+            await config.api.delete(id);
+        }
+        setItems(prev => prev.filter(item => item.id !== id));
+    }, [options.useApi]);
+
+    // LocalStorage sync
+    useEffect(() => {
+        localStorage.setItem(options.getStorageKey(config.storageKey), JSON.stringify(items));
+    }, [items, options.getStorageKey]);
+
+    return { items, setItems, create, update, delete: deleteItem, load: loadItems };
+}
+```
+
+### Type Mapping Best Practices
+
+```typescript
+// PREFER: Use proto types directly
+import { ExpenseCategory, ExpenseFrequency } from '@/gen/pfinance/v1/types_pb';
+export { ExpenseCategory, ExpenseFrequency };
+
+// AVOID: Duplicating type definitions
+// Don't create local enums that mirror proto enums
+
+// If conversion is needed, use centralized mappers
+// File: context/finance/mappers.ts
+export const mapProtoExpenseToLocal = (proto: ProtoExpense): LocalExpense => ({
+    id: proto.id,
+    description: proto.description,
+    amount: proto.amount,
+    category: categoryFromProto[proto.category],
+    // ...
+});
+```
+
+### Error Handling with Connect
+
+```typescript
+import { ConnectError, Code } from "@connectrpc/connect";
+
+async function handleApiCall<T>(
+    operation: () => Promise<T>,
+    options?: { onNotFound?: () => void; onPermissionDenied?: () => void }
+): Promise<T | null> {
+    try {
+        return await operation();
+    } catch (err) {
+        if (err instanceof ConnectError) {
+            switch (err.code) {
+                case Code.NotFound:
+                    options?.onNotFound?.();
+                    return null;
+                case Code.PermissionDenied:
+                    options?.onPermissionDenied?.();
+                    throw err;
+                case Code.Unauthenticated:
+                    // Redirect to login
+                    window.location.href = '/auth';
+                    throw err;
+                default:
+                    console.error('API error:', err);
+                    throw err;
+            }
+        }
+        throw err;
+    }
+}
+```
+
+### Component Consolidation
+
+When you see `EnhancedFoo.tsx` alongside `Foo.tsx`:
+1. Determine which is the current version
+2. Keep one, delete the other
+3. Rename if necessary (drop "Enhanced" prefix)
+
+---
+
+## Proto/API Patterns
+
+### Adding New CRUD Resource
+
+1. Define types in `types.proto`:
+```protobuf
+message NewResource {
+    string id = 1;
+    string user_id = 2;
+    string group_id = 3;  // Optional for group scoping
+    // ... other fields
+    google.protobuf.Timestamp created_at = 10;
+    google.protobuf.Timestamp updated_at = 11;
+}
+```
+
+2. Add RPCs in `finance_service.proto`:
+```protobuf
+rpc CreateNewResource(CreateNewResourceRequest) returns (CreateNewResourceResponse);
+rpc GetNewResource(GetNewResourceRequest) returns (GetNewResourceResponse);
+rpc UpdateNewResource(UpdateNewResourceRequest) returns (UpdateNewResourceResponse);
+rpc DeleteNewResource(DeleteNewResourceRequest) returns (DeleteNewResourceResponse);
+rpc ListNewResources(ListNewResourcesRequest) returns (ListNewResourcesResponse);
+```
+
+3. Run `make proto`
+
+4. Add Store interface methods:
+```go
+type Store interface {
+    // ... existing methods
+    CreateNewResource(ctx context.Context, resource *pfinancev1.NewResource) error
+    GetNewResource(ctx context.Context, id string) (*pfinancev1.NewResource, error)
+    UpdateNewResource(ctx context.Context, resource *pfinancev1.NewResource) error
+    DeleteNewResource(ctx context.Context, id string) error
+    ListNewResources(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, pageSize int32) ([]*pfinancev1.NewResource, error)
+}
+```
+
+5. Implement in both stores (memory.go, firestore.go)
+
+6. Implement handlers in finance_service.go WITH authorization checks
+
+7. Add frontend hook using generic CRUD pattern
+
+---
+
+## Files to Know
+
+### Backend Core
+- `backend/internal/service/finance_service.go` - All RPC handlers
+- `backend/internal/store/store.go` - Store interface
+- `backend/internal/store/firestore.go` - Production store
+- `backend/internal/store/memory.go` - Dev store
+- `backend/internal/auth/interceptor.go` - Auth middleware
+- `backend/internal/auth/local_dev.go` - Dev auth bypass
+
+### Frontend Core
+- `web/src/lib/financeService.ts` - API client setup
+- `web/src/app/context/FinanceContext.tsx` - Main state management
+- `web/src/app/context/finance/hooks/useExpenses.ts` - CRUD hook pattern
+- `web/src/app/context/finance/mappers.ts` - Type conversion
+- `web/src/app/context/AuthWithAdminContext.tsx` - Auth state
+
+### Proto
+- `proto/pfinance/v1/finance_service.proto` - RPC definitions
+- `proto/pfinance/v1/types.proto` - Message types
+- `proto/buf.gen.yaml` - Code generation config
+
+---
+
+## Anti-Patterns to Avoid
+
+### Backend
+```go
+// BAD: Trusting client-provided IDs
+userId := req.Msg.UserId
+
+// BAD: No error code
+return nil, fmt.Errorf("something failed")
+
+// BAD: Hardcoded collection logic
+collection := "expenses"
+if groupId != "" {
+    collection = "groupExpenses"
+}
+
+// BAD: Business logic in store layer
+// Keep calculation/validation in service layer
+```
+
+### Frontend
+```typescript
+// BAD: Duplicating proto types
+type ExpenseCategory = 'Food' | 'Housing' | ...
+
+// BAD: Inline form definitions
+// Use shared form configs
+
+// BAD: Missing error handling on API calls
+await financeClient.deleteExpense({ expenseId: id });
+
+// BAD: Multiple versions of same component
+// EnhancedFoo.tsx + Foo.tsx
+```

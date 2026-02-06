@@ -67,7 +67,7 @@ export default function CTASection() {
             viewport={{ once: true }}
             transition={{ delay: 0.4 }}
           >
-            <Link href="/personal">
+            <Link href="/personal/income/">
               <Button size="lg" variant="terminal" className="text-base px-8 group">
                 Get Started Free
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />

@@ -162,13 +162,14 @@ func (s *FinanceService) ListExpenses(ctx context.Context, req *connect.Request[
 		userID = claims.UID
 	}
 
-	expenses, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, startTime, endTime, pageSize)
+	expenses, nextPageToken, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, startTime, endTime, pageSize, req.Msg.PageToken)
 	if err != nil {
 		return nil, auth.WrapStoreError("list expenses", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.ListExpensesResponse{
-		Expenses: expenses,
+		Expenses:      expenses,
+		NextPageToken: nextPageToken,
 	}), nil
 }
 
@@ -559,13 +560,14 @@ func (s *FinanceService) ListGroups(ctx context.Context, req *connect.Request[pf
 
 	pageSize := auth.NormalizePageSize(req.Msg.PageSize)
 
-	groups, err := s.store.ListGroups(ctx, userID, pageSize)
+	groups, nextPageToken, err := s.store.ListGroups(ctx, userID, pageSize, req.Msg.PageToken)
 	if err != nil {
 		return nil, auth.WrapStoreError("list groups", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.ListGroupsResponse{
-		Groups: groups,
+		Groups:        groups,
+		NextPageToken: nextPageToken,
 	}), nil
 }
 
@@ -592,13 +594,14 @@ func (s *FinanceService) ListInvitations(ctx context.Context, req *connect.Reque
 		status = &req.Msg.Status
 	}
 
-	invitations, err := s.store.ListInvitations(ctx, userEmail, status, pageSize)
+	invitations, nextPageToken, err := s.store.ListInvitations(ctx, userEmail, status, pageSize, req.Msg.PageToken)
 	if err != nil {
 		return nil, auth.WrapStoreError("list invitations", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.ListInvitationsResponse{
-		Invitations: invitations,
+		Invitations:   invitations,
+		NextPageToken: nextPageToken,
 	}), nil
 }
 
@@ -923,13 +926,14 @@ func (s *FinanceService) ListIncomes(ctx context.Context, req *connect.Request[p
 		userID = claims.UID
 	}
 
-	incomes, err := s.store.ListIncomes(ctx, userID, req.Msg.GroupId, startTime, endTime, pageSize)
+	incomes, nextPageToken, err := s.store.ListIncomes(ctx, userID, req.Msg.GroupId, startTime, endTime, pageSize, req.Msg.PageToken)
 	if err != nil {
 		return nil, auth.WrapStoreError("list incomes", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.ListIncomesResponse{
-		Incomes: incomes,
+		Incomes:       incomes,
+		NextPageToken: nextPageToken,
 	}), nil
 }
 
@@ -1180,13 +1184,14 @@ func (s *FinanceService) ListBudgets(ctx context.Context, req *connect.Request[p
 		userID = claims.UID
 	}
 
-	budgets, err := s.store.ListBudgets(ctx, userID, req.Msg.GroupId, req.Msg.IncludeInactive, pageSize)
+	budgets, nextPageToken, err := s.store.ListBudgets(ctx, userID, req.Msg.GroupId, req.Msg.IncludeInactive, pageSize, req.Msg.PageToken)
 	if err != nil {
 		return nil, auth.WrapStoreError("list budgets", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.ListBudgetsResponse{
-		Budgets: budgets,
+		Budgets:       budgets,
+		NextPageToken: nextPageToken,
 	}), nil
 }
 
@@ -1520,7 +1525,7 @@ func (s *FinanceService) GetMemberBalances(ctx context.Context, req *connect.Req
 
 	startTime, endTime := auth.ConvertDateRange(req.Msg.StartDate, req.Msg.EndDate)
 
-	expenses, err := s.store.ListExpenses(ctx, "", req.Msg.GroupId, startTime, endTime, 1000)
+	expenses, _, err := s.store.ListExpenses(ctx, "", req.Msg.GroupId, startTime, endTime, 1000, "")
 	if err != nil {
 		return nil, auth.WrapStoreError("list expenses", err)
 	}
@@ -1666,12 +1671,12 @@ func (s *FinanceService) GetGroupSummary(ctx context.Context, req *connect.Reque
 
 	startTime, endTime := auth.ConvertDateRange(req.Msg.StartDate, req.Msg.EndDate)
 
-	expenses, err := s.store.ListExpenses(ctx, "", req.Msg.GroupId, startTime, endTime, 1000)
+	expenses, _, err := s.store.ListExpenses(ctx, "", req.Msg.GroupId, startTime, endTime, 1000, "")
 	if err != nil {
 		return nil, auth.WrapStoreError("list expenses", err)
 	}
 
-	incomes, err := s.store.ListIncomes(ctx, "", req.Msg.GroupId, startTime, endTime, 1000)
+	incomes, _, err := s.store.ListIncomes(ctx, "", req.Msg.GroupId, startTime, endTime, 1000, "")
 	if err != nil {
 		return nil, auth.WrapStoreError("list incomes", err)
 	}
@@ -1932,13 +1937,14 @@ func (s *FinanceService) ListInviteLinks(ctx context.Context, req *connect.Reque
 
 	pageSize := auth.NormalizePageSize(req.Msg.PageSize)
 
-	links, err := s.store.ListInviteLinks(ctx, req.Msg.GroupId, req.Msg.IncludeInactive, pageSize)
+	links, nextPageToken, err := s.store.ListInviteLinks(ctx, req.Msg.GroupId, req.Msg.IncludeInactive, pageSize, req.Msg.PageToken)
 	if err != nil {
 		return nil, auth.WrapStoreError("list invite links", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.ListInviteLinksResponse{
-		InviteLinks: links,
+		InviteLinks:   links,
+		NextPageToken: nextPageToken,
 	}), nil
 }
 
@@ -2112,13 +2118,14 @@ func (s *FinanceService) ListContributions(ctx context.Context, req *connect.Req
 
 	pageSize := auth.NormalizePageSize(req.Msg.PageSize)
 
-	contributions, err := s.store.ListContributions(ctx, req.Msg.GroupId, req.Msg.UserId, pageSize)
+	contributions, nextPageToken, err := s.store.ListContributions(ctx, req.Msg.GroupId, req.Msg.UserId, pageSize, req.Msg.PageToken)
 	if err != nil {
 		return nil, auth.WrapStoreError("list contributions", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.ListContributionsResponse{
 		Contributions: contributions,
+		NextPageToken: nextPageToken,
 	}), nil
 }
 
@@ -2233,20 +2240,21 @@ func (s *FinanceService) ListIncomeContributions(ctx context.Context, req *conne
 
 	pageSize := auth.NormalizePageSize(req.Msg.PageSize)
 
-	contributions, err := s.store.ListIncomeContributions(ctx, req.Msg.GroupId, req.Msg.UserId, pageSize)
+	contributions, nextPageToken, err := s.store.ListIncomeContributions(ctx, req.Msg.GroupId, req.Msg.UserId, pageSize, req.Msg.PageToken)
 	if err != nil {
 		return nil, auth.WrapStoreError("list income contributions", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.ListIncomeContributionsResponse{
 		Contributions: contributions,
+		NextPageToken: nextPageToken,
 	}), nil
 }
 
 // checkSharedGroupMembership checks if two users share a group
 func (s *FinanceService) checkSharedGroupMembership(ctx context.Context, userID1, userID2 string) (bool, error) {
 	// Get all groups for user1
-	groups, err := s.store.ListGroups(ctx, userID1, 100)
+	groups, _, err := s.store.ListGroups(ctx, userID1, 100, "")
 	if err != nil {
 		return false, err
 	}
@@ -2259,4 +2267,641 @@ func (s *FinanceService) checkSharedGroupMembership(ctx context.Context, userID1
 	}
 
 	return false, nil
+}
+
+// ============================================================================
+// Goal operations
+// ============================================================================
+
+// CreateGoal creates a new financial goal
+func (s *FinanceService) CreateGoal(ctx context.Context, req *connect.Request[pfinancev1.CreateGoalRequest]) (*connect.Response[pfinancev1.CreateGoalResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// For personal goals, verify ownership
+	if req.Msg.GroupId == "" {
+		if req.Msg.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot create goal for another user"))
+		}
+	} else {
+		// For group goals, verify group membership
+		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	// Create default milestones (25%, 50%, 75%, 100%)
+	milestones := []*pfinancev1.GoalMilestone{
+		{Id: uuid.New().String(), Name: "Quarter way there!", TargetPercentage: 25, IsAchieved: false},
+		{Id: uuid.New().String(), Name: "Halfway point!", TargetPercentage: 50, IsAchieved: false},
+		{Id: uuid.New().String(), Name: "Three-quarters done!", TargetPercentage: 75, IsAchieved: false},
+		{Id: uuid.New().String(), Name: "Goal achieved!", TargetPercentage: 100, IsAchieved: false},
+	}
+
+	goal := &pfinancev1.FinancialGoal{
+		Id:            uuid.New().String(),
+		UserId:        req.Msg.UserId,
+		GroupId:       req.Msg.GroupId,
+		Name:          req.Msg.Name,
+		Description:   req.Msg.Description,
+		GoalType:      req.Msg.GoalType,
+		TargetAmount:  req.Msg.TargetAmount,
+		CurrentAmount: req.Msg.InitialAmount,
+		StartDate:     req.Msg.StartDate,
+		TargetDate:    req.Msg.TargetDate,
+		Status:        pfinancev1.GoalStatus_GOAL_STATUS_ACTIVE,
+		CategoryIds:   req.Msg.CategoryIds,
+		Icon:          req.Msg.Icon,
+		Color:         req.Msg.Color,
+		Milestones:    milestones,
+		CreatedAt:     timestamppb.Now(),
+		UpdatedAt:     timestamppb.Now(),
+	}
+
+	if err := s.store.CreateGoal(ctx, goal); err != nil {
+		return nil, auth.WrapStoreError("create goal", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.CreateGoalResponse{
+		Goal: goal,
+	}), nil
+}
+
+// GetGoal retrieves a goal by ID
+func (s *FinanceService) GetGoal(ctx context.Context, req *connect.Request[pfinancev1.GetGoalRequest]) (*connect.Response[pfinancev1.GetGoalResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	goal, err := s.store.GetGoal(ctx, req.Msg.GoalId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("goal not found"))
+	}
+
+	// Check authorization
+	if goal.GroupId == "" {
+		// Personal goal - must be owner
+		if goal.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot access another user's goal"))
+		}
+	} else {
+		// Group goal - must be group member
+		group, err := s.store.GetGroup(ctx, goal.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	return connect.NewResponse(&pfinancev1.GetGoalResponse{
+		Goal: goal,
+	}), nil
+}
+
+// UpdateGoal updates an existing goal
+func (s *FinanceService) UpdateGoal(ctx context.Context, req *connect.Request[pfinancev1.UpdateGoalRequest]) (*connect.Response[pfinancev1.UpdateGoalResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	existing, err := s.store.GetGoal(ctx, req.Msg.GoalId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("goal not found"))
+	}
+
+	// Check authorization
+	if existing.GroupId == "" {
+		// Personal goal - must be owner
+		if existing.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot update another user's goal"))
+		}
+	} else {
+		// Group goal - must be group admin/owner
+		group, err := s.store.GetGroup(ctx, existing.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupAdminOrOwner(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("only group admins can update group goals"))
+		}
+	}
+
+	// Update fields
+	if req.Msg.Name != "" {
+		existing.Name = req.Msg.Name
+	}
+	if req.Msg.Description != "" {
+		existing.Description = req.Msg.Description
+	}
+	if req.Msg.TargetAmount > 0 {
+		existing.TargetAmount = req.Msg.TargetAmount
+	}
+	if req.Msg.TargetDate != nil {
+		existing.TargetDate = req.Msg.TargetDate
+	}
+	if req.Msg.Status != pfinancev1.GoalStatus_GOAL_STATUS_UNSPECIFIED {
+		existing.Status = req.Msg.Status
+	}
+	if len(req.Msg.CategoryIds) > 0 {
+		existing.CategoryIds = req.Msg.CategoryIds
+	}
+	if req.Msg.Icon != "" {
+		existing.Icon = req.Msg.Icon
+	}
+	if req.Msg.Color != "" {
+		existing.Color = req.Msg.Color
+	}
+	existing.UpdatedAt = timestamppb.Now()
+
+	if err := s.store.UpdateGoal(ctx, existing); err != nil {
+		return nil, auth.WrapStoreError("update goal", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.UpdateGoalResponse{
+		Goal: existing,
+	}), nil
+}
+
+// DeleteGoal deletes a goal
+func (s *FinanceService) DeleteGoal(ctx context.Context, req *connect.Request[pfinancev1.DeleteGoalRequest]) (*connect.Response[emptypb.Empty], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	existing, err := s.store.GetGoal(ctx, req.Msg.GoalId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("goal not found"))
+	}
+
+	// Check authorization
+	if existing.GroupId == "" {
+		// Personal goal - must be owner
+		if existing.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot delete another user's goal"))
+		}
+	} else {
+		// Group goal - must be group admin/owner
+		group, err := s.store.GetGroup(ctx, existing.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupAdminOrOwner(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("only group admins can delete group goals"))
+		}
+	}
+
+	if err := s.store.DeleteGoal(ctx, req.Msg.GoalId); err != nil {
+		return nil, auth.WrapStoreError("delete goal", err)
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// ListGoals lists goals for a user or group
+func (s *FinanceService) ListGoals(ctx context.Context, req *connect.Request[pfinancev1.ListGoalsRequest]) (*connect.Response[pfinancev1.ListGoalsResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// For personal goals, verify ownership
+	if req.Msg.GroupId == "" {
+		if req.Msg.UserId != "" && req.Msg.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot list another user's goals"))
+		}
+	} else {
+		// For group goals, verify group membership
+		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	// Use authenticated user ID if not specified
+	userID := req.Msg.UserId
+	if userID == "" && req.Msg.GroupId == "" {
+		userID = claims.UID
+	}
+
+	pageSize := auth.NormalizePageSize(req.Msg.PageSize)
+
+	goals, nextPageToken, err := s.store.ListGoals(ctx, userID, req.Msg.GroupId, req.Msg.Status, req.Msg.GoalType, pageSize, req.Msg.PageToken)
+	if err != nil {
+		return nil, auth.WrapStoreError("list goals", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.ListGoalsResponse{
+		Goals:         goals,
+		NextPageToken: nextPageToken,
+	}), nil
+}
+
+// GetGoalProgress retrieves the progress of a goal
+func (s *FinanceService) GetGoalProgress(ctx context.Context, req *connect.Request[pfinancev1.GetGoalProgressRequest]) (*connect.Response[pfinancev1.GetGoalProgressResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// First get the goal to check authorization
+	goal, err := s.store.GetGoal(ctx, req.Msg.GoalId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("goal not found"))
+	}
+
+	// Check authorization
+	if goal.GroupId == "" {
+		// Personal goal - must be owner
+		if goal.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot access another user's goal progress"))
+		}
+	} else {
+		// Group goal - must be group member
+		group, err := s.store.GetGroup(ctx, goal.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	// Determine as-of date
+	asOfDate := time.Now()
+	if req.Msg.AsOfDate != nil {
+		asOfDate = req.Msg.AsOfDate.AsTime()
+	}
+
+	progress, err := s.store.GetGoalProgress(ctx, req.Msg.GoalId, asOfDate)
+	if err != nil {
+		return nil, auth.WrapStoreError("get goal progress", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.GetGoalProgressResponse{
+		Progress: progress,
+	}), nil
+}
+
+// ContributeToGoal adds a contribution to a goal
+func (s *FinanceService) ContributeToGoal(ctx context.Context, req *connect.Request[pfinancev1.ContributeToGoalRequest]) (*connect.Response[pfinancev1.ContributeToGoalResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the goal
+	goal, err := s.store.GetGoal(ctx, req.Msg.GoalId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("goal not found"))
+	}
+
+	// Check authorization
+	if goal.GroupId == "" {
+		// Personal goal - must be owner
+		if goal.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot contribute to another user's goal"))
+		}
+	} else {
+		// Group goal - must be group member
+		group, err := s.store.GetGroup(ctx, goal.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	// Verify goal is active
+	if goal.Status != pfinancev1.GoalStatus_GOAL_STATUS_ACTIVE {
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("can only contribute to active goals"))
+	}
+
+	// Create the contribution record
+	contribution := &pfinancev1.GoalContribution{
+		Id:            uuid.New().String(),
+		GoalId:        req.Msg.GoalId,
+		UserId:        claims.UID,
+		Amount:        req.Msg.Amount,
+		Note:          req.Msg.Note,
+		ContributedAt: timestamppb.Now(),
+	}
+
+	if err := s.store.CreateGoalContribution(ctx, contribution); err != nil {
+		return nil, auth.WrapStoreError("create goal contribution", err)
+	}
+
+	// Update goal current amount
+	goal.CurrentAmount += req.Msg.Amount
+	goal.UpdatedAt = timestamppb.Now()
+
+	// Check and update milestones
+	percentageComplete := (goal.CurrentAmount / goal.TargetAmount) * 100
+	for _, milestone := range goal.Milestones {
+		if !milestone.IsAchieved && percentageComplete >= milestone.TargetPercentage {
+			milestone.IsAchieved = true
+			milestone.AchievedAt = timestamppb.Now()
+		}
+	}
+
+	// Check if goal is completed
+	if goal.CurrentAmount >= goal.TargetAmount {
+		goal.Status = pfinancev1.GoalStatus_GOAL_STATUS_COMPLETED
+	}
+
+	if err := s.store.UpdateGoal(ctx, goal); err != nil {
+		return nil, auth.WrapStoreError("update goal", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.ContributeToGoalResponse{
+		Goal:         goal,
+		Contribution: contribution,
+	}), nil
+}
+
+// ListGoalContributions lists contributions for a goal
+func (s *FinanceService) ListGoalContributions(ctx context.Context, req *connect.Request[pfinancev1.ListGoalContributionsRequest]) (*connect.Response[pfinancev1.ListGoalContributionsResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the goal to check authorization
+	goal, err := s.store.GetGoal(ctx, req.Msg.GoalId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("goal not found"))
+	}
+
+	// Check authorization
+	if goal.GroupId == "" {
+		// Personal goal - must be owner
+		if goal.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot access another user's goal contributions"))
+		}
+	} else {
+		// Group goal - must be group member
+		group, err := s.store.GetGroup(ctx, goal.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	pageSize := auth.NormalizePageSize(req.Msg.PageSize)
+
+	contributions, nextPageToken, err := s.store.ListGoalContributions(ctx, req.Msg.GoalId, pageSize, req.Msg.PageToken)
+	if err != nil {
+		return nil, auth.WrapStoreError("list goal contributions", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.ListGoalContributionsResponse{
+		Contributions: contributions,
+		NextPageToken: nextPageToken,
+	}), nil
+}
+
+// ============================================================================
+// Spending insights operations
+// ============================================================================
+
+// GetSpendingInsights generates spending insights for a user or group
+func (s *FinanceService) GetSpendingInsights(ctx context.Context, req *connect.Request[pfinancev1.GetSpendingInsightsRequest]) (*connect.Response[pfinancev1.GetSpendingInsightsResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// For personal insights, verify ownership
+	if req.Msg.GroupId == "" {
+		if req.Msg.UserId != "" && req.Msg.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot view another user's insights"))
+		}
+	} else {
+		// For group insights, verify group membership
+		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	// Use authenticated user ID if not specified
+	userID := req.Msg.UserId
+	if userID == "" && req.Msg.GroupId == "" {
+		userID = claims.UID
+	}
+
+	// Determine period dates
+	period := req.Msg.Period
+	if period == "" {
+		period = "month"
+	}
+
+	var startDate, endDate time.Time
+	now := time.Now()
+
+	switch period {
+	case "week":
+		// Start of current week (Sunday)
+		daysFromSunday := int(now.Weekday())
+		startDate = now.AddDate(0, 0, -daysFromSunday)
+		endDate = startDate.AddDate(0, 0, 6)
+	case "month":
+		startDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+		endDate = startDate.AddDate(0, 1, -1)
+	case "quarter":
+		month := now.Month()
+		quarterStartMonth := time.Month(((int(month)-1)/3)*3 + 1)
+		startDate = time.Date(now.Year(), quarterStartMonth, 1, 0, 0, 0, 0, now.Location())
+		endDate = startDate.AddDate(0, 3, -1)
+	case "year":
+		startDate = time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
+		endDate = time.Date(now.Year(), 12, 31, 23, 59, 59, 999999999, now.Location())
+	default:
+		startDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+		endDate = startDate.AddDate(0, 1, -1)
+	}
+
+	// Get current period expenses
+	currentExpenses, _, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &startDate, &endDate, 1000, "")
+	if err != nil {
+		return nil, auth.WrapStoreError("list expenses", err)
+	}
+
+	// Get previous period expenses for comparison
+	prevStartDate := startDate.AddDate(0, -1, 0)
+	prevEndDate := endDate.AddDate(0, -1, 0)
+	if period == "year" {
+		prevStartDate = startDate.AddDate(-1, 0, 0)
+		prevEndDate = endDate.AddDate(-1, 0, 0)
+	}
+
+	prevExpenses, _, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &prevStartDate, &prevEndDate, 1000, "")
+	if err != nil {
+		return nil, auth.WrapStoreError("list previous expenses", err)
+	}
+
+	// Calculate spending by category for current and previous periods
+	currentByCategory := make(map[pfinancev1.ExpenseCategory]float64)
+	prevByCategory := make(map[pfinancev1.ExpenseCategory]float64)
+	var currentTotal, prevTotal float64
+
+	for _, e := range currentExpenses {
+		currentByCategory[e.Category] += e.Amount
+		currentTotal += e.Amount
+	}
+
+	for _, e := range prevExpenses {
+		prevByCategory[e.Category] += e.Amount
+		prevTotal += e.Amount
+	}
+
+	// Generate insights
+	var insights []*pfinancev1.SpendingInsight
+	limit := req.Msg.Limit
+	if limit <= 0 {
+		limit = 5
+	}
+
+	// Total spending change insight
+	if prevTotal > 0 {
+		changePercent := ((currentTotal - prevTotal) / prevTotal) * 100
+		insightType := pfinancev1.InsightType_INSIGHT_TYPE_SPENDING_DECREASE
+		title := fmt.Sprintf("You've spent %.0f%% less this %s", -changePercent, period)
+		isPositive := true
+		icon := "📉"
+
+		if changePercent > 0 {
+			insightType = pfinancev1.InsightType_INSIGHT_TYPE_SPENDING_INCREASE
+			title = fmt.Sprintf("Spending is up %.0f%% this %s", changePercent, period)
+			isPositive = false
+			icon = "📈"
+		}
+
+		insights = append(insights, &pfinancev1.SpendingInsight{
+			Id:            uuid.New().String(),
+			Type:          insightType,
+			Title:         title,
+			Description:   fmt.Sprintf("Current: $%.2f vs Previous: $%.2f", currentTotal, prevTotal),
+			Amount:        currentTotal,
+			ChangePercent: changePercent,
+			Period:        period,
+			Icon:          icon,
+			IsPositive:    isPositive,
+			CreatedAt:     timestamppb.Now(),
+		})
+	}
+
+	// Category-specific insights
+	for category, currentAmount := range currentByCategory {
+		if len(insights) >= int(limit) {
+			break
+		}
+
+		prevAmount := prevByCategory[category]
+		if prevAmount == 0 {
+			continue
+		}
+
+		changePercent := ((currentAmount - prevAmount) / prevAmount) * 100
+		if changePercent > 20 || changePercent < -20 {
+			insightType := pfinancev1.InsightType_INSIGHT_TYPE_CATEGORY_TREND
+			categoryName := category.String()
+			title := fmt.Sprintf("%s spending down %.0f%%", categoryName, -changePercent)
+			isPositive := true
+			icon := "✅"
+
+			if changePercent > 0 {
+				title = fmt.Sprintf("%s spending up %.0f%%", categoryName, changePercent)
+				isPositive = false
+				icon = "⚠️"
+			}
+
+			insights = append(insights, &pfinancev1.SpendingInsight{
+				Id:            uuid.New().String(),
+				Type:          insightType,
+				Title:         title,
+				Description:   fmt.Sprintf("$%.2f vs $%.2f last %s", currentAmount, prevAmount, period),
+				Category:      categoryName,
+				Amount:        currentAmount,
+				ChangePercent: changePercent,
+				Period:        period,
+				Icon:          icon,
+				IsPositive:    isPositive,
+				CreatedAt:     timestamppb.Now(),
+			})
+		}
+	}
+
+	// Add savings tip if spending increased
+	if currentTotal > prevTotal && len(insights) < int(limit) {
+		// Find highest spending category
+		var highestCategory pfinancev1.ExpenseCategory
+		var highestAmount float64
+		for cat, amount := range currentByCategory {
+			if amount > highestAmount {
+				highestAmount = amount
+				highestCategory = cat
+			}
+		}
+
+		insights = append(insights, &pfinancev1.SpendingInsight{
+			Id:          uuid.New().String(),
+			Type:        pfinancev1.InsightType_INSIGHT_TYPE_SAVINGS_TIP,
+			Title:       "Savings tip",
+			Description: fmt.Sprintf("Consider reducing %s spending to meet your savings goals. This category accounts for %.0f%% of your spending.", highestCategory.String(), (highestAmount/currentTotal)*100),
+			Category:    highestCategory.String(),
+			Icon:        "💡",
+			IsPositive:  true,
+			CreatedAt:   timestamppb.Now(),
+		})
+	}
+
+	return connect.NewResponse(&pfinancev1.GetSpendingInsightsResponse{
+		Insights:    insights,
+		GeneratedAt: timestamppb.Now(),
+	}), nil
 }

@@ -84,6 +84,34 @@ func (mr *MockStoreMockRecorder) CreateExpense(ctx, expense any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateExpense", reflect.TypeOf((*MockStore)(nil).CreateExpense), ctx, expense)
 }
 
+// CreateGoal mocks base method.
+func (m *MockStore) CreateGoal(ctx context.Context, goal *pfinancev1.FinancialGoal) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateGoal", ctx, goal)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateGoal indicates an expected call of CreateGoal.
+func (mr *MockStoreMockRecorder) CreateGoal(ctx, goal any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateGoal", reflect.TypeOf((*MockStore)(nil).CreateGoal), ctx, goal)
+}
+
+// CreateGoalContribution mocks base method.
+func (m *MockStore) CreateGoalContribution(ctx context.Context, contribution *pfinancev1.GoalContribution) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateGoalContribution", ctx, contribution)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateGoalContribution indicates an expected call of CreateGoalContribution.
+func (mr *MockStoreMockRecorder) CreateGoalContribution(ctx, contribution any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateGoalContribution", reflect.TypeOf((*MockStore)(nil).CreateGoalContribution), ctx, contribution)
+}
+
 // CreateGroup mocks base method.
 func (m *MockStore) CreateGroup(ctx context.Context, group *pfinancev1.FinanceGroup) error {
 	m.ctrl.T.Helper()
@@ -182,6 +210,20 @@ func (mr *MockStoreMockRecorder) DeleteExpense(ctx, expenseID any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteExpense", reflect.TypeOf((*MockStore)(nil).DeleteExpense), ctx, expenseID)
 }
 
+// DeleteGoal mocks base method.
+func (m *MockStore) DeleteGoal(ctx context.Context, goalID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteGoal", ctx, goalID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteGoal indicates an expected call of DeleteGoal.
+func (mr *MockStoreMockRecorder) DeleteGoal(ctx, goalID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteGoal", reflect.TypeOf((*MockStore)(nil).DeleteGoal), ctx, goalID)
+}
+
 // DeleteGroup mocks base method.
 func (m *MockStore) DeleteGroup(ctx context.Context, groupID string) error {
 	m.ctrl.T.Helper()
@@ -268,6 +310,36 @@ func (m *MockStore) GetExpense(ctx context.Context, expenseID string) (*pfinance
 func (mr *MockStoreMockRecorder) GetExpense(ctx, expenseID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExpense", reflect.TypeOf((*MockStore)(nil).GetExpense), ctx, expenseID)
+}
+
+// GetGoal mocks base method.
+func (m *MockStore) GetGoal(ctx context.Context, goalID string) (*pfinancev1.FinancialGoal, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGoal", ctx, goalID)
+	ret0, _ := ret[0].(*pfinancev1.FinancialGoal)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetGoal indicates an expected call of GetGoal.
+func (mr *MockStoreMockRecorder) GetGoal(ctx, goalID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGoal", reflect.TypeOf((*MockStore)(nil).GetGoal), ctx, goalID)
+}
+
+// GetGoalProgress mocks base method.
+func (m *MockStore) GetGoalProgress(ctx context.Context, goalID string, asOfDate time.Time) (*pfinancev1.GoalProgress, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGoalProgress", ctx, goalID, asOfDate)
+	ret0, _ := ret[0].(*pfinancev1.GoalProgress)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetGoalProgress indicates an expected call of GetGoalProgress.
+func (mr *MockStoreMockRecorder) GetGoalProgress(ctx, goalID, asOfDate any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGoalProgress", reflect.TypeOf((*MockStore)(nil).GetGoalProgress), ctx, goalID, asOfDate)
 }
 
 // GetGroup mocks base method.
@@ -391,123 +463,163 @@ func (mr *MockStoreMockRecorder) GetUser(ctx, userID any) *gomock.Call {
 }
 
 // ListBudgets mocks base method.
-func (m *MockStore) ListBudgets(ctx context.Context, userID, groupID string, includeInactive bool, pageSize int32) ([]*pfinancev1.Budget, error) {
+func (m *MockStore) ListBudgets(ctx context.Context, userID, groupID string, includeInactive bool, pageSize int32, pageToken string) ([]*pfinancev1.Budget, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListBudgets", ctx, userID, groupID, includeInactive, pageSize)
+	ret := m.ctrl.Call(m, "ListBudgets", ctx, userID, groupID, includeInactive, pageSize, pageToken)
 	ret0, _ := ret[0].([]*pfinancev1.Budget)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // ListBudgets indicates an expected call of ListBudgets.
-func (mr *MockStoreMockRecorder) ListBudgets(ctx, userID, groupID, includeInactive, pageSize any) *gomock.Call {
+func (mr *MockStoreMockRecorder) ListBudgets(ctx, userID, groupID, includeInactive, pageSize, pageToken any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListBudgets", reflect.TypeOf((*MockStore)(nil).ListBudgets), ctx, userID, groupID, includeInactive, pageSize)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListBudgets", reflect.TypeOf((*MockStore)(nil).ListBudgets), ctx, userID, groupID, includeInactive, pageSize, pageToken)
 }
 
 // ListContributions mocks base method.
-func (m *MockStore) ListContributions(ctx context.Context, groupID, userID string, pageSize int32) ([]*pfinancev1.ExpenseContribution, error) {
+func (m *MockStore) ListContributions(ctx context.Context, groupID, userID string, pageSize int32, pageToken string) ([]*pfinancev1.ExpenseContribution, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListContributions", ctx, groupID, userID, pageSize)
+	ret := m.ctrl.Call(m, "ListContributions", ctx, groupID, userID, pageSize, pageToken)
 	ret0, _ := ret[0].([]*pfinancev1.ExpenseContribution)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // ListContributions indicates an expected call of ListContributions.
-func (mr *MockStoreMockRecorder) ListContributions(ctx, groupID, userID, pageSize any) *gomock.Call {
+func (mr *MockStoreMockRecorder) ListContributions(ctx, groupID, userID, pageSize, pageToken any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListContributions", reflect.TypeOf((*MockStore)(nil).ListContributions), ctx, groupID, userID, pageSize)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListContributions", reflect.TypeOf((*MockStore)(nil).ListContributions), ctx, groupID, userID, pageSize, pageToken)
 }
 
 // ListExpenses mocks base method.
-func (m *MockStore) ListExpenses(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, pageSize int32) ([]*pfinancev1.Expense, error) {
+func (m *MockStore) ListExpenses(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, pageSize int32, pageToken string) ([]*pfinancev1.Expense, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListExpenses", ctx, userID, groupID, startDate, endDate, pageSize)
+	ret := m.ctrl.Call(m, "ListExpenses", ctx, userID, groupID, startDate, endDate, pageSize, pageToken)
 	ret0, _ := ret[0].([]*pfinancev1.Expense)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // ListExpenses indicates an expected call of ListExpenses.
-func (mr *MockStoreMockRecorder) ListExpenses(ctx, userID, groupID, startDate, endDate, pageSize any) *gomock.Call {
+func (mr *MockStoreMockRecorder) ListExpenses(ctx, userID, groupID, startDate, endDate, pageSize, pageToken any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListExpenses", reflect.TypeOf((*MockStore)(nil).ListExpenses), ctx, userID, groupID, startDate, endDate, pageSize)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListExpenses", reflect.TypeOf((*MockStore)(nil).ListExpenses), ctx, userID, groupID, startDate, endDate, pageSize, pageToken)
+}
+
+// ListGoalContributions mocks base method.
+func (m *MockStore) ListGoalContributions(ctx context.Context, goalID string, pageSize int32, pageToken string) ([]*pfinancev1.GoalContribution, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListGoalContributions", ctx, goalID, pageSize, pageToken)
+	ret0, _ := ret[0].([]*pfinancev1.GoalContribution)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListGoalContributions indicates an expected call of ListGoalContributions.
+func (mr *MockStoreMockRecorder) ListGoalContributions(ctx, goalID, pageSize, pageToken any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListGoalContributions", reflect.TypeOf((*MockStore)(nil).ListGoalContributions), ctx, goalID, pageSize, pageToken)
+}
+
+// ListGoals mocks base method.
+func (m *MockStore) ListGoals(ctx context.Context, userID, groupID string, status pfinancev1.GoalStatus, goalType pfinancev1.GoalType, pageSize int32, pageToken string) ([]*pfinancev1.FinancialGoal, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListGoals", ctx, userID, groupID, status, goalType, pageSize, pageToken)
+	ret0, _ := ret[0].([]*pfinancev1.FinancialGoal)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListGoals indicates an expected call of ListGoals.
+func (mr *MockStoreMockRecorder) ListGoals(ctx, userID, groupID, status, goalType, pageSize, pageToken any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListGoals", reflect.TypeOf((*MockStore)(nil).ListGoals), ctx, userID, groupID, status, goalType, pageSize, pageToken)
 }
 
 // ListGroups mocks base method.
-func (m *MockStore) ListGroups(ctx context.Context, userID string, pageSize int32) ([]*pfinancev1.FinanceGroup, error) {
+func (m *MockStore) ListGroups(ctx context.Context, userID string, pageSize int32, pageToken string) ([]*pfinancev1.FinanceGroup, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListGroups", ctx, userID, pageSize)
+	ret := m.ctrl.Call(m, "ListGroups", ctx, userID, pageSize, pageToken)
 	ret0, _ := ret[0].([]*pfinancev1.FinanceGroup)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // ListGroups indicates an expected call of ListGroups.
-func (mr *MockStoreMockRecorder) ListGroups(ctx, userID, pageSize any) *gomock.Call {
+func (mr *MockStoreMockRecorder) ListGroups(ctx, userID, pageSize, pageToken any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListGroups", reflect.TypeOf((*MockStore)(nil).ListGroups), ctx, userID, pageSize)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListGroups", reflect.TypeOf((*MockStore)(nil).ListGroups), ctx, userID, pageSize, pageToken)
 }
 
 // ListIncomeContributions mocks base method.
-func (m *MockStore) ListIncomeContributions(ctx context.Context, groupID, userID string, pageSize int32) ([]*pfinancev1.IncomeContribution, error) {
+func (m *MockStore) ListIncomeContributions(ctx context.Context, groupID, userID string, pageSize int32, pageToken string) ([]*pfinancev1.IncomeContribution, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListIncomeContributions", ctx, groupID, userID, pageSize)
+	ret := m.ctrl.Call(m, "ListIncomeContributions", ctx, groupID, userID, pageSize, pageToken)
 	ret0, _ := ret[0].([]*pfinancev1.IncomeContribution)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // ListIncomeContributions indicates an expected call of ListIncomeContributions.
-func (mr *MockStoreMockRecorder) ListIncomeContributions(ctx, groupID, userID, pageSize any) *gomock.Call {
+func (mr *MockStoreMockRecorder) ListIncomeContributions(ctx, groupID, userID, pageSize, pageToken any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListIncomeContributions", reflect.TypeOf((*MockStore)(nil).ListIncomeContributions), ctx, groupID, userID, pageSize)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListIncomeContributions", reflect.TypeOf((*MockStore)(nil).ListIncomeContributions), ctx, groupID, userID, pageSize, pageToken)
 }
 
 // ListIncomes mocks base method.
-func (m *MockStore) ListIncomes(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, pageSize int32) ([]*pfinancev1.Income, error) {
+func (m *MockStore) ListIncomes(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, pageSize int32, pageToken string) ([]*pfinancev1.Income, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListIncomes", ctx, userID, groupID, startDate, endDate, pageSize)
+	ret := m.ctrl.Call(m, "ListIncomes", ctx, userID, groupID, startDate, endDate, pageSize, pageToken)
 	ret0, _ := ret[0].([]*pfinancev1.Income)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // ListIncomes indicates an expected call of ListIncomes.
-func (mr *MockStoreMockRecorder) ListIncomes(ctx, userID, groupID, startDate, endDate, pageSize any) *gomock.Call {
+func (mr *MockStoreMockRecorder) ListIncomes(ctx, userID, groupID, startDate, endDate, pageSize, pageToken any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListIncomes", reflect.TypeOf((*MockStore)(nil).ListIncomes), ctx, userID, groupID, startDate, endDate, pageSize)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListIncomes", reflect.TypeOf((*MockStore)(nil).ListIncomes), ctx, userID, groupID, startDate, endDate, pageSize, pageToken)
 }
 
 // ListInvitations mocks base method.
-func (m *MockStore) ListInvitations(ctx context.Context, userEmail string, status *pfinancev1.InvitationStatus, pageSize int32) ([]*pfinancev1.GroupInvitation, error) {
+func (m *MockStore) ListInvitations(ctx context.Context, userEmail string, status *pfinancev1.InvitationStatus, pageSize int32, pageToken string) ([]*pfinancev1.GroupInvitation, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListInvitations", ctx, userEmail, status, pageSize)
+	ret := m.ctrl.Call(m, "ListInvitations", ctx, userEmail, status, pageSize, pageToken)
 	ret0, _ := ret[0].([]*pfinancev1.GroupInvitation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // ListInvitations indicates an expected call of ListInvitations.
-func (mr *MockStoreMockRecorder) ListInvitations(ctx, userEmail, status, pageSize any) *gomock.Call {
+func (mr *MockStoreMockRecorder) ListInvitations(ctx, userEmail, status, pageSize, pageToken any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInvitations", reflect.TypeOf((*MockStore)(nil).ListInvitations), ctx, userEmail, status, pageSize)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInvitations", reflect.TypeOf((*MockStore)(nil).ListInvitations), ctx, userEmail, status, pageSize, pageToken)
 }
 
 // ListInviteLinks mocks base method.
-func (m *MockStore) ListInviteLinks(ctx context.Context, groupID string, includeInactive bool, pageSize int32) ([]*pfinancev1.GroupInviteLink, error) {
+func (m *MockStore) ListInviteLinks(ctx context.Context, groupID string, includeInactive bool, pageSize int32, pageToken string) ([]*pfinancev1.GroupInviteLink, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListInviteLinks", ctx, groupID, includeInactive, pageSize)
+	ret := m.ctrl.Call(m, "ListInviteLinks", ctx, groupID, includeInactive, pageSize, pageToken)
 	ret0, _ := ret[0].([]*pfinancev1.GroupInviteLink)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // ListInviteLinks indicates an expected call of ListInviteLinks.
-func (mr *MockStoreMockRecorder) ListInviteLinks(ctx, groupID, includeInactive, pageSize any) *gomock.Call {
+func (mr *MockStoreMockRecorder) ListInviteLinks(ctx, groupID, includeInactive, pageSize, pageToken any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInviteLinks", reflect.TypeOf((*MockStore)(nil).ListInviteLinks), ctx, groupID, includeInactive, pageSize)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInviteLinks", reflect.TypeOf((*MockStore)(nil).ListInviteLinks), ctx, groupID, includeInactive, pageSize, pageToken)
 }
 
 // UpdateBudget mocks base method.
@@ -536,6 +648,20 @@ func (m *MockStore) UpdateExpense(ctx context.Context, expense *pfinancev1.Expen
 func (mr *MockStoreMockRecorder) UpdateExpense(ctx, expense any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateExpense", reflect.TypeOf((*MockStore)(nil).UpdateExpense), ctx, expense)
+}
+
+// UpdateGoal mocks base method.
+func (m *MockStore) UpdateGoal(ctx context.Context, goal *pfinancev1.FinancialGoal) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateGoal", ctx, goal)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateGoal indicates an expected call of UpdateGoal.
+func (mr *MockStoreMockRecorder) UpdateGoal(ctx, goal any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateGoal", reflect.TypeOf((*MockStore)(nil).UpdateGoal), ctx, goal)
 }
 
 // UpdateGroup mocks base method.

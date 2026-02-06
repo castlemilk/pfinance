@@ -1,0 +1,27 @@
+{
+  "document_type": "receipt",
+  "source": "CORD dataset (Indonesian receipts)",
+  "currency": "IDR",
+  "transactions": [
+    {
+      "description": "BLACK PEPPER MEATBALL",
+      "amount": -76500.0,
+      "quantity": "1"
+    },
+    {
+      "description": "GREEN TEA WITH CRUMBLE",
+      "amount": -56000.0,
+      "quantity": "1"
+    },
+    {
+      "description": "EARL GREY MILK TEA",
+      "amount": -57000.0,
+      "quantity": "1"
+    },
+    {
+      "description": "ORIGINAL BREWED TEA",
+      "amount": -23000.0,
+      "quantity": "1"
+    }
+  ]
+}

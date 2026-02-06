@@ -1,0 +1,27 @@
+{
+  "document_type": "receipt",
+  "source": "CORD dataset (Indonesian receipts)",
+  "currency": "IDR",
+  "transactions": [
+    {
+      "description": "BLACK PEPPER MEATBALL",
+      "amount": -76500.0,
+      "quantity": "1"
+    },
+    {
+      "description": "QUARTO FORMANGGI PASTA",
+      "amount": -82500.0,
+      "quantity": "1"
+    },
+    {
+      "description": "GREEN TEA WITH CRUMBLE",
+      "amount": -56000.0,
+      "quantity": "1"
+    },
+    {
+      "description": "ORIGINAL BREWED TEA",
+      "amount": -46000.0,
+      "quantity": "2"
+    }
+  ]
+}

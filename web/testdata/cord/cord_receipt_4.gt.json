@@ -1,0 +1,49 @@
+{
+  "document_type": "receipt",
+  "source": "CORD dataset (Indonesian receipts)",
+  "transactions": [
+    {
+      "description": "Bintang Bremer",
+      "amount": -59000.0,
+      "quantity": "1"
+    },
+    {
+      "description": "Chicken H-H",
+      "amount": -190000.0,
+      "quantity": "1"
+    },
+    {
+      "description": "Ades",
+      "amount": -10000.0,
+      "quantity": "1"
+    }
+  ],
+  "raw_ground_truth": {
+    "menu": [
+      {
+        "nm": "Bintang Bremer",
+        "cnt": "1",
+        "price": "59,000"
+      },
+      {
+        "nm": "Chicken H-H",
+        "cnt": "1",
+        "price": "190,000"
+      },
+      {
+        "nm": "Ades",
+        "cnt": "1",
+        "price": "10,000"
+      }
+    ],
+    "sub_total": {
+      "subtotal_price": "259,000",
+      "discount_price": "19,000",
+      "service_price": "9,600",
+      "tax_price": "52,416"
+    },
+    "total": {
+      "total_price": "302,016"
+    }
+  }
+}

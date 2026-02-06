@@ -1,0 +1,36 @@
+# ML Service Dependencies
+
+# FastAPI framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+
+# ML/AI Models - Qwen2-VL
+torch>=2.1.0
+torchvision
+transformers>=4.45,<5.0  # Pin to 4.x for Qwen2-VL compatibility
+accelerate
+qwen-vl-utils
+
+# PDF processing
+pymupdf>=1.24.0
+
+# Image processing
+Pillow>=10.0.0
+
+# Data validation
+pydantic>=2.5.0
+
+# HTTP client for API calls
+httpx>=0.25.0
+
+# Utilities
+python-dotenv>=1.0.0
+psutil  # For memory monitoring
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+
+# Optional: Modal deployment
+modal>=0.57.0

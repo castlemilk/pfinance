@@ -1,0 +1,11 @@
+{
+  "document_type": "receipt",
+  "source": "invoices-and-receipts_ocr_v1",
+  "transactions": [
+    {
+      "merchant": "Davis PLC",
+      "date": "2014-06-07",
+      "total": 1767.34
+    }
+  ]
+}

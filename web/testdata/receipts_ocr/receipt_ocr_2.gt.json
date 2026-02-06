@@ -1,0 +1,11 @@
+{
+  "document_type": "receipt",
+  "source": "invoices-and-receipts_ocr_v1",
+  "transactions": [
+    {
+      "merchant": "Chapman, Kim and Green",
+      "date": "2012-09-06",
+      "total": 212.09
+    }
+  ]
+}

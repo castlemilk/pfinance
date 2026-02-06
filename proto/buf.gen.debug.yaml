@@ -1,0 +1,12 @@
+version: v2
+clean: true
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/castlemilk/pfinance/backend/gen
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: ../backend/gen
+    opt:
+      - paths=source_relative

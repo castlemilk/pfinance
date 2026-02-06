@@ -1,0 +1,11 @@
+{
+  "document_type": "receipt",
+  "source": "invoices-and-receipts_ocr_v1",
+  "transactions": [
+    {
+      "merchant": "Hernandez Ltd",
+      "date": "2020-09-26",
+      "total": 57483.07
+    }
+  ]
+}

@@ -163,5 +163,13 @@ export {
   GroupRole,
   InvitationStatus,
   TaxStatus,
-  TaxCountry
+  TaxCountry,
+  DocumentType,
+  ExtractionStatus,
+} from "@/gen/pfinance/v1/types_pb";
+
+// Export extraction types
+export type {
+  ExtractedTransaction,
+  ExtractionResult,
 } from "@/gen/pfinance/v1/types_pb";

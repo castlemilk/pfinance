@@ -9,10 +9,11 @@ import { User } from 'firebase/auth';
 import { financeClient } from '@/lib/financeService';
 import { timestampFromDate } from '@bufbuild/protobuf/wkt';
 import { Expense, ExpenseCategory, ExpenseFrequency } from '@/app/types';
-import { 
-  categoryToProto, 
-  expenseFrequencyToProto, 
-  mapProtoExpenseToLocal 
+import {
+  categoryToProto,
+  expenseFrequencyToProto,
+  mapProtoExpenseToLocal,
+  dollarsToCents,
 } from '../mappers';
 
 interface UseExpensesOptions {
@@ -106,6 +107,7 @@ export function useExpenses({
           userId: effectiveUserId,
           description,
           amount,
+          amountCents: dollarsToCents(amount),
           category: categoryToProto[category],
           frequency: expenseFrequencyToProto[frequency],
           date: timestampFromDate(new Date()),
@@ -142,6 +144,7 @@ export function useExpenses({
             userId: effectiveUserId,
             description: exp.description,
             amount: exp.amount,
+            amountCents: dollarsToCents(exp.amount),
             category: categoryToProto[exp.category],
             frequency: expenseFrequencyToProto[exp.frequency || 'monthly'],
             date: timestampFromDate(new Date()),
@@ -183,6 +186,7 @@ export function useExpenses({
           expenseId: id,
           description,
           amount,
+          amountCents: dollarsToCents(amount),
           category: categoryToProto[category],
           frequency: expenseFrequencyToProto[frequency],
         });

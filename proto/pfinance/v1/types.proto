@@ -82,6 +82,7 @@ message ExpenseAllocation {
   double shares = 4; // If split by shares
   bool is_paid = 5; // Whether this allocation has been settled
   google.protobuf.Timestamp paid_at = 6;
+  int64 amount_cents = 7; // Amount in cents (preferred over amount)
 }
 
 // Expense represents a single expense entry
@@ -103,6 +104,7 @@ message Expense {
   repeated ExpenseAllocation allocations = 13; // Member allocations
   bool is_settled = 14; // Whether all allocations have been settled
   repeated string tags = 15; // Optional tags for filtering/grouping
+  int64 amount_cents = 16; // Amount in cents (preferred over amount)
 }
 
 // Income represents a single income entry
@@ -118,6 +120,7 @@ message Income {
   google.protobuf.Timestamp date = 9;
   google.protobuf.Timestamp created_at = 10;
   google.protobuf.Timestamp updated_at = 11;
+  int64 amount_cents = 12; // Amount in cents (preferred over amount)
 }
 
 // Deduction represents a tax deduction
@@ -126,6 +129,7 @@ message Deduction {
   string name = 2;
   double amount = 3;
   bool is_tax_deductible = 4;
+  int64 amount_cents = 5; // Amount in cents (preferred over amount)
 }
 
 // TaxSettings represents user's tax configuration
@@ -228,6 +232,7 @@ message Budget {
   google.protobuf.Timestamp end_date = 11; // Optional - for fixed period budgets
   google.protobuf.Timestamp created_at = 12;
   google.protobuf.Timestamp updated_at = 13;
+  int64 amount_cents = 14; // Amount in cents (preferred over amount)
 }
 
 // BudgetAlert represents an alert configuration for a budget
@@ -250,6 +255,9 @@ message BudgetProgress {
   google.protobuf.Timestamp period_start = 7;
   google.protobuf.Timestamp period_end = 8;
   repeated ExpenseBreakdown category_breakdown = 9;
+  int64 allocated_amount_cents = 10; // Allocated amount in cents (preferred over allocated_amount)
+  int64 spent_amount_cents = 11; // Spent amount in cents (preferred over spent_amount)
+  int64 remaining_amount_cents = 12; // Remaining amount in cents (preferred over remaining_amount)
 }
 
 // ExpenseBreakdown represents spending breakdown by category
@@ -257,6 +265,7 @@ message ExpenseBreakdown {
   ExpenseCategory category = 1;
   double amount = 2;
   double percentage = 3;
+  int64 amount_cents = 4; // Amount in cents (preferred over amount)
 }
 
 // MemberBalance represents a member's balance in a group
@@ -267,6 +276,9 @@ message MemberBalance {
   double total_owed = 4; // Total amount allocated to this member
   double balance = 5; // total_paid - total_owed (positive means owed money, negative means owes money)
   repeated MemberDebt debts = 6; // Detailed debts to/from other members
+  int64 total_paid_cents = 7; // Total paid in cents (preferred over total_paid)
+  int64 total_owed_cents = 8; // Total owed in cents (preferred over total_owed)
+  int64 balance_cents = 9; // Balance in cents (preferred over balance)
 }
 
 // MemberDebt represents money owed between two members
@@ -275,6 +287,7 @@ message MemberDebt {
   string to_user_id = 2; // Who is owed money
   double amount = 3;
   int32 expense_count = 4; // Number of expenses contributing to this debt
+  int64 amount_cents = 5; // Amount in cents (preferred over amount)
 }
 
 // GroupInviteLink represents a shareable link to join a group
@@ -302,6 +315,7 @@ message ExpenseContribution {
   repeated ExpenseAllocation allocations = 7;
   string created_group_expense_id = 8;  // Resulting group expense
   google.protobuf.Timestamp contributed_at = 9;
+  int64 amount_cents = 10; // Amount in cents (preferred over amount)
 }
 
 // IncomeContribution represents personal income contributed to a group
@@ -313,4 +327,212 @@ message IncomeContribution {
   double amount = 5;  // Amount contributed (could be partial)
   string created_group_income_id = 6;  // Resulting group income
   google.protobuf.Timestamp contributed_at = 7;
+  int64 amount_cents = 8; // Amount in cents (preferred over amount)
+}
+
+// ============================================================================
+// Goal Tracking
+// ============================================================================
+
+// GoalType represents the type of financial goal
+enum GoalType {
+  GOAL_TYPE_UNSPECIFIED = 0;
+  GOAL_TYPE_SAVINGS = 1;        // Save towards a target amount
+  GOAL_TYPE_DEBT_PAYOFF = 2;    // Pay off debt
+  GOAL_TYPE_SPENDING_LIMIT = 3; // Limit spending in category
+}
+
+// GoalStatus represents the current status of a goal
+enum GoalStatus {
+  GOAL_STATUS_UNSPECIFIED = 0;
+  GOAL_STATUS_ACTIVE = 1;
+  GOAL_STATUS_PAUSED = 2;
+  GOAL_STATUS_COMPLETED = 3;
+  GOAL_STATUS_CANCELLED = 4;
+}
+
+// GoalMilestone represents a milestone within a goal
+message GoalMilestone {
+  string id = 1;
+  string name = 2;
+  double target_percentage = 3;     // e.g., 25, 50, 75, 100
+  bool is_achieved = 4;
+  google.protobuf.Timestamp achieved_at = 5;
+}
+
+// FinancialGoal represents a financial goal for saving, debt payoff, or spending limits
+message FinancialGoal {
+  string id = 1;
+  string user_id = 2;
+  string group_id = 3;              // Optional: for shared goals
+  string name = 4;
+  string description = 5;
+  GoalType goal_type = 6;
+  double target_amount = 7;
+  double current_amount = 8;        // Computed or manually updated
+  google.protobuf.Timestamp start_date = 9;
+  google.protobuf.Timestamp target_date = 10;
+  GoalStatus status = 11;
+  repeated ExpenseCategory category_ids = 12; // For SPENDING_LIMIT type
+  string icon = 13;                  // Emoji or icon name
+  string color = 14;                 // Hex color for UI
+  repeated GoalMilestone milestones = 15;
+  google.protobuf.Timestamp created_at = 16;
+  google.protobuf.Timestamp updated_at = 17;
+  int64 target_amount_cents = 18; // Target amount in cents (preferred over target_amount)
+  int64 current_amount_cents = 19; // Current amount in cents (preferred over current_amount)
+}
+
+// GoalProgress represents the current progress towards a goal
+message GoalProgress {
+  string goal_id = 1;
+  double current_amount = 2;
+  double target_amount = 3;
+  double percentage_complete = 4;
+  int32 days_remaining = 5;
+  double required_daily_rate = 6;   // Amount needed per day to hit target
+  double actual_daily_rate = 7;     // Current daily progress rate
+  bool on_track = 8;
+  repeated GoalMilestone achieved_milestones = 9;
+  GoalMilestone next_milestone = 10;
+  int64 current_amount_cents = 11; // Current amount in cents (preferred over current_amount)
+  int64 target_amount_cents = 12; // Target amount in cents (preferred over target_amount)
+  int64 required_daily_rate_cents = 13; // Required daily rate in cents (preferred over required_daily_rate)
+  int64 actual_daily_rate_cents = 14; // Actual daily rate in cents (preferred over actual_daily_rate)
+}
+
+// GoalContribution represents a contribution to a goal
+message GoalContribution {
+  string id = 1;
+  string goal_id = 2;
+  string user_id = 3;
+  double amount = 4;
+  string note = 5;
+  google.protobuf.Timestamp contributed_at = 6;
+  int64 amount_cents = 7; // Amount in cents (preferred over amount)
+}
+
+// ============================================================================
+// Spending Insights
+// ============================================================================
+
+// InsightType represents the type of spending insight
+enum InsightType {
+  INSIGHT_TYPE_UNSPECIFIED = 0;
+  INSIGHT_TYPE_SPENDING_INCREASE = 1;
+  INSIGHT_TYPE_SPENDING_DECREASE = 2;
+  INSIGHT_TYPE_UNUSUAL_TRANSACTION = 3;
+  INSIGHT_TYPE_CATEGORY_TREND = 4;
+  INSIGHT_TYPE_SAVINGS_TIP = 5;
+  INSIGHT_TYPE_BUDGET_WARNING = 6;
+  INSIGHT_TYPE_GOAL_PROGRESS = 7;
+}
+
+// SpendingInsight represents an AI-generated spending insight
+message SpendingInsight {
+  string id = 1;
+  InsightType type = 2;
+  string title = 3;
+  string description = 4;
+  string category = 5;
+  double amount = 6;
+  double change_percent = 7;
+  string period = 8;                // e.g., "this week", "this month"
+  string icon = 9;
+  bool is_positive = 10;            // Good news vs warning
+  google.protobuf.Timestamp created_at = 11;
+  int64 amount_cents = 12; // Amount in cents (preferred over amount)
+}
+
+// ============================================================================
+// Document Extraction
+// ============================================================================
+
+// DocumentType represents the type of document being processed
+enum DocumentType {
+  DOCUMENT_TYPE_UNSPECIFIED = 0;
+  DOCUMENT_TYPE_RECEIPT = 1;
+  DOCUMENT_TYPE_BANK_STATEMENT = 2;
+  DOCUMENT_TYPE_INVOICE = 3;
+}
+
+// ExtractionStatus represents the status of an extraction job
+enum ExtractionStatus {
+  EXTRACTION_STATUS_UNSPECIFIED = 0;
+  EXTRACTION_STATUS_PENDING = 1;
+  EXTRACTION_STATUS_PROCESSING = 2;
+  EXTRACTION_STATUS_COMPLETED = 3;
+  EXTRACTION_STATUS_FAILED = 4;
+  EXTRACTION_STATUS_VALIDATION_REQUIRED = 5;
+}
+
+// ExtractionMethod represents which ML model/service to use for extraction
+enum ExtractionMethod {
+  EXTRACTION_METHOD_UNSPECIFIED = 0;  // Use default (self-hosted ML)
+  EXTRACTION_METHOD_SELF_HOSTED = 1;  // Self-hosted Qwen2-VL model
+  EXTRACTION_METHOD_GEMINI = 2;       // Google Gemini API
+}
+
+// ExtractedTransaction represents a single transaction extracted from a document
+message ExtractedTransaction {
+  string id = 1;
+  string date = 2;                        // Date in YYYY-MM-DD format
+  string description = 3;                 // Raw description from document
+  string normalized_merchant = 4;         // Cleaned/normalized merchant name
+  double amount = 5;                      // Transaction amount (positive)
+  ExpenseCategory suggested_category = 6; // AI-suggested category
+  double confidence = 7;                  // Extraction confidence (0.0-1.0)
+  bool is_debit = 8;                      // True if money going out
+  string reference = 9;                   // Transaction reference if available
+  repeated ExtractedLineItem line_items = 10; // Itemized line items for receipts
+  int64 amount_cents = 11; // Amount in cents (preferred over amount)
+}
+
+// ExtractedLineItem represents a single line item from a receipt
+message ExtractedLineItem {
+  string description = 1;
+  double amount = 2;
+  int32 quantity = 3;
+  ExpenseCategory category = 4;
+  int64 amount_cents = 5; // Amount in cents (preferred over amount)
+}
+
+// ExtractionResult represents the result of document extraction
+message ExtractionResult {
+  repeated ExtractedTransaction transactions = 1;
+  double overall_confidence = 2;
+  string model_used = 3;
+  int32 processing_time_ms = 4;
+  repeated string warnings = 5;
+  DocumentType document_type = 6;
+  int32 page_count = 7;
+}
+
+// ExtractionJob represents an async extraction job
+message ExtractionJob {
+  string id = 1;
+  string user_id = 2;
+  ExtractionStatus status = 3;
+  DocumentType document_type = 4;
+  string original_filename = 5;
+  ExtractionResult result = 6;
+  string error_message = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp completed_at = 9;
+}
+
+// ValidationResult represents the result of validating an extraction
+message ValidationResult {
+  double accuracy = 1;
+  repeated ValidationDiscrepancy discrepancies = 2;
+  string validated_by = 3;              // Model/method used for validation
+  google.protobuf.Timestamp validated_at = 4;
+}
+
+// ValidationDiscrepancy represents a difference found during validation
+message ValidationDiscrepancy {
+  string field = 1;                     // Field with discrepancy
+  string extracted_value = 2;
+  string validated_value = 3;
+  string transaction_id = 4;
 }

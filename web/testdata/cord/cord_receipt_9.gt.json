@@ -1,0 +1,17 @@
+{
+  "document_type": "receipt",
+  "source": "CORD dataset (Indonesian receipts)",
+  "currency": "IDR",
+  "transactions": [
+    {
+      "description": "4005-Maple glazed",
+      "amount": -25.0,
+      "quantity": "x1"
+    },
+    {
+      "description": "6001-Plastic Bag Small",
+      "amount": -0.0,
+      "quantity": "x1"
+    }
+  ]
+}

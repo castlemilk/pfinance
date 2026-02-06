@@ -1,7 +1,8 @@
 /**
  * Color Utilities for Metrics Visualization
- * 
- * Centralized color management for charts and visualizations.
+ *
+ * Amber Terminal Glow Theme - Retro-futuristic CRT aesthetic
+ * Colors inspired by 70s amber monitors with warm earth tones
  */
 
 import { ExpenseCategory } from '../../types';
@@ -9,18 +10,19 @@ import { SavingsStatus } from '../types';
 
 /**
  * Primary category colors for expense visualization
+ * Using the Amber Terminal palette: amber, avocado, rust, golden tones
  */
 export const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
-  Food: '#0EA5E9',           // Blue
-  Housing: '#10B981',        // Green
-  Transportation: '#F59E0B', // Yellow
-  Entertainment: '#EF4444',  // Red
-  Healthcare: '#8B5CF6',     // Purple
-  Utilities: '#EC4899',      // Pink
-  Shopping: '#F97316',       // Orange
-  Education: '#6366F1',      // Indigo
-  Travel: '#14B8A6',         // Teal
-  Other: '#6B7280',          // Gray
+  Food: '#FFA94D',           // Amber (primary)
+  Housing: '#87A96B',        // Avocado green
+  Transportation: '#D16A47', // Rust
+  Entertainment: '#E07E50',  // Tawny orange
+  Healthcare: '#A0C080',     // Sage green
+  Utilities: '#C4A35A',      // Golden tan
+  Shopping: '#B8860B',       // Dark goldenrod
+  Education: '#8B7355',      // Warm brown
+  Travel: '#6B8E23',         // Olive drab
+  Other: '#8B8378',          // Warm gray
 };
 
 /**
@@ -32,12 +34,13 @@ export function getCategoryColor(category: ExpenseCategory): string {
 
 /**
  * Colors for income sources
+ * Blue-shifted ambers for distinction from expenses
  */
 export const INCOME_COLORS = {
-  primary: '#3b82f6',   // Blue
-  secondary: '#60a5fa', // Light blue
-  tertiary: '#93c5fd',  // Lighter blue
-  quaternary: '#bfdbfe', // Very light blue
+  primary: '#E8B84A',    // Warm gold
+  secondary: '#D4A843',  // Darker gold
+  tertiary: '#C49A3C',   // Bronze gold
+  quaternary: '#B08C35', // Deep gold
 };
 
 /**
@@ -52,33 +55,33 @@ export function getIncomeColor(index: number): string {
  * Colors for expense flow visualization
  */
 export const EXPENSE_FLOW_COLORS = {
-  category: '#ef4444',  // Red for main expense node
-  subcategory: ['#f87171', '#fca5a5', '#fee2e2', '#fecaca', '#fda4af', '#f43f5e', '#fb7185'],
+  category: '#D16A47',  // Rust for main expense node
+  subcategory: ['#E07E50', '#C4A35A', '#B8860B', '#8B7355', '#A0856B', '#987654', '#876543'],
 };
 
 /**
  * Colors for savings visualization
  */
 export const SAVINGS_COLORS = {
-  category: '#22c55e',   // Green for main savings node
-  investments: '#4ade80',
-  cash: '#86efac',
-  retirement: '#bbf7d0',
+  category: '#87A96B',     // Avocado green for main savings node
+  investments: '#A0C080',  // Sage green
+  cash: '#B8D4A0',         // Light sage
+  retirement: '#6B8E23',   // Olive
 };
 
 /**
  * Color for tax node
  */
-export const TAX_COLOR = '#f97316'; // Orange
+export const TAX_COLOR = '#C4A35A'; // Golden tan
 
 /**
- * Savings status colors
+ * Savings status colors - Terminal feedback palette
  */
 export const SAVINGS_STATUS_COLORS: Record<SavingsStatus, string> = {
-  excellent: '#22c55e', // Green
-  good: '#10b981',      // Emerald
-  fair: '#f59e0b',      // Amber
-  poor: '#ef4444',      // Red
+  excellent: '#87A96B', // Avocado green
+  good: '#A0C080',      // Sage green
+  fair: '#FFA94D',      // Amber warning
+  poor: '#D16A47',      // Rust red
 };
 
 /**
@@ -106,23 +109,25 @@ export function getSavingsStatusClass(status: SavingsStatus): string {
 }
 
 /**
- * Budget utilization colors
+ * Budget utilization colors - Amber to rust gradient
  */
 export function getBudgetUtilizationColor(utilization: number): string {
-  if (utilization < 50) return '#22c55e';  // Green - healthy
-  if (utilization < 75) return '#f59e0b';  // Amber - caution
-  if (utilization < 100) return '#f97316'; // Orange - warning
-  return '#ef4444';                         // Red - exceeded
+  if (utilization < 50) return '#87A96B';  // Avocado - healthy
+  if (utilization < 75) return '#FFA94D';  // Amber - caution
+  if (utilization < 100) return '#E07E50'; // Tawny - warning
+  return '#D16A47';                         // Rust - exceeded
 }
 
 /**
  * Generate a color scale for a given number of items
+ * Uses warm hues (amber, rust, gold, olive range)
  */
-export function generateColorScale(count: number, baseHue: number = 210): string[] {
+export function generateColorScale(count: number, baseHue: number = 45): string[] {
   const colors: string[] = [];
   for (let i = 0; i < count; i++) {
-    const hue = (baseHue + (i * 360 / count)) % 360;
-    colors.push(`hsl(${hue}, 70%, 50%)`);
+    // Cycle through warm hues: 30-80 (orange to yellow-green)
+    const hue = 30 + ((baseHue + (i * 50 / count)) % 50);
+    colors.push(`hsl(${hue}, 60%, 55%)`);
   }
   return colors;
 }
