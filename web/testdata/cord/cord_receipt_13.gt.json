@@ -1,0 +1,11 @@
+{
+  "document_type": "receipt",
+  "source": "CORD dataset (Indonesian receipts)",
+  "currency": "IDR",
+  "transactions": [
+    {
+      "description": "N/A",
+      "amount": 0
+    }
+  ]
+}

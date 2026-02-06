@@ -3,6 +3,15 @@
 
 .PHONY: help dev dev-memory dev-firebase dev-backend dev-backend-memory dev-backend-firebase dev-backend-seed dev-backend-firebase-seed dev-frontend stop restart status test test-unit test-e2e test-e2e-ui test-e2e-headed test-e2e-report test-integration test-watch test-all proto generate build lint format type-check logs clean setup install health ports check-ports check-port-backend check-port-frontend kill-port-backend kill-port-frontend seed-data seed-data-auth check-firebase-creds deploy-indexes
 
+define kill_pids_in_project_by_port
+for pid in $$(lsof -ti:$(1) 2>/dev/null); do \
+	cwd=$$(lsof -a -p $$pid -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -n1); \
+	if [ -n "$$cwd" ] && printf '%s\n' "$$cwd" | grep -q "^$(CURDIR)"; then \
+		kill $(2) $$pid 2>/dev/null || true; \
+	fi; \
+done
+endef
+
 # Default target
 help:
 	@echo "PFinance Development Commands"
@@ -104,6 +113,8 @@ dev-backend: check-port-backend
 	export PORT=$(BACKEND_PORT) && \
 	export USE_MEMORY_STORE=false && \
 	export GOOGLE_APPLICATION_CREDENTIALS=$(CURDIR)/pfinance-app-1748773335-firebase-adminsdk-fbsvc-4adcc18be2.json && \
+	export ML_SERVICE_URL=https://ben-ebsworth--pfinance-extraction-7b-web-app.modal.run && \
+	export GEMINI_API_KEY=AIzaSyBCfXD_CVctJuEYHq84efIqlifv-M56KRM && \
 	go run cmd/server/main.go
 
 dev-backend-memory: check-port-backend
@@ -112,6 +123,8 @@ dev-backend-memory: check-port-backend
 	export GOOGLE_CLOUD_PROJECT=pfinance-app-1748773335 && \
 	export PORT=$(BACKEND_PORT) && \
 	export USE_MEMORY_STORE=true && \
+	export ML_SERVICE_URL=https://ben-ebsworth--pfinance-extraction-7b-web-app.modal.run && \
+	export GEMINI_API_KEY=AIzaSyBCfXD_CVctJuEYHq84efIqlifv-M56KRM && \
 	go run cmd/server/main.go
 
 dev-backend-firebase: check-port-backend
@@ -121,6 +134,8 @@ dev-backend-firebase: check-port-backend
 	export PORT=$(BACKEND_PORT) && \
 	export USE_MEMORY_STORE=false && \
 	export GOOGLE_APPLICATION_CREDENTIALS=$(CURDIR)/pfinance-app-1748773335-firebase-adminsdk-fbsvc-4adcc18be2.json && \
+	export ML_SERVICE_URL=https://ben-ebsworth--pfinance-extraction-7b-web-app.modal.run && \
+	export GEMINI_API_KEY=AIzaSyBCfXD_CVctJuEYHq84efIqlifv-M56KRM && \
 	go run cmd/server/main.go
 
 dev-frontend: check-port-frontend
@@ -181,29 +196,29 @@ clean-ports:
 	@if lsof -Pi :$(BACKEND_PORT) -sTCP:LISTEN -t >/dev/null 2>&1; then \
 		echo "🧹 Cleaning up port $(BACKEND_PORT)..."; \
 		pgrep -f "go run cmd/server/main.go" | xargs -r ps -o pid,ppid,command 2>/dev/null | grep -F "$$PWD/backend" | awk '{print $$1}' | xargs -r kill -9 2>/dev/null || true; \
-		lsof -ti:$(BACKEND_PORT) | xargs kill -9 2>/dev/null || true; \
+		$(call kill_pids_in_project_by_port,$(BACKEND_PORT),-9); \
 	fi
 	@if lsof -Pi :$(FRONTEND_PORT) -sTCP:LISTEN -t >/dev/null 2>&1; then \
 		echo "🧹 Cleaning up port $(FRONTEND_PORT)..."; \
 		pgrep -f "next dev" | xargs -r ps -o pid,ppid,command 2>/dev/null | grep -F "$$PWD/web" | awk '{print $$1}' | xargs -r kill -9 2>/dev/null || true; \
-		lsof -ti:$(FRONTEND_PORT) | xargs kill -9 2>/dev/null || true; \
+		$(call kill_pids_in_project_by_port,$(FRONTEND_PORT),-9); \
 	fi
 	@sleep 1
 
 kill-port-backend:
 	@echo "🔪 Killing process on port $(BACKEND_PORT)..."
-	@lsof -ti:$(BACKEND_PORT) | xargs kill -9 2>/dev/null || echo "   No process found"
+	@$(call kill_pids_in_project_by_port,$(BACKEND_PORT),-9) || echo "   No process found"
 
 kill-port-frontend:
 	@echo "🔪 Killing process on port $(FRONTEND_PORT)..."
-	@lsof -ti:$(FRONTEND_PORT) | xargs kill -9 2>/dev/null || echo "   No process found"
+	@$(call kill_pids_in_project_by_port,$(FRONTEND_PORT),-9) || echo "   No process found"
 
 stop:
 	@echo "🛑 Stopping all services (only for this project folder)..."
 	@pgrep -f "go run cmd/server/main.go" | xargs -r ps -o pid,ppid,command | grep -F "$$PWD/backend" | awk '{print $$1}' | xargs -r kill -9 2>/dev/null || true
 	@pgrep -f "next dev" | xargs -r ps -o pid,ppid,command | grep -F "$$PWD/web" | awk '{print $$1}' | xargs -r kill -9 2>/dev/null || true
-	@lsof -ti:$(BACKEND_PORT) -a +c15 | xargs -r kill -9 2>/dev/null || true
-	@lsof -ti:$(FRONTEND_PORT) -a +c15 | xargs -r kill -9 2>/dev/null || true
+	@$(call kill_pids_in_project_by_port,$(BACKEND_PORT),-9)
+	@$(call kill_pids_in_project_by_port,$(FRONTEND_PORT),-9)
 	@echo "✅ All project-local services stopped"
 
 restart: stop

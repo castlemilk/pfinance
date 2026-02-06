@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/base64"
 	"time"
 
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
@@ -16,44 +17,44 @@ type Store interface {
 	GetExpense(ctx context.Context, expenseID string) (*pfinancev1.Expense, error)
 	UpdateExpense(ctx context.Context, expense *pfinancev1.Expense) error
 	DeleteExpense(ctx context.Context, expenseID string) error
-	ListExpenses(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, pageSize int32) ([]*pfinancev1.Expense, error)
+	ListExpenses(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, pageSize int32, pageToken string) ([]*pfinancev1.Expense, string, error)
 
 	// Income operations
 	CreateIncome(ctx context.Context, income *pfinancev1.Income) error
 	GetIncome(ctx context.Context, incomeID string) (*pfinancev1.Income, error)
 	UpdateIncome(ctx context.Context, income *pfinancev1.Income) error
 	DeleteIncome(ctx context.Context, incomeID string) error
-	ListIncomes(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, pageSize int32) ([]*pfinancev1.Income, error)
+	ListIncomes(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, pageSize int32, pageToken string) ([]*pfinancev1.Income, string, error)
 
 	// Group operations
 	CreateGroup(ctx context.Context, group *pfinancev1.FinanceGroup) error
 	GetGroup(ctx context.Context, groupID string) (*pfinancev1.FinanceGroup, error)
 	UpdateGroup(ctx context.Context, group *pfinancev1.FinanceGroup) error
 	DeleteGroup(ctx context.Context, groupID string) error
-	ListGroups(ctx context.Context, userID string, pageSize int32) ([]*pfinancev1.FinanceGroup, error)
+	ListGroups(ctx context.Context, userID string, pageSize int32, pageToken string) ([]*pfinancev1.FinanceGroup, string, error)
 
 	// Invitation operations
 	CreateInvitation(ctx context.Context, invitation *pfinancev1.GroupInvitation) error
 	GetInvitation(ctx context.Context, invitationID string) (*pfinancev1.GroupInvitation, error)
 	UpdateInvitation(ctx context.Context, invitation *pfinancev1.GroupInvitation) error
-	ListInvitations(ctx context.Context, userEmail string, status *pfinancev1.InvitationStatus, pageSize int32) ([]*pfinancev1.GroupInvitation, error)
+	ListInvitations(ctx context.Context, userEmail string, status *pfinancev1.InvitationStatus, pageSize int32, pageToken string) ([]*pfinancev1.GroupInvitation, string, error)
 
 	// Invite link operations
 	CreateInviteLink(ctx context.Context, link *pfinancev1.GroupInviteLink) error
 	GetInviteLink(ctx context.Context, linkID string) (*pfinancev1.GroupInviteLink, error)
 	GetInviteLinkByCode(ctx context.Context, code string) (*pfinancev1.GroupInviteLink, error)
 	UpdateInviteLink(ctx context.Context, link *pfinancev1.GroupInviteLink) error
-	ListInviteLinks(ctx context.Context, groupID string, includeInactive bool, pageSize int32) ([]*pfinancev1.GroupInviteLink, error)
+	ListInviteLinks(ctx context.Context, groupID string, includeInactive bool, pageSize int32, pageToken string) ([]*pfinancev1.GroupInviteLink, string, error)
 
 	// Expense contribution operations
 	CreateContribution(ctx context.Context, contribution *pfinancev1.ExpenseContribution) error
 	GetContribution(ctx context.Context, contributionID string) (*pfinancev1.ExpenseContribution, error)
-	ListContributions(ctx context.Context, groupID, userID string, pageSize int32) ([]*pfinancev1.ExpenseContribution, error)
+	ListContributions(ctx context.Context, groupID, userID string, pageSize int32, pageToken string) ([]*pfinancev1.ExpenseContribution, string, error)
 
 	// Income contribution operations
 	CreateIncomeContribution(ctx context.Context, contribution *pfinancev1.IncomeContribution) error
 	GetIncomeContribution(ctx context.Context, contributionID string) (*pfinancev1.IncomeContribution, error)
-	ListIncomeContributions(ctx context.Context, groupID, userID string, pageSize int32) ([]*pfinancev1.IncomeContribution, error)
+	ListIncomeContributions(ctx context.Context, groupID, userID string, pageSize int32, pageToken string) ([]*pfinancev1.IncomeContribution, string, error)
 
 	// Tax config operations
 	GetTaxConfig(ctx context.Context, userID, groupID string) (*pfinancev1.TaxConfig, error)
@@ -64,10 +65,42 @@ type Store interface {
 	GetBudget(ctx context.Context, budgetID string) (*pfinancev1.Budget, error)
 	UpdateBudget(ctx context.Context, budget *pfinancev1.Budget) error
 	DeleteBudget(ctx context.Context, budgetID string) error
-	ListBudgets(ctx context.Context, userID, groupID string, includeInactive bool, pageSize int32) ([]*pfinancev1.Budget, error)
+	ListBudgets(ctx context.Context, userID, groupID string, includeInactive bool, pageSize int32, pageToken string) ([]*pfinancev1.Budget, string, error)
 	GetBudgetProgress(ctx context.Context, budgetID string, asOfDate time.Time) (*pfinancev1.BudgetProgress, error)
 
 	// User operations
 	GetUser(ctx context.Context, userID string) (*pfinancev1.User, error)
 	UpdateUser(ctx context.Context, user *pfinancev1.User) error
+
+	// Goal operations
+	CreateGoal(ctx context.Context, goal *pfinancev1.FinancialGoal) error
+	GetGoal(ctx context.Context, goalID string) (*pfinancev1.FinancialGoal, error)
+	UpdateGoal(ctx context.Context, goal *pfinancev1.FinancialGoal) error
+	DeleteGoal(ctx context.Context, goalID string) error
+	ListGoals(ctx context.Context, userID, groupID string, status pfinancev1.GoalStatus, goalType pfinancev1.GoalType, pageSize int32, pageToken string) ([]*pfinancev1.FinancialGoal, string, error)
+	GetGoalProgress(ctx context.Context, goalID string, asOfDate time.Time) (*pfinancev1.GoalProgress, error)
+
+	// Goal contribution operations
+	CreateGoalContribution(ctx context.Context, contribution *pfinancev1.GoalContribution) error
+	ListGoalContributions(ctx context.Context, goalID string, pageSize int32, pageToken string) ([]*pfinancev1.GoalContribution, string, error)
+}
+
+// EncodePageToken encodes a document ID into a page token.
+func EncodePageToken(docID string) string {
+	if docID == "" {
+		return ""
+	}
+	return base64.URLEncoding.EncodeToString([]byte(docID))
+}
+
+// DecodePageToken decodes a page token back to a document ID.
+func DecodePageToken(token string) (string, error) {
+	if token == "" {
+		return "", nil
+	}
+	b, err := base64.URLEncoding.DecodeString(token)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }

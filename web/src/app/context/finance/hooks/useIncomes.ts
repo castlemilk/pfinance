@@ -9,10 +9,11 @@ import { User } from 'firebase/auth';
 import { financeClient } from '@/lib/financeService';
 import { timestampFromDate } from '@bufbuild/protobuf/wkt';
 import { Income, IncomeFrequency, TaxStatus, Deduction } from '@/app/types';
-import { 
-  incomeFrequencyToProto, 
+import {
+  incomeFrequencyToProto,
   taxStatusToProto,
-  mapProtoIncomeToLocal 
+  mapProtoIncomeToLocal,
+  dollarsToCents,
 } from '../mappers';
 
 interface UseIncomesOptions {
@@ -99,12 +100,14 @@ export function useIncomes({
           userId: effectiveUserId,
           source,
           amount,
+          amountCents: dollarsToCents(amount),
           frequency: incomeFrequencyToProto[frequency],
           taxStatus: taxStatusToProto[taxStatus],
           deductions: deductions?.map(d => ({
             id: d.id,
             name: d.name,
             amount: d.amount,
+            amountCents: dollarsToCents(d.amount),
             isTaxDeductible: d.isTaxDeductible,
           })),
           date: timestampFromDate(new Date()),
@@ -145,12 +148,14 @@ export function useIncomes({
           incomeId: id,
           source,
           amount,
+          amountCents: dollarsToCents(amount),
           frequency: incomeFrequencyToProto[frequency],
           taxStatus: taxStatusToProto[taxStatus],
           deductions: deductions?.map(d => ({
             id: d.id,
             name: d.name,
             amount: d.amount,
+            amountCents: dollarsToCents(d.amount),
             isTaxDeductible: d.isTaxDeductible,
           })),
         });

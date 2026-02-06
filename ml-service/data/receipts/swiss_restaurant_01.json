@@ -1,0 +1,40 @@
+{
+  "merchant": "Berghotel\nGrosse Scheidegg",
+  "address": "3818 Grindelwald\nFamille R.Müller",
+  "date": "2007-07-30",
+  "time": "13:29",
+  "currency": "CHF",
+  "items": [
+    {
+      "description": "2xLatte Macchiato",
+      "unit_price": 4.5,
+      "quantity": 2,
+      "total_price": 9.0
+    },
+    {
+      "description": "1xGlokt",
+      "unit_price": 5.0,
+      "quantity": 1,
+      "total_price": 5.0
+    },
+    {
+      "description": "1xSchvefnochnitzel",
+      "unit_price": 22.0,
+      "quantity": 1,
+      "total_price": 22.0
+    },
+    {
+      "description": "1xChässpatz 11 8",
+      "unit_price": 18.5,
+      "quantity": 1,
+      "total_price": 18.5
+    }
+  ],
+  "subtotal": null,
+  "tax": 3.85,
+  "tip": null,
+  "total": 54.5,
+  "payment_method": "unknown",
+  "card_last_four": null,
+  "receipt_number": "4572"
+}

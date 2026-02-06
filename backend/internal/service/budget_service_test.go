@@ -163,8 +163,8 @@ func TestListBudgets(t *testing.T) {
 
 	// Set up expectations
 	mockStore.EXPECT().
-		ListBudgets(ctx, userID, "", false, int32(10)).
-		Return(testBudgets, nil)
+		ListBudgets(ctx, userID, "", false, int32(10), "").
+		Return(testBudgets, "", nil)
 
 	// Execute
 	resp, err := service.ListBudgets(ctx, connect.NewRequest(req))

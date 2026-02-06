@@ -1,0 +1,22 @@
+{
+  "document_type": "receipt",
+  "source": "CORD dataset (Indonesian receipts)",
+  "currency": "IDR",
+  "transactions": [
+    {
+      "description": "RB. COKLAT BAR",
+      "amount": -8000.0,
+      "quantity": "1"
+    },
+    {
+      "description": "RB. CREPES TUNA",
+      "amount": -9000.0,
+      "quantity": "1"
+    },
+    {
+      "description": "RB. SISIR PANDAN",
+      "amount": -7500.0,
+      "quantity": "1"
+    }
+  ]
+}

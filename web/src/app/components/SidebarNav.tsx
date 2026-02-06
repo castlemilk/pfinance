@@ -26,6 +26,7 @@ import { useAuth } from '../context/AuthWithAdminContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ThemeToggle } from './ThemeToggle';
+import { PaletteSelector } from './PaletteSelector';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface NavItem {
@@ -48,7 +49,7 @@ const personalNavItems: NavItem[] = [
   },
   {
     title: 'Income',
-    href: '/personal/income',
+    href: '/personal/income/',
     icon: <TrendingUp className="w-4 h-4" />
   },
   {
@@ -216,8 +217,9 @@ export default function SidebarNav() {
           </Link>
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
           <ThemeToggle />
+          <PaletteSelector />
         </div>
         
         {loading ? (

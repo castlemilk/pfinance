@@ -19,7 +19,7 @@ export interface Expense {
   frequency: ExpenseFrequency;
 }
 
-export type ExpenseFrequency = 'weekly' | 'fortnightly' | 'monthly' | 'annually';
+export type ExpenseFrequency = 'once' | 'weekly' | 'fortnightly' | 'monthly' | 'annually';
 
 export interface ExpenseSummary {
   category: ExpenseCategory;

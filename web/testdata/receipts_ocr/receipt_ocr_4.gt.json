@@ -1,0 +1,11 @@
+{
+  "document_type": "receipt",
+  "source": "invoices-and-receipts_ocr_v1",
+  "transactions": [
+    {
+      "merchant": "Williams LLC",
+      "date": "2012-10-09",
+      "total": 544.46
+    }
+  ]
+}

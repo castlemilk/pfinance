@@ -100,8 +100,8 @@ func TestE2EFinanceService(t *testing.T) {
 		}
 
 		mockStore.EXPECT().
-			ListExpenses(gomock.Any(), "local-dev-user", "", gomock.Any(), gomock.Any(), int32(10)).
-			Return(mockExpenses, nil)
+			ListExpenses(gomock.Any(), "local-dev-user", "", gomock.Any(), gomock.Any(), int32(10), "").
+			Return(mockExpenses, "", nil)
 
 		ctx := context.Background()
 

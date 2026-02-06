@@ -22,6 +22,26 @@ func NewFirestoreStore(client *firestore.Client) Store {
 	}
 }
 
+// applyCursorPagination adds OrderBy + StartAfter + Limit to a query for cursor-based pagination.
+// It fetches pageSize+1 docs so the caller can detect whether a next page exists.
+func (s *FirestoreStore) applyCursorPagination(query firestore.Query, pageSize int32, pageToken string) (firestore.Query, error) {
+	query = query.OrderBy(firestore.DocumentID, firestore.Asc)
+
+	if pageToken != "" {
+		docID, err := DecodePageToken(pageToken)
+		if err != nil {
+			return query, fmt.Errorf("invalid page token: %w", err)
+		}
+		query = query.StartAfter(docID)
+	}
+
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+	query = query.Limit(int(pageSize) + 1) // +1 to detect next page
+	return query, nil
+}
+
 // CreateExpense creates a new expense in Firestore
 func (s *FirestoreStore) CreateExpense(ctx context.Context, expense *pfinancev1.Expense) error {
 	collection := "expenses"
@@ -70,7 +90,7 @@ func (s *FirestoreStore) UpdateExpense(ctx context.Context, expense *pfinancev1.
 }
 
 // ListExpenses lists expenses from Firestore
-func (s *FirestoreStore) ListExpenses(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, pageSize int32) ([]*pfinancev1.Expense, error) {
+func (s *FirestoreStore) ListExpenses(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, pageSize int32, pageToken string) ([]*pfinancev1.Expense, string, error) {
 	collection := "expenses"
 	if groupID != "" {
 		collection = "groupExpenses"
@@ -94,28 +114,38 @@ func (s *FirestoreStore) ListExpenses(ctx context.Context, userID, groupID strin
 		query = query.Where("Date", "<=", *endDate)
 	}
 
-	// Apply pagination
-	if pageSize <= 0 {
-		pageSize = 100
+	query, err := s.applyCursorPagination(query, pageSize, pageToken)
+	if err != nil {
+		return nil, "", err
 	}
-	query = query.Limit(int(pageSize))
 
 	// Execute query
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list expenses: %w", err)
+		return nil, "", fmt.Errorf("failed to list expenses: %w", err)
+	}
+
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+
+	// Detect next page
+	var nextPageToken string
+	if len(docs) > int(pageSize) {
+		docs = docs[:pageSize]
+		nextPageToken = EncodePageToken(docs[pageSize-1].Ref.ID)
 	}
 
 	expenses := make([]*pfinancev1.Expense, 0, len(docs))
 	for _, doc := range docs {
 		var expense pfinancev1.Expense
 		if err := doc.DataTo(&expense); err != nil {
-			return nil, fmt.Errorf("failed to parse expense: %w", err)
+			return nil, "", fmt.Errorf("failed to parse expense: %w", err)
 		}
 		expenses = append(expenses, &expense)
 	}
 
-	return expenses, nil
+	return expenses, nextPageToken, nil
 }
 
 // DeleteExpense deletes an expense from Firestore
@@ -192,7 +222,7 @@ func (s *FirestoreStore) DeleteIncome(ctx context.Context, incomeID string) erro
 }
 
 // ListIncomes lists incomes from Firestore
-func (s *FirestoreStore) ListIncomes(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, pageSize int32) ([]*pfinancev1.Income, error) {
+func (s *FirestoreStore) ListIncomes(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, pageSize int32, pageToken string) ([]*pfinancev1.Income, string, error) {
 	collection := "incomes"
 	if groupID != "" {
 		collection = "groupIncomes"
@@ -216,28 +246,37 @@ func (s *FirestoreStore) ListIncomes(ctx context.Context, userID, groupID string
 		query = query.Where("Date", "<=", *endDate)
 	}
 
-	// Apply pagination
-	if pageSize <= 0 {
-		pageSize = 100
+	query, err := s.applyCursorPagination(query, pageSize, pageToken)
+	if err != nil {
+		return nil, "", err
 	}
-	query = query.Limit(int(pageSize))
 
 	// Execute query
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list incomes: %w", err)
+		return nil, "", fmt.Errorf("failed to list incomes: %w", err)
+	}
+
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+
+	var nextPageToken string
+	if len(docs) > int(pageSize) {
+		docs = docs[:pageSize]
+		nextPageToken = EncodePageToken(docs[pageSize-1].Ref.ID)
 	}
 
 	incomes := make([]*pfinancev1.Income, 0, len(docs))
 	for _, doc := range docs {
 		var income pfinancev1.Income
 		if err := doc.DataTo(&income); err != nil {
-			return nil, fmt.Errorf("failed to parse income: %w", err)
+			return nil, "", fmt.Errorf("failed to parse income: %w", err)
 		}
 		incomes = append(incomes, &income)
 	}
 
-	return incomes, nil
+	return incomes, nextPageToken, nil
 }
 
 // CreateGroup creates a new group in Firestore
@@ -267,7 +306,7 @@ func (s *FirestoreStore) UpdateGroup(ctx context.Context, group *pfinancev1.Fina
 }
 
 // ListGroups lists groups for a user
-func (s *FirestoreStore) ListGroups(ctx context.Context, userID string, pageSize int32) ([]*pfinancev1.FinanceGroup, error) {
+func (s *FirestoreStore) ListGroups(ctx context.Context, userID string, pageSize int32, pageToken string) ([]*pfinancev1.FinanceGroup, string, error) {
 	var query firestore.Query
 	query = s.client.Collection("financeGroups").Query
 
@@ -276,28 +315,37 @@ func (s *FirestoreStore) ListGroups(ctx context.Context, userID string, pageSize
 		query = query.Where("MemberIds", "array-contains", userID)
 	}
 
-	// Apply pagination
-	if pageSize <= 0 {
-		pageSize = 100
+	query, err := s.applyCursorPagination(query, pageSize, pageToken)
+	if err != nil {
+		return nil, "", err
 	}
-	query = query.Limit(int(pageSize))
 
 	// Execute query
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list groups: %w", err)
+		return nil, "", fmt.Errorf("failed to list groups: %w", err)
+	}
+
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+
+	var nextPageToken string
+	if len(docs) > int(pageSize) {
+		docs = docs[:pageSize]
+		nextPageToken = EncodePageToken(docs[pageSize-1].Ref.ID)
 	}
 
 	groups := make([]*pfinancev1.FinanceGroup, 0, len(docs))
 	for _, doc := range docs {
 		var group pfinancev1.FinanceGroup
 		if err := doc.DataTo(&group); err != nil {
-			return nil, fmt.Errorf("failed to parse group: %w", err)
+			return nil, "", fmt.Errorf("failed to parse group: %w", err)
 		}
 		groups = append(groups, &group)
 	}
 
-	return groups, nil
+	return groups, nextPageToken, nil
 }
 
 // DeleteGroup deletes a group from Firestore
@@ -333,7 +381,7 @@ func (s *FirestoreStore) UpdateInvitation(ctx context.Context, invitation *pfina
 }
 
 // ListInvitations lists invitations for a user
-func (s *FirestoreStore) ListInvitations(ctx context.Context, userEmail string, status *pfinancev1.InvitationStatus, pageSize int32) ([]*pfinancev1.GroupInvitation, error) {
+func (s *FirestoreStore) ListInvitations(ctx context.Context, userEmail string, status *pfinancev1.InvitationStatus, pageSize int32, pageToken string) ([]*pfinancev1.GroupInvitation, string, error) {
 	var query firestore.Query
 	query = s.client.Collection("groupInvitations").Query
 
@@ -345,28 +393,37 @@ func (s *FirestoreStore) ListInvitations(ctx context.Context, userEmail string, 
 		query = query.Where("Status", "==", *status)
 	}
 
-	// Apply pagination
-	if pageSize <= 0 {
-		pageSize = 100
+	query, err := s.applyCursorPagination(query, pageSize, pageToken)
+	if err != nil {
+		return nil, "", err
 	}
-	query = query.Limit(int(pageSize))
 
 	// Execute query
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list invitations: %w", err)
+		return nil, "", fmt.Errorf("failed to list invitations: %w", err)
+	}
+
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+
+	var nextPageToken string
+	if len(docs) > int(pageSize) {
+		docs = docs[:pageSize]
+		nextPageToken = EncodePageToken(docs[pageSize-1].Ref.ID)
 	}
 
 	invitations := make([]*pfinancev1.GroupInvitation, 0, len(docs))
 	for _, doc := range docs {
 		var invitation pfinancev1.GroupInvitation
 		if err := doc.DataTo(&invitation); err != nil {
-			return nil, fmt.Errorf("failed to parse invitation: %w", err)
+			return nil, "", fmt.Errorf("failed to parse invitation: %w", err)
 		}
 		invitations = append(invitations, &invitation)
 	}
 
-	return invitations, nil
+	return invitations, nextPageToken, nil
 }
 
 // GetTaxConfig retrieves tax configuration
@@ -462,7 +519,7 @@ func (s *FirestoreStore) UpdateInviteLink(ctx context.Context, link *pfinancev1.
 }
 
 // ListInviteLinks lists invite links for a group
-func (s *FirestoreStore) ListInviteLinks(ctx context.Context, groupID string, includeInactive bool, pageSize int32) ([]*pfinancev1.GroupInviteLink, error) {
+func (s *FirestoreStore) ListInviteLinks(ctx context.Context, groupID string, includeInactive bool, pageSize int32, pageToken string) ([]*pfinancev1.GroupInviteLink, string, error) {
 	var query firestore.Query
 	query = s.client.Collection("groupInviteLinks").Query
 
@@ -475,28 +532,37 @@ func (s *FirestoreStore) ListInviteLinks(ctx context.Context, groupID string, in
 		query = query.Where("IsActive", "==", true)
 	}
 
-	// Apply pagination
-	if pageSize <= 0 {
-		pageSize = 100
+	query, err := s.applyCursorPagination(query, pageSize, pageToken)
+	if err != nil {
+		return nil, "", err
 	}
-	query = query.Limit(int(pageSize))
 
 	// Execute query
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list invite links: %w", err)
+		return nil, "", fmt.Errorf("failed to list invite links: %w", err)
+	}
+
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+
+	var nextPageToken string
+	if len(docs) > int(pageSize) {
+		docs = docs[:pageSize]
+		nextPageToken = EncodePageToken(docs[pageSize-1].Ref.ID)
 	}
 
 	links := make([]*pfinancev1.GroupInviteLink, 0, len(docs))
 	for _, doc := range docs {
 		var link pfinancev1.GroupInviteLink
 		if err := doc.DataTo(&link); err != nil {
-			return nil, fmt.Errorf("failed to parse invite link: %w", err)
+			return nil, "", fmt.Errorf("failed to parse invite link: %w", err)
 		}
 		links = append(links, &link)
 	}
 
-	return links, nil
+	return links, nextPageToken, nil
 }
 
 // Contribution operations
@@ -522,7 +588,7 @@ func (s *FirestoreStore) GetContribution(ctx context.Context, contributionID str
 }
 
 // ListContributions lists contributions for a group or user
-func (s *FirestoreStore) ListContributions(ctx context.Context, groupID, userID string, pageSize int32) ([]*pfinancev1.ExpenseContribution, error) {
+func (s *FirestoreStore) ListContributions(ctx context.Context, groupID, userID string, pageSize int32, pageToken string) ([]*pfinancev1.ExpenseContribution, string, error) {
 	var query firestore.Query
 	query = s.client.Collection("expenseContributions").Query
 
@@ -534,28 +600,37 @@ func (s *FirestoreStore) ListContributions(ctx context.Context, groupID, userID 
 		query = query.Where("ContributedBy", "==", userID)
 	}
 
-	// Apply pagination
-	if pageSize <= 0 {
-		pageSize = 100
+	query, err := s.applyCursorPagination(query, pageSize, pageToken)
+	if err != nil {
+		return nil, "", err
 	}
-	query = query.Limit(int(pageSize))
 
 	// Execute query
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list contributions: %w", err)
+		return nil, "", fmt.Errorf("failed to list contributions: %w", err)
+	}
+
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+
+	var nextPageToken string
+	if len(docs) > int(pageSize) {
+		docs = docs[:pageSize]
+		nextPageToken = EncodePageToken(docs[pageSize-1].Ref.ID)
 	}
 
 	contributions := make([]*pfinancev1.ExpenseContribution, 0, len(docs))
 	for _, doc := range docs {
 		var contribution pfinancev1.ExpenseContribution
 		if err := doc.DataTo(&contribution); err != nil {
-			return nil, fmt.Errorf("failed to parse contribution: %w", err)
+			return nil, "", fmt.Errorf("failed to parse contribution: %w", err)
 		}
 		contributions = append(contributions, &contribution)
 	}
 
-	return contributions, nil
+	return contributions, nextPageToken, nil
 }
 
 // Income contribution operations
@@ -581,7 +656,7 @@ func (s *FirestoreStore) GetIncomeContribution(ctx context.Context, contribution
 }
 
 // ListIncomeContributions lists income contributions for a group or user
-func (s *FirestoreStore) ListIncomeContributions(ctx context.Context, groupID, userID string, pageSize int32) ([]*pfinancev1.IncomeContribution, error) {
+func (s *FirestoreStore) ListIncomeContributions(ctx context.Context, groupID, userID string, pageSize int32, pageToken string) ([]*pfinancev1.IncomeContribution, string, error) {
 	var query firestore.Query
 	query = s.client.Collection("incomeContributions").Query
 
@@ -593,28 +668,37 @@ func (s *FirestoreStore) ListIncomeContributions(ctx context.Context, groupID, u
 		query = query.Where("ContributedBy", "==", userID)
 	}
 
-	// Apply pagination
-	if pageSize <= 0 {
-		pageSize = 100
+	query, err := s.applyCursorPagination(query, pageSize, pageToken)
+	if err != nil {
+		return nil, "", err
 	}
-	query = query.Limit(int(pageSize))
 
 	// Execute query
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list income contributions: %w", err)
+		return nil, "", fmt.Errorf("failed to list income contributions: %w", err)
+	}
+
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+
+	var nextPageToken string
+	if len(docs) > int(pageSize) {
+		docs = docs[:pageSize]
+		nextPageToken = EncodePageToken(docs[pageSize-1].Ref.ID)
 	}
 
 	contributions := make([]*pfinancev1.IncomeContribution, 0, len(docs))
 	for _, doc := range docs {
 		var contribution pfinancev1.IncomeContribution
 		if err := doc.DataTo(&contribution); err != nil {
-			return nil, fmt.Errorf("failed to parse income contribution: %w", err)
+			return nil, "", fmt.Errorf("failed to parse income contribution: %w", err)
 		}
 		contributions = append(contributions, &contribution)
 	}
 
-	return contributions, nil
+	return contributions, nextPageToken, nil
 }
 
 // Budget operations
@@ -680,7 +764,7 @@ func (s *FirestoreStore) DeleteBudget(ctx context.Context, budgetID string) erro
 }
 
 // ListBudgets lists budgets for a user or group
-func (s *FirestoreStore) ListBudgets(ctx context.Context, userID, groupID string, includeInactive bool, pageSize int32) ([]*pfinancev1.Budget, error) {
+func (s *FirestoreStore) ListBudgets(ctx context.Context, userID, groupID string, includeInactive bool, pageSize int32, pageToken string) ([]*pfinancev1.Budget, string, error) {
 	collection := "budgets"
 	if groupID != "" {
 		collection = "groupBudgets"
@@ -702,28 +786,37 @@ func (s *FirestoreStore) ListBudgets(ctx context.Context, userID, groupID string
 		query = query.Where("IsActive", "==", true)
 	}
 
-	// Apply pagination
-	if pageSize <= 0 {
-		pageSize = 100
+	query, err := s.applyCursorPagination(query, pageSize, pageToken)
+	if err != nil {
+		return nil, "", err
 	}
-	query = query.Limit(int(pageSize))
 
 	// Execute query
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list budgets: %w", err)
+		return nil, "", fmt.Errorf("failed to list budgets: %w", err)
+	}
+
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+
+	var nextPageToken string
+	if len(docs) > int(pageSize) {
+		docs = docs[:pageSize]
+		nextPageToken = EncodePageToken(docs[pageSize-1].Ref.ID)
 	}
 
 	budgets := make([]*pfinancev1.Budget, 0, len(docs))
 	for _, doc := range docs {
 		var budget pfinancev1.Budget
 		if err := doc.DataTo(&budget); err != nil {
-			return nil, fmt.Errorf("failed to parse budget: %w", err)
+			return nil, "", fmt.Errorf("failed to parse budget: %w", err)
 		}
 		budgets = append(budgets, &budget)
 	}
 
-	return budgets, nil
+	return budgets, nextPageToken, nil
 }
 
 // GetBudgetProgress calculates the current progress of a budget
@@ -898,4 +991,248 @@ func (s *FirestoreStore) GetUser(ctx context.Context, userID string) (*pfinancev
 func (s *FirestoreStore) UpdateUser(ctx context.Context, user *pfinancev1.User) error {
 	_, err := s.client.Collection("users").Doc(user.Id).Set(ctx, user)
 	return err
+}
+
+// Goal operations
+
+// CreateGoal creates a new goal in Firestore
+func (s *FirestoreStore) CreateGoal(ctx context.Context, goal *pfinancev1.FinancialGoal) error {
+	collection := "goals"
+	if goal.GroupId != "" {
+		collection = "groupGoals"
+	}
+
+	_, err := s.client.Collection(collection).Doc(goal.Id).Set(ctx, goal)
+	return err
+}
+
+// GetGoal retrieves a goal from Firestore
+func (s *FirestoreStore) GetGoal(ctx context.Context, goalID string) (*pfinancev1.FinancialGoal, error) {
+	// Try user goals first
+	doc, err := s.client.Collection("goals").Doc(goalID).Get(ctx)
+	if err == nil {
+		var goal pfinancev1.FinancialGoal
+		if err := doc.DataTo(&goal); err != nil {
+			return nil, fmt.Errorf("failed to parse goal: %w", err)
+		}
+		return &goal, nil
+	}
+
+	// Try group goals
+	doc, err = s.client.Collection("groupGoals").Doc(goalID).Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("goal not found: %w", err)
+	}
+
+	var goal pfinancev1.FinancialGoal
+	if err := doc.DataTo(&goal); err != nil {
+		return nil, fmt.Errorf("failed to parse goal: %w", err)
+	}
+	return &goal, nil
+}
+
+// UpdateGoal updates a goal in Firestore
+func (s *FirestoreStore) UpdateGoal(ctx context.Context, goal *pfinancev1.FinancialGoal) error {
+	collection := "goals"
+	if goal.GroupId != "" {
+		collection = "groupGoals"
+	}
+
+	_, err := s.client.Collection(collection).Doc(goal.Id).Set(ctx, goal)
+	return err
+}
+
+// DeleteGoal deletes a goal from Firestore
+func (s *FirestoreStore) DeleteGoal(ctx context.Context, goalID string) error {
+	// Try to delete from user goals first
+	_, err := s.client.Collection("goals").Doc(goalID).Delete(ctx)
+	if err == nil {
+		return nil
+	}
+
+	// Try group goals
+	_, err = s.client.Collection("groupGoals").Doc(goalID).Delete(ctx)
+	return err
+}
+
+// ListGoals lists goals for a user or group
+func (s *FirestoreStore) ListGoals(ctx context.Context, userID, groupID string, status pfinancev1.GoalStatus, goalType pfinancev1.GoalType, pageSize int32, pageToken string) ([]*pfinancev1.FinancialGoal, string, error) {
+	collection := "goals"
+	if groupID != "" {
+		collection = "groupGoals"
+	}
+
+	var query firestore.Query
+	query = s.client.Collection(collection).Query
+
+	// Apply filters
+	// NOTE: Field names must match Go struct field names (PascalCase) as that's how Firestore serializes protobuf structs
+	if groupID != "" {
+		query = query.Where("GroupId", "==", groupID)
+	} else if userID != "" {
+		query = query.Where("UserId", "==", userID)
+	}
+
+	// Filter by status if specified
+	if status != pfinancev1.GoalStatus_GOAL_STATUS_UNSPECIFIED {
+		query = query.Where("Status", "==", status)
+	}
+
+	// Filter by goal type if specified
+	if goalType != pfinancev1.GoalType_GOAL_TYPE_UNSPECIFIED {
+		query = query.Where("GoalType", "==", goalType)
+	}
+
+	query, err := s.applyCursorPagination(query, pageSize, pageToken)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Execute query
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to list goals: %w", err)
+	}
+
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+
+	var nextPageToken string
+	if len(docs) > int(pageSize) {
+		docs = docs[:pageSize]
+		nextPageToken = EncodePageToken(docs[pageSize-1].Ref.ID)
+	}
+
+	goals := make([]*pfinancev1.FinancialGoal, 0, len(docs))
+	for _, doc := range docs {
+		var goal pfinancev1.FinancialGoal
+		if err := doc.DataTo(&goal); err != nil {
+			return nil, "", fmt.Errorf("failed to parse goal: %w", err)
+		}
+		goals = append(goals, &goal)
+	}
+
+	return goals, nextPageToken, nil
+}
+
+// GetGoalProgress calculates the current progress of a goal
+func (s *FirestoreStore) GetGoalProgress(ctx context.Context, goalID string, asOfDate time.Time) (*pfinancev1.GoalProgress, error) {
+	// Get the goal first
+	goal, err := s.GetGoal(ctx, goalID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get goal: %w", err)
+	}
+
+	// Calculate progress
+	currentAmount := goal.CurrentAmount
+	targetAmount := goal.TargetAmount
+	percentageComplete := 0.0
+	if targetAmount > 0 {
+		percentageComplete = (currentAmount / targetAmount) * 100
+	}
+
+	// Calculate days remaining
+	daysRemaining := int32(0)
+	if goal.TargetDate != nil {
+		targetDate := goal.TargetDate.AsTime()
+		if asOfDate.Before(targetDate) {
+			daysRemaining = int32(targetDate.Sub(asOfDate).Hours() / 24)
+		}
+	}
+
+	// Calculate daily rates
+	remainingAmount := targetAmount - currentAmount
+	requiredDailyRate := 0.0
+	if daysRemaining > 0 && remainingAmount > 0 {
+		requiredDailyRate = remainingAmount / float64(daysRemaining)
+	}
+
+	// Calculate actual daily rate based on progress so far
+	actualDailyRate := 0.0
+	if goal.StartDate != nil {
+		startDate := goal.StartDate.AsTime()
+		daysSinceStart := asOfDate.Sub(startDate).Hours() / 24
+		if daysSinceStart > 0 {
+			actualDailyRate = currentAmount / daysSinceStart
+		}
+	}
+
+	// Determine if on track
+	onTrack := actualDailyRate >= requiredDailyRate || percentageComplete >= 100
+
+	// Find achieved milestones and next milestone
+	var achievedMilestones []*pfinancev1.GoalMilestone
+	var nextMilestone *pfinancev1.GoalMilestone
+	for _, milestone := range goal.Milestones {
+		if milestone.IsAchieved {
+			achievedMilestones = append(achievedMilestones, milestone)
+		} else if nextMilestone == nil || milestone.TargetPercentage < nextMilestone.TargetPercentage {
+			nextMilestone = milestone
+		}
+	}
+
+	return &pfinancev1.GoalProgress{
+		GoalId:             goalID,
+		CurrentAmount:      currentAmount,
+		TargetAmount:       targetAmount,
+		PercentageComplete: percentageComplete,
+		DaysRemaining:      daysRemaining,
+		RequiredDailyRate:  requiredDailyRate,
+		ActualDailyRate:    actualDailyRate,
+		OnTrack:            onTrack,
+		AchievedMilestones: achievedMilestones,
+		NextMilestone:      nextMilestone,
+	}, nil
+}
+
+// Goal contribution operations
+
+// CreateGoalContribution creates a new goal contribution in Firestore
+func (s *FirestoreStore) CreateGoalContribution(ctx context.Context, contribution *pfinancev1.GoalContribution) error {
+	_, err := s.client.Collection("goalContributions").Doc(contribution.Id).Set(ctx, contribution)
+	return err
+}
+
+// ListGoalContributions lists contributions for a goal
+func (s *FirestoreStore) ListGoalContributions(ctx context.Context, goalID string, pageSize int32, pageToken string) ([]*pfinancev1.GoalContribution, string, error) {
+	var query firestore.Query
+	query = s.client.Collection("goalContributions").Query
+
+	// NOTE: Field names must match Go struct field names (PascalCase) as that's how Firestore serializes protobuf structs
+	if goalID != "" {
+		query = query.Where("GoalId", "==", goalID)
+	}
+
+	query, err := s.applyCursorPagination(query, pageSize, pageToken)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Execute query
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to list goal contributions: %w", err)
+	}
+
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+
+	var nextPageToken string
+	if len(docs) > int(pageSize) {
+		docs = docs[:pageSize]
+		nextPageToken = EncodePageToken(docs[pageSize-1].Ref.ID)
+	}
+
+	contributions := make([]*pfinancev1.GoalContribution, 0, len(docs))
+	for _, doc := range docs {
+		var contribution pfinancev1.GoalContribution
+		if err := doc.DataTo(&contribution); err != nil {
+			return nil, "", fmt.Errorf("failed to parse goal contribution: %w", err)
+		}
+		contributions = append(contributions, &contribution)
+	}
+
+	return contributions, nextPageToken, nil
 }

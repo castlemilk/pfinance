@@ -1,0 +1,290 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - navigation "Main navigation" [ref=e6]:
+        - generic [ref=e7]:
+          - link "PFinance" [ref=e8] [cursor=pointer]:
+            - /url: /
+            - img [ref=e11]
+            - generic [ref=e15]: PFinance
+          - generic [ref=e16]:
+            - button "Toggle theme" [ref=e17]:
+              - generic [ref=e18]:
+                - img
+              - generic [ref=e20]: Toggle theme
+            - button [ref=e21]:
+              - generic [ref=e22]:
+                - img
+    - main [ref=e23]:
+      - generic [ref=e31]:
+        - generic [ref=e33]:
+          - img [ref=e34]
+          - text: AI-Powered Finance Tracking
+        - heading "Take Control of Your Finances" [level=1] [ref=e36]:
+          - text: Take Control of
+          - generic [ref=e37]: Your Finances
+        - paragraph [ref=e39]: Track expenses, manage budgets, and collaborate with your household—all with beautiful visualizations and smart AI insights.
+        - generic [ref=e40]:
+          - link "Get Started Free" [ref=e41] [cursor=pointer]:
+            - /url: /personal/income/
+            - button "Get Started Free" [ref=e42]:
+              - text: Get Started Free
+              - img
+          - link "See How It Works" [ref=e43] [cursor=pointer]:
+            - /url: "#features"
+            - button "See How It Works" [ref=e44]
+        - generic [ref=e45]:
+          - generic [ref=e46]:
+            - generic [ref=e47]: A
+            - generic [ref=e48]: B
+            - generic [ref=e49]: C
+            - generic [ref=e50]: D
+            - generic [ref=e51]: E
+          - generic [ref=e52]: 1,000+ users tracking their finances
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - generic [ref=e56]: Features
+          - heading "Everything You Need to Master Your Money" [level=2] [ref=e57]
+          - paragraph [ref=e58]: Powerful features designed to make personal finance simple, insightful, and even enjoyable.
+        - generic [ref=e59]:
+          - generic [ref=e60]:
+            - img [ref=e62]
+            - heading "Expense Tracking" [level=3] [ref=e65]
+            - paragraph [ref=e66]: Log expenses quickly with smart categorization. Track recurring payments and one-time purchases effortlessly.
+          - generic [ref=e68]:
+            - img [ref=e70]
+            - heading "Beautiful Insights" [level=3] [ref=e73]
+            - paragraph [ref=e74]: Visualize your spending patterns with stunning charts. Understand where your money goes at a glance.
+          - generic [ref=e76]:
+            - img [ref=e78]
+            - heading "Multi-User Groups" [level=3] [ref=e83]
+            - paragraph [ref=e84]: Collaborate with family or roommates. Share expenses, split costs, and manage household finances together.
+          - generic [ref=e86]:
+            - img [ref=e88]
+            - heading "AI-Powered" [level=3] [ref=e98]
+            - paragraph [ref=e99]: Smart categorization learns your habits. Import bank statements with AI that understands your transactions.
+          - generic [ref=e101]:
+            - img [ref=e103]
+            - heading "Budget Alerts" [level=3] [ref=e106]
+            - paragraph [ref=e107]: Set spending limits and get notified before you overspend. Stay on track with personalized alerts.
+          - generic [ref=e109]:
+            - img [ref=e111]
+            - heading "Privacy First" [level=3] [ref=e113]
+            - paragraph [ref=e114]: Your financial data stays secure. Bank-level encryption with optional local-only storage.
+      - generic [ref=e118]:
+        - generic [ref=e119]:
+          - generic [ref=e121]: 0+
+          - generic [ref=e122]: Active Users
+          - generic [ref=e123]: People tracking their finances
+        - generic [ref=e124]:
+          - generic [ref=e126]: 0K+
+          - generic [ref=e127]: Transactions Tracked
+          - generic [ref=e128]: Expenses logged and categorized
+        - generic [ref=e129]:
+          - generic [ref=e131]: 0.0/5
+          - generic [ref=e132]: User Rating
+          - generic [ref=e133]: Average satisfaction score
+        - generic [ref=e134]:
+          - generic [ref=e136]: 0.0%
+          - generic [ref=e137]: Uptime
+          - generic [ref=e138]: Reliable and always available
+      - generic [ref=e140]:
+        - generic [ref=e141]:
+          - generic [ref=e142]: Testimonials
+          - heading "Loved by Thousands" [level=2] [ref=e143]
+          - paragraph [ref=e144]: See what our users have to say about their experience with PFinance.
+        - generic [ref=e145]:
+          - generic [ref=e146]:
+            - img [ref=e148]
+            - paragraph [ref=e151]: “PFinance completely changed how I manage my money. The visualizations make it so easy to see where I'm overspending.”
+            - generic [ref=e152]:
+              - generic [ref=e153]: SC
+              - generic [ref=e154]:
+                - generic [ref=e155]: Sarah Chen
+                - generic [ref=e156]: Software Engineer
+          - generic [ref=e157]:
+            - img [ref=e159]
+            - paragraph [ref=e162]: “Finally, a finance app that my whole family can use together. Sharing expenses with my partner has never been easier.”
+            - generic [ref=e163]:
+              - generic [ref=e164]: MJ
+              - generic [ref=e165]:
+                - generic [ref=e166]: Marcus Johnson
+                - generic [ref=e167]: Product Manager
+          - generic [ref=e168]:
+            - img [ref=e170]
+            - paragraph [ref=e173]: “The AI categorization is incredibly accurate. I just import my statements and everything gets sorted automatically.”
+            - generic [ref=e174]:
+              - generic [ref=e175]: ER
+              - generic [ref=e176]:
+                - generic [ref=e177]: Emily Rodriguez
+                - generic [ref=e178]: Freelance Designer
+      - generic [ref=e180]:
+        - generic [ref=e181]:
+          - generic [ref=e182]: Pricing
+          - heading "Simple, Transparent Pricing" [level=2] [ref=e183]
+          - paragraph [ref=e184]: Start free and upgrade when you need more features.
+        - generic [ref=e185]:
+          - generic [ref=e186]: Monthly
+          - button [ref=e187]
+          - generic [ref=e189]: AnnualSave 22%
+        - generic [ref=e190]:
+          - generic [ref=e191]:
+            - generic [ref=e192]:
+              - heading "Free" [level=3] [ref=e193]
+              - paragraph [ref=e194]: Perfect for getting started with personal finance tracking.
+            - generic [ref=e197]: $0
+            - link "Get Started" [ref=e198] [cursor=pointer]:
+              - /url: /personal/income/
+              - button "Get Started" [ref=e199]
+            - list [ref=e200]:
+              - listitem [ref=e201]:
+                - img [ref=e203]
+                - generic [ref=e205]: Expense tracking
+              - listitem [ref=e206]:
+                - img [ref=e208]
+                - generic [ref=e210]: Basic budgets (3 categories)
+              - listitem [ref=e211]:
+                - img [ref=e213]
+                - generic [ref=e215]: Monthly reports
+              - listitem [ref=e216]:
+                - img [ref=e218]
+                - generic [ref=e220]: Single user
+              - listitem [ref=e221]:
+                - img [ref=e223]
+                - generic [ref=e225]: Data export
+          - generic [ref=e226]:
+            - generic [ref=e228]:
+              - img [ref=e229]
+              - text: Most Popular
+            - generic [ref=e231]:
+              - heading "Pro" [level=3] [ref=e232]
+              - paragraph [ref=e233]: Everything you need for serious financial management.
+            - generic [ref=e234]:
+              - generic [ref=e235]:
+                - generic [ref=e236]: $7
+                - generic [ref=e237]: /month
+              - paragraph [ref=e238]: Billed annually ($84/year)
+            - link "Start Pro Trial" [ref=e239] [cursor=pointer]:
+              - /url: /personal/income/
+              - button "Start Pro Trial" [ref=e240]
+            - list [ref=e241]:
+              - listitem [ref=e242]:
+                - img [ref=e244]
+                - generic [ref=e246]: Everything in Free
+              - listitem [ref=e247]:
+                - img [ref=e249]
+                - generic [ref=e251]: Unlimited budgets
+              - listitem [ref=e252]:
+                - img [ref=e254]
+                - generic [ref=e256]: Advanced reports & analytics
+              - listitem [ref=e257]:
+                - img [ref=e259]
+                - generic [ref=e261]: Multi-user groups (up to 10)
+              - listitem [ref=e262]:
+                - img [ref=e264]
+                - generic [ref=e266]: AI-powered categorization
+              - listitem [ref=e267]:
+                - img [ref=e269]
+                - generic [ref=e271]: Bank statement import
+              - listitem [ref=e272]:
+                - img [ref=e274]
+                - generic [ref=e276]: Budget notifications
+              - listitem [ref=e277]:
+                - img [ref=e279]
+                - generic [ref=e281]: Priority support
+              - listitem [ref=e282]:
+                - img [ref=e284]
+                - generic [ref=e286]: API access
+        - paragraph [ref=e287]: All plans include a 14-day free trial. No credit card required.
+      - generic [ref=e293]:
+        - generic [ref=e294]:
+          - img [ref=e295]
+          - text: Start for free today
+        - heading "Ready to Transform Your Financial Future?" [level=2] [ref=e297]
+        - paragraph [ref=e298]: Join thousands of users who have already taken control of their finances. No credit card required to get started.
+        - link "Get Started Free" [ref=e300] [cursor=pointer]:
+          - /url: /personal/income/
+          - button "Get Started Free" [ref=e301]:
+            - text: Get Started Free
+            - img
+        - generic [ref=e302]:
+          - generic [ref=e303]:
+            - img [ref=e304]
+            - text: Free forever plan
+          - generic [ref=e306]:
+            - img [ref=e307]
+            - text: No credit card required
+          - generic [ref=e309]:
+            - img [ref=e310]
+            - text: Setup in 2 minutes
+    - contentinfo [ref=e312]:
+      - generic [ref=e313]:
+        - generic [ref=e314]:
+          - generic [ref=e315]:
+            - link "PFinance" [ref=e316] [cursor=pointer]:
+              - /url: /
+              - img [ref=e318]
+              - generic [ref=e321]: PFinance
+            - paragraph [ref=e322]: Take control of your finances with intelligent tracking, beautiful insights, and collaborative tools.
+            - generic [ref=e323]:
+              - link "GitHub" [ref=e324] [cursor=pointer]:
+                - /url: https://github.com
+                - img [ref=e325]
+              - link "Twitter" [ref=e328] [cursor=pointer]:
+                - /url: https://twitter.com
+                - img [ref=e329]
+              - link "LinkedIn" [ref=e331] [cursor=pointer]:
+                - /url: https://linkedin.com
+                - img [ref=e332]
+          - generic [ref=e336]:
+            - heading "Product" [level=3] [ref=e337]
+            - list [ref=e338]:
+              - listitem [ref=e339]:
+                - link "Features" [ref=e340] [cursor=pointer]:
+                  - /url: /#features
+              - listitem [ref=e341]:
+                - link "Pricing" [ref=e342] [cursor=pointer]:
+                  - /url: /#pricing
+              - listitem [ref=e343]:
+                - link "Dashboard" [ref=e344] [cursor=pointer]:
+                  - /url: /personal/income/
+          - generic [ref=e345]:
+            - heading "Resources" [level=3] [ref=e346]
+            - list [ref=e347]:
+              - listitem [ref=e348]:
+                - link "Blog" [ref=e349] [cursor=pointer]:
+                  - /url: /blog/
+              - listitem [ref=e350]:
+                - link "Documentation" [ref=e351] [cursor=pointer]:
+                  - /url: /blog/
+              - listitem [ref=e352]:
+                - link "Help Center" [ref=e353] [cursor=pointer]:
+                  - /url: /blog/
+          - generic [ref=e354]:
+            - heading "Legal" [level=3] [ref=e355]
+            - list [ref=e356]:
+              - listitem [ref=e357]:
+                - link "Privacy Policy" [ref=e358] [cursor=pointer]:
+                  - /url: /privacy/
+              - listitem [ref=e359]:
+                - link "Terms of Service" [ref=e360] [cursor=pointer]:
+                  - /url: /terms/
+        - generic [ref=e361]:
+          - paragraph [ref=e362]: © 2026 PFinance. All rights reserved.
+          - paragraph [ref=e363]: Built with Next.js, TypeScript & shadcn/ui
+  - region "Notifications (F8)":
+    - list
+  - button "Open Next.js Dev Tools" [ref=e369] [cursor=pointer]:
+    - generic [ref=e372]:
+      - text: Compiling
+      - generic [ref=e373]:
+        - generic [ref=e374]: .
+        - generic [ref=e375]: .
+        - generic [ref=e376]: .
+  - alert [ref=e377]
+```

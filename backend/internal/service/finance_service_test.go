@@ -389,8 +389,8 @@ func TestListExpenses(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					ListExpenses(gomock.Any(), "user-123", "", gomock.Any(), gomock.Any(), int32(10)).
-					Return(mockExpenses, nil)
+					ListExpenses(gomock.Any(), "user-123", "", gomock.Any(), gomock.Any(), int32(10), "").
+					Return(mockExpenses, "", nil)
 			},
 			expectedCount: 2,
 			expectedError: false,
@@ -411,8 +411,8 @@ func TestListExpenses(t *testing.T) {
 						MemberIds: []string{"user-123"},
 					}, nil)
 				mockStore.EXPECT().
-					ListExpenses(gomock.Any(), "user-123", "group-456", gomock.Any(), gomock.Any(), int32(10)).
-					Return(mockExpenses, nil)
+					ListExpenses(gomock.Any(), "user-123", "group-456", gomock.Any(), gomock.Any(), int32(10), "").
+					Return(mockExpenses, "", nil)
 			},
 			expectedCount: 2,
 			expectedError: false,
@@ -425,8 +425,8 @@ func TestListExpenses(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					ListExpenses(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(nil, errors.New("store error"))
+					ListExpenses(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(nil, "", errors.New("store error"))
 			},
 			expectedError: true,
 		},
@@ -1666,8 +1666,8 @@ func TestListIncomes(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					ListIncomes(gomock.Any(), "user-123", "", gomock.Any(), gomock.Any(), int32(10)).
-					Return(mockIncomes, nil)
+					ListIncomes(gomock.Any(), "user-123", "", gomock.Any(), gomock.Any(), int32(10), "").
+					Return(mockIncomes, "", nil)
 			},
 			expectedCount: 2,
 			expectedError: false,
@@ -1688,8 +1688,8 @@ func TestListIncomes(t *testing.T) {
 						MemberIds: []string{"user-123"},
 					}, nil)
 				mockStore.EXPECT().
-					ListIncomes(gomock.Any(), "user-123", "group-456", gomock.Any(), gomock.Any(), int32(10)).
-					Return(mockIncomes, nil)
+					ListIncomes(gomock.Any(), "user-123", "group-456", gomock.Any(), gomock.Any(), int32(10), "").
+					Return(mockIncomes, "", nil)
 			},
 			expectedCount: 2,
 			expectedError: false,
@@ -1702,8 +1702,8 @@ func TestListIncomes(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					ListIncomes(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					Return([]*pfinancev1.Income{}, nil)
+					ListIncomes(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return([]*pfinancev1.Income{}, "", nil)
 			},
 			expectedCount: 0,
 			expectedError: false,
@@ -1718,8 +1718,8 @@ func TestListIncomes(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					ListIncomes(gomock.Any(), "user-123", "", gomock.Any(), gomock.Any(), int32(10)).
-					Return(mockIncomes, nil)
+					ListIncomes(gomock.Any(), "user-123", "", gomock.Any(), gomock.Any(), int32(10), "").
+					Return(mockIncomes, "", nil)
 			},
 			expectedCount: 2,
 			expectedError: false,
@@ -1732,8 +1732,8 @@ func TestListIncomes(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					ListIncomes(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(nil, errors.New("store error"))
+					ListIncomes(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(nil, "", errors.New("store error"))
 			},
 			expectedError: true,
 		},
@@ -1744,8 +1744,8 @@ func TestListIncomes(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					ListIncomes(gomock.Any(), "user-123", "", gomock.Any(), gomock.Any(), int32(100)).
-					Return(mockIncomes, nil)
+					ListIncomes(gomock.Any(), "user-123", "", gomock.Any(), gomock.Any(), int32(100), "").
+					Return(mockIncomes, "", nil)
 			},
 			expectedCount: 2,
 			expectedError: false,
@@ -1817,8 +1817,8 @@ func TestListGroups(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					ListGroups(gomock.Any(), "user-123", int32(10)).
-					Return(mockGroups, nil)
+					ListGroups(gomock.Any(), "user-123", int32(10), "").
+					Return(mockGroups, "", nil)
 			},
 			expectedCount: 2,
 			expectedError: false,
@@ -1831,8 +1831,8 @@ func TestListGroups(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					ListGroups(gomock.Any(), "user-123", int32(10)).
-					Return([]*pfinancev1.FinanceGroup{}, nil)
+					ListGroups(gomock.Any(), "user-123", int32(10), "").
+					Return([]*pfinancev1.FinanceGroup{}, "", nil)
 			},
 			expectedCount: 0,
 			expectedError: false,
@@ -1844,8 +1844,8 @@ func TestListGroups(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					ListGroups(gomock.Any(), "user-123", int32(100)).
-					Return(mockGroups, nil)
+					ListGroups(gomock.Any(), "user-123", int32(100), "").
+					Return(mockGroups, "", nil)
 			},
 			expectedCount: 2,
 			expectedError: false,
@@ -1858,8 +1858,8 @@ func TestListGroups(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					ListGroups(gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(nil, errors.New("store error"))
+					ListGroups(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(nil, "", errors.New("store error"))
 			},
 			expectedError: true,
 		},
@@ -2377,8 +2377,8 @@ func TestListInvitations(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					ListInvitations(gomock.Any(), "test@example.com", gomock.Nil(), int32(10)).
-					Return(mockInvitations, nil)
+					ListInvitations(gomock.Any(), "test@example.com", gomock.Nil(), int32(10), "").
+					Return(mockInvitations, "", nil)
 			},
 			expectedCount: 2,
 			expectedError: false,
@@ -2393,8 +2393,8 @@ func TestListInvitations(t *testing.T) {
 			setupMock: func() {
 				status := pfinancev1.InvitationStatus_INVITATION_STATUS_PENDING
 				mockStore.EXPECT().
-					ListInvitations(gomock.Any(), "test@example.com", &status, int32(10)).
-					Return(mockInvitations, nil)
+					ListInvitations(gomock.Any(), "test@example.com", &status, int32(10), "").
+					Return(mockInvitations, "", nil)
 			},
 			expectedCount: 2,
 			expectedError: false,
@@ -2407,8 +2407,8 @@ func TestListInvitations(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					ListInvitations(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					Return([]*pfinancev1.GroupInvitation{}, nil)
+					ListInvitations(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return([]*pfinancev1.GroupInvitation{}, "", nil)
 			},
 			expectedCount: 0,
 			expectedError: false,
@@ -2420,8 +2420,8 @@ func TestListInvitations(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					ListInvitations(gomock.Any(), "test@example.com", gomock.Nil(), int32(100)).
-					Return(mockInvitations, nil)
+					ListInvitations(gomock.Any(), "test@example.com", gomock.Nil(), int32(100), "").
+					Return(mockInvitations, "", nil)
 			},
 			expectedCount: 2,
 			expectedError: false,
@@ -2434,8 +2434,8 @@ func TestListInvitations(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					ListInvitations(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(nil, errors.New("store error"))
+					ListInvitations(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(nil, "", errors.New("store error"))
 			},
 			expectedError: true,
 		},
@@ -2851,8 +2851,8 @@ func TestGetMemberBalances(t *testing.T) {
 						MemberIds: []string{"user-123"},
 					}, nil)
 				mockStore.EXPECT().
-					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000)).
-					Return(mockExpenses, nil)
+					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000), "").
+					Return(mockExpenses, "", nil)
 			},
 			expectedError: false,
 			validate: func(t *testing.T, resp *pfinancev1.GetMemberBalancesResponse) {
@@ -2878,8 +2878,8 @@ func TestGetMemberBalances(t *testing.T) {
 						MemberIds: []string{"user-123"},
 					}, nil)
 				mockStore.EXPECT().
-					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000)).
-					Return([]*pfinancev1.Expense{}, nil)
+					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000), "").
+					Return([]*pfinancev1.Expense{}, "", nil)
 			},
 			expectedError: false,
 			validate: func(t *testing.T, resp *pfinancev1.GetMemberBalancesResponse) {
@@ -2904,8 +2904,8 @@ func TestGetMemberBalances(t *testing.T) {
 						MemberIds: []string{"user-123"},
 					}, nil)
 				mockStore.EXPECT().
-					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000)).
-					Return(mockExpenses, nil)
+					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000), "").
+					Return(mockExpenses, "", nil)
 			},
 			expectedError: false,
 		},
@@ -2923,8 +2923,8 @@ func TestGetMemberBalances(t *testing.T) {
 						MemberIds: []string{"user-123"},
 					}, nil)
 				mockStore.EXPECT().
-					ListExpenses(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(nil, errors.New("store error"))
+					ListExpenses(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(nil, "", errors.New("store error"))
 			},
 			expectedError: true,
 		},
@@ -3212,13 +3212,13 @@ func TestGetGroupSummary(t *testing.T) {
 					Times(2) // Once for GetGroupSummary auth, once for GetMemberBalances auth
 
 				mockStore.EXPECT().
-					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000)).
-					Return(mockExpenses, nil).
+					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000), "").
+					Return(mockExpenses, "", nil).
 					Times(2) // Once for summary, once for balances
 
 				mockStore.EXPECT().
-					ListIncomes(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000)).
-					Return(mockIncomes, nil)
+					ListIncomes(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000), "").
+					Return(mockIncomes, "", nil)
 			},
 			expectedError: false,
 			validate: func(t *testing.T, resp *pfinancev1.GetGroupSummaryResponse) {
@@ -3252,13 +3252,13 @@ func TestGetGroupSummary(t *testing.T) {
 					Times(2) // Once for GetGroupSummary auth, once for GetMemberBalances auth
 
 				mockStore.EXPECT().
-					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000)).
-					Return([]*pfinancev1.Expense{}, nil).
+					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000), "").
+					Return([]*pfinancev1.Expense{}, "", nil).
 					Times(2)
 
 				mockStore.EXPECT().
-					ListIncomes(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000)).
-					Return([]*pfinancev1.Income{}, nil)
+					ListIncomes(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000), "").
+					Return([]*pfinancev1.Income{}, "", nil)
 			},
 			expectedError: false,
 			validate: func(t *testing.T, resp *pfinancev1.GetGroupSummaryResponse) {
@@ -3288,13 +3288,13 @@ func TestGetGroupSummary(t *testing.T) {
 					Times(2) // Once for GetGroupSummary auth, once for GetMemberBalances auth
 
 				mockStore.EXPECT().
-					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000)).
-					Return(mockExpenses, nil).
+					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000), "").
+					Return(mockExpenses, "", nil).
 					Times(2)
 
 				mockStore.EXPECT().
-					ListIncomes(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000)).
-					Return(mockIncomes, nil)
+					ListIncomes(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000), "").
+					Return(mockIncomes, "", nil)
 			},
 			expectedError: false,
 		},
@@ -3313,8 +3313,8 @@ func TestGetGroupSummary(t *testing.T) {
 					}, nil)
 
 				mockStore.EXPECT().
-					ListExpenses(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(nil, errors.New("store error"))
+					ListExpenses(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(nil, "", errors.New("store error"))
 			},
 			expectedError: true,
 		},
@@ -3333,12 +3333,12 @@ func TestGetGroupSummary(t *testing.T) {
 					}, nil)
 
 				mockStore.EXPECT().
-					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000)).
-					Return(mockExpenses, nil)
+					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000), "").
+					Return(mockExpenses, "", nil)
 
 				mockStore.EXPECT().
-					ListIncomes(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000)).
-					Return(nil, errors.New("store error"))
+					ListIncomes(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000), "").
+					Return(nil, "", errors.New("store error"))
 			},
 			expectedError: true,
 		},
@@ -3859,8 +3859,8 @@ func TestListInviteLinks(t *testing.T) {
 					}, nil)
 
 				mockStore.EXPECT().
-					ListInviteLinks(gomock.Any(), "group-123", false, int32(10)).
-					Return(mockLinks, nil)
+					ListInviteLinks(gomock.Any(), "group-123", false, int32(10), "").
+					Return(mockLinks, "", nil)
 			},
 			expectedCount: 2,
 			expectedError: false,
@@ -3885,8 +3885,8 @@ func TestListInviteLinks(t *testing.T) {
 					}, nil)
 
 				mockStore.EXPECT().
-					ListInviteLinks(gomock.Any(), "group-123", true, int32(10)).
-					Return(mockLinks, nil)
+					ListInviteLinks(gomock.Any(), "group-123", true, int32(10), "").
+					Return(mockLinks, "", nil)
 			},
 			expectedCount: 2,
 			expectedError: false,
@@ -3910,8 +3910,8 @@ func TestListInviteLinks(t *testing.T) {
 					}, nil)
 
 				mockStore.EXPECT().
-					ListInviteLinks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(nil, errors.New("store error"))
+					ListInviteLinks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(nil, "", errors.New("store error"))
 			},
 			expectedError: true,
 		},
@@ -4283,8 +4283,8 @@ func TestListContributions(t *testing.T) {
 					}, nil)
 
 				mockStore.EXPECT().
-					ListContributions(gomock.Any(), "group-123", "", int32(10)).
-					Return(mockContributions, nil)
+					ListContributions(gomock.Any(), "group-123", "", int32(10), "").
+					Return(mockContributions, "", nil)
 			},
 			expectedCount: 2,
 			expectedError: false,
@@ -4306,8 +4306,8 @@ func TestListContributions(t *testing.T) {
 					}, nil)
 
 				mockStore.EXPECT().
-					ListContributions(gomock.Any(), "group-123", "user-123", int32(10)).
-					Return(mockContributions[:1], nil)
+					ListContributions(gomock.Any(), "group-123", "user-123", int32(10), "").
+					Return(mockContributions[:1], "", nil)
 			},
 			expectedCount: 1,
 			expectedError: false,
@@ -4328,8 +4328,8 @@ func TestListContributions(t *testing.T) {
 					}, nil)
 
 				mockStore.EXPECT().
-					ListContributions(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					Return([]*pfinancev1.ExpenseContribution{}, nil)
+					ListContributions(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return([]*pfinancev1.ExpenseContribution{}, "", nil)
 			},
 			expectedCount: 0,
 			expectedError: false,
@@ -4350,8 +4350,8 @@ func TestListContributions(t *testing.T) {
 					}, nil)
 
 				mockStore.EXPECT().
-					ListContributions(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(nil, errors.New("store error"))
+					ListContributions(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(nil, "", errors.New("store error"))
 			},
 			expectedError: true,
 		},

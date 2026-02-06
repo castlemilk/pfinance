@@ -17,6 +17,10 @@ import type {
 } from '@/gen/pfinance/v1/finance_service_pb';
 import { timestampFromDate } from '@bufbuild/protobuf/wkt';
 
+function dollarsToCents(dollars: number): bigint {
+  return BigInt(Math.round(dollars * 100));
+}
+
 interface BudgetContextType {
   // Budget data
   budgets: Budget[];
@@ -261,6 +265,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         name: params.name,
         description: params.description || '',
         amount: params.amount,
+        amountCents: dollarsToCents(params.amount),
         period: params.period,
         categoryIds: params.categoryIds,
         startDate: params.startDate ? timestampFromDate(params.startDate) : undefined,
@@ -293,6 +298,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         name: params.name || '',
         description: params.description || '',
         amount: params.amount || 0,
+        amountCents: params.amount ? dollarsToCents(params.amount) : BigInt(0),
         period: params.period || BudgetPeriod.UNSPECIFIED,
         categoryIds: params.categoryIds || [],
         isActive: params.isActive ?? true,

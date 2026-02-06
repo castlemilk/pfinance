@@ -73,6 +73,27 @@ service FinanceService {
   rpc ContributeIncomeToGroup(ContributeIncomeToGroupRequest) returns (ContributeIncomeToGroupResponse);
   rpc ListContributions(ListContributionsRequest) returns (ListContributionsResponse);
   rpc ListIncomeContributions(ListIncomeContributionsRequest) returns (ListIncomeContributionsResponse);
+
+  // Goal operations
+  rpc CreateGoal(CreateGoalRequest) returns (CreateGoalResponse);
+  rpc GetGoal(GetGoalRequest) returns (GetGoalResponse);
+  rpc UpdateGoal(UpdateGoalRequest) returns (UpdateGoalResponse);
+  rpc DeleteGoal(DeleteGoalRequest) returns (google.protobuf.Empty);
+  rpc ListGoals(ListGoalsRequest) returns (ListGoalsResponse);
+  rpc GetGoalProgress(GetGoalProgressRequest) returns (GetGoalProgressResponse);
+  rpc ContributeToGoal(ContributeToGoalRequest) returns (ContributeToGoalResponse);
+  rpc ListGoalContributions(ListGoalContributionsRequest) returns (ListGoalContributionsResponse);
+
+  // Spending insights operations
+  rpc GetSpendingInsights(GetSpendingInsightsRequest) returns (GetSpendingInsightsResponse);
+
+  // Document extraction operations
+  rpc ExtractDocument(ExtractDocumentRequest) returns (ExtractDocumentResponse);
+  rpc GetExtractionJob(GetExtractionJobRequest) returns (GetExtractionJobResponse);
+  rpc ImportExtractedTransactions(ImportExtractedTransactionsRequest) returns (ImportExtractedTransactionsResponse);
+
+  // Smart text parsing (uses AI to parse natural language expense descriptions)
+  rpc ParseExpenseText(ParseExpenseTextRequest) returns (ParseExpenseTextResponse);
 }
 
 // User operations
@@ -109,6 +130,7 @@ message CreateExpenseRequest {
   repeated string allocated_user_ids = 10; // Who to split between
   repeated ExpenseAllocation allocations = 11; // Custom allocations (for percentage/amount splits)
   repeated string tags = 12; // Optional tags
+  int64 amount_cents = 13; // Amount in cents (preferred over amount)
 }
 
 message CreateExpenseResponse {
@@ -136,6 +158,7 @@ message UpdateExpenseRequest {
   repeated string allocated_user_ids = 8;
   repeated ExpenseAllocation allocations = 9;
   repeated string tags = 10;
+  int64 amount_cents = 11; // Amount in cents (preferred over amount)
 }
 
 message UpdateExpenseResponse {
@@ -180,6 +203,7 @@ message CreateIncomeRequest {
   TaxStatus tax_status = 6;
   repeated Deduction deductions = 7;
   google.protobuf.Timestamp date = 8;
+  int64 amount_cents = 9; // Amount in cents (preferred over amount)
 }
 
 message CreateIncomeResponse {
@@ -201,6 +225,7 @@ message UpdateIncomeRequest {
   IncomeFrequency frequency = 4;
   TaxStatus tax_status = 5;
   repeated Deduction deductions = 6;
+  int64 amount_cents = 7; // Amount in cents (preferred over amount)
 }
 
 message UpdateIncomeResponse {
@@ -354,6 +379,7 @@ message CreateBudgetRequest {
   repeated ExpenseCategory category_ids = 7;
   google.protobuf.Timestamp start_date = 8;
   google.protobuf.Timestamp end_date = 9; // Optional
+  int64 amount_cents = 10; // Amount in cents (preferred over amount)
 }
 
 message CreateBudgetResponse {
@@ -377,6 +403,7 @@ message UpdateBudgetRequest {
   repeated ExpenseCategory category_ids = 6;
   bool is_active = 7;
   google.protobuf.Timestamp end_date = 8; // Optional
+  int64 amount_cents = 9; // Amount in cents (preferred over amount)
 }
 
 message UpdateBudgetResponse {
@@ -420,12 +447,14 @@ message GetMemberBalancesRequest {
 message GetMemberBalancesResponse {
   repeated MemberBalance balances = 1;
   double total_group_expenses = 2;
+  int64 total_group_expenses_cents = 3; // Total in cents (preferred over total_group_expenses)
 }
 
 message SettleExpenseRequest {
   string expense_id = 1;
   string user_id = 2; // User settling their allocation
   double amount = 3; // Amount being settled (could be partial)
+  int64 amount_cents = 4; // Amount in cents (preferred over amount)
 }
 
 message SettleExpenseResponse {
@@ -446,6 +475,9 @@ message GetGroupSummaryResponse {
   repeated MemberBalance member_balances = 4;
   int32 unsettled_expense_count = 5;
   double unsettled_amount = 6;
+  int64 total_expenses_cents = 7; // Total expenses in cents (preferred over total_expenses)
+  int64 total_income_cents = 8; // Total income in cents (preferred over total_income)
+  int64 unsettled_amount_cents = 9; // Unsettled amount in cents (preferred over unsettled_amount)
 }
 
 // Invite link operations
@@ -506,6 +538,7 @@ message ContributeExpenseToGroupRequest {
   SplitType split_type = 5;
   repeated string allocated_user_ids = 6;
   repeated ExpenseAllocation allocations = 7; // Custom allocations
+  int64 amount_cents = 8; // Amount in cents (preferred over amount)
 }
 
 message ContributeExpenseToGroupResponse {
@@ -548,4 +581,185 @@ message ListIncomeContributionsRequest {
 message ListIncomeContributionsResponse {
   repeated IncomeContribution contributions = 1;
   string next_page_token = 2;
+}
+
+// ============================================================================
+// Goal operations
+// ============================================================================
+
+message CreateGoalRequest {
+  string user_id = 1;
+  string group_id = 2;              // Optional: for shared goals
+  string name = 3;
+  string description = 4;
+  GoalType goal_type = 5;
+  double target_amount = 6;
+  double initial_amount = 7;        // Starting amount (optional)
+  google.protobuf.Timestamp start_date = 8;
+  google.protobuf.Timestamp target_date = 9;
+  repeated ExpenseCategory category_ids = 10; // For SPENDING_LIMIT type
+  string icon = 11;                  // Emoji or icon name
+  string color = 12;                 // Hex color for UI
+}
+
+message CreateGoalResponse {
+  FinancialGoal goal = 1;
+}
+
+message GetGoalRequest {
+  string goal_id = 1;
+}
+
+message GetGoalResponse {
+  FinancialGoal goal = 1;
+}
+
+message UpdateGoalRequest {
+  string goal_id = 1;
+  string name = 2;
+  string description = 3;
+  double target_amount = 4;
+  google.protobuf.Timestamp target_date = 5;
+  GoalStatus status = 6;
+  repeated ExpenseCategory category_ids = 7;
+  string icon = 8;
+  string color = 9;
+}
+
+message UpdateGoalResponse {
+  FinancialGoal goal = 1;
+}
+
+message DeleteGoalRequest {
+  string goal_id = 1;
+}
+
+message ListGoalsRequest {
+  string user_id = 1;
+  string group_id = 2;              // Optional: filter by group
+  GoalStatus status = 3;            // Optional: filter by status
+  GoalType goal_type = 4;           // Optional: filter by type
+  int32 page_size = 5;
+  string page_token = 6;
+}
+
+message ListGoalsResponse {
+  repeated FinancialGoal goals = 1;
+  string next_page_token = 2;
+}
+
+message GetGoalProgressRequest {
+  string goal_id = 1;
+  google.protobuf.Timestamp as_of_date = 2; // Optional: defaults to current date
+}
+
+message GetGoalProgressResponse {
+  GoalProgress progress = 1;
+}
+
+message ContributeToGoalRequest {
+  string goal_id = 1;
+  string user_id = 2;
+  double amount = 3;
+  string note = 4;                  // Optional note for the contribution
+}
+
+message ContributeToGoalResponse {
+  FinancialGoal goal = 1;
+  GoalContribution contribution = 2;
+}
+
+message ListGoalContributionsRequest {
+  string goal_id = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListGoalContributionsResponse {
+  repeated GoalContribution contributions = 1;
+  string next_page_token = 2;
+}
+
+// ============================================================================
+// Spending insights operations
+// ============================================================================
+
+message GetSpendingInsightsRequest {
+  string user_id = 1;
+  string group_id = 2;              // Optional: for group insights
+  string period = 3;                // "week", "month", "quarter", "year"
+  int32 limit = 4;                  // Max number of insights to return
+}
+
+message GetSpendingInsightsResponse {
+  repeated SpendingInsight insights = 1;
+  google.protobuf.Timestamp generated_at = 2;
+}
+
+// ============================================================================
+// Document extraction operations
+// ============================================================================
+
+message ExtractDocumentRequest {
+  bytes document_data = 1;              // Raw document bytes (image or PDF)
+  DocumentType document_type = 2;       // Type of document
+  string filename = 3;                  // Original filename for mime type detection
+  bool async_processing = 4;            // If true, return job ID for async processing
+  bool validate_with_api = 5;           // If true, validate with commercial API (Gemini)
+  ExtractionMethod extraction_method = 6; // Which extraction method to use
+}
+
+message ExtractDocumentResponse {
+  ExtractionResult result = 1;          // Extraction result (if sync)
+  string job_id = 2;                    // Job ID (if async)
+  ExtractionStatus status = 3;
+}
+
+message GetExtractionJobRequest {
+  string job_id = 1;
+}
+
+message GetExtractionJobResponse {
+  ExtractionJob job = 1;
+}
+
+message ImportExtractedTransactionsRequest {
+  string user_id = 1;
+  string group_id = 2;                  // Optional - import to group
+  repeated ExtractedTransaction transactions = 3;
+  bool skip_duplicates = 4;             // Skip transactions that appear to be duplicates
+  ExpenseFrequency default_frequency = 5; // Default frequency for imported expenses
+}
+
+message ImportExtractedTransactionsResponse {
+  repeated Expense created_expenses = 1;
+  int32 imported_count = 2;
+  int32 skipped_count = 3;
+  repeated string skipped_reasons = 4;  // Reasons why transactions were skipped
+}
+
+// Smart text parsing request
+message ParseExpenseTextRequest {
+  string text = 1;  // Natural language expense description (e.g., "Coffee $5.50 at Starbucks yesterday")
+}
+
+// Parsed expense from natural language
+message ParsedExpense {
+  string description = 1;           // Cleaned merchant/description
+  double amount = 2;                // Expense amount
+  ExpenseCategory category = 3;     // Suggested category
+  ExpenseFrequency frequency = 4;   // Detected frequency (weekly, monthly, etc.)
+  google.protobuf.Timestamp date = 5;  // Detected date (if mentioned)
+  repeated string split_with = 6;   // People to split with (if mentioned)
+  double confidence = 7;            // Confidence score (0-1)
+  string raw_input = 8;             // Original input text
+  string reasoning = 9;             // Brief explanation of parsing decisions
+}
+
+// Smart text parsing response
+message ParseExpenseTextResponse {
+  ParsedExpense expense = 1;                // Primary parsed expense
+  repeated ParsedExpense additional = 2;    // Additional expenses if multiple detected
+  bool success = 3;                         // Whether parsing succeeded
+  string error_message = 4;                 // Error message if parsing failed
 }

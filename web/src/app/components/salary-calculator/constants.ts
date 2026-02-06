@@ -54,25 +54,25 @@ export const MEDICARE_LEVY_RATE = 0.02; // 2%
 
 // Default form values
 export const DEFAULT_FORM_VALUES = {
-  salary: '105000',
+  salary: '99999',
   frequency: 'annually' as const,
   salaryInputMode: 'gross' as const,
   voluntarySuper: '0',
   isProratedHours: false,
   proratedHours: '38',
   proratedFrequency: 'weekly' as const,
-  packagingCap: 15899,
+  packagingCap: 0,
 };
 
 // Default tax settings
 export const DEFAULT_TAX_SETTINGS = {
-  includeSuper: true,
+  includeSuper: false,
   superRate: 11.5,
-  includeMedicare: true,
+  includeMedicare: false,
   medicareExemption: false,
   includeSeniorOffset: false,
   includeStudentLoan: false,
-  studentLoanRate: 2,
+  studentLoanRate: 0,
   includeDependentChildren: false,
   includeSpouse: false,
   includePrivateHealth: false,

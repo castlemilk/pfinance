@@ -1,0 +1,243 @@
+---
+description: Security patterns and authorization rules for pfinance development
+globs: ["backend/**/*.go", "web/src/**/*.ts", "web/src/**/*.tsx"]
+alwaysApply: true
+---
+
+# PFinance Security & Authorization Patterns
+
+## Backend Authorization Rules (CRITICAL)
+
+### Every RPC Handler MUST:
+
+1. **Extract authenticated user claims**
+```go
+claims, ok := auth.GetUserClaims(ctx)
+if !ok {
+    return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("user not authenticated"))
+}
+```
+
+2. **Validate user ownership for personal resources**
+```go
+// For user-specific operations
+if req.Msg.UserId != claims.UID {
+    return nil, connect.NewError(connect.CodePermissionDenied,
+        fmt.Errorf("cannot access another user's resources"))
+}
+```
+
+3. **Validate group membership for group resources**
+```go
+// For group operations
+group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+if err != nil {
+    return nil, fmt.Errorf("failed to get group: %w", err)
+}
+if !isGroupMember(claims.UID, group) {
+    return nil, connect.NewError(connect.CodePermissionDenied,
+        fmt.Errorf("user is not a member of this group"))
+}
+```
+
+4. **Check roles for privileged operations**
+```go
+// For admin-only operations
+if !isGroupAdminOrOwner(claims.UID, group) {
+    return nil, connect.NewError(connect.CodePermissionDenied,
+        fmt.Errorf("only owners or admins can perform this action"))
+}
+```
+
+### Authorization Helper Functions
+
+```go
+// backend/internal/auth/helpers.go
+
+func isGroupMember(userID string, group *pfinancev1.FinanceGroup) bool {
+    for _, memberID := range group.MemberIds {
+        if memberID == userID {
+            return true
+        }
+    }
+    return false
+}
+
+func getUserRoleInGroup(userID string, group *pfinancev1.FinanceGroup) pfinancev1.GroupRole {
+    for _, member := range group.Members {
+        if member.UserId == userID {
+            return member.Role
+        }
+    }
+    return pfinancev1.GroupRole_GROUP_ROLE_UNSPECIFIED
+}
+
+func isGroupAdminOrOwner(userID string, group *pfinancev1.FinanceGroup) bool {
+    if group.OwnerId == userID {
+        return true
+    }
+    for _, member := range group.Members {
+        if member.UserId == userID && member.Role == pfinancev1.GroupRole_GROUP_ROLE_ADMIN {
+            return true
+        }
+    }
+    return false
+}
+```
+
+### Connect Error Codes Usage
+
+| Situation | Error Code |
+|-----------|------------|
+| No auth token | `CodeUnauthenticated` |
+| Invalid/expired token | `CodeUnauthenticated` |
+| User lacks permission | `CodePermissionDenied` |
+| Resource not found | `CodeNotFound` |
+| Invalid input | `CodeInvalidArgument` |
+| Business rule violation | `CodeFailedPrecondition` |
+| Server error | `CodeInternal` |
+
+### NEVER Trust Client-Provided IDs
+
+```go
+// BAD - trusts client-provided userId
+userId := req.Msg.UserId
+expenses, err := s.store.ListExpenses(ctx, userId, ...)
+
+// GOOD - uses authenticated user's ID
+claims, _ := auth.GetUserClaims(ctx)
+expenses, err := s.store.ListExpenses(ctx, claims.UID, ...)
+```
+
+### For Group Resources
+
+If a request includes both `userId` and `groupId`:
+- If `groupId` is set: verify user is group member, then scope to group
+- If only `userId` is set: verify it matches authenticated user
+
+---
+
+## Frontend Auth Patterns
+
+### Token Management
+
+```typescript
+// Always force refresh for critical operations
+const token = await auth.currentUser?.getIdToken(true);
+
+// Token interceptor should handle refresh
+interceptors: [
+  (next) => async (req) => {
+    const user = auth.currentUser;
+    if (user) {
+      // Force refresh if token might be expiring
+      const token = await user.getIdToken(/* forceRefresh */ true);
+      req.header.set('Authorization', `Bearer ${token}`);
+    }
+    return next(req);
+  }
+]
+```
+
+### Admin Mode Guards
+
+```typescript
+// Only allow admin mode in development
+const canEnableAdminMode = process.env.NODE_ENV === 'development';
+
+if (canEnableAdminMode && keyboardShortcut) {
+    setIsAdminMode(true);
+}
+```
+
+### Protected Route Pattern
+
+```typescript
+// Always check auth before rendering protected content
+function ProtectedPage() {
+    const { user, loading } = useAuth();
+
+    if (loading) return <LoadingSpinner />;
+    if (!user) return <SignInPrompt />;
+
+    return <ProtectedContent />;
+}
+```
+
+---
+
+## API Design Rules
+
+### Money Fields
+
+NEVER use `double` for money. Options:
+1. `int64 amount_cents` - amounts in smallest currency unit
+2. `google.type.Money` - for multi-currency support
+
+### Pagination
+
+All List operations MUST implement pagination:
+```go
+// Get cursor from request
+cursor := req.Msg.PageToken
+pageSize := normalizePageSize(req.Msg.PageSize)
+
+// Query with limit
+docs, err := query.Limit(int(pageSize + 1)).Documents(ctx).GetAll()
+
+// Check if more results
+hasMore := len(docs) > int(pageSize)
+if hasMore {
+    docs = docs[:pageSize]
+}
+
+// Generate next token
+var nextToken string
+if hasMore {
+    nextToken = docs[len(docs)-1].Ref.ID
+}
+```
+
+### Error Responses
+
+```go
+// Good - typed error with appropriate code
+return nil, connect.NewError(connect.CodeNotFound,
+    fmt.Errorf("expense %s not found", id))
+
+// Bad - generic error wrapping
+return nil, fmt.Errorf("failed to get expense: %w", err)
+```
+
+---
+
+## Testing Requirements
+
+### Auth Testing
+
+```go
+// Test unauthorized access
+func TestUnauthorizedAccess(t *testing.T) {
+    ctx := context.Background()
+    // No claims in context
+
+    _, err := service.ListExpenses(ctx, &connect.Request{...})
+
+    assert.ErrorContains(t, err, "unauthenticated")
+}
+
+// Test cross-user access
+func TestCannotAccessOtherUserData(t *testing.T) {
+    ctx := auth.WithUserClaims(context.Background(), &auth.UserClaims{
+        UID: "user-1",
+    })
+
+    _, err := service.ListExpenses(ctx, &connect.Request{
+        Msg: &pfinancev1.ListExpensesRequest{
+            UserId: "user-2", // Different user
+        },
+    })
+
+    assert.ErrorContains(t, err, "permission denied")
+}
+```

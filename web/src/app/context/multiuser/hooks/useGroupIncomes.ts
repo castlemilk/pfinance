@@ -14,6 +14,15 @@ import { timestampFromDate, timestampDate } from '@bufbuild/protobuf/wkt';
 import { FinanceGroup, GroupIncome } from '../types';
 import { incomeFrequencyToProto, protoToIncomeFrequency } from '../mappers';
 
+function centsToAmount(cents: bigint, fallbackAmount: number): number {
+  if (cents !== BigInt(0)) return Number(cents) / 100;
+  return fallbackAmount;
+}
+
+function dollarsToCents(dollars: number): bigint {
+  return BigInt(Math.round(dollars * 100));
+}
+
 interface UseGroupIncomesOptions {
   user: User | null;
   activeGroup: FinanceGroup | null;
@@ -59,7 +68,7 @@ export function useGroupIncomes({ user, activeGroup }: UseGroupIncomesOptions): 
         groupId: i.groupId,
         userId: i.userId,
         source: i.source,
-        amount: i.amount,
+        amount: centsToAmount(i.amountCents, i.amount),
         frequency: protoToIncomeFrequency[i.frequency],
         date: i.date ? timestampDate(i.date) : new Date(),
       })));
@@ -97,6 +106,7 @@ export function useGroupIncomes({ user, activeGroup }: UseGroupIncomesOptions): 
       groupId,
       source: income.source,
       amount: income.amount,
+      amountCents: dollarsToCents(income.amount),
       frequency: incomeFrequencyToProto[income.frequency],
       taxStatus: ProtoTaxStatus.POST_TAX,
       date: timestampFromDate(new Date()),
@@ -108,7 +118,7 @@ export function useGroupIncomes({ user, activeGroup }: UseGroupIncomesOptions): 
         groupId: response.income!.groupId,
         userId: response.income!.userId,
         source: response.income!.source,
-        amount: response.income!.amount,
+        amount: centsToAmount(response.income!.amountCents, response.income!.amount),
         frequency: income.frequency,
         date: response.income!.date ? timestampDate(response.income!.date) : new Date(),
       }]);
@@ -124,6 +134,7 @@ export function useGroupIncomes({ user, activeGroup }: UseGroupIncomesOptions): 
       incomeId,
       source: updates.source,
       amount: updates.amount,
+      amountCents: updates.amount !== undefined ? dollarsToCents(updates.amount) : undefined,
       frequency: updates.frequency ? incomeFrequencyToProto[updates.frequency] : undefined,
     });
 

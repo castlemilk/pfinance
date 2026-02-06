@@ -51,7 +51,7 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     console.log('[AuthContext] useEffect - setting up auth listener, auth initialized:', !!auth);
-    
+
     // Skip auth setup if Firebase is not initialized
     if (!auth) {
       console.log('[AuthContext] Firebase not initialized, setting loading=false');
@@ -60,15 +60,25 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
     }
 
     let unsubscribe: (() => void) | undefined;
-    
+    let timeout: NodeJS.Timeout | undefined;
+
     // Set persistence to local (survives browser restarts)
     setPersistence(auth, browserLocalPersistence)
       .then(() => {
         console.log('[AuthContext] Persistence set, subscribing to auth state');
         // TypeScript needs reassurance that auth is still not null in async callback
         if (!auth) return;
+
+        // Start timeout AFTER persistence is set — avoids race where timeout
+        // fires before onAuthStateChanged is even registered
+        timeout = setTimeout(() => {
+          console.log('[AuthContext] Auth timeout - setting loading=false');
+          setLoading(false);
+        }, 5000);
+
         unsubscribe = onAuthStateChanged(auth, (user) => {
           console.log('[AuthContext] onAuthStateChanged:', user?.uid || 'no user');
+          if (timeout) clearTimeout(timeout);
           setActualUser(user);
           setLoading(false);
         });
@@ -77,15 +87,9 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
         console.error('[AuthContext] Error setting persistence:', error);
         setLoading(false);
       });
-    
-    // Timeout safeguard - if auth doesn't resolve in 5s, set loading to false
-    const timeout = setTimeout(() => {
-      console.log('[AuthContext] Auth timeout - setting loading=false');
-      setLoading(false);
-    }, 5000);
-    
+
     return () => {
-      clearTimeout(timeout);
+      if (timeout) clearTimeout(timeout);
       if (unsubscribe) {
         unsubscribe();
       }

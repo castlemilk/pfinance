@@ -1,0 +1,47 @@
+{
+  "document_type": "receipt",
+  "source": "CORD dataset (Indonesian receipts)",
+  "currency": "IDR",
+  "transactions": [
+    {
+      "description": "UDANG RE",
+      "amount": -432000.0,
+      "quantity": "2"
+    },
+    {
+      "description": "AYM GR JUN NJAN",
+      "amount": -108000.0,
+      "quantity": "1"
+    },
+    {
+      "description": "SAPO TH SEAFOOD",
+      "amount": -172000.0,
+      "quantity": "1"
+    },
+    {
+      "description": "POCAI 3",
+      "amount": -222000.0,
+      "quantity": "2"
+    },
+    {
+      "description": "GURAME FILLET M ASAM MANIS",
+      "amount": -163000.0,
+      "quantity": "1"
+    },
+    {
+      "description": "BIHUN GORENG JJ",
+      "amount": -116000.0,
+      "quantity": "1"
+    },
+    {
+      "description": "ICED TEA",
+      "amount": -60000.0,
+      "quantity": "5"
+    },
+    {
+      "description": "NASI PUTIH",
+      "amount": -70000.0,
+      "quantity": "7"
+    }
+  ]
+}

@@ -3,10 +3,10 @@
 import React from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { Button } from '@/components/ui/button';
-import { 
-  Sun, 
-  Moon, 
-  Monitor, 
+import {
+  Sun,
+  Moon,
+  Monitor,
   SunMoon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -41,7 +41,7 @@ export function ThemeToggle() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-9 w-9 rounded-full bg-background/50 backdrop-blur-sm border border-border/50 hover:bg-accent/50 transition-all duration-300 group"
+          className="relative h-9 w-9 rounded-full bg-background/50 backdrop-blur-sm border border-border/50 hover:bg-accent/50 transition-all duration-300 group glow-hover"
         >
           <AnimatePresence mode="wait">
             <motion.div
@@ -49,30 +49,30 @@ export function ThemeToggle() {
               initial={{ scale: 0.5, rotate: -90, opacity: 0 }}
               animate={{ scale: 1, rotate: 0, opacity: 1 }}
               exit={{ scale: 0.5, rotate: 90, opacity: 0 }}
-              transition={{ 
-                type: "spring", 
-                stiffness: 300, 
+              transition={{
+                type: "spring",
+                stiffness: 300,
                 damping: 20,
-                duration: 0.3 
+                duration: 0.3
               }}
               className="absolute inset-0 flex items-center justify-center"
             >
-              <ThemeIcon className="h-4 w-4 transition-colors group-hover:text-accent-foreground" />
+              <ThemeIcon className="h-4 w-4 transition-colors group-hover:text-primary" />
             </motion.div>
           </AnimatePresence>
-          
-          {/* Subtle glow effect */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          
+
+          {/* Amber phosphor glow effect */}
+          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
           <span className="sr-only">Toggle theme</span>
         </Button>
       </DropdownMenuTrigger>
-      
-      <DropdownMenuContent 
-        align="end" 
+
+      <DropdownMenuContent
+        align="end"
         className="min-w-[140px] bg-background/95 backdrop-blur-sm border border-border/50"
       >
-        <DropdownMenuItem 
+        <DropdownMenuItem
           onClick={() => setTheme('light')}
           className="flex items-center gap-2 cursor-pointer"
         >
@@ -86,8 +86,8 @@ export function ThemeToggle() {
             />
           )}
         </DropdownMenuItem>
-        
-        <DropdownMenuItem 
+
+        <DropdownMenuItem
           onClick={() => setTheme('dark')}
           className="flex items-center gap-2 cursor-pointer"
         >
@@ -101,8 +101,8 @@ export function ThemeToggle() {
             />
           )}
         </DropdownMenuItem>
-        
-        <DropdownMenuItem 
+
+        <DropdownMenuItem
           onClick={() => setTheme('system')}
           className="flex items-center gap-2 cursor-pointer"
         >
@@ -130,7 +130,7 @@ export function SimpleThemeToggle() {
       variant="ghost"
       size="icon"
       onClick={toggleTheme}
-      className="relative h-9 w-9 rounded-full bg-background/50 backdrop-blur-sm border border-border/50 hover:bg-accent/50 transition-all duration-300 group overflow-hidden"
+      className="relative h-9 w-9 rounded-full bg-background/50 backdrop-blur-sm border border-border/50 hover:bg-accent/50 transition-all duration-300 group overflow-hidden glow-hover"
     >
       <AnimatePresence mode="wait">
         <motion.div
@@ -138,29 +138,29 @@ export function SimpleThemeToggle() {
           initial={{ y: actualTheme === 'dark' ? -20 : 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: actualTheme === 'dark' ? 20 : -20, opacity: 0 }}
-          transition={{ 
-            type: "spring", 
-            stiffness: 300, 
+          transition={{
+            type: "spring",
+            stiffness: 300,
             damping: 25,
-            duration: 0.3 
+            duration: 0.3
           }}
           className="absolute inset-0 flex items-center justify-center"
         >
           {actualTheme === 'dark' ? (
-            <Moon className="h-4 w-4 transition-colors group-hover:text-accent-foreground" />
+            <Moon className="h-4 w-4 transition-colors group-hover:text-primary" />
           ) : (
-            <Sun className="h-4 w-4 transition-colors group-hover:text-accent-foreground" />
+            <Sun className="h-4 w-4 transition-colors group-hover:text-primary" />
           )}
         </motion.div>
       </AnimatePresence>
-      
-      {/* Rotating background gradient */}
-      <motion.div 
-        className="absolute inset-0 rounded-full bg-gradient-to-r from-yellow-500/20 via-orange-500/20 to-blue-500/20"
+
+      {/* Amber phosphor gradient */}
+      <motion.div
+        className="absolute inset-0 rounded-full bg-gradient-to-r from-amber-500/20 via-orange-400/20 to-amber-500/20"
         animate={{ rotate: actualTheme === 'dark' ? 180 : 0 }}
         transition={{ duration: 0.5, ease: "easeInOut" }}
       />
-      
+
       <span className="sr-only">Toggle theme</span>
     </Button>
   );

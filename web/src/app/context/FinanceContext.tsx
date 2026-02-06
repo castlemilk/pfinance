@@ -121,12 +121,21 @@ const protoToTaxStatus: Record<ProtoTaxStatus, TaxStatus> = {
   [ProtoTaxStatus.POST_TAX]: 'postTax',
 };
 
+function centsToAmount(cents: bigint, fallbackAmount: number): number {
+  if (cents !== BigInt(0)) return Number(cents) / 100;
+  return fallbackAmount;
+}
+
+function dollarsToCents(dollars: number): bigint {
+  return BigInt(Math.round(dollars * 100));
+}
+
 // Map proto expense to local expense
 function mapProtoExpenseToLocal(proto: ProtoExpense): Expense {
   return {
     id: proto.id,
     description: proto.description,
-    amount: proto.amount,
+    amount: centsToAmount(proto.amountCents, proto.amount),
     category: protoToCategory[proto.category],
     frequency: protoToExpenseFrequency[proto.frequency],
     date: proto.date ? timestampDate(proto.date) : new Date(),
@@ -138,13 +147,13 @@ function mapProtoIncomeToLocal(proto: ProtoIncome): Income {
   return {
     id: proto.id,
     source: proto.source,
-    amount: proto.amount,
+    amount: centsToAmount(proto.amountCents, proto.amount),
     frequency: protoToIncomeFrequency[proto.frequency],
     taxStatus: protoToTaxStatus[proto.taxStatus],
     deductions: proto.deductions?.map(d => ({
       id: d.id,
       name: d.name,
-      amount: d.amount,
+      amount: centsToAmount(d.amountCents, d.amount),
       isTaxDeductible: d.isTaxDeductible,
     })),
     date: proto.date ? timestampDate(proto.date) : new Date(),
@@ -451,6 +460,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
           userId: effectiveUserId,
           description,
           amount,
+          amountCents: dollarsToCents(amount),
           category: categoryToProto[category],
           frequency: expenseFrequencyToProto[frequency],
           date: timestampFromDate(new Date()),
@@ -487,6 +497,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             userId: effectiveUserId,
             description: exp.description,
             amount: exp.amount,
+            amountCents: dollarsToCents(exp.amount),
             category: categoryToProto[exp.category],
             frequency: expenseFrequencyToProto[exp.frequency || 'monthly'],
             date: timestampFromDate(new Date()),
@@ -528,6 +539,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
           expenseId: id,
           description,
           amount,
+          amountCents: dollarsToCents(amount),
           category: categoryToProto[category],
           frequency: expenseFrequencyToProto[frequency],
         });
@@ -595,12 +607,14 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
           userId: effectiveUserId,
           source,
           amount,
+          amountCents: dollarsToCents(amount),
           frequency: incomeFrequencyToProto[frequency],
           taxStatus: taxStatusToProto[taxStatus],
           deductions: deductions?.map(d => ({
             id: d.id,
             name: d.name,
             amount: d.amount,
+            amountCents: dollarsToCents(d.amount),
             isTaxDeductible: d.isTaxDeductible,
           })),
           date: timestampFromDate(new Date()),
@@ -641,12 +655,14 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
           incomeId: id,
           source,
           amount,
+          amountCents: dollarsToCents(amount),
           frequency: incomeFrequencyToProto[frequency],
           taxStatus: taxStatusToProto[taxStatus],
           deductions: deductions?.map(d => ({
             id: d.id,
             name: d.name,
             amount: d.amount,
+            amountCents: dollarsToCents(d.amount),
             isTaxDeductible: d.isTaxDeductible,
           })),
         });

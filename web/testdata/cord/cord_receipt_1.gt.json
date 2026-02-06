@@ -1,0 +1,239 @@
+{
+  "document_type": "receipt",
+  "source": "CORD dataset (Indonesian receipts)",
+  "transactions": [
+    {
+      "description": "Nasi Campur Bali",
+      "amount": -75000.0,
+      "quantity": "1 x"
+    },
+    {
+      "description": "Bbk Bengil Nasi",
+      "amount": -125000.0,
+      "quantity": "1 x"
+    },
+    {
+      "description": "MilkShake Starwb",
+      "amount": -37000.0,
+      "quantity": "1 x"
+    },
+    {
+      "description": "Ice Lemon Tea",
+      "amount": -24000.0,
+      "quantity": "1 x"
+    },
+    {
+      "description": "Nasi Ayam Dewata",
+      "amount": -70000.0,
+      "quantity": "1 x"
+    },
+    {
+      "description": "Free Ice Tea",
+      "amount": -0.0,
+      "quantity": "3 x"
+    },
+    {
+      "description": "Organic Green Sa",
+      "amount": -65000.0,
+      "quantity": "1 x"
+    },
+    {
+      "description": "Ice Tea",
+      "amount": -18000.0,
+      "quantity": "1 x"
+    },
+    {
+      "description": "Ice Orange",
+      "amount": -29000.0,
+      "quantity": "1 x"
+    },
+    {
+      "description": "Ayam Suir Bali",
+      "amount": -85000.0,
+      "quantity": "1 x"
+    },
+    {
+      "description": "Tahu Goreng",
+      "amount": -36000.0,
+      "quantity": "2 x"
+    },
+    {
+      "description": "Tempe Goreng",
+      "amount": -36000.0,
+      "quantity": "2 x"
+    },
+    {
+      "description": "Tahu Telor Asin",
+      "amount": -40000.0,
+      "quantity": "1 x"
+    },
+    {
+      "description": "Nasi Goreng Samb",
+      "amount": -70000.0,
+      "quantity": "1 x"
+    },
+    {
+      "description": "Bbk Panggang Sam",
+      "amount": -366000.0,
+      "quantity": "3 x"
+    },
+    {
+      "description": "Ayam Sambal Hija",
+      "amount": -92000.0,
+      "quantity": "1 x"
+    },
+    {
+      "description": "Hot Tea",
+      "amount": -44000.0,
+      "quantity": "2 x"
+    },
+    {
+      "description": "Ice Kopi",
+      "amount": -32000.0,
+      "quantity": "1 x"
+    },
+    {
+      "description": "Tahu Telor Asin",
+      "amount": -40000.0,
+      "quantity": "1 x"
+    },
+    {
+      "description": "Free Ice Tea",
+      "amount": -0.0,
+      "quantity": "1 x"
+    },
+    {
+      "description": "Bebek Street",
+      "amount": -44000.0,
+      "quantity": "1 x"
+    },
+    {
+      "description": "Ice Tea Tawar",
+      "amount": -18000.0,
+      "quantity": "1 x"
+    }
+  ],
+  "raw_ground_truth": {
+    "menu": [
+      {
+        "nm": "Nasi Campur Bali",
+        "cnt": "1 x",
+        "price": "75,000"
+      },
+      {
+        "nm": "Bbk Bengil Nasi",
+        "cnt": "1 x",
+        "price": "125,000"
+      },
+      {
+        "nm": "MilkShake Starwb",
+        "cnt": "1 x",
+        "price": "37,000"
+      },
+      {
+        "nm": "Ice Lemon Tea",
+        "cnt": "1 x",
+        "price": "24,000"
+      },
+      {
+        "nm": "Nasi Ayam Dewata",
+        "cnt": "1 x",
+        "price": "70,000"
+      },
+      {
+        "nm": "Free Ice Tea",
+        "cnt": "3 x",
+        "price": "0"
+      },
+      {
+        "nm": "Organic Green Sa",
+        "cnt": "1 x",
+        "price": "65,000"
+      },
+      {
+        "nm": "Ice Tea",
+        "cnt": "1 x",
+        "price": "18,000"
+      },
+      {
+        "nm": "Ice Orange",
+        "cnt": "1 x",
+        "price": "29,000"
+      },
+      {
+        "nm": "Ayam Suir Bali",
+        "cnt": "1 x",
+        "price": "85,000"
+      },
+      {
+        "nm": "Tahu Goreng",
+        "cnt": "2 x",
+        "price": "36,000"
+      },
+      {
+        "nm": "Tempe Goreng",
+        "cnt": "2 x",
+        "price": "36,000"
+      },
+      {
+        "nm": "Tahu Telor Asin",
+        "cnt": "1 x",
+        "price": "40,000."
+      },
+      {
+        "nm": "Nasi Goreng Samb",
+        "cnt": "1 x",
+        "price": "70,000"
+      },
+      {
+        "nm": "Bbk Panggang Sam",
+        "cnt": "3 x",
+        "price": "366,000"
+      },
+      {
+        "nm": "Ayam Sambal Hija",
+        "cnt": "1 x",
+        "price": "92,000"
+      },
+      {
+        "nm": "Hot Tea",
+        "cnt": "2 x",
+        "price": "44,000"
+      },
+      {
+        "nm": "Ice Kopi",
+        "cnt": "1 x",
+        "price": "32,000"
+      },
+      {
+        "nm": "Tahu Telor Asin",
+        "cnt": "1 x",
+        "price": "40,000"
+      },
+      {
+        "nm": "Free Ice Tea",
+        "cnt": "1 x",
+        "price": "0"
+      },
+      {
+        "nm": "Bebek Street",
+        "cnt": "1 x",
+        "price": "44,000"
+      },
+      {
+        "nm": "Ice Tea Tawar",
+        "cnt": "1 x",
+        "price": "18,000"
+      }
+    ],
+    "sub_total": {
+      "subtotal_price": "1,346,000",
+      "service_price": "100,950",
+      "tax_price": "144,695",
+      "etc": "-45"
+    },
+    "total": {
+      "total_price": "1,591,600"
+    }
+  }
+}

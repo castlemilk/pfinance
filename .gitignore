@@ -46,3 +46,8 @@ next-env.d.ts
 
 # Generated protobuf code (backend only - web needs to be committed)
 backend/gen/
+*-app-*.json
+*firebase-adminsdk*
+firebase-debug.log
+__pycache__/
+*.pyc

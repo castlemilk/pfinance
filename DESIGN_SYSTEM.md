@@ -41,35 +41,112 @@ PFinance uses a modern, accessible design system built on top of shadcn/ui compo
 
 ## Color System
 
-### Primary Colors
+### Multi-Palette Theme System
+
+PFinance features a selectable multi-palette design system with 4 distinct retro color palettes, each with light and dark mode variants. Users can switch between palettes using the palette selector in the sidebar.
+
+#### Available Palettes
+
+##### 1. Amber Terminal (Default)
+**Era**: 1970s CRT terminal aesthetic
+
+| Color Role | Light Mode | Dark Mode |
+|------------|------------|-----------|
+| Primary | Amber `#FFA94D` | Bright amber |
+| Secondary | Avocado `#87A96B` | Sage green |
+| Accent | Rust `#D16A47` | Tawny orange |
+| Background | Warm cream | CRT black |
+
+##### 2. Soft Retro Chic
+**Era**: 1980s pastel diary aesthetic
+
+| Color Role | Light Mode | Dark Mode |
+|------------|------------|-----------|
+| Primary | Dusty rose `#D69CAA` | Bright rose |
+| Secondary | Powder blue `#AEC6CF` | Muted blue |
+| Accent | Golden mustard `#B5A86C` | Bright mustard |
+| Background | Soft cream | Oiled bronze |
+
+##### 3. Mid-century Mint & Peach
+**Era**: 1950s kitchen appliance vibes
+
+| Color Role | Light Mode | Dark Mode |
+|------------|------------|-----------|
+| Primary | Mint green `#72C2A8` | Bright mint |
+| Secondary | Peach coral `#F5B6A5` | Bright peach |
+| Accent | Honey gold `#E3C78A` | Bright honey |
+| Background | Peach-tinted white | Deep pine green |
+
+##### 4. Earthy Terracotta & Sage
+**Era**: Organic rustic aesthetic
+
+| Color Role | Light Mode | Dark Mode |
+|------------|------------|-----------|
+| Primary | Terracotta `#C37A67` | Bright terracotta |
+| Secondary | Sage green `#A0A088` | Bright sage |
+| Accent | Olive gray `#747C70` | Olive |
+| Background | Vintage cream | Charcoal brown |
+
+#### Using Palette Colors in Components
+
+All palette colors are defined as CSS variables and automatically adapt based on the selected palette:
 
 ```css
-/* Brand Colors */
---primary: 222.2 84% 4.9%;           /* Primary brand color */
---primary-foreground: 210 40% 98%;   /* Text on primary */
-
-/* Semantic Colors */
---success: 142.1 76.2% 36.3%;        /* Success states */
---warning: 47.9 95.8% 53.1%;         /* Warning states */
---destructive: 0 84.2% 60.2%;        /* Error states */
---info: 221.2 83.2% 53.3%;           /* Info states */
+/* These variables change based on the active palette */
+--primary: /* Palette's primary color */
+--secondary: /* Palette's secondary color */
+--accent: /* Palette's accent color */
+--background: /* Palette's background color */
+--foreground: /* Palette's text color */
+--glow-color: /* Palette's glow effect color */
 ```
 
-### Neutral Palette
+Use Tailwind's color utilities which reference these variables:
+
+```tsx
+// These automatically adapt to the selected palette
+<div className="bg-primary text-primary-foreground">
+  Primary button
+</div>
+
+<div className="border-secondary bg-secondary/10">
+  Secondary card
+</div>
+
+<div className="text-accent">
+  Accent text
+</div>
+```
+
+#### Chart Colors
+
+Each palette defines 5 chart colors that are optimized for data visualization:
 
 ```css
-/* Background Colors */
---background: 0 0% 100%;              /* Main background */
---card: 0 0% 100%;                    /* Card backgrounds */
---muted: 210 40% 96%;                 /* Muted backgrounds */
+--chart-1: /* Primary chart color */
+--chart-2: /* Secondary chart color */
+--chart-3: /* Tertiary chart color */
+--chart-4: /* Quaternary chart color */
+--chart-5: /* Quinary chart color */
+```
 
-/* Text Colors */
---foreground: 222.2 84% 4.9%;         /* Primary text */
---muted-foreground: 215.4 16.3% 46.9%; /* Secondary text */
+#### Glow Effects
 
-/* Border Colors */
---border: 214.3 31.8% 91.4%;          /* Default borders */
---input: 214.3 31.8% 91.4%;           /* Input borders */
+Use the `glow-hover` class for palette-adaptive glow effects:
+
+```tsx
+<Button className="glow-hover">
+  Glowing button
+</Button>
+```
+
+The `--glow-color` variable ensures glow effects match the current palette.
+
+### Semantic Colors
+
+```css
+/* These remain consistent across palettes */
+--destructive: /* Error/danger states - warm red */
 ```
 
 ### Financial Data Colors

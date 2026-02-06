@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file pfinance/v1/types.proto.
  */
 export const file_pfinance_v1_types: GenFile = /*@__PURE__*/
-  fileDesc("ChdwZmluYW5jZS92MS90eXBlcy5wcm90bxILcGZpbmFuY2UudjEiqgEKBFVzZXISCgoCaWQYASABKAkSDQoFZW1haWwYAiABKAkSFAoMZGlzcGxheV9uYW1lGAMgASgJEi4KCmNyZWF0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhEKCXBob3RvX3VybBgGIAEoCSKWAQoRRXhwZW5zZUFsbG9jYXRpb24SDwoHdXNlcl9pZBgBIAEoCRIOCgZhbW91bnQYAiABKAESEgoKcGVyY2VudGFnZRgDIAEoARIOCgZzaGFyZXMYBCABKAESDwoHaXNfcGFpZBgFIAEoCBIrCgdwYWlkX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCLlAwoHRXhwZW5zZRIKCgJpZBgBIAEoCRIPCgd1c2VyX2lkGAIgASgJEhAKCGdyb3VwX2lkGAMgASgJEhMKC2Rlc2NyaXB0aW9uGAQgASgJEg4KBmFtb3VudBgFIAEoARIuCghjYXRlZ29yeRgGIAEoDjIcLnBmaW5hbmNlLnYxLkV4cGVuc2VDYXRlZ29yeRIwCglmcmVxdWVuY3kYByABKA4yHS5wZmluYW5jZS52MS5FeHBlbnNlRnJlcXVlbmN5EigKBGRhdGUYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCmNyZWF0ZWRfYXQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhcKD3BhaWRfYnlfdXNlcl9pZBgLIAEoCRIqCgpzcGxpdF90eXBlGAwgASgOMhYucGZpbmFuY2UudjEuU3BsaXRUeXBlEjMKC2FsbG9jYXRpb25zGA0gAygLMh4ucGZpbmFuY2UudjEuRXhwZW5zZUFsbG9jYXRpb24SEgoKaXNfc2V0dGxlZBgOIAEoCBIMCgR0YWdzGA8gAygJIuoCCgZJbmNvbWUSCgoCaWQYASABKAkSDwoHdXNlcl9pZBgCIAEoCRIQCghncm91cF9pZBgDIAEoCRIOCgZzb3VyY2UYBCABKAkSDgoGYW1vdW50GAUgASgBEi8KCWZyZXF1ZW5jeRgGIAEoDjIcLnBmaW5hbmNlLnYxLkluY29tZUZyZXF1ZW5jeRIqCgp0YXhfc3RhdHVzGAcgASgOMhYucGZpbmFuY2UudjEuVGF4U3RhdHVzEioKCmRlZHVjdGlvbnMYCCADKAsyFi5wZmluYW5jZS52MS5EZWR1Y3Rpb24SKAoEZGF0ZRgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKY3JlYXRlZF9hdBgKIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgLIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiUAoJRGVkdWN0aW9uEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSDgoGYW1vdW50GAMgASgBEhkKEWlzX3RheF9kZWR1Y3RpYmxlGAQgASgIIsMCCgtUYXhTZXR0aW5ncxIVCg1pbmNsdWRlX3N1cGVyGAEgASgIEhIKCnN1cGVyX3JhdGUYAiABKAESGAoQaW5jbHVkZV9tZWRpY2FyZRgDIAEoCBIaChJtZWRpY2FyZV9leGVtcHRpb24YBCABKAgSHQoVaW5jbHVkZV9zZW5pb3Jfb2Zmc2V0GAUgASgIEhwKFGluY2x1ZGVfc3R1ZGVudF9sb2FuGAYgASgIEhkKEXN0dWRlbnRfbG9hbl9yYXRlGAcgASgBEiIKGmluY2x1ZGVfZGVwZW5kZW50X2NoaWxkcmVuGAggASgIEhYKDmluY2x1ZGVfc3BvdXNlGAkgASgIEh4KFmluY2x1ZGVfcHJpdmF0ZV9oZWFsdGgYCiABKAgSHwoXaW5jbHVkZV92b2x1bnRhcnlfc3VwZXIYCyABKAgioAEKCVRheENvbmZpZxIPCgdlbmFibGVkGAEgASgIEigKB2NvdW50cnkYAiABKA4yFy5wZmluYW5jZS52MS5UYXhDb3VudHJ5EhAKCHRheF9yYXRlGAMgASgBEhoKEmluY2x1ZGVfZGVkdWN0aW9ucxgEIAEoCBIqCghzZXR0aW5ncxgFIAEoCzIYLnBmaW5hbmNlLnYxLlRheFNldHRpbmdzIu4BCgxGaW5hbmNlR3JvdXASCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRITCgtkZXNjcmlwdGlvbhgDIAEoCRIQCghvd25lcl9pZBgEIAEoCRISCgptZW1iZXJfaWRzGAUgAygJEikKB21lbWJlcnMYBiADKAsyGC5wZmluYW5jZS52MS5Hcm91cE1lbWJlchIuCgpjcmVhdGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCKYAQoLR3JvdXBNZW1iZXISDwoHdXNlcl9pZBgBIAEoCRINCgVlbWFpbBgCIAEoCRIUCgxkaXNwbGF5X25hbWUYAyABKAkSJAoEcm9sZRgEIAEoDjIWLnBmaW5hbmNlLnYxLkdyb3VwUm9sZRItCglqb2luZWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIo8CCg9Hcm91cEludml0YXRpb24SCgoCaWQYASABKAkSEAoIZ3JvdXBfaWQYAiABKAkSEgoKaW52aXRlcl9pZBgDIAEoCRIVCg1pbnZpdGVlX2VtYWlsGAQgASgJEiQKBHJvbGUYBSABKA4yFi5wZmluYW5jZS52MS5Hcm91cFJvbGUSLQoGc3RhdHVzGAYgASgOMh0ucGZpbmFuY2UudjEuSW52aXRhdGlvblN0YXR1cxIuCgpjcmVhdGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgpleHBpcmVzX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCKaAwoGQnVkZ2V0EgoKAmlkGAEgASgJEg8KB3VzZXJfaWQYAiABKAkSEAoIZ3JvdXBfaWQYAyABKAkSDAoEbmFtZRgEIAEoCRITCgtkZXNjcmlwdGlvbhgFIAEoCRIOCgZhbW91bnQYBiABKAESKQoGcGVyaW9kGAcgASgOMhkucGZpbmFuY2UudjEuQnVkZ2V0UGVyaW9kEjIKDGNhdGVnb3J5X2lkcxgIIAMoDjIcLnBmaW5hbmNlLnYxLkV4cGVuc2VDYXRlZ29yeRIRCglpc19hY3RpdmUYCSABKAgSLgoKc3RhcnRfZGF0ZRgKIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLAoIZW5kX2RhdGUYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCmNyZWF0ZWRfYXQYDCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYDSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIpUBCgtCdWRnZXRBbGVydBIKCgJpZBgBIAEoCRIRCglidWRnZXRfaWQYAiABKAkSHAoUdGhyZXNob2xkX3BlcmNlbnRhZ2UYAyABKAESEgoKaXNfZW5hYmxlZBgEIAEoCBI1ChFsYXN0X3RyaWdnZXJlZF9hdBgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiuwIKDkJ1ZGdldFByb2dyZXNzEhEKCWJ1ZGdldF9pZBgBIAEoCRIYChBhbGxvY2F0ZWRfYW1vdW50GAIgASgBEhQKDHNwZW50X2Ftb3VudBgDIAEoARIYChByZW1haW5pbmdfYW1vdW50GAQgASgBEhcKD3BlcmNlbnRhZ2VfdXNlZBgFIAEoARIWCg5kYXlzX3JlbWFpbmluZxgGIAEoBRIwCgxwZXJpb2Rfc3RhcnQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnBlcmlvZF9lbmQYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjkKEmNhdGVnb3J5X2JyZWFrZG93bhgJIAMoCzIdLnBmaW5hbmNlLnYxLkV4cGVuc2VCcmVha2Rvd24iZgoQRXhwZW5zZUJyZWFrZG93bhIuCghjYXRlZ29yeRgBIAEoDjIcLnBmaW5hbmNlLnYxLkV4cGVuc2VDYXRlZ29yeRIOCgZhbW91bnQYAiABKAESEgoKcGVyY2VudGFnZRgDIAEoASKTAQoNTWVtYmVyQmFsYW5jZRIPCgd1c2VyX2lkGAEgASgJEhAKCGdyb3VwX2lkGAIgASgJEhIKCnRvdGFsX3BhaWQYAyABKAESEgoKdG90YWxfb3dlZBgEIAEoARIPCgdiYWxhbmNlGAUgASgBEiYKBWRlYnRzGAYgAygLMhcucGZpbmFuY2UudjEuTWVtYmVyRGVidCJdCgpNZW1iZXJEZWJ0EhQKDGZyb21fdXNlcl9pZBgBIAEoCRISCgp0b191c2VyX2lkGAIgASgJEg4KBmFtb3VudBgDIAEoARIVCg1leHBlbnNlX2NvdW50GAQgASgFIpoCCg9Hcm91cEludml0ZUxpbmsSCgoCaWQYASABKAkSEAoIZ3JvdXBfaWQYAiABKAkSDAoEY29kZRgDIAEoCRISCgpjcmVhdGVkX2J5GAQgASgJEiwKDGRlZmF1bHRfcm9sZRgFIAEoDjIWLnBmaW5hbmNlLnYxLkdyb3VwUm9sZRIQCghtYXhfdXNlcxgGIAEoBRIUCgxjdXJyZW50X3VzZXMYByABKAUSLgoKZXhwaXJlc19hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEQoJaXNfYWN0aXZlGAkgASgIEi4KCmNyZWF0ZWRfYXQYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIrQCChNFeHBlbnNlQ29udHJpYnV0aW9uEgoKAmlkGAEgASgJEhkKEXNvdXJjZV9leHBlbnNlX2lkGAIgASgJEhcKD3RhcmdldF9ncm91cF9pZBgDIAEoCRIWCg5jb250cmlidXRlZF9ieRgEIAEoCRIOCgZhbW91bnQYBSABKAESKgoKc3BsaXRfdHlwZRgGIAEoDjIWLnBmaW5hbmNlLnYxLlNwbGl0VHlwZRIzCgthbGxvY2F0aW9ucxgHIAMoCzIeLnBmaW5hbmNlLnYxLkV4cGVuc2VBbGxvY2F0aW9uEiAKGGNyZWF0ZWRfZ3JvdXBfZXhwZW5zZV9pZBgIIAEoCRIyCg5jb250cmlidXRlZF9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAi0AEKEkluY29tZUNvbnRyaWJ1dGlvbhIKCgJpZBgBIAEoCRIYChBzb3VyY2VfaW5jb21lX2lkGAIgASgJEhcKD3RhcmdldF9ncm91cF9pZBgDIAEoCRIWCg5jb250cmlidXRlZF9ieRgEIAEoCRIOCgZhbW91bnQYBSABKAESHwoXY3JlYXRlZF9ncm91cF9pbmNvbWVfaWQYBiABKAkSMgoOY29udHJpYnV0ZWRfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wKu4CCg9FeHBlbnNlQ2F0ZWdvcnkSIAocRVhQRU5TRV9DQVRFR09SWV9VTlNQRUNJRklFRBAAEhkKFUVYUEVOU0VfQ0FURUdPUllfRk9PRBABEhwKGEVYUEVOU0VfQ0FURUdPUllfSE9VU0lORxACEiMKH0VYUEVOU0VfQ0FURUdPUllfVFJBTlNQT1JUQVRJT04QAxIiCh5FWFBFTlNFX0NBVEVHT1JZX0VOVEVSVEFJTk1FTlQQBBIfChtFWFBFTlNFX0NBVEVHT1JZX0hFQUxUSENBUkUQBRIeChpFWFBFTlNFX0NBVEVHT1JZX1VUSUxJVElFUxAGEh0KGUVYUEVOU0VfQ0FURUdPUllfU0hPUFBJTkcQBxIeChpFWFBFTlNFX0NBVEVHT1JZX0VEVUNBVElPThAIEhsKF0VYUEVOU0VfQ0FURUdPUllfVFJBVkVMEAkSGgoWRVhQRU5TRV9DQVRFR09SWV9PVEhFUhAKKo8CChBFeHBlbnNlRnJlcXVlbmN5EiEKHUVYUEVOU0VfRlJFUVVFTkNZX1VOU1BFQ0lGSUVEEAASGgoWRVhQRU5TRV9GUkVRVUVOQ1lfT05DRRABEhsKF0VYUEVOU0VfRlJFUVVFTkNZX0RBSUxZEAISHAoYRVhQRU5TRV9GUkVRVUVOQ1lfV0VFS0xZEAMSIQodRVhQRU5TRV9GUkVRVUVOQ1lfRk9SVE5JR0hUTFkQBBIdChlFWFBFTlNFX0ZSRVFVRU5DWV9NT05USExZEAUSHwobRVhQRU5TRV9GUkVRVUVOQ1lfUVVBUlRFUkxZEAYSHgoaRVhQRU5TRV9GUkVRVUVOQ1lfQU5OVUFMTFkQByqvAQoPSW5jb21lRnJlcXVlbmN5EiAKHElOQ09NRV9GUkVRVUVOQ1lfVU5TUEVDSUZJRUQQABIbChdJTkNPTUVfRlJFUVVFTkNZX1dFRUtMWRABEiAKHElOQ09NRV9GUkVRVUVOQ1lfRk9SVE5JR0hUTFkQAhIcChhJTkNPTUVfRlJFUVVFTkNZX01PTlRITFkQAxIdChlJTkNPTUVfRlJFUVVFTkNZX0FOTlVBTExZEAQqWAoJVGF4U3RhdHVzEhoKFlRBWF9TVEFUVVNfVU5TUEVDSUZJRUQQABIWChJUQVhfU1RBVFVTX1BSRV9UQVgQARIXChNUQVhfU1RBVFVTX1BPU1RfVEFYEAIqcAoKVGF4Q291bnRyeRIbChdUQVhfQ09VTlRSWV9VTlNQRUNJRklFRBAAEhkKFVRBWF9DT1VOVFJZX0FVU1RSQUxJQRABEhIKDlRBWF9DT1VOVFJZX1VLEAISFgoSVEFYX0NPVU5UUllfU0lNUExFEAMqhgEKCVNwbGl0VHlwZRIaChZTUExJVF9UWVBFX1VOU1BFQ0lGSUVEEAASFAoQU1BMSVRfVFlQRV9FUVVBTBABEhkKFVNQTElUX1RZUEVfUEVSQ0VOVEFHRRACEhUKEVNQTElUX1RZUEVfQU1PVU5UEAMSFQoRU1BMSVRfVFlQRV9TSEFSRVMQBCqBAQoJR3JvdXBSb2xlEhoKFkdST1VQX1JPTEVfVU5TUEVDSUZJRUQQABIVChFHUk9VUF9ST0xFX1ZJRVdFUhABEhUKEUdST1VQX1JPTEVfTUVNQkVSEAISFAoQR1JPVVBfUk9MRV9BRE1JThADEhQKEEdST1VQX1JPTEVfT1dORVIQBCqzAQoQSW52aXRhdGlvblN0YXR1cxIhCh1JTlZJVEFUSU9OX1NUQVRVU19VTlNQRUNJRklFRBAAEh0KGUlOVklUQVRJT05fU1RBVFVTX1BFTkRJTkcQARIeChpJTlZJVEFUSU9OX1NUQVRVU19BQ0NFUFRFRBACEh4KGklOVklUQVRJT05fU1RBVFVTX0RFQ0xJTkVEEAMSHQoZSU5WSVRBVElPTl9TVEFUVVNfRVhQSVJFRBAEKrgBCgxCdWRnZXRQZXJpb2QSHQoZQlVER0VUX1BFUklPRF9VTlNQRUNJRklFRBAAEhgKFEJVREdFVF9QRVJJT0RfV0VFS0xZEAESHQoZQlVER0VUX1BFUklPRF9GT1JUTklHSFRMWRACEhkKFUJVREdFVF9QRVJJT0RfTU9OVEhMWRADEhsKF0JVREdFVF9QRVJJT0RfUVVBUlRFUkxZEAQSGAoUQlVER0VUX1BFUklPRF9ZRUFSTFkQBUKtAQoPY29tLnBmaW5hbmNlLnYxQgpUeXBlc1Byb3RvUAFaQWdpdGh1Yi5jb20vY2FzdGxlbWlsay9wZmluYW5jZS9iYWNrZW5kL2dlbi9wZmluYW5jZS92MTtwZmluYW5jZXYxogIDUFhYqgILUGZpbmFuY2UuVjHKAgtQZmluYW5jZVxWMeICF1BmaW5hbmNlXFYxXEdQQk1ldGFkYXRh6gIMUGZpbmFuY2U6OlYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
+  fileDesc("ChdwZmluYW5jZS92MS90eXBlcy5wcm90bxILcGZpbmFuY2UudjEiqgEKBFVzZXISCgoCaWQYASABKAkSDQoFZW1haWwYAiABKAkSFAoMZGlzcGxheV9uYW1lGAMgASgJEi4KCmNyZWF0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhEKCXBob3RvX3VybBgGIAEoCSKsAQoRRXhwZW5zZUFsbG9jYXRpb24SDwoHdXNlcl9pZBgBIAEoCRIOCgZhbW91bnQYAiABKAESEgoKcGVyY2VudGFnZRgDIAEoARIOCgZzaGFyZXMYBCABKAESDwoHaXNfcGFpZBgFIAEoCBIrCgdwYWlkX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIUCgxhbW91bnRfY2VudHMYByABKAMi+wMKB0V4cGVuc2USCgoCaWQYASABKAkSDwoHdXNlcl9pZBgCIAEoCRIQCghncm91cF9pZBgDIAEoCRITCgtkZXNjcmlwdGlvbhgEIAEoCRIOCgZhbW91bnQYBSABKAESLgoIY2F0ZWdvcnkYBiABKA4yHC5wZmluYW5jZS52MS5FeHBlbnNlQ2F0ZWdvcnkSMAoJZnJlcXVlbmN5GAcgASgOMh0ucGZpbmFuY2UudjEuRXhwZW5zZUZyZXF1ZW5jeRIoCgRkYXRlGAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgpjcmVhdGVkX2F0GAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIXCg9wYWlkX2J5X3VzZXJfaWQYCyABKAkSKgoKc3BsaXRfdHlwZRgMIAEoDjIWLnBmaW5hbmNlLnYxLlNwbGl0VHlwZRIzCgthbGxvY2F0aW9ucxgNIAMoCzIeLnBmaW5hbmNlLnYxLkV4cGVuc2VBbGxvY2F0aW9uEhIKCmlzX3NldHRsZWQYDiABKAgSDAoEdGFncxgPIAMoCRIUCgxhbW91bnRfY2VudHMYECABKAMigAMKBkluY29tZRIKCgJpZBgBIAEoCRIPCgd1c2VyX2lkGAIgASgJEhAKCGdyb3VwX2lkGAMgASgJEg4KBnNvdXJjZRgEIAEoCRIOCgZhbW91bnQYBSABKAESLwoJZnJlcXVlbmN5GAYgASgOMhwucGZpbmFuY2UudjEuSW5jb21lRnJlcXVlbmN5EioKCnRheF9zdGF0dXMYByABKA4yFi5wZmluYW5jZS52MS5UYXhTdGF0dXMSKgoKZGVkdWN0aW9ucxgIIAMoCzIWLnBmaW5hbmNlLnYxLkRlZHVjdGlvbhIoCgRkYXRlGAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgpjcmVhdGVkX2F0GAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GAsgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIUCgxhbW91bnRfY2VudHMYDCABKAMiZgoJRGVkdWN0aW9uEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSDgoGYW1vdW50GAMgASgBEhkKEWlzX3RheF9kZWR1Y3RpYmxlGAQgASgIEhQKDGFtb3VudF9jZW50cxgFIAEoAyLDAgoLVGF4U2V0dGluZ3MSFQoNaW5jbHVkZV9zdXBlchgBIAEoCBISCgpzdXBlcl9yYXRlGAIgASgBEhgKEGluY2x1ZGVfbWVkaWNhcmUYAyABKAgSGgoSbWVkaWNhcmVfZXhlbXB0aW9uGAQgASgIEh0KFWluY2x1ZGVfc2VuaW9yX29mZnNldBgFIAEoCBIcChRpbmNsdWRlX3N0dWRlbnRfbG9hbhgGIAEoCBIZChFzdHVkZW50X2xvYW5fcmF0ZRgHIAEoARIiChppbmNsdWRlX2RlcGVuZGVudF9jaGlsZHJlbhgIIAEoCBIWCg5pbmNsdWRlX3Nwb3VzZRgJIAEoCBIeChZpbmNsdWRlX3ByaXZhdGVfaGVhbHRoGAogASgIEh8KF2luY2x1ZGVfdm9sdW50YXJ5X3N1cGVyGAsgASgIIqABCglUYXhDb25maWcSDwoHZW5hYmxlZBgBIAEoCBIoCgdjb3VudHJ5GAIgASgOMhcucGZpbmFuY2UudjEuVGF4Q291bnRyeRIQCgh0YXhfcmF0ZRgDIAEoARIaChJpbmNsdWRlX2RlZHVjdGlvbnMYBCABKAgSKgoIc2V0dGluZ3MYBSABKAsyGC5wZmluYW5jZS52MS5UYXhTZXR0aW5ncyLuAQoMRmluYW5jZUdyb3VwEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSEwoLZGVzY3JpcHRpb24YAyABKAkSEAoIb3duZXJfaWQYBCABKAkSEgoKbWVtYmVyX2lkcxgFIAMoCRIpCgdtZW1iZXJzGAYgAygLMhgucGZpbmFuY2UudjEuR3JvdXBNZW1iZXISLgoKY3JlYXRlZF9hdBgHIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAimAEKC0dyb3VwTWVtYmVyEg8KB3VzZXJfaWQYASABKAkSDQoFZW1haWwYAiABKAkSFAoMZGlzcGxheV9uYW1lGAMgASgJEiQKBHJvbGUYBCABKA4yFi5wZmluYW5jZS52MS5Hcm91cFJvbGUSLQoJam9pbmVkX2F0GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCKPAgoPR3JvdXBJbnZpdGF0aW9uEgoKAmlkGAEgASgJEhAKCGdyb3VwX2lkGAIgASgJEhIKCmludml0ZXJfaWQYAyABKAkSFQoNaW52aXRlZV9lbWFpbBgEIAEoCRIkCgRyb2xlGAUgASgOMhYucGZpbmFuY2UudjEuR3JvdXBSb2xlEi0KBnN0YXR1cxgGIAEoDjIdLnBmaW5hbmNlLnYxLkludml0YXRpb25TdGF0dXMSLgoKY3JlYXRlZF9hdBgHIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKZXhwaXJlc19hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAisAMKBkJ1ZGdldBIKCgJpZBgBIAEoCRIPCgd1c2VyX2lkGAIgASgJEhAKCGdyb3VwX2lkGAMgASgJEgwKBG5hbWUYBCABKAkSEwoLZGVzY3JpcHRpb24YBSABKAkSDgoGYW1vdW50GAYgASgBEikKBnBlcmlvZBgHIAEoDjIZLnBmaW5hbmNlLnYxLkJ1ZGdldFBlcmlvZBIyCgxjYXRlZ29yeV9pZHMYCCADKA4yHC5wZmluYW5jZS52MS5FeHBlbnNlQ2F0ZWdvcnkSEQoJaXNfYWN0aXZlGAkgASgIEi4KCnN0YXJ0X2RhdGUYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiwKCGVuZF9kYXRlGAsgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgpjcmVhdGVkX2F0GAwgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GA0gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIUCgxhbW91bnRfY2VudHMYDiABKAMilQEKC0J1ZGdldEFsZXJ0EgoKAmlkGAEgASgJEhEKCWJ1ZGdldF9pZBgCIAEoCRIcChR0aHJlc2hvbGRfcGVyY2VudGFnZRgDIAEoARISCgppc19lbmFibGVkGAQgASgIEjUKEWxhc3RfdHJpZ2dlcmVkX2F0GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCKXAwoOQnVkZ2V0UHJvZ3Jlc3MSEQoJYnVkZ2V0X2lkGAEgASgJEhgKEGFsbG9jYXRlZF9hbW91bnQYAiABKAESFAoMc3BlbnRfYW1vdW50GAMgASgBEhgKEHJlbWFpbmluZ19hbW91bnQYBCABKAESFwoPcGVyY2VudGFnZV91c2VkGAUgASgBEhYKDmRheXNfcmVtYWluaW5nGAYgASgFEjAKDHBlcmlvZF9zdGFydBgHIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKcGVyaW9kX2VuZBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASOQoSY2F0ZWdvcnlfYnJlYWtkb3duGAkgAygLMh0ucGZpbmFuY2UudjEuRXhwZW5zZUJyZWFrZG93bhIeChZhbGxvY2F0ZWRfYW1vdW50X2NlbnRzGAogASgDEhoKEnNwZW50X2Ftb3VudF9jZW50cxgLIAEoAxIeChZyZW1haW5pbmdfYW1vdW50X2NlbnRzGAwgASgDInwKEEV4cGVuc2VCcmVha2Rvd24SLgoIY2F0ZWdvcnkYASABKA4yHC5wZmluYW5jZS52MS5FeHBlbnNlQ2F0ZWdvcnkSDgoGYW1vdW50GAIgASgBEhIKCnBlcmNlbnRhZ2UYAyABKAESFAoMYW1vdW50X2NlbnRzGAQgASgDIt4BCg1NZW1iZXJCYWxhbmNlEg8KB3VzZXJfaWQYASABKAkSEAoIZ3JvdXBfaWQYAiABKAkSEgoKdG90YWxfcGFpZBgDIAEoARISCgp0b3RhbF9vd2VkGAQgASgBEg8KB2JhbGFuY2UYBSABKAESJgoFZGVidHMYBiADKAsyFy5wZmluYW5jZS52MS5NZW1iZXJEZWJ0EhgKEHRvdGFsX3BhaWRfY2VudHMYByABKAMSGAoQdG90YWxfb3dlZF9jZW50cxgIIAEoAxIVCg1iYWxhbmNlX2NlbnRzGAkgASgDInMKCk1lbWJlckRlYnQSFAoMZnJvbV91c2VyX2lkGAEgASgJEhIKCnRvX3VzZXJfaWQYAiABKAkSDgoGYW1vdW50GAMgASgBEhUKDWV4cGVuc2VfY291bnQYBCABKAUSFAoMYW1vdW50X2NlbnRzGAUgASgDIpoCCg9Hcm91cEludml0ZUxpbmsSCgoCaWQYASABKAkSEAoIZ3JvdXBfaWQYAiABKAkSDAoEY29kZRgDIAEoCRISCgpjcmVhdGVkX2J5GAQgASgJEiwKDGRlZmF1bHRfcm9sZRgFIAEoDjIWLnBmaW5hbmNlLnYxLkdyb3VwUm9sZRIQCghtYXhfdXNlcxgGIAEoBRIUCgxjdXJyZW50X3VzZXMYByABKAUSLgoKZXhwaXJlc19hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEQoJaXNfYWN0aXZlGAkgASgIEi4KCmNyZWF0ZWRfYXQYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIsoCChNFeHBlbnNlQ29udHJpYnV0aW9uEgoKAmlkGAEgASgJEhkKEXNvdXJjZV9leHBlbnNlX2lkGAIgASgJEhcKD3RhcmdldF9ncm91cF9pZBgDIAEoCRIWCg5jb250cmlidXRlZF9ieRgEIAEoCRIOCgZhbW91bnQYBSABKAESKgoKc3BsaXRfdHlwZRgGIAEoDjIWLnBmaW5hbmNlLnYxLlNwbGl0VHlwZRIzCgthbGxvY2F0aW9ucxgHIAMoCzIeLnBmaW5hbmNlLnYxLkV4cGVuc2VBbGxvY2F0aW9uEiAKGGNyZWF0ZWRfZ3JvdXBfZXhwZW5zZV9pZBgIIAEoCRIyCg5jb250cmlidXRlZF9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFAoMYW1vdW50X2NlbnRzGAogASgDIuYBChJJbmNvbWVDb250cmlidXRpb24SCgoCaWQYASABKAkSGAoQc291cmNlX2luY29tZV9pZBgCIAEoCRIXCg90YXJnZXRfZ3JvdXBfaWQYAyABKAkSFgoOY29udHJpYnV0ZWRfYnkYBCABKAkSDgoGYW1vdW50GAUgASgBEh8KF2NyZWF0ZWRfZ3JvdXBfaW5jb21lX2lkGAYgASgJEjIKDmNvbnRyaWJ1dGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIUCgxhbW91bnRfY2VudHMYCCABKAMiigEKDUdvYWxNaWxlc3RvbmUSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIZChF0YXJnZXRfcGVyY2VudGFnZRgDIAEoARITCgtpc19hY2hpZXZlZBgEIAEoCBIvCgthY2hpZXZlZF9hdBgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAi4AQKDUZpbmFuY2lhbEdvYWwSCgoCaWQYASABKAkSDwoHdXNlcl9pZBgCIAEoCRIQCghncm91cF9pZBgDIAEoCRIMCgRuYW1lGAQgASgJEhMKC2Rlc2NyaXB0aW9uGAUgASgJEigKCWdvYWxfdHlwZRgGIAEoDjIVLnBmaW5hbmNlLnYxLkdvYWxUeXBlEhUKDXRhcmdldF9hbW91bnQYByABKAESFgoOY3VycmVudF9hbW91bnQYCCABKAESLgoKc3RhcnRfZGF0ZRgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLwoLdGFyZ2V0X2RhdGUYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEicKBnN0YXR1cxgLIAEoDjIXLnBmaW5hbmNlLnYxLkdvYWxTdGF0dXMSMgoMY2F0ZWdvcnlfaWRzGAwgAygOMhwucGZpbmFuY2UudjEuRXhwZW5zZUNhdGVnb3J5EgwKBGljb24YDSABKAkSDQoFY29sb3IYDiABKAkSLgoKbWlsZXN0b25lcxgPIAMoCzIaLnBmaW5hbmNlLnYxLkdvYWxNaWxlc3RvbmUSLgoKY3JlYXRlZF9hdBgQIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgRIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASGwoTdGFyZ2V0X2Ftb3VudF9jZW50cxgSIAEoAxIcChRjdXJyZW50X2Ftb3VudF9jZW50cxgTIAEoAyK5AwoMR29hbFByb2dyZXNzEg8KB2dvYWxfaWQYASABKAkSFgoOY3VycmVudF9hbW91bnQYAiABKAESFQoNdGFyZ2V0X2Ftb3VudBgDIAEoARIbChNwZXJjZW50YWdlX2NvbXBsZXRlGAQgASgBEhYKDmRheXNfcmVtYWluaW5nGAUgASgFEhsKE3JlcXVpcmVkX2RhaWx5X3JhdGUYBiABKAESGQoRYWN0dWFsX2RhaWx5X3JhdGUYByABKAESEAoIb25fdHJhY2sYCCABKAgSNwoTYWNoaWV2ZWRfbWlsZXN0b25lcxgJIAMoCzIaLnBmaW5hbmNlLnYxLkdvYWxNaWxlc3RvbmUSMgoObmV4dF9taWxlc3RvbmUYCiABKAsyGi5wZmluYW5jZS52MS5Hb2FsTWlsZXN0b25lEhwKFGN1cnJlbnRfYW1vdW50X2NlbnRzGAsgASgDEhsKE3RhcmdldF9hbW91bnRfY2VudHMYDCABKAMSIQoZcmVxdWlyZWRfZGFpbHlfcmF0ZV9jZW50cxgNIAEoAxIfChdhY3R1YWxfZGFpbHlfcmF0ZV9jZW50cxgOIAEoAyKoAQoQR29hbENvbnRyaWJ1dGlvbhIKCgJpZBgBIAEoCRIPCgdnb2FsX2lkGAIgASgJEg8KB3VzZXJfaWQYAyABKAkSDgoGYW1vdW50GAQgASgBEgwKBG5vdGUYBSABKAkSMgoOY29udHJpYnV0ZWRfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhQKDGFtb3VudF9jZW50cxgHIAEoAyKcAgoPU3BlbmRpbmdJbnNpZ2h0EgoKAmlkGAEgASgJEiYKBHR5cGUYAiABKA4yGC5wZmluYW5jZS52MS5JbnNpZ2h0VHlwZRINCgV0aXRsZRgDIAEoCRITCgtkZXNjcmlwdGlvbhgEIAEoCRIQCghjYXRlZ29yeRgFIAEoCRIOCgZhbW91bnQYBiABKAESFgoOY2hhbmdlX3BlcmNlbnQYByABKAESDgoGcGVyaW9kGAggASgJEgwKBGljb24YCSABKAkSEwoLaXNfcG9zaXRpdmUYCiABKAgSLgoKY3JlYXRlZF9hdBgLIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFAoMYW1vdW50X2NlbnRzGAwgASgDIq8CChRFeHRyYWN0ZWRUcmFuc2FjdGlvbhIKCgJpZBgBIAEoCRIMCgRkYXRlGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEhsKE25vcm1hbGl6ZWRfbWVyY2hhbnQYBCABKAkSDgoGYW1vdW50GAUgASgBEjgKEnN1Z2dlc3RlZF9jYXRlZ29yeRgGIAEoDjIcLnBmaW5hbmNlLnYxLkV4cGVuc2VDYXRlZ29yeRISCgpjb25maWRlbmNlGAcgASgBEhAKCGlzX2RlYml0GAggASgIEhEKCXJlZmVyZW5jZRgJIAEoCRIyCgpsaW5lX2l0ZW1zGAogAygLMh4ucGZpbmFuY2UudjEuRXh0cmFjdGVkTGluZUl0ZW0SFAoMYW1vdW50X2NlbnRzGAsgASgDIpABChFFeHRyYWN0ZWRMaW5lSXRlbRITCgtkZXNjcmlwdGlvbhgBIAEoCRIOCgZhbW91bnQYAiABKAESEAoIcXVhbnRpdHkYAyABKAUSLgoIY2F0ZWdvcnkYBCABKA4yHC5wZmluYW5jZS52MS5FeHBlbnNlQ2F0ZWdvcnkSFAoMYW1vdW50X2NlbnRzGAUgASgDIu8BChBFeHRyYWN0aW9uUmVzdWx0EjcKDHRyYW5zYWN0aW9ucxgBIAMoCzIhLnBmaW5hbmNlLnYxLkV4dHJhY3RlZFRyYW5zYWN0aW9uEhoKEm92ZXJhbGxfY29uZmlkZW5jZRgCIAEoARISCgptb2RlbF91c2VkGAMgASgJEhoKEnByb2Nlc3NpbmdfdGltZV9tcxgEIAEoBRIQCgh3YXJuaW5ncxgFIAMoCRIwCg1kb2N1bWVudF90eXBlGAYgASgOMhkucGZpbmFuY2UudjEuRG9jdW1lbnRUeXBlEhIKCnBhZ2VfY291bnQYByABKAUi0AIKDUV4dHJhY3Rpb25Kb2ISCgoCaWQYASABKAkSDwoHdXNlcl9pZBgCIAEoCRItCgZzdGF0dXMYAyABKA4yHS5wZmluYW5jZS52MS5FeHRyYWN0aW9uU3RhdHVzEjAKDWRvY3VtZW50X3R5cGUYBCABKA4yGS5wZmluYW5jZS52MS5Eb2N1bWVudFR5cGUSGQoRb3JpZ2luYWxfZmlsZW5hbWUYBSABKAkSLQoGcmVzdWx0GAYgASgLMh0ucGZpbmFuY2UudjEuRXh0cmFjdGlvblJlc3VsdBIVCg1lcnJvcl9tZXNzYWdlGAcgASgJEi4KCmNyZWF0ZWRfYXQYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjAKDGNvbXBsZXRlZF9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAipwEKEFZhbGlkYXRpb25SZXN1bHQSEAoIYWNjdXJhY3kYASABKAESOQoNZGlzY3JlcGFuY2llcxgCIAMoCzIiLnBmaW5hbmNlLnYxLlZhbGlkYXRpb25EaXNjcmVwYW5jeRIUCgx2YWxpZGF0ZWRfYnkYAyABKAkSMAoMdmFsaWRhdGVkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCJwChVWYWxpZGF0aW9uRGlzY3JlcGFuY3kSDQoFZmllbGQYASABKAkSFwoPZXh0cmFjdGVkX3ZhbHVlGAIgASgJEhcKD3ZhbGlkYXRlZF92YWx1ZRgDIAEoCRIWCg50cmFuc2FjdGlvbl9pZBgEIAEoCSruAgoPRXhwZW5zZUNhdGVnb3J5EiAKHEVYUEVOU0VfQ0FURUdPUllfVU5TUEVDSUZJRUQQABIZChVFWFBFTlNFX0NBVEVHT1JZX0ZPT0QQARIcChhFWFBFTlNFX0NBVEVHT1JZX0hPVVNJTkcQAhIjCh9FWFBFTlNFX0NBVEVHT1JZX1RSQU5TUE9SVEFUSU9OEAMSIgoeRVhQRU5TRV9DQVRFR09SWV9FTlRFUlRBSU5NRU5UEAQSHwobRVhQRU5TRV9DQVRFR09SWV9IRUFMVEhDQVJFEAUSHgoaRVhQRU5TRV9DQVRFR09SWV9VVElMSVRJRVMQBhIdChlFWFBFTlNFX0NBVEVHT1JZX1NIT1BQSU5HEAcSHgoaRVhQRU5TRV9DQVRFR09SWV9FRFVDQVRJT04QCBIbChdFWFBFTlNFX0NBVEVHT1JZX1RSQVZFTBAJEhoKFkVYUEVOU0VfQ0FURUdPUllfT1RIRVIQCiqPAgoQRXhwZW5zZUZyZXF1ZW5jeRIhCh1FWFBFTlNFX0ZSRVFVRU5DWV9VTlNQRUNJRklFRBAAEhoKFkVYUEVOU0VfRlJFUVVFTkNZX09OQ0UQARIbChdFWFBFTlNFX0ZSRVFVRU5DWV9EQUlMWRACEhwKGEVYUEVOU0VfRlJFUVVFTkNZX1dFRUtMWRADEiEKHUVYUEVOU0VfRlJFUVVFTkNZX0ZPUlROSUdIVExZEAQSHQoZRVhQRU5TRV9GUkVRVUVOQ1lfTU9OVEhMWRAFEh8KG0VYUEVOU0VfRlJFUVVFTkNZX1FVQVJURVJMWRAGEh4KGkVYUEVOU0VfRlJFUVVFTkNZX0FOTlVBTExZEAcqrwEKD0luY29tZUZyZXF1ZW5jeRIgChxJTkNPTUVfRlJFUVVFTkNZX1VOU1BFQ0lGSUVEEAASGwoXSU5DT01FX0ZSRVFVRU5DWV9XRUVLTFkQARIgChxJTkNPTUVfRlJFUVVFTkNZX0ZPUlROSUdIVExZEAISHAoYSU5DT01FX0ZSRVFVRU5DWV9NT05USExZEAMSHQoZSU5DT01FX0ZSRVFVRU5DWV9BTk5VQUxMWRAEKlgKCVRheFN0YXR1cxIaChZUQVhfU1RBVFVTX1VOU1BFQ0lGSUVEEAASFgoSVEFYX1NUQVRVU19QUkVfVEFYEAESFwoTVEFYX1NUQVRVU19QT1NUX1RBWBACKnAKClRheENvdW50cnkSGwoXVEFYX0NPVU5UUllfVU5TUEVDSUZJRUQQABIZChVUQVhfQ09VTlRSWV9BVVNUUkFMSUEQARISCg5UQVhfQ09VTlRSWV9VSxACEhYKElRBWF9DT1VOVFJZX1NJTVBMRRADKoYBCglTcGxpdFR5cGUSGgoWU1BMSVRfVFlQRV9VTlNQRUNJRklFRBAAEhQKEFNQTElUX1RZUEVfRVFVQUwQARIZChVTUExJVF9UWVBFX1BFUkNFTlRBR0UQAhIVChFTUExJVF9UWVBFX0FNT1VOVBADEhUKEVNQTElUX1RZUEVfU0hBUkVTEAQqgQEKCUdyb3VwUm9sZRIaChZHUk9VUF9ST0xFX1VOU1BFQ0lGSUVEEAASFQoRR1JPVVBfUk9MRV9WSUVXRVIQARIVChFHUk9VUF9ST0xFX01FTUJFUhACEhQKEEdST1VQX1JPTEVfQURNSU4QAxIUChBHUk9VUF9ST0xFX09XTkVSEAQqswEKEEludml0YXRpb25TdGF0dXMSIQodSU5WSVRBVElPTl9TVEFUVVNfVU5TUEVDSUZJRUQQABIdChlJTlZJVEFUSU9OX1NUQVRVU19QRU5ESU5HEAESHgoaSU5WSVRBVElPTl9TVEFUVVNfQUNDRVBURUQQAhIeChpJTlZJVEFUSU9OX1NUQVRVU19ERUNMSU5FRBADEh0KGUlOVklUQVRJT05fU1RBVFVTX0VYUElSRUQQBCq4AQoMQnVkZ2V0UGVyaW9kEh0KGUJVREdFVF9QRVJJT0RfVU5TUEVDSUZJRUQQABIYChRCVURHRVRfUEVSSU9EX1dFRUtMWRABEh0KGUJVREdFVF9QRVJJT0RfRk9SVE5JR0hUTFkQAhIZChVCVURHRVRfUEVSSU9EX01PTlRITFkQAxIbChdCVURHRVRfUEVSSU9EX1FVQVJURVJMWRAEEhgKFEJVREdFVF9QRVJJT0RfWUVBUkxZEAUqdQoIR29hbFR5cGUSGQoVR09BTF9UWVBFX1VOU1BFQ0lGSUVEEAASFQoRR09BTF9UWVBFX1NBVklOR1MQARIZChVHT0FMX1RZUEVfREVCVF9QQVlPRkYQAhIcChhHT0FMX1RZUEVfU1BFTkRJTkdfTElNSVQQAyqPAQoKR29hbFN0YXR1cxIbChdHT0FMX1NUQVRVU19VTlNQRUNJRklFRBAAEhYKEkdPQUxfU1RBVFVTX0FDVElWRRABEhYKEkdPQUxfU1RBVFVTX1BBVVNFRBACEhkKFUdPQUxfU1RBVFVTX0NPTVBMRVRFRBADEhkKFUdPQUxfU1RBVFVTX0NBTkNFTExFRBAEKpkCCgtJbnNpZ2h0VHlwZRIcChhJTlNJR0hUX1RZUEVfVU5TUEVDSUZJRUQQABIiCh5JTlNJR0hUX1RZUEVfU1BFTkRJTkdfSU5DUkVBU0UQARIiCh5JTlNJR0hUX1RZUEVfU1BFTkRJTkdfREVDUkVBU0UQAhIkCiBJTlNJR0hUX1RZUEVfVU5VU1VBTF9UUkFOU0FDVElPThADEh8KG0lOU0lHSFRfVFlQRV9DQVRFR09SWV9UUkVORBAEEhwKGElOU0lHSFRfVFlQRV9TQVZJTkdTX1RJUBAFEh8KG0lOU0lHSFRfVFlQRV9CVURHRVRfV0FSTklORxAGEh4KGklOU0lHSFRfVFlQRV9HT0FMX1BST0dSRVNTEAcqhQEKDERvY3VtZW50VHlwZRIdChlET0NVTUVOVF9UWVBFX1VOU1BFQ0lGSUVEEAASGQoVRE9DVU1FTlRfVFlQRV9SRUNFSVBUEAESIAocRE9DVU1FTlRfVFlQRV9CQU5LX1NUQVRFTUVOVBACEhkKFURPQ1VNRU5UX1RZUEVfSU5WT0lDRRADKuABChBFeHRyYWN0aW9uU3RhdHVzEiEKHUVYVFJBQ1RJT05fU1RBVFVTX1VOU1BFQ0lGSUVEEAASHQoZRVhUUkFDVElPTl9TVEFUVVNfUEVORElORxABEiAKHEVYVFJBQ1RJT05fU1RBVFVTX1BST0NFU1NJTkcQAhIfChtFWFRSQUNUSU9OX1NUQVRVU19DT01QTEVURUQQAxIcChhFWFRSQUNUSU9OX1NUQVRVU19GQUlMRUQQBBIpCiVFWFRSQUNUSU9OX1NUQVRVU19WQUxJREFUSU9OX1JFUVVJUkVEEAUqdgoQRXh0cmFjdGlvbk1ldGhvZBIhCh1FWFRSQUNUSU9OX01FVEhPRF9VTlNQRUNJRklFRBAAEiEKHUVYVFJBQ1RJT05fTUVUSE9EX1NFTEZfSE9TVEVEEAESHAoYRVhUUkFDVElPTl9NRVRIT0RfR0VNSU5JEAJCrQEKD2NvbS5wZmluYW5jZS52MUIKVHlwZXNQcm90b1ABWkFnaXRodWIuY29tL2Nhc3RsZW1pbGsvcGZpbmFuY2UvYmFja2VuZC9nZW4vcGZpbmFuY2UvdjE7cGZpbmFuY2V2MaICA1BYWKoCC1BmaW5hbmNlLlYxygILUGZpbmFuY2VcVjHiAhdQZmluYW5jZVxWMVxHUEJNZXRhZGF0YeoCDFBmaW5hbmNlOjpWMWIGcHJvdG8z", [file_google_protobuf_timestamp]);
 
 /**
  * User represents a user in the system
@@ -101,6 +101,13 @@ export type ExpenseAllocation = Message<"pfinance.v1.ExpenseAllocation"> & {
    * @generated from field: google.protobuf.Timestamp paid_at = 6;
    */
   paidAt?: Timestamp;
+
+  /**
+   * Amount in cents (preferred over amount)
+   *
+   * @generated from field: int64 amount_cents = 7;
+   */
+  amountCents: bigint;
 };
 
 /**
@@ -206,6 +213,13 @@ export type Expense = Message<"pfinance.v1.Expense"> & {
    * @generated from field: repeated string tags = 15;
    */
   tags: string[];
+
+  /**
+   * Amount in cents (preferred over amount)
+   *
+   * @generated from field: int64 amount_cents = 16;
+   */
+  amountCents: bigint;
 };
 
 /**
@@ -277,6 +291,13 @@ export type Income = Message<"pfinance.v1.Income"> & {
    * @generated from field: google.protobuf.Timestamp updated_at = 11;
    */
   updatedAt?: Timestamp;
+
+  /**
+   * Amount in cents (preferred over amount)
+   *
+   * @generated from field: int64 amount_cents = 12;
+   */
+  amountCents: bigint;
 };
 
 /**
@@ -311,6 +332,13 @@ export type Deduction = Message<"pfinance.v1.Deduction"> & {
    * @generated from field: bool is_tax_deductible = 4;
    */
   isTaxDeductible: boolean;
+
+  /**
+   * Amount in cents (preferred over amount)
+   *
+   * @generated from field: int64 amount_cents = 5;
+   */
+  amountCents: bigint;
 };
 
 /**
@@ -651,6 +679,13 @@ export type Budget = Message<"pfinance.v1.Budget"> & {
    * @generated from field: google.protobuf.Timestamp updated_at = 13;
    */
   updatedAt?: Timestamp;
+
+  /**
+   * Amount in cents (preferred over amount)
+   *
+   * @generated from field: int64 amount_cents = 14;
+   */
+  amountCents: bigint;
 };
 
 /**
@@ -751,6 +786,27 @@ export type BudgetProgress = Message<"pfinance.v1.BudgetProgress"> & {
    * @generated from field: repeated pfinance.v1.ExpenseBreakdown category_breakdown = 9;
    */
   categoryBreakdown: ExpenseBreakdown[];
+
+  /**
+   * Allocated amount in cents (preferred over allocated_amount)
+   *
+   * @generated from field: int64 allocated_amount_cents = 10;
+   */
+  allocatedAmountCents: bigint;
+
+  /**
+   * Spent amount in cents (preferred over spent_amount)
+   *
+   * @generated from field: int64 spent_amount_cents = 11;
+   */
+  spentAmountCents: bigint;
+
+  /**
+   * Remaining amount in cents (preferred over remaining_amount)
+   *
+   * @generated from field: int64 remaining_amount_cents = 12;
+   */
+  remainingAmountCents: bigint;
 };
 
 /**
@@ -780,6 +836,13 @@ export type ExpenseBreakdown = Message<"pfinance.v1.ExpenseBreakdown"> & {
    * @generated from field: double percentage = 3;
    */
   percentage: number;
+
+  /**
+   * Amount in cents (preferred over amount)
+   *
+   * @generated from field: int64 amount_cents = 4;
+   */
+  amountCents: bigint;
 };
 
 /**
@@ -832,6 +895,27 @@ export type MemberBalance = Message<"pfinance.v1.MemberBalance"> & {
    * @generated from field: repeated pfinance.v1.MemberDebt debts = 6;
    */
   debts: MemberDebt[];
+
+  /**
+   * Total paid in cents (preferred over total_paid)
+   *
+   * @generated from field: int64 total_paid_cents = 7;
+   */
+  totalPaidCents: bigint;
+
+  /**
+   * Total owed in cents (preferred over total_owed)
+   *
+   * @generated from field: int64 total_owed_cents = 8;
+   */
+  totalOwedCents: bigint;
+
+  /**
+   * Balance in cents (preferred over balance)
+   *
+   * @generated from field: int64 balance_cents = 9;
+   */
+  balanceCents: bigint;
 };
 
 /**
@@ -872,6 +956,13 @@ export type MemberDebt = Message<"pfinance.v1.MemberDebt"> & {
    * @generated from field: int32 expense_count = 4;
    */
   expenseCount: number;
+
+  /**
+   * Amount in cents (preferred over amount)
+   *
+   * @generated from field: int64 amount_cents = 5;
+   */
+  amountCents: bigint;
 };
 
 /**
@@ -1003,6 +1094,13 @@ export type ExpenseContribution = Message<"pfinance.v1.ExpenseContribution"> & {
    * @generated from field: google.protobuf.Timestamp contributed_at = 9;
    */
   contributedAt?: Timestamp;
+
+  /**
+   * Amount in cents (preferred over amount)
+   *
+   * @generated from field: int64 amount_cents = 10;
+   */
+  amountCents: bigint;
 };
 
 /**
@@ -1058,6 +1156,13 @@ export type IncomeContribution = Message<"pfinance.v1.IncomeContribution"> & {
    * @generated from field: google.protobuf.Timestamp contributed_at = 7;
    */
   contributedAt?: Timestamp;
+
+  /**
+   * Amount in cents (preferred over amount)
+   *
+   * @generated from field: int64 amount_cents = 8;
+   */
+  amountCents: bigint;
 };
 
 /**
@@ -1066,6 +1171,707 @@ export type IncomeContribution = Message<"pfinance.v1.IncomeContribution"> & {
  */
 export const IncomeContributionSchema: GenMessage<IncomeContribution> = /*@__PURE__*/
   messageDesc(file_pfinance_v1_types, 18);
+
+/**
+ * GoalMilestone represents a milestone within a goal
+ *
+ * @generated from message pfinance.v1.GoalMilestone
+ */
+export type GoalMilestone = Message<"pfinance.v1.GoalMilestone"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * e.g., 25, 50, 75, 100
+   *
+   * @generated from field: double target_percentage = 3;
+   */
+  targetPercentage: number;
+
+  /**
+   * @generated from field: bool is_achieved = 4;
+   */
+  isAchieved: boolean;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp achieved_at = 5;
+   */
+  achievedAt?: Timestamp;
+};
+
+/**
+ * Describes the message pfinance.v1.GoalMilestone.
+ * Use `create(GoalMilestoneSchema)` to create a new message.
+ */
+export const GoalMilestoneSchema: GenMessage<GoalMilestone> = /*@__PURE__*/
+  messageDesc(file_pfinance_v1_types, 19);
+
+/**
+ * FinancialGoal represents a financial goal for saving, debt payoff, or spending limits
+ *
+ * @generated from message pfinance.v1.FinancialGoal
+ */
+export type FinancialGoal = Message<"pfinance.v1.FinancialGoal"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string user_id = 2;
+   */
+  userId: string;
+
+  /**
+   * Optional: for shared goals
+   *
+   * @generated from field: string group_id = 3;
+   */
+  groupId: string;
+
+  /**
+   * @generated from field: string name = 4;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string description = 5;
+   */
+  description: string;
+
+  /**
+   * @generated from field: pfinance.v1.GoalType goal_type = 6;
+   */
+  goalType: GoalType;
+
+  /**
+   * @generated from field: double target_amount = 7;
+   */
+  targetAmount: number;
+
+  /**
+   * Computed or manually updated
+   *
+   * @generated from field: double current_amount = 8;
+   */
+  currentAmount: number;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp start_date = 9;
+   */
+  startDate?: Timestamp;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp target_date = 10;
+   */
+  targetDate?: Timestamp;
+
+  /**
+   * @generated from field: pfinance.v1.GoalStatus status = 11;
+   */
+  status: GoalStatus;
+
+  /**
+   * For SPENDING_LIMIT type
+   *
+   * @generated from field: repeated pfinance.v1.ExpenseCategory category_ids = 12;
+   */
+  categoryIds: ExpenseCategory[];
+
+  /**
+   * Emoji or icon name
+   *
+   * @generated from field: string icon = 13;
+   */
+  icon: string;
+
+  /**
+   * Hex color for UI
+   *
+   * @generated from field: string color = 14;
+   */
+  color: string;
+
+  /**
+   * @generated from field: repeated pfinance.v1.GoalMilestone milestones = 15;
+   */
+  milestones: GoalMilestone[];
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 16;
+   */
+  createdAt?: Timestamp;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp updated_at = 17;
+   */
+  updatedAt?: Timestamp;
+
+  /**
+   * Target amount in cents (preferred over target_amount)
+   *
+   * @generated from field: int64 target_amount_cents = 18;
+   */
+  targetAmountCents: bigint;
+
+  /**
+   * Current amount in cents (preferred over current_amount)
+   *
+   * @generated from field: int64 current_amount_cents = 19;
+   */
+  currentAmountCents: bigint;
+};
+
+/**
+ * Describes the message pfinance.v1.FinancialGoal.
+ * Use `create(FinancialGoalSchema)` to create a new message.
+ */
+export const FinancialGoalSchema: GenMessage<FinancialGoal> = /*@__PURE__*/
+  messageDesc(file_pfinance_v1_types, 20);
+
+/**
+ * GoalProgress represents the current progress towards a goal
+ *
+ * @generated from message pfinance.v1.GoalProgress
+ */
+export type GoalProgress = Message<"pfinance.v1.GoalProgress"> & {
+  /**
+   * @generated from field: string goal_id = 1;
+   */
+  goalId: string;
+
+  /**
+   * @generated from field: double current_amount = 2;
+   */
+  currentAmount: number;
+
+  /**
+   * @generated from field: double target_amount = 3;
+   */
+  targetAmount: number;
+
+  /**
+   * @generated from field: double percentage_complete = 4;
+   */
+  percentageComplete: number;
+
+  /**
+   * @generated from field: int32 days_remaining = 5;
+   */
+  daysRemaining: number;
+
+  /**
+   * Amount needed per day to hit target
+   *
+   * @generated from field: double required_daily_rate = 6;
+   */
+  requiredDailyRate: number;
+
+  /**
+   * Current daily progress rate
+   *
+   * @generated from field: double actual_daily_rate = 7;
+   */
+  actualDailyRate: number;
+
+  /**
+   * @generated from field: bool on_track = 8;
+   */
+  onTrack: boolean;
+
+  /**
+   * @generated from field: repeated pfinance.v1.GoalMilestone achieved_milestones = 9;
+   */
+  achievedMilestones: GoalMilestone[];
+
+  /**
+   * @generated from field: pfinance.v1.GoalMilestone next_milestone = 10;
+   */
+  nextMilestone?: GoalMilestone;
+
+  /**
+   * Current amount in cents (preferred over current_amount)
+   *
+   * @generated from field: int64 current_amount_cents = 11;
+   */
+  currentAmountCents: bigint;
+
+  /**
+   * Target amount in cents (preferred over target_amount)
+   *
+   * @generated from field: int64 target_amount_cents = 12;
+   */
+  targetAmountCents: bigint;
+
+  /**
+   * Required daily rate in cents (preferred over required_daily_rate)
+   *
+   * @generated from field: int64 required_daily_rate_cents = 13;
+   */
+  requiredDailyRateCents: bigint;
+
+  /**
+   * Actual daily rate in cents (preferred over actual_daily_rate)
+   *
+   * @generated from field: int64 actual_daily_rate_cents = 14;
+   */
+  actualDailyRateCents: bigint;
+};
+
+/**
+ * Describes the message pfinance.v1.GoalProgress.
+ * Use `create(GoalProgressSchema)` to create a new message.
+ */
+export const GoalProgressSchema: GenMessage<GoalProgress> = /*@__PURE__*/
+  messageDesc(file_pfinance_v1_types, 21);
+
+/**
+ * GoalContribution represents a contribution to a goal
+ *
+ * @generated from message pfinance.v1.GoalContribution
+ */
+export type GoalContribution = Message<"pfinance.v1.GoalContribution"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string goal_id = 2;
+   */
+  goalId: string;
+
+  /**
+   * @generated from field: string user_id = 3;
+   */
+  userId: string;
+
+  /**
+   * @generated from field: double amount = 4;
+   */
+  amount: number;
+
+  /**
+   * @generated from field: string note = 5;
+   */
+  note: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp contributed_at = 6;
+   */
+  contributedAt?: Timestamp;
+
+  /**
+   * Amount in cents (preferred over amount)
+   *
+   * @generated from field: int64 amount_cents = 7;
+   */
+  amountCents: bigint;
+};
+
+/**
+ * Describes the message pfinance.v1.GoalContribution.
+ * Use `create(GoalContributionSchema)` to create a new message.
+ */
+export const GoalContributionSchema: GenMessage<GoalContribution> = /*@__PURE__*/
+  messageDesc(file_pfinance_v1_types, 22);
+
+/**
+ * SpendingInsight represents an AI-generated spending insight
+ *
+ * @generated from message pfinance.v1.SpendingInsight
+ */
+export type SpendingInsight = Message<"pfinance.v1.SpendingInsight"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: pfinance.v1.InsightType type = 2;
+   */
+  type: InsightType;
+
+  /**
+   * @generated from field: string title = 3;
+   */
+  title: string;
+
+  /**
+   * @generated from field: string description = 4;
+   */
+  description: string;
+
+  /**
+   * @generated from field: string category = 5;
+   */
+  category: string;
+
+  /**
+   * @generated from field: double amount = 6;
+   */
+  amount: number;
+
+  /**
+   * @generated from field: double change_percent = 7;
+   */
+  changePercent: number;
+
+  /**
+   * e.g., "this week", "this month"
+   *
+   * @generated from field: string period = 8;
+   */
+  period: string;
+
+  /**
+   * @generated from field: string icon = 9;
+   */
+  icon: string;
+
+  /**
+   * Good news vs warning
+   *
+   * @generated from field: bool is_positive = 10;
+   */
+  isPositive: boolean;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 11;
+   */
+  createdAt?: Timestamp;
+
+  /**
+   * Amount in cents (preferred over amount)
+   *
+   * @generated from field: int64 amount_cents = 12;
+   */
+  amountCents: bigint;
+};
+
+/**
+ * Describes the message pfinance.v1.SpendingInsight.
+ * Use `create(SpendingInsightSchema)` to create a new message.
+ */
+export const SpendingInsightSchema: GenMessage<SpendingInsight> = /*@__PURE__*/
+  messageDesc(file_pfinance_v1_types, 23);
+
+/**
+ * ExtractedTransaction represents a single transaction extracted from a document
+ *
+ * @generated from message pfinance.v1.ExtractedTransaction
+ */
+export type ExtractedTransaction = Message<"pfinance.v1.ExtractedTransaction"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * Date in YYYY-MM-DD format
+   *
+   * @generated from field: string date = 2;
+   */
+  date: string;
+
+  /**
+   * Raw description from document
+   *
+   * @generated from field: string description = 3;
+   */
+  description: string;
+
+  /**
+   * Cleaned/normalized merchant name
+   *
+   * @generated from field: string normalized_merchant = 4;
+   */
+  normalizedMerchant: string;
+
+  /**
+   * Transaction amount (positive)
+   *
+   * @generated from field: double amount = 5;
+   */
+  amount: number;
+
+  /**
+   * AI-suggested category
+   *
+   * @generated from field: pfinance.v1.ExpenseCategory suggested_category = 6;
+   */
+  suggestedCategory: ExpenseCategory;
+
+  /**
+   * Extraction confidence (0.0-1.0)
+   *
+   * @generated from field: double confidence = 7;
+   */
+  confidence: number;
+
+  /**
+   * True if money going out
+   *
+   * @generated from field: bool is_debit = 8;
+   */
+  isDebit: boolean;
+
+  /**
+   * Transaction reference if available
+   *
+   * @generated from field: string reference = 9;
+   */
+  reference: string;
+
+  /**
+   * Itemized line items for receipts
+   *
+   * @generated from field: repeated pfinance.v1.ExtractedLineItem line_items = 10;
+   */
+  lineItems: ExtractedLineItem[];
+
+  /**
+   * Amount in cents (preferred over amount)
+   *
+   * @generated from field: int64 amount_cents = 11;
+   */
+  amountCents: bigint;
+};
+
+/**
+ * Describes the message pfinance.v1.ExtractedTransaction.
+ * Use `create(ExtractedTransactionSchema)` to create a new message.
+ */
+export const ExtractedTransactionSchema: GenMessage<ExtractedTransaction> = /*@__PURE__*/
+  messageDesc(file_pfinance_v1_types, 24);
+
+/**
+ * ExtractedLineItem represents a single line item from a receipt
+ *
+ * @generated from message pfinance.v1.ExtractedLineItem
+ */
+export type ExtractedLineItem = Message<"pfinance.v1.ExtractedLineItem"> & {
+  /**
+   * @generated from field: string description = 1;
+   */
+  description: string;
+
+  /**
+   * @generated from field: double amount = 2;
+   */
+  amount: number;
+
+  /**
+   * @generated from field: int32 quantity = 3;
+   */
+  quantity: number;
+
+  /**
+   * @generated from field: pfinance.v1.ExpenseCategory category = 4;
+   */
+  category: ExpenseCategory;
+
+  /**
+   * Amount in cents (preferred over amount)
+   *
+   * @generated from field: int64 amount_cents = 5;
+   */
+  amountCents: bigint;
+};
+
+/**
+ * Describes the message pfinance.v1.ExtractedLineItem.
+ * Use `create(ExtractedLineItemSchema)` to create a new message.
+ */
+export const ExtractedLineItemSchema: GenMessage<ExtractedLineItem> = /*@__PURE__*/
+  messageDesc(file_pfinance_v1_types, 25);
+
+/**
+ * ExtractionResult represents the result of document extraction
+ *
+ * @generated from message pfinance.v1.ExtractionResult
+ */
+export type ExtractionResult = Message<"pfinance.v1.ExtractionResult"> & {
+  /**
+   * @generated from field: repeated pfinance.v1.ExtractedTransaction transactions = 1;
+   */
+  transactions: ExtractedTransaction[];
+
+  /**
+   * @generated from field: double overall_confidence = 2;
+   */
+  overallConfidence: number;
+
+  /**
+   * @generated from field: string model_used = 3;
+   */
+  modelUsed: string;
+
+  /**
+   * @generated from field: int32 processing_time_ms = 4;
+   */
+  processingTimeMs: number;
+
+  /**
+   * @generated from field: repeated string warnings = 5;
+   */
+  warnings: string[];
+
+  /**
+   * @generated from field: pfinance.v1.DocumentType document_type = 6;
+   */
+  documentType: DocumentType;
+
+  /**
+   * @generated from field: int32 page_count = 7;
+   */
+  pageCount: number;
+};
+
+/**
+ * Describes the message pfinance.v1.ExtractionResult.
+ * Use `create(ExtractionResultSchema)` to create a new message.
+ */
+export const ExtractionResultSchema: GenMessage<ExtractionResult> = /*@__PURE__*/
+  messageDesc(file_pfinance_v1_types, 26);
+
+/**
+ * ExtractionJob represents an async extraction job
+ *
+ * @generated from message pfinance.v1.ExtractionJob
+ */
+export type ExtractionJob = Message<"pfinance.v1.ExtractionJob"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string user_id = 2;
+   */
+  userId: string;
+
+  /**
+   * @generated from field: pfinance.v1.ExtractionStatus status = 3;
+   */
+  status: ExtractionStatus;
+
+  /**
+   * @generated from field: pfinance.v1.DocumentType document_type = 4;
+   */
+  documentType: DocumentType;
+
+  /**
+   * @generated from field: string original_filename = 5;
+   */
+  originalFilename: string;
+
+  /**
+   * @generated from field: pfinance.v1.ExtractionResult result = 6;
+   */
+  result?: ExtractionResult;
+
+  /**
+   * @generated from field: string error_message = 7;
+   */
+  errorMessage: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 8;
+   */
+  createdAt?: Timestamp;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp completed_at = 9;
+   */
+  completedAt?: Timestamp;
+};
+
+/**
+ * Describes the message pfinance.v1.ExtractionJob.
+ * Use `create(ExtractionJobSchema)` to create a new message.
+ */
+export const ExtractionJobSchema: GenMessage<ExtractionJob> = /*@__PURE__*/
+  messageDesc(file_pfinance_v1_types, 27);
+
+/**
+ * ValidationResult represents the result of validating an extraction
+ *
+ * @generated from message pfinance.v1.ValidationResult
+ */
+export type ValidationResult = Message<"pfinance.v1.ValidationResult"> & {
+  /**
+   * @generated from field: double accuracy = 1;
+   */
+  accuracy: number;
+
+  /**
+   * @generated from field: repeated pfinance.v1.ValidationDiscrepancy discrepancies = 2;
+   */
+  discrepancies: ValidationDiscrepancy[];
+
+  /**
+   * Model/method used for validation
+   *
+   * @generated from field: string validated_by = 3;
+   */
+  validatedBy: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp validated_at = 4;
+   */
+  validatedAt?: Timestamp;
+};
+
+/**
+ * Describes the message pfinance.v1.ValidationResult.
+ * Use `create(ValidationResultSchema)` to create a new message.
+ */
+export const ValidationResultSchema: GenMessage<ValidationResult> = /*@__PURE__*/
+  messageDesc(file_pfinance_v1_types, 28);
+
+/**
+ * ValidationDiscrepancy represents a difference found during validation
+ *
+ * @generated from message pfinance.v1.ValidationDiscrepancy
+ */
+export type ValidationDiscrepancy = Message<"pfinance.v1.ValidationDiscrepancy"> & {
+  /**
+   * Field with discrepancy
+   *
+   * @generated from field: string field = 1;
+   */
+  field: string;
+
+  /**
+   * @generated from field: string extracted_value = 2;
+   */
+  extractedValue: string;
+
+  /**
+   * @generated from field: string validated_value = 3;
+   */
+  validatedValue: string;
+
+  /**
+   * @generated from field: string transaction_id = 4;
+   */
+  transactionId: string;
+};
+
+/**
+ * Describes the message pfinance.v1.ValidationDiscrepancy.
+ * Use `create(ValidationDiscrepancySchema)` to create a new message.
+ */
+export const ValidationDiscrepancySchema: GenMessage<ValidationDiscrepancy> = /*@__PURE__*/
+  messageDesc(file_pfinance_v1_types, 29);
 
 /**
  * ExpenseCategory represents the category of an expense
@@ -1451,4 +2257,244 @@ export enum BudgetPeriod {
  */
 export const BudgetPeriodSchema: GenEnum<BudgetPeriod> = /*@__PURE__*/
   enumDesc(file_pfinance_v1_types, 8);
+
+/**
+ * GoalType represents the type of financial goal
+ *
+ * @generated from enum pfinance.v1.GoalType
+ */
+export enum GoalType {
+  /**
+   * @generated from enum value: GOAL_TYPE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * Save towards a target amount
+   *
+   * @generated from enum value: GOAL_TYPE_SAVINGS = 1;
+   */
+  SAVINGS = 1,
+
+  /**
+   * Pay off debt
+   *
+   * @generated from enum value: GOAL_TYPE_DEBT_PAYOFF = 2;
+   */
+  DEBT_PAYOFF = 2,
+
+  /**
+   * Limit spending in category
+   *
+   * @generated from enum value: GOAL_TYPE_SPENDING_LIMIT = 3;
+   */
+  SPENDING_LIMIT = 3,
+}
+
+/**
+ * Describes the enum pfinance.v1.GoalType.
+ */
+export const GoalTypeSchema: GenEnum<GoalType> = /*@__PURE__*/
+  enumDesc(file_pfinance_v1_types, 9);
+
+/**
+ * GoalStatus represents the current status of a goal
+ *
+ * @generated from enum pfinance.v1.GoalStatus
+ */
+export enum GoalStatus {
+  /**
+   * @generated from enum value: GOAL_STATUS_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: GOAL_STATUS_ACTIVE = 1;
+   */
+  ACTIVE = 1,
+
+  /**
+   * @generated from enum value: GOAL_STATUS_PAUSED = 2;
+   */
+  PAUSED = 2,
+
+  /**
+   * @generated from enum value: GOAL_STATUS_COMPLETED = 3;
+   */
+  COMPLETED = 3,
+
+  /**
+   * @generated from enum value: GOAL_STATUS_CANCELLED = 4;
+   */
+  CANCELLED = 4,
+}
+
+/**
+ * Describes the enum pfinance.v1.GoalStatus.
+ */
+export const GoalStatusSchema: GenEnum<GoalStatus> = /*@__PURE__*/
+  enumDesc(file_pfinance_v1_types, 10);
+
+/**
+ * InsightType represents the type of spending insight
+ *
+ * @generated from enum pfinance.v1.InsightType
+ */
+export enum InsightType {
+  /**
+   * @generated from enum value: INSIGHT_TYPE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: INSIGHT_TYPE_SPENDING_INCREASE = 1;
+   */
+  SPENDING_INCREASE = 1,
+
+  /**
+   * @generated from enum value: INSIGHT_TYPE_SPENDING_DECREASE = 2;
+   */
+  SPENDING_DECREASE = 2,
+
+  /**
+   * @generated from enum value: INSIGHT_TYPE_UNUSUAL_TRANSACTION = 3;
+   */
+  UNUSUAL_TRANSACTION = 3,
+
+  /**
+   * @generated from enum value: INSIGHT_TYPE_CATEGORY_TREND = 4;
+   */
+  CATEGORY_TREND = 4,
+
+  /**
+   * @generated from enum value: INSIGHT_TYPE_SAVINGS_TIP = 5;
+   */
+  SAVINGS_TIP = 5,
+
+  /**
+   * @generated from enum value: INSIGHT_TYPE_BUDGET_WARNING = 6;
+   */
+  BUDGET_WARNING = 6,
+
+  /**
+   * @generated from enum value: INSIGHT_TYPE_GOAL_PROGRESS = 7;
+   */
+  GOAL_PROGRESS = 7,
+}
+
+/**
+ * Describes the enum pfinance.v1.InsightType.
+ */
+export const InsightTypeSchema: GenEnum<InsightType> = /*@__PURE__*/
+  enumDesc(file_pfinance_v1_types, 11);
+
+/**
+ * DocumentType represents the type of document being processed
+ *
+ * @generated from enum pfinance.v1.DocumentType
+ */
+export enum DocumentType {
+  /**
+   * @generated from enum value: DOCUMENT_TYPE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: DOCUMENT_TYPE_RECEIPT = 1;
+   */
+  RECEIPT = 1,
+
+  /**
+   * @generated from enum value: DOCUMENT_TYPE_BANK_STATEMENT = 2;
+   */
+  BANK_STATEMENT = 2,
+
+  /**
+   * @generated from enum value: DOCUMENT_TYPE_INVOICE = 3;
+   */
+  INVOICE = 3,
+}
+
+/**
+ * Describes the enum pfinance.v1.DocumentType.
+ */
+export const DocumentTypeSchema: GenEnum<DocumentType> = /*@__PURE__*/
+  enumDesc(file_pfinance_v1_types, 12);
+
+/**
+ * ExtractionStatus represents the status of an extraction job
+ *
+ * @generated from enum pfinance.v1.ExtractionStatus
+ */
+export enum ExtractionStatus {
+  /**
+   * @generated from enum value: EXTRACTION_STATUS_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: EXTRACTION_STATUS_PENDING = 1;
+   */
+  PENDING = 1,
+
+  /**
+   * @generated from enum value: EXTRACTION_STATUS_PROCESSING = 2;
+   */
+  PROCESSING = 2,
+
+  /**
+   * @generated from enum value: EXTRACTION_STATUS_COMPLETED = 3;
+   */
+  COMPLETED = 3,
+
+  /**
+   * @generated from enum value: EXTRACTION_STATUS_FAILED = 4;
+   */
+  FAILED = 4,
+
+  /**
+   * @generated from enum value: EXTRACTION_STATUS_VALIDATION_REQUIRED = 5;
+   */
+  VALIDATION_REQUIRED = 5,
+}
+
+/**
+ * Describes the enum pfinance.v1.ExtractionStatus.
+ */
+export const ExtractionStatusSchema: GenEnum<ExtractionStatus> = /*@__PURE__*/
+  enumDesc(file_pfinance_v1_types, 13);
+
+/**
+ * ExtractionMethod represents which ML model/service to use for extraction
+ *
+ * @generated from enum pfinance.v1.ExtractionMethod
+ */
+export enum ExtractionMethod {
+  /**
+   * Use default (self-hosted ML)
+   *
+   * @generated from enum value: EXTRACTION_METHOD_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * Self-hosted Qwen2-VL model
+   *
+   * @generated from enum value: EXTRACTION_METHOD_SELF_HOSTED = 1;
+   */
+  SELF_HOSTED = 1,
+
+  /**
+   * Google Gemini API
+   *
+   * @generated from enum value: EXTRACTION_METHOD_GEMINI = 2;
+   */
+  GEMINI = 2,
+}
+
+/**
+ * Describes the enum pfinance.v1.ExtractionMethod.
+ */
+export const ExtractionMethodSchema: GenEnum<ExtractionMethod> = /*@__PURE__*/
+  enumDesc(file_pfinance_v1_types, 14);
 
