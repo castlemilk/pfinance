@@ -16,37 +16,37 @@ type MemoryStore struct {
 	mu sync.RWMutex
 
 	// Storage maps
-	expenses            map[string]*pfinancev1.Expense
-	incomes             map[string]*pfinancev1.Income
-	groups              map[string]*pfinancev1.FinanceGroup
-	invitations         map[string]*pfinancev1.GroupInvitation
-	inviteLinks         map[string]*pfinancev1.GroupInviteLink
-	contributions       map[string]*pfinancev1.ExpenseContribution
-	incomeContributions map[string]*pfinancev1.IncomeContribution
-	taxConfigs          map[string]*pfinancev1.TaxConfig
-	budgets             map[string]*pfinancev1.Budget
-	users               map[string]*pfinancev1.User
-	goals                  map[string]*pfinancev1.FinancialGoal
-	goalContributions      map[string]*pfinancev1.GoalContribution
-	recurringTransactions  map[string]*pfinancev1.RecurringTransaction
+	expenses              map[string]*pfinancev1.Expense
+	incomes               map[string]*pfinancev1.Income
+	groups                map[string]*pfinancev1.FinanceGroup
+	invitations           map[string]*pfinancev1.GroupInvitation
+	inviteLinks           map[string]*pfinancev1.GroupInviteLink
+	contributions         map[string]*pfinancev1.ExpenseContribution
+	incomeContributions   map[string]*pfinancev1.IncomeContribution
+	taxConfigs            map[string]*pfinancev1.TaxConfig
+	budgets               map[string]*pfinancev1.Budget
+	users                 map[string]*pfinancev1.User
+	goals                 map[string]*pfinancev1.FinancialGoal
+	goalContributions     map[string]*pfinancev1.GoalContribution
+	recurringTransactions map[string]*pfinancev1.RecurringTransaction
 }
 
 // NewMemoryStore creates a new in-memory store
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
-		expenses:            make(map[string]*pfinancev1.Expense),
-		incomes:             make(map[string]*pfinancev1.Income),
-		groups:              make(map[string]*pfinancev1.FinanceGroup),
-		invitations:         make(map[string]*pfinancev1.GroupInvitation),
-		inviteLinks:         make(map[string]*pfinancev1.GroupInviteLink),
-		contributions:       make(map[string]*pfinancev1.ExpenseContribution),
-		incomeContributions: make(map[string]*pfinancev1.IncomeContribution),
-		taxConfigs:          make(map[string]*pfinancev1.TaxConfig),
-		budgets:             make(map[string]*pfinancev1.Budget),
-		users:               make(map[string]*pfinancev1.User),
-		goals:                  make(map[string]*pfinancev1.FinancialGoal),
-		goalContributions:      make(map[string]*pfinancev1.GoalContribution),
-		recurringTransactions:  make(map[string]*pfinancev1.RecurringTransaction),
+		expenses:              make(map[string]*pfinancev1.Expense),
+		incomes:               make(map[string]*pfinancev1.Income),
+		groups:                make(map[string]*pfinancev1.FinanceGroup),
+		invitations:           make(map[string]*pfinancev1.GroupInvitation),
+		inviteLinks:           make(map[string]*pfinancev1.GroupInviteLink),
+		contributions:         make(map[string]*pfinancev1.ExpenseContribution),
+		incomeContributions:   make(map[string]*pfinancev1.IncomeContribution),
+		taxConfigs:            make(map[string]*pfinancev1.TaxConfig),
+		budgets:               make(map[string]*pfinancev1.Budget),
+		users:                 make(map[string]*pfinancev1.User),
+		goals:                 make(map[string]*pfinancev1.FinancialGoal),
+		goalContributions:     make(map[string]*pfinancev1.GoalContribution),
+		recurringTransactions: make(map[string]*pfinancev1.RecurringTransaction),
 	}
 }
 
