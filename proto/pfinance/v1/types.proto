@@ -486,6 +486,7 @@ message ExtractedTransaction {
   string reference = 9;                   // Transaction reference if available
   repeated ExtractedLineItem line_items = 10; // Itemized line items for receipts
   int64 amount_cents = 11; // Amount in cents (preferred over amount)
+  FieldConfidence field_confidences = 12; // Per-field confidence scores
 }
 
 // ExtractedLineItem represents a single line item from a receipt
@@ -497,6 +498,24 @@ message ExtractedLineItem {
   int64 amount_cents = 5; // Amount in cents (preferred over amount)
 }
 
+// FieldConfidence represents per-field extraction confidence scores
+message FieldConfidence {
+  double amount = 1;
+  double date = 2;
+  double description = 3;
+  double merchant = 4;
+  double category = 5;
+}
+
+// ExtractionErrorDetail represents structured error information from extraction
+message ExtractionErrorDetail {
+  string code = 1;
+  string message = 2;
+  bool retryable = 3;
+  string suggested_action = 4;
+  ExtractionMethod failed_method = 5;
+}
+
 // ExtractionResult represents the result of document extraction
 message ExtractionResult {
   repeated ExtractedTransaction transactions = 1;
@@ -506,6 +525,9 @@ message ExtractionResult {
   repeated string warnings = 5;
   DocumentType document_type = 6;
   int32 page_count = 7;
+  repeated ExtractedTransaction rejected_transactions = 8;
+  ExtractionMethod method_used = 9;
+  ExtractionMethod fallback_from = 10;
 }
 
 // ExtractionJob represents an async extraction job
@@ -519,6 +541,11 @@ message ExtractionJob {
   string error_message = 7;
   google.protobuf.Timestamp created_at = 8;
   google.protobuf.Timestamp completed_at = 9;
+  int32 total_pages = 10;
+  int32 processed_pages = 11;
+  int32 current_page = 12;
+  double progress_percent = 13;
+  ExtractionMethod method = 14;
 }
 
 // ValidationResult represents the result of validating an extraction

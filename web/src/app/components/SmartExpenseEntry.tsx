@@ -25,7 +25,12 @@ import {
 import { useFinance } from '../context/FinanceContext';
 import { ExpenseCategory, ExpenseFrequency } from '../types';
 import { financeClient, DocumentType } from '@/lib/financeService';
-import { ExtractionMethod } from '@/gen/pfinance/v1/types_pb';
+import { ExtractionMethod, ExtractionStatus } from '@/gen/pfinance/v1/types_pb';
+import type { FieldConfidence } from '@/gen/pfinance/v1/types_pb';
+import { ConfidenceBadge } from '@/components/ui/confidence-badge';
+import { FieldConfidenceDetail } from './FieldConfidenceDetail';
+import { ConfidenceWarningBanner } from './ConfidenceWarningBanner';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
@@ -56,6 +61,9 @@ interface ParsedExpense {
   date?: Date;
   splitWith?: string[];
   isRecurring?: boolean;
+  fieldConfidences?: FieldConfidence;
+  fallbackFrom?: string;
+  rejectedCount?: number;
 }
 
 interface MultiExpenseResult {
@@ -654,7 +662,59 @@ export default function SmartExpenseEntry() {
             : ExtractionMethod.SELF_HOSTED,
         });
 
+        // Handle async processing (multi-page PDF)
+        if (response.status === ExtractionStatus.PROCESSING && response.jobId) {
+          // Poll for completion
+          const pollJob = async () => {
+            const maxPolls = 60; // 1.5s * 60 = 90s max
+            for (let i = 0; i < maxPolls; i++) {
+              await new Promise(resolve => setTimeout(resolve, 1500));
+              try {
+                const jobResp = await financeClient.getExtractionJob({ jobId: response.jobId });
+                if (jobResp.job?.status === ExtractionStatus.COMPLETED && jobResp.job.result) {
+                  return jobResp.job.result;
+                }
+                if (jobResp.job?.status === ExtractionStatus.FAILED) {
+                  throw new Error(jobResp.job.errorMessage || 'Extraction failed');
+                }
+              } catch (pollErr) {
+                console.error('Poll error:', pollErr);
+              }
+            }
+            throw new Error('Extraction timed out');
+          };
+
+          try {
+            const asyncResult = await pollJob();
+            if (asyncResult.transactions.length > 0) {
+              const tx = asyncResult.transactions[0];
+              const categoryName = mapProtoCategory(tx.suggestedCategory);
+              const category = categories.includes(categoryName as ExpenseCategory)
+                ? categoryName as ExpenseCategory
+                : guessCategory(tx.description);
+              setParsedExpense({
+                description: tx.normalizedMerchant || tx.description,
+                amount: tx.amount,
+                category,
+                confidence: tx.confidence || 0.85,
+                fieldConfidences: tx.fieldConfidences,
+                rejectedCount: asyncResult.rejectedTransactions?.length,
+              });
+              setStep(2);
+              return;
+            }
+          } catch (asyncErr) {
+            setError(asyncErr instanceof Error ? asyncErr.message : 'Async extraction failed');
+            return;
+          }
+        }
+
         if (response.result?.transactions && response.result.transactions.length > 0) {
+          const rejectedCount = response.result.rejectedTransactions?.length ?? 0;
+          const fallbackFrom = response.result.fallbackFrom
+            ? (response.result.fallbackFrom === 1 ? 'Self-Hosted ML' : 'Gemini')
+            : undefined;
+
           // For bank statements (PDFs), handle multiple transactions
           if (isPdf && response.result.transactions.length > 1) {
             // Store all transactions for review
@@ -670,15 +730,16 @@ export default function SmartExpenseEntry() {
                   amount: tx.amount,
                   category,
                   confidence: tx.confidence || 0.85,
+                  fieldConfidences: tx.fieldConfidences,
+                  rejectedCount,
+                  fallbackFrom,
                 };
               });
 
             if (allExpenses.length > 0) {
-              // For now, show the first expense and log the count
               setParsedExpense(allExpenses[0]);
               setStep(2);
               console.log(`Bank statement: Found ${allExpenses.length} expenses out of ${response.result.transactions.length} transactions`);
-              // TODO: Add UI to review/import all transactions
             } else {
               setError('No expense transactions found in bank statement.');
             }
@@ -697,6 +758,9 @@ export default function SmartExpenseEntry() {
             amount: tx.amount,
             category,
             confidence: tx.confidence || 0.85,
+            fieldConfidences: tx.fieldConfidences,
+            rejectedCount,
+            fallbackFrom,
           });
           setStep(2);
 
@@ -900,9 +964,8 @@ export default function SmartExpenseEntry() {
                     ) : (
                       <Check className="h-4 w-4" />
                     )}
-                    <span>
-                      {aiReasoning ? 'AI parsed' : 'Parsed'} ({Math.round(parsedExpense.confidence * 100)}% confidence)
-                    </span>
+                    <span>{aiReasoning ? 'AI parsed' : 'Parsed'}</span>
+                    <ConfidenceBadge confidence={parsedExpense.confidence} />
                   </div>
                   {aiReasoning && (
                     <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 rounded text-purple-700 dark:text-purple-300 text-xs">
@@ -1155,9 +1218,20 @@ export default function SmartExpenseEntry() {
                   <FileText className="h-16 w-16 text-muted-foreground/50" />
                 )}
               </div>
-              <Button onClick={() => { setCapturedImage(null); setProcessingPdf(false); }} variant="outline" className="w-full">
-                Try Again
-              </Button>
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Extraction failed</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+              <div className="flex gap-2">
+                <Button onClick={() => { setError(null); setCapturedImage(null); setProcessingPdf(false); }} variant="outline" className="flex-1">
+                  Try Again
+                </Button>
+                <Button onClick={() => { setError(null); setCapturedImage(null); setProcessingPdf(false); setMode('manual'); }} variant="secondary" className="flex-1">
+                  <Keyboard className="mr-2 h-4 w-4" />
+                  Enter Manually
+                </Button>
+              </div>
             </div>
           )}
         </>
@@ -1174,10 +1248,23 @@ export default function SmartExpenseEntry() {
           <div className="text-center py-2">
             <div className="text-3xl font-bold">${parsedExpense.amount.toFixed(2)}</div>
             <div className="text-lg text-muted-foreground">{parsedExpense.description}</div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Confidence: {Math.round(parsedExpense.confidence * 100)}%
+            <div className="flex justify-center mt-1">
+              <ConfidenceBadge confidence={parsedExpense.confidence} size="md" />
             </div>
+            {parsedExpense.fallbackFrom && (
+              <div className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                Fell back from {parsedExpense.fallbackFrom}
+              </div>
+            )}
           </div>
+          <ConfidenceWarningBanner
+            overallConfidence={parsedExpense.confidence}
+            fieldConfidences={parsedExpense.fieldConfidences}
+            rejectedCount={parsedExpense.rejectedCount}
+          />
+          {parsedExpense.fieldConfidences && (
+            <FieldConfidenceDetail fieldConfidences={parsedExpense.fieldConfidences} />
+          )}
 
           <div className="space-y-3">
             <div>

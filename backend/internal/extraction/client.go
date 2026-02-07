@@ -5,10 +5,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strings"
 	"time"
 
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
@@ -16,8 +18,9 @@ import (
 
 // MLClient is an HTTP client for the Python ML extraction service.
 type MLClient struct {
-	baseURL    string
-	httpClient *http.Client
+	baseURL     string
+	httpClient  *http.Client
+	RetryConfig RetryConfig
 }
 
 // NewMLClient creates a new ML service client.
@@ -27,6 +30,7 @@ func NewMLClient(baseURL string) *MLClient {
 		httpClient: &http.Client{
 			Timeout: 120 * time.Second, // Long timeout for ML processing
 		},
+		RetryConfig: DefaultMLRetryConfig,
 	}
 }
 
@@ -56,19 +60,29 @@ type MLError struct {
 // MLTransaction represents a transaction from the ML service.
 // Handles multiple field name formats from different extraction types.
 type MLTransaction struct {
-	ID                 string  `json:"id"`
-	Date               string  `json:"date"`
-	Description        string  `json:"description"`
-	Merchant           string  `json:"merchant"` // Receipt format
-	NormalizedMerchant string  `json:"normalized_merchant"`
-	Amount             float64 `json:"amount"`
-	Total              float64 `json:"total"` // Receipt format
-	SuggestedCategory  string  `json:"suggested_category"`
-	Confidence         float64 `json:"confidence"`
-	IsDebit            bool    `json:"is_debit"`
-	Reference          string  `json:"reference,omitempty"`
-	Quantity           int     `json:"quantity,omitempty"` // Line item format
-	Page               int     `json:"page,omitempty"`
+	ID                 string             `json:"id"`
+	Date               string             `json:"date"`
+	Description        string             `json:"description"`
+	Merchant           string             `json:"merchant"` // Receipt format
+	NormalizedMerchant string             `json:"normalized_merchant"`
+	Amount             float64            `json:"amount"`
+	Total              float64            `json:"total"` // Receipt format
+	SuggestedCategory  string             `json:"suggested_category"`
+	Confidence         float64            `json:"confidence"`
+	IsDebit            bool               `json:"is_debit"`
+	Reference          string             `json:"reference,omitempty"`
+	Quantity           int                `json:"quantity,omitempty"` // Line item format
+	Page               int                `json:"page,omitempty"`
+	FieldConfidences   *MLFieldConfidence `json:"field_confidences,omitempty"`
+}
+
+// MLFieldConfidence represents per-field confidence from the ML service.
+type MLFieldConfidence struct {
+	Amount      float64 `json:"amount"`
+	Date        float64 `json:"date"`
+	Description float64 `json:"description"`
+	Merchant    float64 `json:"merchant"`
+	Category    float64 `json:"category"`
 }
 
 // GetDescription returns the description, handling different field names.
@@ -137,8 +151,15 @@ func (c *MLClient) HealthCheck(ctx context.Context) (*MLHealthResponse, error) {
 	return &health, nil
 }
 
-// Extract sends a document to the ML service for extraction.
+// Extract sends a document to the ML service with retry logic.
 func (c *MLClient) Extract(ctx context.Context, data []byte, filename string, docType pfinancev1.DocumentType) (*MLExtractionResponse, error) {
+	return WithRetry(ctx, c.RetryConfig, func(ctx context.Context) (*MLExtractionResponse, error) {
+		return c.extractOnce(ctx, data, filename, docType)
+	})
+}
+
+// extractOnce performs a single extraction request to the ML service.
+func (c *MLClient) extractOnce(ctx context.Context, data []byte, filename string, docType pfinancev1.DocumentType) (*MLExtractionResponse, error) {
 	// Create multipart form
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
@@ -172,7 +193,7 @@ func (c *MLClient) Extract(ctx context.Context, data []byte, filename string, do
 	// Execute request
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("execute request: %w", err)
+		return nil, classifyMLError(err)
 	}
 	defer resp.Body.Close()
 
@@ -183,7 +204,7 @@ func (c *MLClient) Extract(ctx context.Context, data []byte, filename string, do
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("extraction failed: status %d, body: %s", resp.StatusCode, string(body))
+		return nil, classifyHTTPError(resp.StatusCode, string(body))
 	}
 
 	var result MLExtractionResponse
@@ -192,6 +213,109 @@ func (c *MLClient) Extract(ctx context.Context, data []byte, filename string, do
 	}
 
 	return &result, nil
+}
+
+// classifyMLError converts network errors to structured ExtractionErrors.
+func classifyMLError(err error) *ExtractionError {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return &ExtractionError{
+			Code:              ErrMLServiceTimeout,
+			Message:           "ML service request timed out",
+			Method:            "self-hosted",
+			Retryable:         true,
+			SuggestedFallback: "gemini",
+			Cause:             err,
+		}
+	}
+
+	msg := err.Error()
+	if strings.Contains(msg, "connection refused") || strings.Contains(msg, "no such host") {
+		return &ExtractionError{
+			Code:              ErrMLServiceUnavailable,
+			Message:           "ML service is not reachable",
+			Method:            "self-hosted",
+			Retryable:         false,
+			SuggestedFallback: "gemini",
+			Cause:             err,
+		}
+	}
+
+	// Default: treat as retryable network error
+	return &ExtractionError{
+		Code:              ErrMLServiceUnavailable,
+		Message:           "ML service request failed",
+		Method:            "self-hosted",
+		Retryable:         true,
+		SuggestedFallback: "gemini",
+		Cause:             err,
+	}
+}
+
+// classifyHTTPError converts HTTP status codes to structured ExtractionErrors.
+func classifyHTTPError(statusCode int, body string) *ExtractionError {
+	switch {
+	case statusCode == http.StatusServiceUnavailable || statusCode == http.StatusBadGateway:
+		return &ExtractionError{
+			Code:              ErrMLServiceUnavailable,
+			Message:           fmt.Sprintf("ML service unavailable (HTTP %d)", statusCode),
+			Method:            "self-hosted",
+			Retryable:         true,
+			SuggestedFallback: "gemini",
+		}
+	case statusCode == http.StatusGatewayTimeout || statusCode == http.StatusRequestTimeout:
+		return &ExtractionError{
+			Code:              ErrMLServiceTimeout,
+			Message:           fmt.Sprintf("ML service timed out (HTTP %d)", statusCode),
+			Method:            "self-hosted",
+			Retryable:         true,
+			SuggestedFallback: "gemini",
+		}
+	case statusCode == http.StatusTooManyRequests:
+		return &ExtractionError{
+			Code:      ErrGeminiRateLimited,
+			Message:   "rate limited",
+			Method:    "self-hosted",
+			Retryable: true,
+		}
+	case statusCode == http.StatusBadRequest:
+		return &ExtractionError{
+			Code:      ErrInvalidDocument,
+			Message:   fmt.Sprintf("invalid document: %s", body),
+			Method:    "self-hosted",
+			Retryable: false,
+		}
+	default:
+		return &ExtractionError{
+			Code:              ErrMLServiceUnavailable,
+			Message:           fmt.Sprintf("ML service error (HTTP %d): %s", statusCode, body),
+			Method:            "self-hosted",
+			Retryable:         statusCode >= 500,
+			SuggestedFallback: "gemini",
+		}
+	}
+}
+
+// toFieldConfidences derives per-field confidence from ML response data.
+// If the ML service provides per-field data, use it directly;
+// otherwise, derive from overall confidence.
+func toFieldConfidences(fc *MLFieldConfidence, overall float64) *pfinancev1.FieldConfidence {
+	if fc != nil && fc.Amount > 0 {
+		return &pfinancev1.FieldConfidence{
+			Amount:      fc.Amount,
+			Date:        fc.Date,
+			Description: fc.Description,
+			Merchant:    fc.Merchant,
+			Category:    fc.Category,
+		}
+	}
+	// Derive from overall confidence with scaling factors
+	return &pfinancev1.FieldConfidence{
+		Amount:      overall,
+		Date:        overall * 0.95,
+		Description: overall * 0.90,
+		Merchant:    overall * 0.85,
+		Category:    overall * 0.80,
+	}
 }
 
 // ToExtractionResult converts an ML response to a proto ExtractionResult.
@@ -223,6 +347,7 @@ func (r *MLExtractionResponse) ToExtractionResult() *pfinancev1.ExtractionResult
 		Warnings:          warnings,
 		DocumentType:      stringToDocumentType(r.GetDocumentType()),
 		PageCount:         int32(r.PageCount),
+		MethodUsed:        pfinancev1.ExtractionMethod_EXTRACTION_METHOD_SELF_HOSTED,
 	}
 }
 
@@ -257,6 +382,7 @@ func (tx *MLTransaction) ToProto() *pfinancev1.ExtractedTransaction {
 		Confidence:         confidence,
 		IsDebit:            isDebit,
 		Reference:          tx.Reference,
+		FieldConfidences:   toFieldConfidences(tx.FieldConfidences, confidence),
 	}
 }
 

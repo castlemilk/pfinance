@@ -754,6 +754,7 @@ message ParsedExpense {
   double confidence = 7;            // Confidence score (0-1)
   string raw_input = 8;             // Original input text
   string reasoning = 9;             // Brief explanation of parsing decisions
+  FieldConfidence field_confidences = 10; // Per-field confidence scores
 }
 
 // Smart text parsing response

@@ -149,15 +149,6 @@ function mapProtoMilestoneToLocal(proto: ProtoGoalMilestone): GoalMilestone {
   };
 }
 
-function centsToAmount(cents: bigint, fallbackAmount: number): number {
-  if (cents !== BigInt(0)) return Number(cents) / 100;
-  return fallbackAmount;
-}
-
-function dollarsToCents(dollars: number): bigint {
-  return BigInt(Math.round(dollars * 100));
-}
-
 function mapProtoGoalToLocal(proto: ProtoFinancialGoal): FinancialGoal {
   return {
     id: proto.id,
@@ -166,8 +157,8 @@ function mapProtoGoalToLocal(proto: ProtoFinancialGoal): FinancialGoal {
     name: proto.name,
     description: proto.description || undefined,
     goalType: protoToGoalType[proto.goalType],
-    targetAmount: centsToAmount(proto.targetAmountCents, proto.targetAmount),
-    currentAmount: centsToAmount(proto.currentAmountCents, proto.currentAmount),
+    targetAmount: proto.targetAmount,
+    currentAmount: proto.currentAmount,
     startDate: proto.startDate ? timestampDate(proto.startDate) : new Date(),
     targetDate: proto.targetDate ? timestampDate(proto.targetDate) : new Date(),
     status: protoToGoalStatus[proto.status],
@@ -183,8 +174,8 @@ function mapProtoGoalToLocal(proto: ProtoFinancialGoal): FinancialGoal {
 function mapProtoProgressToLocal(proto: ProtoGoalProgress): GoalProgress {
   return {
     goalId: proto.goalId,
-    currentAmount: centsToAmount(proto.currentAmountCents, proto.currentAmount),
-    targetAmount: centsToAmount(proto.targetAmountCents, proto.targetAmount),
+    currentAmount: proto.currentAmount,
+    targetAmount: proto.targetAmount,
     percentageComplete: proto.percentageComplete,
     daysRemaining: proto.daysRemaining,
     requiredDailyRate: proto.requiredDailyRate,
@@ -200,7 +191,7 @@ function mapProtoContributionToLocal(proto: ProtoGoalContribution): GoalContribu
     id: proto.id,
     goalId: proto.goalId,
     userId: proto.userId,
-    amount: centsToAmount(proto.amountCents, proto.amount),
+    amount: proto.amount,
     note: proto.note || undefined,
     contributedAt: proto.contributedAt ? timestampDate(proto.contributedAt) : new Date(),
   };
@@ -431,7 +422,6 @@ export function GoalProvider({ children }: { children: ReactNode }) {
           description: params.description,
           goalType: goalTypeToProto[params.goalType],
           targetAmount: params.targetAmount,
-          targetAmountCents: dollarsToCents(params.targetAmount),
           initialAmount: params.initialAmount || 0,
           startDate: timestampFromDate(params.startDate),
           targetDate: timestampFromDate(params.targetDate),
@@ -495,7 +485,6 @@ export function GoalProvider({ children }: { children: ReactNode }) {
           name: params.name,
           description: params.description,
           targetAmount: params.targetAmount,
-          targetAmountCents: params.targetAmount !== undefined ? dollarsToCents(params.targetAmount) : undefined,
           targetDate: params.targetDate ? timestampFromDate(params.targetDate) : undefined,
           status: params.status ? goalStatusToProto[params.status] : undefined,
           categoryIds: params.categoryIds?.map(c => parseInt(c) as ProtoExpenseCategory),
@@ -588,7 +577,6 @@ export function GoalProvider({ children }: { children: ReactNode }) {
           goalId,
           userId,
           amount,
-          amountCents: dollarsToCents(amount),
           note,
         });
 

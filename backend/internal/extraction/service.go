@@ -4,6 +4,7 @@ package extraction
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -13,11 +14,32 @@ import (
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 )
 
+// Confidence threshold constants.
+const (
+	ConfidenceAutoReject  = 0.3 // Backend: transaction placed in rejected_transactions
+	ConfidenceLowWarning  = 0.6 // Frontend: yellow badge, "please verify" warning
+	ConfidenceHigh        = 0.8 // Frontend: green badge
+	ConfidencePreDeselect = 0.5 // Frontend: unchecked by default in import
+	AsyncPageThreshold    = 3   // PDFs with > 3 pages use async path
+)
+
+// Extractor is the interface for document extraction operations.
+type Extractor interface {
+	ExtractDocumentWithMethod(ctx context.Context, data []byte, filename string, docType pfinancev1.DocumentType, validateWithAPI bool, method pfinancev1.ExtractionMethod) (*pfinancev1.ExtractionResult, error)
+	IsGeminiAvailable() bool
+	IsEnabled() bool
+	ParseExpenseText(ctx context.Context, text string) (*pfinancev1.ParseExpenseTextResponse, error)
+	ImportTransactions(ctx context.Context, userID string, groupID string, transactions []*pfinancev1.ExtractedTransaction, skipDuplicates bool, defaultFrequency pfinancev1.ExpenseFrequency) ([]*pfinancev1.Expense, int, []string, error)
+	GetJob(id string) (*pfinancev1.ExtractionJob, error)
+	StartAsyncExtraction(ctx context.Context, userID string, data []byte, filename string, docType pfinancev1.DocumentType, method pfinancev1.ExtractionMethod) (string, error)
+}
+
 // ExtractionService provides document extraction functionality.
 type ExtractionService struct {
 	mlClient  *MLClient
 	validator *ValidationService
 	mlEnabled bool
+	jobStore  *JobStore
 }
 
 // Config holds configuration for the extraction service.
@@ -45,6 +67,7 @@ func NewExtractionService(cfg Config) *ExtractionService {
 		mlClient:  mlClient,
 		validator: validator,
 		mlEnabled: cfg.EnableML && mlClient != nil,
+		jobStore:  NewJobStore(1 * time.Hour),
 	}
 }
 
@@ -59,7 +82,66 @@ func (s *ExtractionService) ExtractDocument(
 	return s.ExtractDocumentWithMethod(ctx, data, filename, docType, validateWithAPI, pfinancev1.ExtractionMethod_EXTRACTION_METHOD_UNSPECIFIED)
 }
 
-// ExtractDocumentWithMethod extracts transactions using the specified method.
+// buildFallbackChain returns an ordered list of methods to try.
+func (s *ExtractionService) buildFallbackChain(method pfinancev1.ExtractionMethod) []pfinancev1.ExtractionMethod {
+	switch method {
+	case pfinancev1.ExtractionMethod_EXTRACTION_METHOD_GEMINI:
+		chain := []pfinancev1.ExtractionMethod{pfinancev1.ExtractionMethod_EXTRACTION_METHOD_GEMINI}
+		if s.mlEnabled {
+			chain = append(chain, pfinancev1.ExtractionMethod_EXTRACTION_METHOD_SELF_HOSTED)
+		}
+		return chain
+	case pfinancev1.ExtractionMethod_EXTRACTION_METHOD_SELF_HOSTED,
+		pfinancev1.ExtractionMethod_EXTRACTION_METHOD_UNSPECIFIED:
+		chain := []pfinancev1.ExtractionMethod{pfinancev1.ExtractionMethod_EXTRACTION_METHOD_SELF_HOSTED}
+		if s.validator != nil && s.validator.IsGeminiAvailable() {
+			chain = append(chain, pfinancev1.ExtractionMethod_EXTRACTION_METHOD_GEMINI)
+		}
+		return chain
+	default:
+		return []pfinancev1.ExtractionMethod{method}
+	}
+}
+
+// tryExtract attempts extraction with a single method.
+func (s *ExtractionService) tryExtract(
+	ctx context.Context,
+	data []byte,
+	filename string,
+	docType pfinancev1.DocumentType,
+	method pfinancev1.ExtractionMethod,
+) (*pfinancev1.ExtractionResult, error) {
+	switch method {
+	case pfinancev1.ExtractionMethod_EXTRACTION_METHOD_GEMINI:
+		if s.validator == nil || !s.validator.IsGeminiAvailable() {
+			return nil, &ExtractionError{
+				Code:    ErrGeminiUnavailable,
+				Message: "Gemini API is not configured",
+				Method:  "gemini",
+			}
+		}
+		return s.validator.ExtractWithGemini(ctx, data, docType)
+
+	case pfinancev1.ExtractionMethod_EXTRACTION_METHOD_SELF_HOSTED:
+		if !s.mlEnabled {
+			return nil, &ExtractionError{
+				Code:    ErrMLServiceUnavailable,
+				Message: "ML extraction is not enabled",
+				Method:  "self-hosted",
+			}
+		}
+		result, err := s.mlClient.Extract(ctx, data, filename, docType)
+		if err != nil {
+			return nil, err
+		}
+		return result.ToExtractionResult(), nil
+
+	default:
+		return nil, fmt.Errorf("unknown extraction method: %v", method)
+	}
+}
+
+// ExtractDocumentWithMethod extracts transactions using the specified method with fallback chain.
 func (s *ExtractionService) ExtractDocumentWithMethod(
 	ctx context.Context,
 	data []byte,
@@ -68,60 +150,52 @@ func (s *ExtractionService) ExtractDocumentWithMethod(
 	validateWithAPI bool,
 	method pfinancev1.ExtractionMethod,
 ) (*pfinancev1.ExtractionResult, error) {
+	chain := s.buildFallbackChain(method)
+	var lastErr error
 	var protoResult *pfinancev1.ExtractionResult
-	var err error
+	usedFallback := false
+	var fallbackFrom pfinancev1.ExtractionMethod
 
-	// Route to appropriate extraction method
-	switch method {
-	case pfinancev1.ExtractionMethod_EXTRACTION_METHOD_GEMINI:
-		// Use Gemini API
-		if s.validator == nil || !s.validator.IsGeminiAvailable() {
-			return nil, fmt.Errorf("Gemini API is not configured")
+	for i, m := range chain {
+		result, err := s.tryExtract(ctx, data, filename, docType, m)
+		if err == nil {
+			protoResult = result
+			if i > 0 {
+				usedFallback = true
+				fallbackFrom = chain[0]
+			}
+			break
 		}
-		protoResult, err = s.validator.ExtractWithGemini(ctx, data, docType)
-		if err != nil {
-			return nil, fmt.Errorf("Gemini extraction failed: %w", err)
-		}
+		lastErr = err
 
-	case pfinancev1.ExtractionMethod_EXTRACTION_METHOD_SELF_HOSTED,
-		pfinancev1.ExtractionMethod_EXTRACTION_METHOD_UNSPECIFIED:
-		// Use self-hosted ML model (default)
-		if !s.mlEnabled {
-			return nil, fmt.Errorf("ML extraction is not enabled")
+		// Don't fallback on non-retryable errors like invalid documents
+		if extErr, ok := err.(*ExtractionError); ok && extErr.Code == ErrInvalidDocument {
+			return nil, err
 		}
-		result, err := s.mlClient.Extract(ctx, data, filename, docType)
-		if err != nil {
-			return nil, fmt.Errorf("ML extraction failed: %w", err)
-		}
-		protoResult = result.ToExtractionResult()
-
-	default:
-		return nil, fmt.Errorf("unknown extraction method: %v", method)
 	}
 
-	// Apply additional merchant normalization and categorization
-	for _, tx := range protoResult.Transactions {
-		info := NormalizeMerchant(tx.Description)
-		if tx.NormalizedMerchant == "" {
-			tx.NormalizedMerchant = info.Name
-		}
-		// Use normalized category if:
-		// 1. ML returned unspecified/other category, or
-		// 2. ML confidence is lower than normalizer confidence
-		mlHasNoCategory := tx.SuggestedCategory == pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED ||
-			tx.SuggestedCategory == pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_OTHER
-		normalizerHasBetterCategory := info.Category != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_OTHER &&
-			info.Category != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED
-		if (mlHasNoCategory && normalizerHasBetterCategory) || tx.Confidence < info.Confidence {
-			tx.SuggestedCategory = info.Category
+	if protoResult == nil {
+		return nil, &ExtractionError{
+			Code:    ErrAllMethodsFailed,
+			Message: fmt.Sprintf("all extraction methods failed: %v", lastErr),
+			Cause:   lastErr,
 		}
 	}
+
+	// Set fallback information
+	if usedFallback {
+		protoResult.FallbackFrom = fallbackFrom
+		protoResult.Warnings = append(protoResult.Warnings,
+			fmt.Sprintf("Fell back from %s to %s", fallbackFrom, protoResult.MethodUsed))
+	}
+
+	// Apply merchant normalization, confidence merging, and rejection
+	s.postProcessResult(protoResult)
 
 	// Optionally validate with commercial API (only for self-hosted)
-	if validateWithAPI && s.validator != nil && method != pfinancev1.ExtractionMethod_EXTRACTION_METHOD_GEMINI {
+	if validateWithAPI && s.validator != nil && protoResult.MethodUsed != pfinancev1.ExtractionMethod_EXTRACTION_METHOD_GEMINI {
 		validation, err := s.validator.ValidateExtraction(ctx, data, protoResult)
 		if err != nil {
-			// Log but don't fail - validation is optional
 			protoResult.Warnings = append(protoResult.Warnings, fmt.Sprintf("Validation failed: %v", err))
 		} else if validation.Accuracy < 0.9 {
 			protoResult.Warnings = append(protoResult.Warnings,
@@ -130,6 +204,49 @@ func (s *ExtractionService) ExtractDocumentWithMethod(
 	}
 
 	return protoResult, nil
+}
+
+// postProcessResult applies normalization, confidence merging, and auto-rejection.
+func (s *ExtractionService) postProcessResult(result *pfinancev1.ExtractionResult) {
+	var accepted []*pfinancev1.ExtractedTransaction
+	var rejected []*pfinancev1.ExtractedTransaction
+
+	for _, tx := range result.Transactions {
+		info := NormalizeMerchant(tx.Description)
+		if tx.NormalizedMerchant == "" {
+			tx.NormalizedMerchant = info.Name
+		}
+
+		// Merge normalizer confidence into field confidences
+		if tx.FieldConfidences != nil {
+			if info.Confidence > tx.FieldConfidences.Merchant {
+				tx.FieldConfidences.Merchant = info.Confidence
+			}
+			if info.Category != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_OTHER &&
+				info.Confidence > tx.FieldConfidences.Category {
+				tx.FieldConfidences.Category = info.Confidence
+			}
+		}
+
+		// Use normalized category if ML had no good category
+		mlHasNoCategory := tx.SuggestedCategory == pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED ||
+			tx.SuggestedCategory == pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_OTHER
+		normalizerHasBetterCategory := info.Category != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_OTHER &&
+			info.Category != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED
+		if (mlHasNoCategory && normalizerHasBetterCategory) || tx.Confidence < info.Confidence {
+			tx.SuggestedCategory = info.Category
+		}
+
+		// Auto-reject low confidence transactions
+		if tx.Confidence < ConfidenceAutoReject {
+			rejected = append(rejected, tx)
+		} else {
+			accepted = append(accepted, tx)
+		}
+	}
+
+	result.Transactions = accepted
+	result.RejectedTransactions = rejected
 }
 
 // IsGeminiAvailable returns true if Gemini extraction is available.
@@ -169,6 +286,9 @@ func (s *ExtractionService) ParseExpenseText(ctx context.Context, text string) (
 			Reasoning:   exp.Reasoning,
 		}
 
+		// Compute per-field confidence for text parsing
+		parsedExp.FieldConfidences = computeTextParsingConfidence(text, exp)
+
 		// Parse date if present
 		if exp.Date != "" && exp.Date != "null" {
 			if t, err := time.Parse("2006-01-02", exp.Date); err == nil {
@@ -187,6 +307,40 @@ func (s *ExtractionService) ParseExpenseText(ctx context.Context, text string) (
 	}
 
 	return response, nil
+}
+
+// computeTextParsingConfidence computes per-field confidence for text parsing results.
+func computeTextParsingConfidence(input string, exp ParsedTextExpense) *pfinancev1.FieldConfidence {
+	fc := &pfinancev1.FieldConfidence{
+		Amount:      0.90,
+		Date:        0.50, // Default low if no date in input
+		Description: 0.85,
+		Merchant:    0.80,
+		Category:    0.75,
+	}
+
+	lower := strings.ToLower(input)
+
+	// If $ sign present, amount confidence is higher
+	if strings.Contains(lower, "$") {
+		fc.Amount = 0.95
+	}
+
+	// If a date reference was found
+	if exp.Date != "" && exp.Date != "null" {
+		fc.Date = 0.85
+		if strings.Contains(lower, "yesterday") || strings.Contains(lower, "today") {
+			fc.Date = 0.95
+		}
+	}
+
+	// If frequency was explicitly mentioned
+	if exp.Frequency != "" && exp.Frequency != "once" {
+		// Higher confidence since user was explicit
+		fc.Description = 0.90
+	}
+
+	return fc
 }
 
 // parseFrequency converts a frequency string to the proto enum.
@@ -233,8 +387,8 @@ func (s *ExtractionService) ImportTransactions(
 			continue
 		}
 
-		// Skip if confidence is too low
-		if tx.Confidence < 0.5 {
+		// Skip if confidence is too low (use auto-reject threshold)
+		if tx.Confidence < ConfidenceAutoReject {
 			skippedCount++
 			skippedReasons = append(skippedReasons, fmt.Sprintf("Low confidence (%.0f%%): %s", tx.Confidence*100, tx.Description))
 			continue
@@ -276,6 +430,71 @@ func (s *ExtractionService) ImportTransactions(
 // IsEnabled returns whether ML extraction is enabled.
 func (s *ExtractionService) IsEnabled() bool {
 	return s.mlEnabled
+}
+
+// GetJob retrieves an extraction job by ID.
+func (s *ExtractionService) GetJob(id string) (*pfinancev1.ExtractionJob, error) {
+	return s.jobStore.Get(id)
+}
+
+// StartAsyncExtraction creates an async extraction job for multi-page PDFs.
+func (s *ExtractionService) StartAsyncExtraction(
+	ctx context.Context,
+	userID string,
+	data []byte,
+	filename string,
+	docType pfinancev1.DocumentType,
+	method pfinancev1.ExtractionMethod,
+) (string, error) {
+	jobID := fmt.Sprintf("extr_%s", uuid.New().String()[:8])
+
+	pageCount := 1
+	if detectMimeType(data) == "application/pdf" {
+		pageCount = countPDFPages(data)
+	}
+
+	job := NewExtractionJobProto(jobID, userID, docType, filename, method)
+	job.TotalPages = int32(pageCount)
+	job.Status = pfinancev1.ExtractionStatus_EXTRACTION_STATUS_PROCESSING
+
+	if err := s.jobStore.Create(job); err != nil {
+		return "", fmt.Errorf("create job: %w", err)
+	}
+
+	// Process in background
+	go s.processAsyncExtraction(context.Background(), job, data, filename, docType, method)
+
+	return jobID, nil
+}
+
+// processAsyncExtraction processes extraction in the background, updating job progress.
+func (s *ExtractionService) processAsyncExtraction(
+	ctx context.Context,
+	job *pfinancev1.ExtractionJob,
+	data []byte,
+	filename string,
+	docType pfinancev1.DocumentType,
+	method pfinancev1.ExtractionMethod,
+) {
+	result, err := s.ExtractDocumentWithMethod(ctx, data, filename, docType, false, method)
+	if err != nil {
+		job.Status = pfinancev1.ExtractionStatus_EXTRACTION_STATUS_FAILED
+		job.ErrorMessage = err.Error()
+		job.CompletedAt = timestamppb.Now()
+		if updateErr := s.jobStore.Update(job); updateErr != nil {
+			log.Printf("failed to update job %s: %v", job.Id, updateErr)
+		}
+		return
+	}
+
+	job.Status = pfinancev1.ExtractionStatus_EXTRACTION_STATUS_COMPLETED
+	job.Result = result
+	job.ProcessedPages = job.TotalPages
+	job.ProgressPercent = 100.0
+	job.CompletedAt = timestamppb.Now()
+	if updateErr := s.jobStore.Update(job); updateErr != nil {
+		log.Printf("failed to update job %s: %v", job.Id, updateErr)
+	}
 }
 
 // HealthCheck checks if the ML service is healthy.

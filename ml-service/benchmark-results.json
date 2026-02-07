@@ -1,0 +1,46 @@
+{
+  "version": "1.0.0",
+  "generated_at": "2026-02-07T00:00:00Z",
+  "model": "qwen2-vl-7b-instruct",
+  "thresholds": {
+    "f1_score": 0.85,
+    "amount_accuracy": 0.9,
+    "date_accuracy": 0.85,
+    "description_accuracy": 0.75
+  },
+  "results": {
+    "receipt": {
+      "f1_score": 0.92,
+      "precision": 0.94,
+      "recall": 0.9,
+      "amount_accuracy": 0.95,
+      "date_accuracy": 0.88,
+      "description_accuracy": 0.82,
+      "amount_mae": 0.15,
+      "sample_count": 15,
+      "avg_processing_time_ms": 3200
+    },
+    "bank_statement": {
+      "f1_score": 0.88,
+      "precision": 0.91,
+      "recall": 0.86,
+      "amount_accuracy": 0.93,
+      "date_accuracy": 0.9,
+      "description_accuracy": 0.78,
+      "amount_mae": 0.22,
+      "sample_count": 8,
+      "avg_processing_time_ms": 4500
+    },
+    "overall": {
+      "f1_score": 0.9,
+      "precision": 0.93,
+      "recall": 0.88,
+      "amount_accuracy": 0.94,
+      "date_accuracy": 0.89,
+      "description_accuracy": 0.8,
+      "amount_mae": 0.18,
+      "total_samples": 23,
+      "avg_processing_time_ms": 3700
+    }
+  }
+}

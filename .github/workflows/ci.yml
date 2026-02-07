@@ -25,6 +25,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       proto: ${{ steps.filter.outputs.proto }}
       firebase: ${{ steps.filter.outputs.firebase }}
+      ml: ${{ steps.filter.outputs.ml }}
       any_code: ${{ steps.filter.outputs.frontend == 'true' || steps.filter.outputs.backend == 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +44,9 @@ jobs:
             firebase:
               - 'firebase.json'
               - 'firestore.indexes.json'
+            ml:
+              - 'ml-service/**'
+              - 'backend/internal/extraction/**'
 
   # ===========================================
   # Frontend Unit Tests & Build (~2 min)
@@ -240,10 +244,27 @@ jobs:
           echo "✓ Valid Firebase config ($INDEXES indexes)"
 
   # ===========================================
+  # ML Benchmark Validation (~10s)
+  # ===========================================
+  ml-benchmarks:
+    needs: changes
+    if: needs.changes.outputs.ml == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate ML benchmarks
+        run: python3 ml-service/scripts/validate_benchmarks.py
+
+  # ===========================================
   # CI Status Check (for branch protection)
   # ===========================================
   ci-status:
-    needs: [frontend, backend, e2e, proto, firebase]
+    needs: [frontend, backend, e2e, proto, firebase, ml-benchmarks]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -254,7 +275,8 @@ jobs:
              [[ "${{ needs.backend.result }}" == "failure" ]] || \
              [[ "${{ needs.e2e.result }}" == "failure" ]] || \
              [[ "${{ needs.proto.result }}" == "failure" ]] || \
-             [[ "${{ needs.firebase.result }}" == "failure" ]]; then
+             [[ "${{ needs.firebase.result }}" == "failure" ]] || \
+             [[ "${{ needs.ml-benchmarks.result }}" == "failure" ]]; then
             echo "❌ CI failed"
             exit 1
           fi

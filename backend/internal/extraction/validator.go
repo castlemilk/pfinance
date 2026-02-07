@@ -16,11 +16,15 @@ import (
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 )
 
+const defaultGeminiBaseURL = "https://generativelanguage.googleapis.com/v1beta"
+
 // ValidationService validates ML extractions using commercial APIs.
 type ValidationService struct {
 	geminiAPIKey  string
 	mistralAPIKey string
 	httpClient    *http.Client
+	geminiBaseURL string
+	RetryConfig   RetryConfig
 }
 
 // ValidationResult contains the result of validating an extraction.
@@ -46,6 +50,8 @@ func NewValidationService(geminiAPIKey, mistralAPIKey string) *ValidationService
 		httpClient: &http.Client{
 			Timeout: 60 * time.Second,
 		},
+		geminiBaseURL: defaultGeminiBaseURL,
+		RetryConfig:   DefaultGeminiRetryConfig,
 	}
 }
 
@@ -60,7 +66,7 @@ func (v *ValidationService) ValidateExtraction(
 	}
 
 	// Use Gemini to extract the same document
-	geminiResult, err := v.extractWithGemini(ctx, documentData)
+	geminiResult, err := v.extractWithGeminiRetry(ctx, documentData)
 	if err != nil {
 		return nil, fmt.Errorf("Gemini extraction failed: %w", err)
 	}
@@ -83,9 +89,64 @@ type GeminiResponse struct {
 	Transactions []GeminiTransaction `json:"transactions"`
 }
 
+// extractWithGeminiRetry wraps extractWithGemini with retry logic.
+func (v *ValidationService) extractWithGeminiRetry(ctx context.Context, documentData []byte) (*GeminiResponse, error) {
+	return WithRetry(ctx, v.RetryConfig, func(ctx context.Context) (*GeminiResponse, error) {
+		return v.extractWithGemini(ctx, documentData)
+	})
+}
+
+// detectMimeType returns the MIME type based on document data.
+func detectMimeType(data []byte) string {
+	// PDF magic bytes: %PDF
+	if len(data) >= 4 && string(data[:4]) == "%PDF" {
+		return "application/pdf"
+	}
+	// PNG magic bytes
+	if len(data) >= 8 && string(data[:4]) == "\x89PNG" {
+		return "image/png"
+	}
+	// Default to JPEG
+	return "image/jpeg"
+}
+
+// CountPDFPagesFromData returns a rough page count from PDF data.
+// Exported for use by extraction handlers to determine async processing path.
+func CountPDFPagesFromData(data []byte) int {
+	return countPDFPages(data)
+}
+
+// countPDFPages returns a rough page count from PDF data.
+func countPDFPages(data []byte) int {
+	// Simple heuristic: count "/Type /Page" occurrences (excluding /Pages)
+	content := string(data)
+	count := 0
+	idx := 0
+	for {
+		pos := strings.Index(content[idx:], "/Type /Page")
+		if pos == -1 {
+			break
+		}
+		absPos := idx + pos
+		// Make sure it's /Page and not /Pages
+		afterPage := absPos + len("/Type /Page")
+		if afterPage < len(content) && content[afterPage] != 's' {
+			count++
+		}
+		idx = absPos + 1
+	}
+	if count == 0 {
+		count = 1
+	}
+	return count
+}
+
 func (v *ValidationService) extractWithGemini(ctx context.Context, documentData []byte) (*GeminiResponse, error) {
 	// Encode document as base64
 	encoded := base64.StdEncoding.EncodeToString(documentData)
+
+	// Detect mime type from document data
+	mimeType := detectMimeType(documentData)
 
 	// Build request for Gemini API
 	prompt := `Extract all expense/debit transactions from this document.
@@ -108,7 +169,7 @@ Rules:
 					{"text": prompt},
 					{
 						"inline_data": map[string]string{
-							"mime_type": "image/jpeg", // Assume image for now
+							"mime_type": mimeType,
 							"data":      encoded,
 						},
 					},
@@ -127,7 +188,7 @@ Rules:
 	}
 
 	// Make request to Gemini API
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=%s", v.geminiAPIKey)
+	url := fmt.Sprintf("%s/models/gemini-1.5-flash:generateContent?key=%s", v.geminiBaseURL, v.geminiAPIKey)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
@@ -136,13 +197,13 @@ Rules:
 
 	resp, err := v.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("execute request: %w", err)
+		return nil, classifyGeminiError(err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Gemini API error: status %d, body: %s", resp.StatusCode, string(body))
+		return nil, classifyGeminiHTTPError(resp.StatusCode, string(body))
 	}
 
 	// Parse Gemini response
@@ -173,6 +234,35 @@ Rules:
 	}
 
 	return &result, nil
+}
+
+// classifyGeminiError converts Gemini network errors to ExtractionErrors.
+func classifyGeminiError(err error) *ExtractionError {
+	return &ExtractionError{
+		Code:      ErrGeminiUnavailable,
+		Message:   "Gemini API request failed",
+		Method:    "gemini",
+		Retryable: true,
+		Cause:     err,
+	}
+}
+
+// classifyGeminiHTTPError converts Gemini HTTP errors to ExtractionErrors.
+func classifyGeminiHTTPError(statusCode int, body string) *ExtractionError {
+	if statusCode == http.StatusTooManyRequests {
+		return &ExtractionError{
+			Code:      ErrGeminiRateLimited,
+			Message:   "Gemini API rate limited",
+			Method:    "gemini",
+			Retryable: true,
+		}
+	}
+	return &ExtractionError{
+		Code:      ErrGeminiUnavailable,
+		Message:   fmt.Sprintf("Gemini API error (HTTP %d): %s", statusCode, body),
+		Method:    "gemini",
+		Retryable: statusCode >= 500,
+	}
 }
 
 func (v *ValidationService) compareResults(
@@ -261,7 +351,6 @@ func extractJSON(text string, v interface{}) error {
 }
 
 // ExtractWithGemini extracts transactions from a document using Gemini API.
-// This provides an alternative to the self-hosted ML model.
 func (v *ValidationService) ExtractWithGemini(
 	ctx context.Context,
 	documentData []byte,
@@ -273,12 +362,18 @@ func (v *ValidationService) ExtractWithGemini(
 
 	startTime := time.Now()
 
-	geminiResult, err := v.extractWithGemini(ctx, documentData)
+	geminiResult, err := v.extractWithGeminiRetry(ctx, documentData)
 	if err != nil {
 		return nil, err
 	}
 
 	processingTime := int32(time.Since(startTime).Milliseconds())
+
+	// Detect actual page count for PDFs
+	pageCount := int32(1)
+	if detectMimeType(documentData) == "application/pdf" {
+		pageCount = int32(countPDFPages(documentData))
+	}
 
 	// Convert to proto result
 	transactions := make([]*pfinancev1.ExtractedTransaction, 0, len(geminiResult.Transactions))
@@ -290,10 +385,22 @@ func (v *ValidationService) ExtractWithGemini(
 		category := parseCategory(tx.Category)
 		if category == pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED ||
 			category == pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_OTHER {
-			// Fall back to normalizer's category if Gemini returned nothing useful
 			if info.Category != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_OTHER {
 				category = info.Category
 			}
+		}
+
+		// Compute per-field confidence for Gemini
+		fc := &pfinancev1.FieldConfidence{
+			Amount:      0.95,
+			Date:        0.90,
+			Description: 0.90,
+			Merchant:    info.Confidence,
+			Category:    0.85,
+		}
+		// If date is missing, lower confidence
+		if tx.Date == "" {
+			fc.Date = 0.5
 		}
 
 		transactions = append(transactions, &pfinancev1.ExtractedTransaction{
@@ -303,9 +410,10 @@ func (v *ValidationService) ExtractWithGemini(
 			NormalizedMerchant: info.Name,
 			Amount:             tx.Amount,
 			SuggestedCategory:  category,
-			Confidence:         0.9, // Default high confidence for Gemini
+			Confidence:         0.9,
 			IsDebit:            true,
 			Reference:          tx.Reference,
+			FieldConfidences:   fc,
 		})
 	}
 
@@ -315,7 +423,8 @@ func (v *ValidationService) ExtractWithGemini(
 		ModelUsed:         "gemini-1.5-flash",
 		ProcessingTimeMs:  processingTime,
 		DocumentType:      docType,
-		PageCount:         1, // TODO: Get actual page count for PDFs
+		PageCount:         pageCount,
+		MethodUsed:        pfinancev1.ExtractionMethod_EXTRACTION_METHOD_GEMINI,
 	}, nil
 }
 
@@ -420,7 +529,7 @@ OTHER RULES:
 	}
 
 	// Use Gemini Flash for speed
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=%s", v.geminiAPIKey)
+	url := fmt.Sprintf("%s/models/gemini-1.5-flash:generateContent?key=%s", v.geminiBaseURL, v.geminiAPIKey)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)

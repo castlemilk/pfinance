@@ -51,3 +51,5 @@ backend/gen/
 firebase-debug.log
 __pycache__/
 *.pyc
+playwright-report/
+test-results/

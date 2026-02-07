@@ -15,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import OpenAI from 'openai';
 import { batchCategorizeTransactions } from '../utils/smartCategorization';
+import { ConfidenceBadge } from '@/components/ui/confidence-badge';
 
 // Transaction type for parsed data
 interface Transaction {
@@ -661,7 +662,9 @@ export default function TransactionImport() {
           return {
             ...transaction,
             category: categorized.suggestedCategory,
-            confidence: categorized.confidence
+            confidence: categorized.confidence,
+            // Pre-deselect low confidence transactions
+            selected: categorized.confidence >= 0.5 ? transaction.selected : false,
           };
         }
         return transaction;
@@ -975,7 +978,10 @@ export default function TransactionImport() {
               </TableHeader>
               <TableBody>
                 {transactions.map(transaction => (
-                  <TableRow key={transaction.id}>
+                  <TableRow
+                    key={transaction.id}
+                    className={transaction.confidence !== undefined && transaction.confidence < 0.6 ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : undefined}
+                  >
                     <TableCell>
                       <input
                         type="checkbox"
@@ -1014,15 +1020,7 @@ export default function TransactionImport() {
                     {smartCategorizationEnabled && (
                       <TableCell>
                         {transaction.confidence !== undefined ? (
-                          <div className="flex items-center">
-                            <div className={`text-xs px-2 py-1 rounded ${
-                              transaction.confidence > 0.8 ? 'bg-green-100 text-green-800' :
-                              transaction.confidence > 0.6 ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {(transaction.confidence * 100).toFixed(0)}%
-                            </div>
-                          </div>
+                          <ConfidenceBadge confidence={transaction.confidence} />
                         ) : (
                           <span className="text-xs text-muted-foreground">Manual</span>
                         )}
