@@ -73,4 +73,25 @@ export interface TaxConfig {
   taxRate: number;
   includeDeductions: boolean;
   customBrackets?: TaxBracket[];
-} 
+}
+
+export type RecurringTransactionStatus = 'active' | 'paused' | 'ended';
+
+export interface RecurringTransaction {
+  id: string;
+  userId: string;
+  groupId?: string;
+  description: string;
+  amount: number;
+  category: ExpenseCategory;
+  frequency: ExpenseFrequency;
+  startDate: Date;
+  nextOccurrence: Date;
+  endDate?: Date;
+  status: RecurringTransactionStatus;
+  isExpense: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  tags: string[];
+  paidByUserId?: string;
+}

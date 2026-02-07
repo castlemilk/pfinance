@@ -60,7 +60,6 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
     }
 
     let unsubscribe: (() => void) | undefined;
-    let timeout: NodeJS.Timeout | undefined;
 
     // Set persistence to local (survives browser restarts)
     setPersistence(auth, browserLocalPersistence)
@@ -69,16 +68,8 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
         // TypeScript needs reassurance that auth is still not null in async callback
         if (!auth) return;
 
-        // Start timeout AFTER persistence is set — avoids race where timeout
-        // fires before onAuthStateChanged is even registered
-        timeout = setTimeout(() => {
-          console.log('[AuthContext] Auth timeout - setting loading=false');
-          setLoading(false);
-        }, 5000);
-
         unsubscribe = onAuthStateChanged(auth, (user) => {
           console.log('[AuthContext] onAuthStateChanged:', user?.uid || 'no user');
-          if (timeout) clearTimeout(timeout);
           setActualUser(user);
           setLoading(false);
         });
@@ -89,7 +80,6 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
       });
 
     return () => {
-      if (timeout) clearTimeout(timeout);
       if (unsubscribe) {
         unsubscribe();
       }

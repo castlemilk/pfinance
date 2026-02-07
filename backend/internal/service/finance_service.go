@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"connectrpc.com/connect"
@@ -2903,5 +2904,424 @@ func (s *FinanceService) GetSpendingInsights(ctx context.Context, req *connect.R
 	return connect.NewResponse(&pfinancev1.GetSpendingInsightsResponse{
 		Insights:    insights,
 		GeneratedAt: timestamppb.Now(),
+	}), nil
+}
+
+// ============================================================================
+// Recurring Transaction Handlers
+// ============================================================================
+
+// calculateNextOccurrence computes the next occurrence date from startDate by advancing
+// according to the given frequency until the result is in the future.
+func calculateNextOccurrence(startDate time.Time, frequency pfinancev1.ExpenseFrequency) time.Time {
+	now := time.Now()
+	next := startDate
+
+	for !next.After(now) {
+		switch frequency {
+		case pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_DAILY:
+			next = next.AddDate(0, 0, 1)
+		case pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_WEEKLY:
+			next = next.AddDate(0, 0, 7)
+		case pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_FORTNIGHTLY:
+			next = next.AddDate(0, 0, 14)
+		case pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_MONTHLY:
+			next = next.AddDate(0, 1, 0)
+		case pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_QUARTERLY:
+			next = next.AddDate(0, 3, 0)
+		case pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_ANNUALLY:
+			next = next.AddDate(1, 0, 0)
+		default:
+			// For ONCE or UNSPECIFIED, just return the start date
+			return startDate
+		}
+	}
+	return next
+}
+
+func (s *FinanceService) CreateRecurringTransaction(ctx context.Context, req *connect.Request[pfinancev1.CreateRecurringTransactionRequest]) (*connect.Response[pfinancev1.CreateRecurringTransactionResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify ownership for personal, membership for group
+	if req.Msg.GroupId == "" {
+		if req.Msg.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot create recurring transaction for another user"))
+		}
+	} else {
+		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	// Validate frequency is not ONCE
+	if req.Msg.Frequency == pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_ONCE || req.Msg.Frequency == pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_UNSPECIFIED {
+		return nil, connect.NewError(connect.CodeInvalidArgument,
+			fmt.Errorf("recurring transaction frequency must not be once or unspecified"))
+	}
+
+	startDate := time.Now()
+	if req.Msg.StartDate != nil {
+		startDate = req.Msg.StartDate.AsTime()
+	}
+
+	// Dual-write amount/cents
+	amount := req.Msg.Amount
+	amountCents := req.Msg.AmountCents
+	if amountCents != 0 && amount == 0 {
+		amount = float64(amountCents) / 100.0
+	} else if amount != 0 && amountCents == 0 {
+		amountCents = int64(amount * 100)
+	}
+
+	rt := &pfinancev1.RecurringTransaction{
+		Id:             uuid.New().String(),
+		UserId:         req.Msg.UserId,
+		GroupId:        req.Msg.GroupId,
+		Description:    req.Msg.Description,
+		Amount:         amount,
+		AmountCents:    amountCents,
+		Category:       req.Msg.Category,
+		Frequency:      req.Msg.Frequency,
+		StartDate:      timestamppb.New(startDate),
+		NextOccurrence: timestamppb.New(calculateNextOccurrence(startDate, req.Msg.Frequency)),
+		Status:         pfinancev1.RecurringTransactionStatus_RECURRING_TRANSACTION_STATUS_ACTIVE,
+		IsExpense:      req.Msg.IsExpense,
+		CreatedAt:      timestamppb.Now(),
+		UpdatedAt:      timestamppb.Now(),
+		Tags:           req.Msg.Tags,
+		PaidByUserId:   req.Msg.PaidByUserId,
+		SplitType:      req.Msg.SplitType,
+		Allocations:    req.Msg.Allocations,
+	}
+
+	if req.Msg.EndDate != nil {
+		rt.EndDate = req.Msg.EndDate
+	}
+
+	if err := s.store.CreateRecurringTransaction(ctx, rt); err != nil {
+		return nil, auth.WrapStoreError("create recurring transaction", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.CreateRecurringTransactionResponse{
+		RecurringTransaction: rt,
+	}), nil
+}
+
+func (s *FinanceService) GetRecurringTransaction(ctx context.Context, req *connect.Request[pfinancev1.GetRecurringTransactionRequest]) (*connect.Response[pfinancev1.GetRecurringTransactionResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	rt, err := s.store.GetRecurringTransaction(ctx, req.Msg.RecurringTransactionId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("recurring transaction not found"))
+	}
+
+	// Check authorization
+	if rt.GroupId == "" {
+		if rt.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot access another user's recurring transaction"))
+		}
+	} else {
+		group, err := s.store.GetGroup(ctx, rt.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	return connect.NewResponse(&pfinancev1.GetRecurringTransactionResponse{
+		RecurringTransaction: rt,
+	}), nil
+}
+
+func (s *FinanceService) UpdateRecurringTransaction(ctx context.Context, req *connect.Request[pfinancev1.UpdateRecurringTransactionRequest]) (*connect.Response[pfinancev1.UpdateRecurringTransactionResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	rt, err := s.store.GetRecurringTransaction(ctx, req.Msg.RecurringTransactionId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("recurring transaction not found"))
+	}
+
+	// Check authorization
+	if rt.GroupId == "" {
+		if rt.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot update another user's recurring transaction"))
+		}
+	} else {
+		group, err := s.store.GetGroup(ctx, rt.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	// Merge fields
+	if req.Msg.Description != "" {
+		rt.Description = req.Msg.Description
+	}
+	if req.Msg.Amount != 0 || req.Msg.AmountCents != 0 {
+		rt.Amount = req.Msg.Amount
+		rt.AmountCents = req.Msg.AmountCents
+		if rt.AmountCents != 0 && rt.Amount == 0 {
+			rt.Amount = float64(rt.AmountCents) / 100.0
+		} else if rt.Amount != 0 && rt.AmountCents == 0 {
+			rt.AmountCents = int64(rt.Amount * 100)
+		}
+	}
+	if req.Msg.Category != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED {
+		rt.Category = req.Msg.Category
+	}
+
+	frequencyChanged := false
+	if req.Msg.Frequency != pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_UNSPECIFIED {
+		if req.Msg.Frequency == pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_ONCE {
+			return nil, connect.NewError(connect.CodeInvalidArgument,
+				fmt.Errorf("recurring transaction frequency must not be once"))
+		}
+		frequencyChanged = req.Msg.Frequency != rt.Frequency
+		rt.Frequency = req.Msg.Frequency
+	}
+
+	if req.Msg.EndDate != nil {
+		rt.EndDate = req.Msg.EndDate
+	}
+	rt.IsExpense = req.Msg.IsExpense
+	if len(req.Msg.Tags) > 0 {
+		rt.Tags = req.Msg.Tags
+	}
+	if req.Msg.PaidByUserId != "" {
+		rt.PaidByUserId = req.Msg.PaidByUserId
+	}
+	if req.Msg.SplitType != pfinancev1.SplitType_SPLIT_TYPE_UNSPECIFIED {
+		rt.SplitType = req.Msg.SplitType
+	}
+	if len(req.Msg.Allocations) > 0 {
+		rt.Allocations = req.Msg.Allocations
+	}
+
+	// Recalculate next_occurrence if frequency changed
+	if frequencyChanged && rt.StartDate != nil {
+		rt.NextOccurrence = timestamppb.New(calculateNextOccurrence(rt.StartDate.AsTime(), rt.Frequency))
+	}
+
+	rt.UpdatedAt = timestamppb.Now()
+
+	if err := s.store.UpdateRecurringTransaction(ctx, rt); err != nil {
+		return nil, auth.WrapStoreError("update recurring transaction", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.UpdateRecurringTransactionResponse{
+		RecurringTransaction: rt,
+	}), nil
+}
+
+func (s *FinanceService) DeleteRecurringTransaction(ctx context.Context, req *connect.Request[pfinancev1.DeleteRecurringTransactionRequest]) (*connect.Response[emptypb.Empty], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	rt, err := s.store.GetRecurringTransaction(ctx, req.Msg.RecurringTransactionId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("recurring transaction not found"))
+	}
+
+	// Check authorization
+	if rt.GroupId == "" {
+		if rt.UserId != claims.UID {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("cannot delete another user's recurring transaction"))
+		}
+	} else {
+		group, err := s.store.GetGroup(ctx, rt.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	if err := s.store.DeleteRecurringTransaction(ctx, req.Msg.RecurringTransactionId); err != nil {
+		return nil, auth.WrapStoreError("delete recurring transaction", err)
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (s *FinanceService) ListRecurringTransactions(ctx context.Context, req *connect.Request[pfinancev1.ListRecurringTransactionsRequest]) (*connect.Response[pfinancev1.ListRecurringTransactionsResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	userID := req.Msg.UserId
+	if userID == "" {
+		userID = claims.UID
+	}
+
+	// For personal, verify ownership
+	if req.Msg.GroupId == "" && userID != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("cannot list another user's recurring transactions"))
+	}
+
+	results, nextToken, err := s.store.ListRecurringTransactions(ctx, userID, req.Msg.GroupId, req.Msg.Status, req.Msg.FilterIsExpense, req.Msg.IsExpense, req.Msg.PageSize, req.Msg.PageToken)
+	if err != nil {
+		return nil, auth.WrapStoreError("list recurring transactions", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.ListRecurringTransactionsResponse{
+		RecurringTransactions: results,
+		NextPageToken:         nextToken,
+	}), nil
+}
+
+func (s *FinanceService) PauseRecurringTransaction(ctx context.Context, req *connect.Request[pfinancev1.PauseRecurringTransactionRequest]) (*connect.Response[pfinancev1.PauseRecurringTransactionResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	rt, err := s.store.GetRecurringTransaction(ctx, req.Msg.RecurringTransactionId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("recurring transaction not found"))
+	}
+
+	if rt.GroupId == "" && rt.UserId != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("cannot pause another user's recurring transaction"))
+	}
+
+	rt.Status = pfinancev1.RecurringTransactionStatus_RECURRING_TRANSACTION_STATUS_PAUSED
+	rt.UpdatedAt = timestamppb.Now()
+
+	if err := s.store.UpdateRecurringTransaction(ctx, rt); err != nil {
+		return nil, auth.WrapStoreError("pause recurring transaction", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.PauseRecurringTransactionResponse{
+		RecurringTransaction: rt,
+	}), nil
+}
+
+func (s *FinanceService) ResumeRecurringTransaction(ctx context.Context, req *connect.Request[pfinancev1.ResumeRecurringTransactionRequest]) (*connect.Response[pfinancev1.ResumeRecurringTransactionResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	rt, err := s.store.GetRecurringTransaction(ctx, req.Msg.RecurringTransactionId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("recurring transaction not found"))
+	}
+
+	if rt.GroupId == "" && rt.UserId != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("cannot resume another user's recurring transaction"))
+	}
+
+	rt.Status = pfinancev1.RecurringTransactionStatus_RECURRING_TRANSACTION_STATUS_ACTIVE
+	// Recalculate next occurrence from now
+	if rt.StartDate != nil {
+		rt.NextOccurrence = timestamppb.New(calculateNextOccurrence(rt.StartDate.AsTime(), rt.Frequency))
+	}
+	rt.UpdatedAt = timestamppb.Now()
+
+	if err := s.store.UpdateRecurringTransaction(ctx, rt); err != nil {
+		return nil, auth.WrapStoreError("resume recurring transaction", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.ResumeRecurringTransactionResponse{
+		RecurringTransaction: rt,
+	}), nil
+}
+
+func (s *FinanceService) GetUpcomingBills(ctx context.Context, req *connect.Request[pfinancev1.GetUpcomingBillsRequest]) (*connect.Response[pfinancev1.GetUpcomingBillsResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	userID := req.Msg.UserId
+	if userID == "" {
+		userID = claims.UID
+	}
+
+	// List active recurring transactions
+	results, _, err := s.store.ListRecurringTransactions(ctx, userID, req.Msg.GroupId,
+		pfinancev1.RecurringTransactionStatus_RECURRING_TRANSACTION_STATUS_ACTIVE,
+		false, false, 100, "")
+	if err != nil {
+		return nil, auth.WrapStoreError("list recurring transactions", err)
+	}
+
+	daysAhead := int32(30)
+	if req.Msg.DaysAhead > 0 {
+		daysAhead = req.Msg.DaysAhead
+	}
+	limit := int32(10)
+	if req.Msg.Limit > 0 {
+		limit = req.Msg.Limit
+	}
+
+	cutoff := time.Now().Add(time.Duration(daysAhead) * 24 * time.Hour)
+
+	// Filter by next_occurrence within window and sort
+	type rtWithTime struct {
+		rt   *pfinancev1.RecurringTransaction
+		next time.Time
+	}
+	var upcoming []rtWithTime
+	for _, rt := range results {
+		if rt.NextOccurrence == nil {
+			continue
+		}
+		nextTime := rt.NextOccurrence.AsTime()
+		if nextTime.Before(cutoff) {
+			upcoming = append(upcoming, rtWithTime{rt: rt, next: nextTime})
+		}
+	}
+
+	// Sort by next occurrence ascending
+	sort.Slice(upcoming, func(i, j int) bool {
+		return upcoming[i].next.Before(upcoming[j].next)
+	})
+
+	// Apply limit
+	if int32(len(upcoming)) > limit {
+		upcoming = upcoming[:limit]
+	}
+
+	bills := make([]*pfinancev1.RecurringTransaction, 0, len(upcoming))
+	for _, u := range upcoming {
+		bills = append(bills, u.rt)
+	}
+
+	return connect.NewResponse(&pfinancev1.GetUpcomingBillsResponse{
+		UpcomingBills: bills,
 	}), nil
 }

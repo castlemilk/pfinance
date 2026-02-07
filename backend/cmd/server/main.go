@@ -36,7 +36,10 @@ func main() {
 
 	// Guard: SKIP_AUTH must never be enabled in production
 	env := os.Getenv("ENV")
-	if skipAuth && env != "" && env != "local" && env != "development" {
+	if env == "" {
+		env = "production"
+	}
+	if skipAuth && env != "local" && env != "development" {
 		log.Fatalf("FATAL: SKIP_AUTH=true is only allowed when ENV=local or ENV=development (current ENV=%q)", env)
 	}
 

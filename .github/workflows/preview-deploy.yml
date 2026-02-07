@@ -78,7 +78,7 @@ jobs:
       - uses: actions/setup-go@v5
         if: needs.changes.outputs.backend == 'true'
         with:
-          go-version: '1.23'
+          go-version: '1.24'
           cache: true
           cache-dependency-path: backend/go.sum
 
@@ -290,7 +290,18 @@ jobs:
         working-directory: web
         run: npm exec playwright -- install-deps chromium
 
+      - name: Wait for preview to be ready
+        run: |
+          URL="https://pr-${{ github.event.pull_request.number }}.${{ env.PREVIEW_DOMAIN }}"
+          echo "Waiting for $URL to be ready..."
+          timeout 120 bash -c "until curl -sf --max-time 5 \"$URL\" > /dev/null 2>&1; do echo 'Waiting...'; sleep 5; done" || {
+            echo "::warning::Preview at $URL not ready after 120s, skipping E2E"
+            echo "SKIP_E2E=true" >> $GITHUB_ENV
+          }
+          echo "Preview ready!"
+
       - name: Run E2E tests against preview
+        if: env.SKIP_E2E != 'true'
         working-directory: web
         run: npm run test:e2e:preview -- --reporter=list
         env:

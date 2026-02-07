@@ -8,6 +8,7 @@ import GroupExpenseList from './GroupExpenseList';
 import BudgetDashboard from './BudgetDashboard';
 import QuickActions from './QuickActions';
 import OnboardingChecklist from './OnboardingChecklist';
+import UpcomingBillsCard from './recurring/UpcomingBillsCard';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { useMultiUserFinance } from '../context/MultiUserFinanceContext';
 import {
@@ -84,6 +85,9 @@ export default function FinanceDashboard({ mode }: FinanceDashboardProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* Upcoming Bills - personal mode only */}
+      {mode === 'personal' && <UpcomingBillsCard />}
 
       {/* Onboarding Checklist - personal mode only */}
       {mode === 'personal' && <OnboardingChecklist />}
