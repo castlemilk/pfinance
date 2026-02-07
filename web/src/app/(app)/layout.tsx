@@ -6,6 +6,7 @@ import { AuthWithAdminProvider } from '../context/AuthWithAdminContext';
 import { MultiUserFinanceProvider } from '../context/MultiUserFinanceContext';
 import { FinanceProvider } from '../context/FinanceContext';
 import { BudgetProvider } from '../context/BudgetContext';
+import { RecurringProvider } from '../context/RecurringContext';
 import AppLayout from '../components/AppLayout';
 import AppSkeleton from '../components/skeletons/AppSkeleton';
 
@@ -20,9 +21,11 @@ export default function AppRouteLayout({ children }: AppRouteLayoutProps) {
         <MultiUserFinanceProvider>
           <FinanceProvider>
             <BudgetProvider>
-              <Suspense fallback={<AppSkeleton />}>
-                <AppLayout>{children}</AppLayout>
-              </Suspense>
+              <RecurringProvider>
+                <Suspense fallback={<AppSkeleton />}>
+                  <AppLayout>{children}</AppLayout>
+                </Suspense>
+              </RecurringProvider>
             </BudgetProvider>
           </FinanceProvider>
         </MultiUserFinanceProvider>

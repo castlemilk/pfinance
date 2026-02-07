@@ -182,6 +182,20 @@ func (mr *MockStoreMockRecorder) CreateInviteLink(ctx, link any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInviteLink", reflect.TypeOf((*MockStore)(nil).CreateInviteLink), ctx, link)
 }
 
+// CreateRecurringTransaction mocks base method.
+func (m *MockStore) CreateRecurringTransaction(ctx context.Context, rt *pfinancev1.RecurringTransaction) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateRecurringTransaction", ctx, rt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateRecurringTransaction indicates an expected call of CreateRecurringTransaction.
+func (mr *MockStoreMockRecorder) CreateRecurringTransaction(ctx, rt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRecurringTransaction", reflect.TypeOf((*MockStore)(nil).CreateRecurringTransaction), ctx, rt)
+}
+
 // DeleteBudget mocks base method.
 func (m *MockStore) DeleteBudget(ctx context.Context, budgetID string) error {
 	m.ctrl.T.Helper()
@@ -250,6 +264,20 @@ func (m *MockStore) DeleteIncome(ctx context.Context, incomeID string) error {
 func (mr *MockStoreMockRecorder) DeleteIncome(ctx, incomeID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteIncome", reflect.TypeOf((*MockStore)(nil).DeleteIncome), ctx, incomeID)
+}
+
+// DeleteRecurringTransaction mocks base method.
+func (m *MockStore) DeleteRecurringTransaction(ctx context.Context, rtID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteRecurringTransaction", ctx, rtID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteRecurringTransaction indicates an expected call of DeleteRecurringTransaction.
+func (mr *MockStoreMockRecorder) DeleteRecurringTransaction(ctx, rtID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRecurringTransaction", reflect.TypeOf((*MockStore)(nil).DeleteRecurringTransaction), ctx, rtID)
 }
 
 // GetBudget mocks base method.
@@ -430,6 +458,21 @@ func (m *MockStore) GetInviteLinkByCode(ctx context.Context, code string) (*pfin
 func (mr *MockStoreMockRecorder) GetInviteLinkByCode(ctx, code any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInviteLinkByCode", reflect.TypeOf((*MockStore)(nil).GetInviteLinkByCode), ctx, code)
+}
+
+// GetRecurringTransaction mocks base method.
+func (m *MockStore) GetRecurringTransaction(ctx context.Context, rtID string) (*pfinancev1.RecurringTransaction, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRecurringTransaction", ctx, rtID)
+	ret0, _ := ret[0].(*pfinancev1.RecurringTransaction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRecurringTransaction indicates an expected call of GetRecurringTransaction.
+func (mr *MockStoreMockRecorder) GetRecurringTransaction(ctx, rtID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRecurringTransaction", reflect.TypeOf((*MockStore)(nil).GetRecurringTransaction), ctx, rtID)
 }
 
 // GetTaxConfig mocks base method.
@@ -622,6 +665,22 @@ func (mr *MockStoreMockRecorder) ListInviteLinks(ctx, groupID, includeInactive, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInviteLinks", reflect.TypeOf((*MockStore)(nil).ListInviteLinks), ctx, groupID, includeInactive, pageSize, pageToken)
 }
 
+// ListRecurringTransactions mocks base method.
+func (m *MockStore) ListRecurringTransactions(ctx context.Context, userID, groupID string, status pfinancev1.RecurringTransactionStatus, filterIsExpense, isExpense bool, pageSize int32, pageToken string) ([]*pfinancev1.RecurringTransaction, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListRecurringTransactions", ctx, userID, groupID, status, filterIsExpense, isExpense, pageSize, pageToken)
+	ret0, _ := ret[0].([]*pfinancev1.RecurringTransaction)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListRecurringTransactions indicates an expected call of ListRecurringTransactions.
+func (mr *MockStoreMockRecorder) ListRecurringTransactions(ctx, userID, groupID, status, filterIsExpense, isExpense, pageSize, pageToken any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRecurringTransactions", reflect.TypeOf((*MockStore)(nil).ListRecurringTransactions), ctx, userID, groupID, status, filterIsExpense, isExpense, pageSize, pageToken)
+}
+
 // UpdateBudget mocks base method.
 func (m *MockStore) UpdateBudget(ctx context.Context, budget *pfinancev1.Budget) error {
 	m.ctrl.T.Helper()
@@ -718,6 +777,20 @@ func (m *MockStore) UpdateInviteLink(ctx context.Context, link *pfinancev1.Group
 func (mr *MockStoreMockRecorder) UpdateInviteLink(ctx, link any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateInviteLink", reflect.TypeOf((*MockStore)(nil).UpdateInviteLink), ctx, link)
+}
+
+// UpdateRecurringTransaction mocks base method.
+func (m *MockStore) UpdateRecurringTransaction(ctx context.Context, rt *pfinancev1.RecurringTransaction) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateRecurringTransaction", ctx, rt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateRecurringTransaction indicates an expected call of UpdateRecurringTransaction.
+func (mr *MockStoreMockRecorder) UpdateRecurringTransaction(ctx, rt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRecurringTransaction", reflect.TypeOf((*MockStore)(nil).UpdateRecurringTransaction), ctx, rt)
 }
 
 // UpdateTaxConfig mocks base method.

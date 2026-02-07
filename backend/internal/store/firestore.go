@@ -1236,3 +1236,115 @@ func (s *FirestoreStore) ListGoalContributions(ctx context.Context, goalID strin
 
 	return contributions, nextPageToken, nil
 }
+
+// Recurring transaction operations
+
+func (s *FirestoreStore) CreateRecurringTransaction(ctx context.Context, rt *pfinancev1.RecurringTransaction) error {
+	collection := "recurringTransactions"
+	if rt.GroupId != "" {
+		collection = "groupRecurringTransactions"
+	}
+
+	_, err := s.client.Collection(collection).Doc(rt.Id).Set(ctx, rt)
+	return err
+}
+
+func (s *FirestoreStore) GetRecurringTransaction(ctx context.Context, rtID string) (*pfinancev1.RecurringTransaction, error) {
+	// Try personal first
+	doc, err := s.client.Collection("recurringTransactions").Doc(rtID).Get(ctx)
+	if err == nil {
+		var rt pfinancev1.RecurringTransaction
+		if err := doc.DataTo(&rt); err != nil {
+			return nil, fmt.Errorf("failed to parse recurring transaction: %w", err)
+		}
+		return &rt, nil
+	}
+
+	// Try group
+	doc, err = s.client.Collection("groupRecurringTransactions").Doc(rtID).Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("recurring transaction not found: %w", err)
+	}
+
+	var rt pfinancev1.RecurringTransaction
+	if err := doc.DataTo(&rt); err != nil {
+		return nil, fmt.Errorf("failed to parse recurring transaction: %w", err)
+	}
+	return &rt, nil
+}
+
+func (s *FirestoreStore) UpdateRecurringTransaction(ctx context.Context, rt *pfinancev1.RecurringTransaction) error {
+	collection := "recurringTransactions"
+	if rt.GroupId != "" {
+		collection = "groupRecurringTransactions"
+	}
+
+	_, err := s.client.Collection(collection).Doc(rt.Id).Set(ctx, rt)
+	return err
+}
+
+func (s *FirestoreStore) DeleteRecurringTransaction(ctx context.Context, rtID string) error {
+	_, err := s.client.Collection("recurringTransactions").Doc(rtID).Delete(ctx)
+	if err == nil {
+		return nil
+	}
+
+	_, err = s.client.Collection("groupRecurringTransactions").Doc(rtID).Delete(ctx)
+	return err
+}
+
+func (s *FirestoreStore) ListRecurringTransactions(ctx context.Context, userID, groupID string, status pfinancev1.RecurringTransactionStatus, filterIsExpense bool, isExpense bool, pageSize int32, pageToken string) ([]*pfinancev1.RecurringTransaction, string, error) {
+	collection := "recurringTransactions"
+	if groupID != "" {
+		collection = "groupRecurringTransactions"
+	}
+
+	var query firestore.Query
+	query = s.client.Collection(collection).Query
+
+	// NOTE: Field names must match Go struct field names (PascalCase) as that's how Firestore serializes protobuf structs
+	if groupID != "" {
+		query = query.Where("GroupId", "==", groupID)
+	} else if userID != "" {
+		query = query.Where("UserId", "==", userID)
+	}
+
+	if status != pfinancev1.RecurringTransactionStatus_RECURRING_TRANSACTION_STATUS_UNSPECIFIED {
+		query = query.Where("Status", "==", status)
+	}
+
+	if filterIsExpense {
+		query = query.Where("IsExpense", "==", isExpense)
+	}
+
+	query, err := s.applyCursorPagination(query, pageSize, pageToken)
+	if err != nil {
+		return nil, "", err
+	}
+
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to list recurring transactions: %w", err)
+	}
+
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+
+	var nextPageToken string
+	if len(docs) > int(pageSize) {
+		docs = docs[:pageSize]
+		nextPageToken = EncodePageToken(docs[pageSize-1].Ref.ID)
+	}
+
+	results := make([]*pfinancev1.RecurringTransaction, 0, len(docs))
+	for _, doc := range docs {
+		var rt pfinancev1.RecurringTransaction
+		if err := doc.DataTo(&rt); err != nil {
+			return nil, "", fmt.Errorf("failed to parse recurring transaction: %w", err)
+		}
+		results = append(results, &rt)
+	}
+
+	return results, nextPageToken, nil
+}

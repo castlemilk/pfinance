@@ -83,6 +83,13 @@ type Store interface {
 	// Goal contribution operations
 	CreateGoalContribution(ctx context.Context, contribution *pfinancev1.GoalContribution) error
 	ListGoalContributions(ctx context.Context, goalID string, pageSize int32, pageToken string) ([]*pfinancev1.GoalContribution, string, error)
+
+	// Recurring transaction operations
+	CreateRecurringTransaction(ctx context.Context, rt *pfinancev1.RecurringTransaction) error
+	GetRecurringTransaction(ctx context.Context, rtID string) (*pfinancev1.RecurringTransaction, error)
+	UpdateRecurringTransaction(ctx context.Context, rt *pfinancev1.RecurringTransaction) error
+	DeleteRecurringTransaction(ctx context.Context, rtID string) error
+	ListRecurringTransactions(ctx context.Context, userID, groupID string, status pfinancev1.RecurringTransactionStatus, filterIsExpense bool, isExpense bool, pageSize int32, pageToken string) ([]*pfinancev1.RecurringTransaction, string, error)
 }
 
 // EncodePageToken encodes a document ID into a page token.

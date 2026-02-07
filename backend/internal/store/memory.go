@@ -26,8 +26,9 @@ type MemoryStore struct {
 	taxConfigs          map[string]*pfinancev1.TaxConfig
 	budgets             map[string]*pfinancev1.Budget
 	users               map[string]*pfinancev1.User
-	goals               map[string]*pfinancev1.FinancialGoal
-	goalContributions   map[string]*pfinancev1.GoalContribution
+	goals                  map[string]*pfinancev1.FinancialGoal
+	goalContributions      map[string]*pfinancev1.GoalContribution
+	recurringTransactions  map[string]*pfinancev1.RecurringTransaction
 }
 
 // NewMemoryStore creates a new in-memory store
@@ -43,8 +44,9 @@ func NewMemoryStore() *MemoryStore {
 		taxConfigs:          make(map[string]*pfinancev1.TaxConfig),
 		budgets:             make(map[string]*pfinancev1.Budget),
 		users:               make(map[string]*pfinancev1.User),
-		goals:               make(map[string]*pfinancev1.FinancialGoal),
-		goalContributions:   make(map[string]*pfinancev1.GoalContribution),
+		goals:                  make(map[string]*pfinancev1.FinancialGoal),
+		goalContributions:      make(map[string]*pfinancev1.GoalContribution),
+		recurringTransactions:  make(map[string]*pfinancev1.RecurringTransaction),
 	}
 }
 
@@ -916,6 +918,81 @@ func (m *MemoryStore) ListGoalContributions(ctx context.Context, goalID string, 
 	result := make([]*pfinancev1.GoalContribution, 0, len(paginatedIDs))
 	for _, id := range paginatedIDs {
 		result = append(result, m.goalContributions[id])
+	}
+	return result, nextToken, nil
+}
+
+// Recurring transaction operations
+
+func (m *MemoryStore) CreateRecurringTransaction(ctx context.Context, rt *pfinancev1.RecurringTransaction) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if rt.Id == "" {
+		rt.Id = uuid.New().String()
+	}
+
+	m.recurringTransactions[rt.Id] = rt
+	return nil
+}
+
+func (m *MemoryStore) GetRecurringTransaction(ctx context.Context, rtID string) (*pfinancev1.RecurringTransaction, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	rt, ok := m.recurringTransactions[rtID]
+	if !ok {
+		return nil, fmt.Errorf("recurring transaction not found: %s", rtID)
+	}
+
+	return rt, nil
+}
+
+func (m *MemoryStore) UpdateRecurringTransaction(ctx context.Context, rt *pfinancev1.RecurringTransaction) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.recurringTransactions[rt.Id]; !ok {
+		return fmt.Errorf("recurring transaction not found: %s", rt.Id)
+	}
+
+	m.recurringTransactions[rt.Id] = rt
+	return nil
+}
+
+func (m *MemoryStore) DeleteRecurringTransaction(ctx context.Context, rtID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	delete(m.recurringTransactions, rtID)
+	return nil
+}
+
+func (m *MemoryStore) ListRecurringTransactions(ctx context.Context, userID, groupID string, status pfinancev1.RecurringTransactionStatus, filterIsExpense bool, isExpense bool, pageSize int32, pageToken string) ([]*pfinancev1.RecurringTransaction, string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var matchingIDs []string
+	for id, rt := range m.recurringTransactions {
+		if userID != "" && rt.UserId != userID {
+			continue
+		}
+		if groupID != "" && rt.GroupId != groupID {
+			continue
+		}
+		if status != pfinancev1.RecurringTransactionStatus_RECURRING_TRANSACTION_STATUS_UNSPECIFIED && rt.Status != status {
+			continue
+		}
+		if filterIsExpense && rt.IsExpense != isExpense {
+			continue
+		}
+		matchingIDs = append(matchingIDs, id)
+	}
+
+	paginatedIDs, nextToken := paginateIDs(matchingIDs, pageSize, pageToken)
+	result := make([]*pfinancev1.RecurringTransaction, 0, len(paginatedIDs))
+	for _, id := range paginatedIDs {
+		result = append(result, m.recurringTransactions[id])
 	}
 	return result, nextToken, nil
 }

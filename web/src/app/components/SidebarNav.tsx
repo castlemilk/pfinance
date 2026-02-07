@@ -20,7 +20,8 @@ import {
   UserPlus,
   UserCog,
   BookOpen,
-  ExternalLink
+  ExternalLink,
+  Repeat
 } from 'lucide-react';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -51,6 +52,11 @@ const personalNavItems: NavItem[] = [
     title: 'Income',
     href: '/personal/income/',
     icon: <TrendingUp className="w-4 h-4" />
+  },
+  {
+    title: 'Recurring',
+    href: '/personal/recurring',
+    icon: <Repeat className="w-4 h-4" />
   },
   {
     title: 'Reports',

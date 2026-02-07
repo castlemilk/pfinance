@@ -11,7 +11,7 @@ service FinanceService {
   // User operations
   rpc GetUser(GetUserRequest) returns (GetUserResponse);
   rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
-  
+
   // Expense operations
   rpc CreateExpense(CreateExpenseRequest) returns (CreateExpenseResponse);
   rpc GetExpense(GetExpenseRequest) returns (GetExpenseResponse);
@@ -19,35 +19,35 @@ service FinanceService {
   rpc DeleteExpense(DeleteExpenseRequest) returns (google.protobuf.Empty);
   rpc ListExpenses(ListExpensesRequest) returns (ListExpensesResponse);
   rpc BatchCreateExpenses(BatchCreateExpensesRequest) returns (BatchCreateExpensesResponse);
-  
+
   // Income operations
   rpc CreateIncome(CreateIncomeRequest) returns (CreateIncomeResponse);
   rpc GetIncome(GetIncomeRequest) returns (GetIncomeResponse);
   rpc UpdateIncome(UpdateIncomeRequest) returns (UpdateIncomeResponse);
   rpc DeleteIncome(DeleteIncomeRequest) returns (google.protobuf.Empty);
   rpc ListIncomes(ListIncomesRequest) returns (ListIncomesResponse);
-  
+
   // Tax configuration
   rpc GetTaxConfig(GetTaxConfigRequest) returns (GetTaxConfigResponse);
   rpc UpdateTaxConfig(UpdateTaxConfigRequest) returns (UpdateTaxConfigResponse);
-  
+
   // Group operations
   rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse);
   rpc GetGroup(GetGroupRequest) returns (GetGroupResponse);
   rpc UpdateGroup(UpdateGroupRequest) returns (UpdateGroupResponse);
   rpc DeleteGroup(DeleteGroupRequest) returns (google.protobuf.Empty);
   rpc ListGroups(ListGroupsRequest) returns (ListGroupsResponse);
-  
+
   // Group member operations
   rpc InviteToGroup(InviteToGroupRequest) returns (InviteToGroupResponse);
   rpc AcceptInvitation(AcceptInvitationRequest) returns (AcceptInvitationResponse);
   rpc DeclineInvitation(DeclineInvitationRequest) returns (google.protobuf.Empty);
   rpc RemoveFromGroup(RemoveFromGroupRequest) returns (google.protobuf.Empty);
   rpc UpdateMemberRole(UpdateMemberRoleRequest) returns (UpdateMemberRoleResponse);
-  
+
   // Invitation operations
   rpc ListInvitations(ListInvitationsRequest) returns (ListInvitationsResponse);
-  
+
   // Budget operations
   rpc CreateBudget(CreateBudgetRequest) returns (CreateBudgetResponse);
   rpc GetBudget(GetBudgetRequest) returns (GetBudgetResponse);
@@ -55,19 +55,19 @@ service FinanceService {
   rpc DeleteBudget(DeleteBudgetRequest) returns (google.protobuf.Empty);
   rpc ListBudgets(ListBudgetsRequest) returns (ListBudgetsResponse);
   rpc GetBudgetProgress(GetBudgetProgressRequest) returns (GetBudgetProgressResponse);
-  
+
   // Expense allocation operations
   rpc GetMemberBalances(GetMemberBalancesRequest) returns (GetMemberBalancesResponse);
   rpc SettleExpense(SettleExpenseRequest) returns (SettleExpenseResponse);
   rpc GetGroupSummary(GetGroupSummaryRequest) returns (GetGroupSummaryResponse);
-  
+
   // Invite link operations
   rpc CreateInviteLink(CreateInviteLinkRequest) returns (CreateInviteLinkResponse);
   rpc GetInviteLinkByCode(GetInviteLinkByCodeRequest) returns (GetInviteLinkByCodeResponse);
   rpc JoinGroupByLink(JoinGroupByLinkRequest) returns (JoinGroupByLinkResponse);
   rpc ListInviteLinks(ListInviteLinksRequest) returns (ListInviteLinksResponse);
   rpc DeactivateInviteLink(DeactivateInviteLinkRequest) returns (google.protobuf.Empty);
-  
+
   // Contribution operations
   rpc ContributeExpenseToGroup(ContributeExpenseToGroupRequest) returns (ContributeExpenseToGroupResponse);
   rpc ContributeIncomeToGroup(ContributeIncomeToGroupRequest) returns (ContributeIncomeToGroupResponse);
@@ -94,6 +94,16 @@ service FinanceService {
 
   // Smart text parsing (uses AI to parse natural language expense descriptions)
   rpc ParseExpenseText(ParseExpenseTextRequest) returns (ParseExpenseTextResponse);
+
+  // Recurring transaction operations
+  rpc CreateRecurringTransaction(CreateRecurringTransactionRequest) returns (CreateRecurringTransactionResponse);
+  rpc GetRecurringTransaction(GetRecurringTransactionRequest) returns (GetRecurringTransactionResponse);
+  rpc UpdateRecurringTransaction(UpdateRecurringTransactionRequest) returns (UpdateRecurringTransactionResponse);
+  rpc DeleteRecurringTransaction(DeleteRecurringTransactionRequest) returns (google.protobuf.Empty);
+  rpc ListRecurringTransactions(ListRecurringTransactionsRequest) returns (ListRecurringTransactionsResponse);
+  rpc PauseRecurringTransaction(PauseRecurringTransactionRequest) returns (PauseRecurringTransactionResponse);
+  rpc ResumeRecurringTransaction(ResumeRecurringTransactionRequest) returns (ResumeRecurringTransactionResponse);
+  rpc GetUpcomingBills(GetUpcomingBillsRequest) returns (GetUpcomingBillsResponse);
 }
 
 // User operations
@@ -123,7 +133,7 @@ message CreateExpenseRequest {
   ExpenseCategory category = 5;
   ExpenseFrequency frequency = 6;
   google.protobuf.Timestamp date = 7;
-  
+
   // Allocation fields
   string paid_by_user_id = 8; // Who paid (defaults to user_id)
   SplitType split_type = 9; // How to split
@@ -151,7 +161,7 @@ message UpdateExpenseRequest {
   double amount = 3;
   ExpenseCategory category = 4;
   ExpenseFrequency frequency = 5;
-  
+
   // Allocation fields
   string paid_by_user_id = 6;
   SplitType split_type = 7;
@@ -763,4 +773,102 @@ message ParseExpenseTextResponse {
   repeated ParsedExpense additional = 2;    // Additional expenses if multiple detected
   bool success = 3;                         // Whether parsing succeeded
   string error_message = 4;                 // Error message if parsing failed
+}
+
+// ============================================================================
+// Recurring transaction operations
+// ============================================================================
+
+message CreateRecurringTransactionRequest {
+  string user_id = 1;
+  string group_id = 2;              // Optional: for group recurring transactions
+  string description = 3;
+  double amount = 4;
+  int64 amount_cents = 5;           // Amount in cents (preferred over amount)
+  ExpenseCategory category = 6;
+  ExpenseFrequency frequency = 7;   // Must not be ONCE
+  google.protobuf.Timestamp start_date = 8;
+  google.protobuf.Timestamp end_date = 9;   // Optional: when to stop
+  bool is_expense = 10;             // true = expense, false = income
+  repeated string tags = 11;
+  string paid_by_user_id = 12;      // For group: who pays
+  SplitType split_type = 13;        // For group: how to split
+  repeated ExpenseAllocation allocations = 14; // For group: member allocations
+}
+
+message CreateRecurringTransactionResponse {
+  RecurringTransaction recurring_transaction = 1;
+}
+
+message GetRecurringTransactionRequest {
+  string recurring_transaction_id = 1;
+}
+
+message GetRecurringTransactionResponse {
+  RecurringTransaction recurring_transaction = 1;
+}
+
+message UpdateRecurringTransactionRequest {
+  string recurring_transaction_id = 1;
+  string description = 2;
+  double amount = 3;
+  int64 amount_cents = 4;           // Amount in cents (preferred over amount)
+  ExpenseCategory category = 5;
+  ExpenseFrequency frequency = 6;   // Must not be ONCE
+  google.protobuf.Timestamp end_date = 7;   // Optional: when to stop
+  bool is_expense = 8;
+  repeated string tags = 9;
+  string paid_by_user_id = 10;
+  SplitType split_type = 11;
+  repeated ExpenseAllocation allocations = 12;
+}
+
+message UpdateRecurringTransactionResponse {
+  RecurringTransaction recurring_transaction = 1;
+}
+
+message DeleteRecurringTransactionRequest {
+  string recurring_transaction_id = 1;
+}
+
+message ListRecurringTransactionsRequest {
+  string user_id = 1;
+  string group_id = 2;              // Optional: filter by group
+  RecurringTransactionStatus status = 3; // Optional: filter by status
+  bool filter_is_expense = 4;       // When true, use is_expense filter
+  bool is_expense = 5;              // Only used when filter_is_expense is true
+  int32 page_size = 6;
+  string page_token = 7;
+}
+
+message ListRecurringTransactionsResponse {
+  repeated RecurringTransaction recurring_transactions = 1;
+  string next_page_token = 2;
+}
+
+message PauseRecurringTransactionRequest {
+  string recurring_transaction_id = 1;
+}
+
+message PauseRecurringTransactionResponse {
+  RecurringTransaction recurring_transaction = 1;
+}
+
+message ResumeRecurringTransactionRequest {
+  string recurring_transaction_id = 1;
+}
+
+message ResumeRecurringTransactionResponse {
+  RecurringTransaction recurring_transaction = 1;
+}
+
+message GetUpcomingBillsRequest {
+  string user_id = 1;
+  string group_id = 2;              // Optional: filter by group
+  int32 days_ahead = 3;             // How many days ahead to look (default 30)
+  int32 limit = 4;                  // Max results (default 10)
+}
+
+message GetUpcomingBillsResponse {
+  repeated RecurringTransaction upcoming_bills = 1;
 }

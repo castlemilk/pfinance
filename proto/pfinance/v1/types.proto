@@ -97,7 +97,7 @@ message Expense {
   google.protobuf.Timestamp date = 8;
   google.protobuf.Timestamp created_at = 9;
   google.protobuf.Timestamp updated_at = 10;
-  
+
   // New fields for expense allocation
   string paid_by_user_id = 11; // Who actually paid (defaults to user_id)
   SplitType split_type = 12; // How the expense is split
@@ -410,6 +410,41 @@ message GoalContribution {
   string note = 5;
   google.protobuf.Timestamp contributed_at = 6;
   int64 amount_cents = 7; // Amount in cents (preferred over amount)
+}
+
+// ============================================================================
+// Recurring Transactions
+// ============================================================================
+
+// RecurringTransactionStatus represents the status of a recurring transaction
+enum RecurringTransactionStatus {
+  RECURRING_TRANSACTION_STATUS_UNSPECIFIED = 0;
+  RECURRING_TRANSACTION_STATUS_ACTIVE = 1;
+  RECURRING_TRANSACTION_STATUS_PAUSED = 2;
+  RECURRING_TRANSACTION_STATUS_ENDED = 3;
+}
+
+// RecurringTransaction represents a recurring expense or income
+message RecurringTransaction {
+  string id = 1;
+  string user_id = 2;
+  string group_id = 3;              // Optional: for group recurring transactions
+  string description = 4;
+  double amount = 5;
+  int64 amount_cents = 6;           // Amount in cents (preferred over amount)
+  ExpenseCategory category = 7;
+  ExpenseFrequency frequency = 8;   // Must not be ONCE
+  google.protobuf.Timestamp start_date = 9;
+  google.protobuf.Timestamp next_occurrence = 10;
+  google.protobuf.Timestamp end_date = 11;  // Optional: when to stop
+  RecurringTransactionStatus status = 12;
+  bool is_expense = 13;             // true = expense, false = income
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
+  repeated string tags = 16;
+  string paid_by_user_id = 17;      // For group: who pays
+  SplitType split_type = 18;        // For group: how to split
+  repeated ExpenseAllocation allocations = 19; // For group: member allocations
 }
 
 // ============================================================================
