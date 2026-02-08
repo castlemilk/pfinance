@@ -52,6 +52,12 @@ test.describe('Theme Toggle', () => {
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(500);
 
+    // Dismiss any overlay banners (e.g. Firebase connection error) that block clicks
+    const alertBanner = page.locator('div[role="alert"]');
+    if (await alertBanner.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await alertBanner.evaluate(el => el.remove());
+    }
+
     // Find theme toggle button - look for a button with sun or moon icon
     const themeToggle = page.locator('button').filter({ has: page.locator('svg') }).first();
 
