@@ -314,7 +314,7 @@ export default function ExpenseList({ limit }: ExpenseListProps = {}) {
                   <TableRow
                     key={expense.id}
                     className="cursor-pointer"
-                    onClick={() => router.push(`/personal/expenses/${expense.id}`)}
+                    onClick={() => router.push(`/personal/expenses/${expense.id}/`)}
                   >
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <input

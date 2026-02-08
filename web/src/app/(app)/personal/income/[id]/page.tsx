@@ -97,7 +97,7 @@ export default function IncomeDetailPage({ params }: { params: Promise<{ id: str
     if (!income) return;
     deleteIncome(income.id);
     setIsDeleteDialogOpen(false);
-    router.push('/personal/income');
+    router.push('/personal/income/');
   };
 
   if (loading) {
@@ -111,14 +111,14 @@ export default function IncomeDetailPage({ params }: { params: Promise<{ id: str
   if (!income) {
     return (
       <div className="space-y-6">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/personal/income')}>
+        <Button variant="ghost" size="sm" onClick={() => router.push('/personal/income/')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Income
         </Button>
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground">Income not found.</p>
-            <Button variant="outline" className="mt-4" onClick={() => router.push('/personal/income')}>
+            <Button variant="outline" className="mt-4" onClick={() => router.push('/personal/income/')}>
               Return to Income
             </Button>
           </CardContent>
@@ -130,7 +130,7 @@ export default function IncomeDetailPage({ params }: { params: Promise<{ id: str
   return (
     <>
       <div className="space-y-6">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/personal/income')}>
+        <Button variant="ghost" size="sm" onClick={() => router.push('/personal/income/')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Income
         </Button>

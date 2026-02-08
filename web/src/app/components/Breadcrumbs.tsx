@@ -40,7 +40,10 @@ export default function Breadcrumbs() {
 
   segments.forEach((segment, index) => {
     currentPath += `/${segment}`;
-    const label = routeLabels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);
+    // If this segment looks like a UUID/ID (after expenses or income), show "Details"
+    const prevSegment = index > 0 ? segments[index - 1] : '';
+    const isDetailId = (prevSegment === 'expenses' || prevSegment === 'income') && !routeLabels[segment];
+    const label = isDetailId ? 'Details' : (routeLabels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1));
 
     breadcrumbs.push({
       label,

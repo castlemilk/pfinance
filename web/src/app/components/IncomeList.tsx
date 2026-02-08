@@ -172,7 +172,7 @@ export default function IncomeList() {
                     <React.Fragment key={income.id}>
                       <TableRow
                         className="cursor-pointer"
-                        onClick={() => router.push(`/personal/income/${income.id}`)}
+                        onClick={() => router.push(`/personal/income/${income.id}/`)}
                       >
                         <TableCell className="w-[30px] pr-0" onClick={(e) => e.stopPropagation()}>
                           {income.deductions && income.deductions.length > 0 ? (

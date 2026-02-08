@@ -105,7 +105,7 @@ export default function ExpenseDetailPage({ params }: { params: Promise<{ id: st
     if (!expense) return;
     deleteExpense(expense.id);
     setIsDeleteDialogOpen(false);
-    router.push('/personal/expenses');
+    router.push('/personal/expenses/');
   };
 
   if (loading) {
@@ -119,14 +119,14 @@ export default function ExpenseDetailPage({ params }: { params: Promise<{ id: st
   if (!expense) {
     return (
       <div className="space-y-6">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/personal/expenses')}>
+        <Button variant="ghost" size="sm" onClick={() => router.push('/personal/expenses/')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Expenses
         </Button>
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground">Expense not found.</p>
-            <Button variant="outline" className="mt-4" onClick={() => router.push('/personal/expenses')}>
+            <Button variant="outline" className="mt-4" onClick={() => router.push('/personal/expenses/')}>
               Return to Expenses
             </Button>
           </CardContent>
@@ -138,7 +138,7 @@ export default function ExpenseDetailPage({ params }: { params: Promise<{ id: st
   return (
     <>
       <div className="space-y-6">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/personal/expenses')}>
+        <Button variant="ghost" size="sm" onClick={() => router.push('/personal/expenses/')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Expenses
         </Button>

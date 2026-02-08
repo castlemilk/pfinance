@@ -80,9 +80,9 @@ export default function SearchCommandPalette() {
     setOpen(false);
     setQuery('');
     if (result.type === TransactionType.EXPENSE) {
-      router.push(`/personal/expenses/${result.id}`);
+      router.push(`/personal/expenses/${result.id}/`);
     } else {
-      router.push(`/personal/income/${result.id}`);
+      router.push(`/personal/income/${result.id}/`);
     }
   };
 
