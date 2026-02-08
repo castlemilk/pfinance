@@ -57,8 +57,9 @@ enum TaxCountry {
 
 // SubscriptionTier represents the user's subscription plan
 enum SubscriptionTier {
-  SUBSCRIPTION_TIER_FREE = 0;
-  SUBSCRIPTION_TIER_PRO = 1;
+  SUBSCRIPTION_TIER_UNSPECIFIED = 0;
+  SUBSCRIPTION_TIER_FREE = 1;
+  SUBSCRIPTION_TIER_PRO = 2;
 }
 
 // SubscriptionStatus represents the current state of a subscription
