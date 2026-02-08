@@ -2,6 +2,7 @@
 
 import RecurringTransactionForm from '../../../components/recurring/RecurringTransactionForm';
 import RecurringTransactionList from '../../../components/recurring/RecurringTransactionList';
+import SubscriptionDetector from '../../../components/subscriptions/SubscriptionDetector';
 import { useRecurring } from '../../../context/RecurringContext';
 
 export default function RecurringPage() {
@@ -16,6 +17,9 @@ export default function RecurringPage() {
           Manage your recurring expenses and income
         </p>
       </div>
+
+      {/* Subscription Detection */}
+      <SubscriptionDetector />
 
       {/* Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

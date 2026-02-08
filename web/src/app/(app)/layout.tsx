@@ -7,8 +7,10 @@ import { MultiUserFinanceProvider } from '../context/MultiUserFinanceContext';
 import { FinanceProvider } from '../context/FinanceContext';
 import { BudgetProvider } from '../context/BudgetContext';
 import { RecurringProvider } from '../context/RecurringContext';
+import { GoalProvider } from '../context/GoalContext';
 import AppLayout from '../components/AppLayout';
 import AppSkeleton from '../components/skeletons/AppSkeleton';
+import SearchCommandPalette from '../components/SearchCommandPalette';
 
 interface AppRouteLayoutProps {
   children: ReactNode;
@@ -22,9 +24,12 @@ export default function AppRouteLayout({ children }: AppRouteLayoutProps) {
           <FinanceProvider>
             <BudgetProvider>
               <RecurringProvider>
-                <Suspense fallback={<AppSkeleton />}>
-                  <AppLayout>{children}</AppLayout>
-                </Suspense>
+                <GoalProvider>
+                  <Suspense fallback={<AppSkeleton />}>
+                    <AppLayout>{children}</AppLayout>
+                    <SearchCommandPalette />
+                  </Suspense>
+                </GoalProvider>
               </RecurringProvider>
             </BudgetProvider>
           </FinanceProvider>

@@ -84,6 +84,9 @@ type Store interface {
 	CreateGoalContribution(ctx context.Context, contribution *pfinancev1.GoalContribution) error
 	ListGoalContributions(ctx context.Context, goalID string, pageSize int32, pageToken string) ([]*pfinancev1.GoalContribution, string, error)
 
+	// Search operations
+	SearchTransactions(ctx context.Context, userID, groupID, query, category string, amountMin, amountMax float64, startDate, endDate *time.Time, txType pfinancev1.TransactionType, pageSize int32, pageToken string) ([]*pfinancev1.SearchResult, string, int, error)
+
 	// Recurring transaction operations
 	CreateRecurringTransaction(ctx context.Context, rt *pfinancev1.RecurringTransaction) error
 	GetRecurringTransaction(ctx context.Context, rtID string) (*pfinancev1.RecurringTransaction, error)

@@ -104,6 +104,13 @@ service FinanceService {
   rpc PauseRecurringTransaction(PauseRecurringTransactionRequest) returns (PauseRecurringTransactionResponse);
   rpc ResumeRecurringTransaction(ResumeRecurringTransactionRequest) returns (ResumeRecurringTransactionResponse);
   rpc GetUpcomingBills(GetUpcomingBillsRequest) returns (GetUpcomingBillsResponse);
+
+  // Search operations
+  rpc SearchTransactions(SearchTransactionsRequest) returns (SearchTransactionsResponse);
+
+  // Subscription detection operations
+  rpc DetectSubscriptions(DetectSubscriptionsRequest) returns (DetectSubscriptionsResponse);
+  rpc ConvertToRecurring(ConvertToRecurringRequest) returns (ConvertToRecurringResponse);
 }
 
 // User operations
@@ -871,4 +878,56 @@ message GetUpcomingBillsRequest {
 
 message GetUpcomingBillsResponse {
   repeated RecurringTransaction upcoming_bills = 1;
+}
+
+// ============================================================================
+// Search operations
+// ============================================================================
+
+message SearchTransactionsRequest {
+  string user_id = 1;
+  string group_id = 2;                          // Optional: search within a group
+  string query = 3;                              // Text search query
+  string category = 4;                           // Optional: filter by category
+  double amount_min = 5;                         // Optional: minimum amount
+  double amount_max = 6;                         // Optional: maximum amount
+  int64 amount_min_cents = 7;                    // Optional: minimum amount in cents
+  int64 amount_max_cents = 8;                    // Optional: maximum amount in cents
+  google.protobuf.Timestamp start_date = 9;      // Optional: date range start
+  google.protobuf.Timestamp end_date = 10;       // Optional: date range end
+  TransactionType type = 11;                     // Optional: EXPENSE, INCOME, or ALL
+  int32 page_size = 12;
+  string page_token = 13;
+}
+
+message SearchTransactionsResponse {
+  repeated SearchResult results = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+// ============================================================================
+// Subscription detection operations
+// ============================================================================
+
+message DetectSubscriptionsRequest {
+  string user_id = 1;
+  string group_id = 2;              // Optional: detect within a group
+  int32 lookback_months = 3;        // How many months to analyze (default 6)
+}
+
+message DetectSubscriptionsResponse {
+  repeated DetectedSubscription subscriptions = 1;
+  double total_monthly_cost = 2;
+  int64 total_monthly_cost_cents = 3;
+  int32 forgotten_count = 4;         // Subscriptions past their expected date
+}
+
+message ConvertToRecurringRequest {
+  string user_id = 1;
+  DetectedSubscription subscription = 2;
+}
+
+message ConvertToRecurringResponse {
+  RecurringTransaction recurring_transaction = 1;
 }

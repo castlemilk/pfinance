@@ -681,6 +681,23 @@ func (mr *MockStoreMockRecorder) ListRecurringTransactions(ctx, userID, groupID,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRecurringTransactions", reflect.TypeOf((*MockStore)(nil).ListRecurringTransactions), ctx, userID, groupID, status, filterIsExpense, isExpense, pageSize, pageToken)
 }
 
+// SearchTransactions mocks base method.
+func (m *MockStore) SearchTransactions(ctx context.Context, userID, groupID, query, category string, amountMin, amountMax float64, startDate, endDate *time.Time, txType pfinancev1.TransactionType, pageSize int32, pageToken string) ([]*pfinancev1.SearchResult, string, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SearchTransactions", ctx, userID, groupID, query, category, amountMin, amountMax, startDate, endDate, txType, pageSize, pageToken)
+	ret0, _ := ret[0].([]*pfinancev1.SearchResult)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(int)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// SearchTransactions indicates an expected call of SearchTransactions.
+func (mr *MockStoreMockRecorder) SearchTransactions(ctx, userID, groupID, query, category, amountMin, amountMax, startDate, endDate, txType, pageSize, pageToken any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SearchTransactions", reflect.TypeOf((*MockStore)(nil).SearchTransactions), ctx, userID, groupID, query, category, amountMin, amountMax, startDate, endDate, txType, pageSize, pageToken)
+}
+
 // UpdateBudget mocks base method.
 func (m *MockStore) UpdateBudget(ctx context.Context, budget *pfinancev1.Budget) error {
 	m.ctrl.T.Helper()
