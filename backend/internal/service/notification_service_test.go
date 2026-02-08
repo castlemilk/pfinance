@@ -362,8 +362,8 @@ func TestNotificationTrigger_GoalMilestone(t *testing.T) {
 			Return(nil)
 
 		goal := &pfinancev1.FinancialGoal{
-			Id:               "goal-1",
-			Name:             "Emergency Fund",
+			Id:                "goal-1",
+			Name:              "Emergency Fund",
 			TargetAmountCents: 1000000, // $10,000
 		}
 		trigger.GoalMilestoneReached(testContext("user-123"), "user-123", goal, 500000)
@@ -381,8 +381,8 @@ func TestNotificationTrigger_GoalMilestone(t *testing.T) {
 			Return(nil)
 
 		goal := &pfinancev1.FinancialGoal{
-			Id:               "goal-1",
-			Name:             "Emergency Fund",
+			Id:                "goal-1",
+			Name:              "Emergency Fund",
 			TargetAmountCents: 1000000,
 		}
 		trigger.GoalMilestoneReached(testContext("user-123"), "user-123", goal, 1000000)
@@ -397,8 +397,8 @@ func TestNotificationTrigger_GoalMilestone(t *testing.T) {
 			}, nil)
 
 		goal := &pfinancev1.FinancialGoal{
-			Id:               "goal-1",
-			Name:             "Emergency Fund",
+			Id:                "goal-1",
+			Name:              "Emergency Fund",
 			TargetAmountCents: 1000000,
 		}
 		trigger.GoalMilestoneReached(testContext("user-123"), "user-123", goal, 100000) // 10%
@@ -424,9 +424,9 @@ func TestNotificationTrigger_BillReminder(t *testing.T) {
 			Return(nil)
 
 		rt := &pfinancev1.RecurringTransaction{
-			Id:              "rt-1",
-			Description:     "Netflix",
-			NextOccurrence:  timestamppb.Now(),
+			Id:             "rt-1",
+			Description:    "Netflix",
+			NextOccurrence: timestamppb.Now(),
 		}
 		trigger.BillReminder(testContext("user-123"), "user-123", rt)
 	})

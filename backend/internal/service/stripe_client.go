@@ -87,10 +87,10 @@ func (c *StripeClient) CreateCheckoutSession(customerID, userID, successURL, can
 
 // SubscriptionInfo holds details about a Stripe subscription.
 type StripeSubscriptionInfo struct {
-	ID                 string
-	Status             stripe.SubscriptionStatus
-	CurrentPeriodEnd   time.Time
-	CancelAtPeriodEnd  bool
+	ID                string
+	Status            stripe.SubscriptionStatus
+	CurrentPeriodEnd  time.Time
+	CancelAtPeriodEnd bool
 }
 
 // GetSubscription retrieves a Stripe subscription by ID.
