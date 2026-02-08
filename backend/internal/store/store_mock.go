@@ -182,6 +182,20 @@ func (mr *MockStoreMockRecorder) CreateInviteLink(ctx, link any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInviteLink", reflect.TypeOf((*MockStore)(nil).CreateInviteLink), ctx, link)
 }
 
+// CreateNotification mocks base method.
+func (m *MockStore) CreateNotification(ctx context.Context, notification *pfinancev1.Notification) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateNotification", ctx, notification)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateNotification indicates an expected call of CreateNotification.
+func (mr *MockStoreMockRecorder) CreateNotification(ctx, notification any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateNotification", reflect.TypeOf((*MockStore)(nil).CreateNotification), ctx, notification)
+}
+
 // CreateRecurringTransaction mocks base method.
 func (m *MockStore) CreateRecurringTransaction(ctx context.Context, rt *pfinancev1.RecurringTransaction) error {
 	m.ctrl.T.Helper()
@@ -460,6 +474,21 @@ func (mr *MockStoreMockRecorder) GetInviteLinkByCode(ctx, code any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInviteLinkByCode", reflect.TypeOf((*MockStore)(nil).GetInviteLinkByCode), ctx, code)
 }
 
+// GetNotificationPreferences mocks base method.
+func (m *MockStore) GetNotificationPreferences(ctx context.Context, userID string) (*pfinancev1.NotificationPreferences, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNotificationPreferences", ctx, userID)
+	ret0, _ := ret[0].(*pfinancev1.NotificationPreferences)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNotificationPreferences indicates an expected call of GetNotificationPreferences.
+func (mr *MockStoreMockRecorder) GetNotificationPreferences(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNotificationPreferences", reflect.TypeOf((*MockStore)(nil).GetNotificationPreferences), ctx, userID)
+}
+
 // GetRecurringTransaction mocks base method.
 func (m *MockStore) GetRecurringTransaction(ctx context.Context, rtID string) (*pfinancev1.RecurringTransaction, error) {
 	m.ctrl.T.Helper()
@@ -488,6 +517,21 @@ func (m *MockStore) GetTaxConfig(ctx context.Context, userID, groupID string) (*
 func (mr *MockStoreMockRecorder) GetTaxConfig(ctx, userID, groupID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaxConfig", reflect.TypeOf((*MockStore)(nil).GetTaxConfig), ctx, userID, groupID)
+}
+
+// GetUnreadNotificationCount mocks base method.
+func (m *MockStore) GetUnreadNotificationCount(ctx context.Context, userID string) (int32, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnreadNotificationCount", ctx, userID)
+	ret0, _ := ret[0].(int32)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnreadNotificationCount indicates an expected call of GetUnreadNotificationCount.
+func (mr *MockStoreMockRecorder) GetUnreadNotificationCount(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnreadNotificationCount", reflect.TypeOf((*MockStore)(nil).GetUnreadNotificationCount), ctx, userID)
 }
 
 // GetUser mocks base method.
@@ -665,6 +709,22 @@ func (mr *MockStoreMockRecorder) ListInviteLinks(ctx, groupID, includeInactive, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInviteLinks", reflect.TypeOf((*MockStore)(nil).ListInviteLinks), ctx, groupID, includeInactive, pageSize, pageToken)
 }
 
+// ListNotifications mocks base method.
+func (m *MockStore) ListNotifications(ctx context.Context, userID string, unreadOnly bool, pageSize int32, pageToken string) ([]*pfinancev1.Notification, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListNotifications", ctx, userID, unreadOnly, pageSize, pageToken)
+	ret0, _ := ret[0].([]*pfinancev1.Notification)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListNotifications indicates an expected call of ListNotifications.
+func (mr *MockStoreMockRecorder) ListNotifications(ctx, userID, unreadOnly, pageSize, pageToken any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListNotifications", reflect.TypeOf((*MockStore)(nil).ListNotifications), ctx, userID, unreadOnly, pageSize, pageToken)
+}
+
 // ListRecurringTransactions mocks base method.
 func (m *MockStore) ListRecurringTransactions(ctx context.Context, userID, groupID string, status pfinancev1.RecurringTransactionStatus, filterIsExpense, isExpense bool, pageSize int32, pageToken string) ([]*pfinancev1.RecurringTransaction, string, error) {
 	m.ctrl.T.Helper()
@@ -679,6 +739,34 @@ func (m *MockStore) ListRecurringTransactions(ctx context.Context, userID, group
 func (mr *MockStoreMockRecorder) ListRecurringTransactions(ctx, userID, groupID, status, filterIsExpense, isExpense, pageSize, pageToken any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRecurringTransactions", reflect.TypeOf((*MockStore)(nil).ListRecurringTransactions), ctx, userID, groupID, status, filterIsExpense, isExpense, pageSize, pageToken)
+}
+
+// MarkAllNotificationsRead mocks base method.
+func (m *MockStore) MarkAllNotificationsRead(ctx context.Context, userID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkAllNotificationsRead", ctx, userID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkAllNotificationsRead indicates an expected call of MarkAllNotificationsRead.
+func (mr *MockStoreMockRecorder) MarkAllNotificationsRead(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkAllNotificationsRead", reflect.TypeOf((*MockStore)(nil).MarkAllNotificationsRead), ctx, userID)
+}
+
+// MarkNotificationRead mocks base method.
+func (m *MockStore) MarkNotificationRead(ctx context.Context, notificationID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkNotificationRead", ctx, notificationID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkNotificationRead indicates an expected call of MarkNotificationRead.
+func (mr *MockStoreMockRecorder) MarkNotificationRead(ctx, notificationID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkNotificationRead", reflect.TypeOf((*MockStore)(nil).MarkNotificationRead), ctx, notificationID)
 }
 
 // SearchTransactions mocks base method.
@@ -794,6 +882,20 @@ func (m *MockStore) UpdateInviteLink(ctx context.Context, link *pfinancev1.Group
 func (mr *MockStoreMockRecorder) UpdateInviteLink(ctx, link any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateInviteLink", reflect.TypeOf((*MockStore)(nil).UpdateInviteLink), ctx, link)
+}
+
+// UpdateNotificationPreferences mocks base method.
+func (m *MockStore) UpdateNotificationPreferences(ctx context.Context, prefs *pfinancev1.NotificationPreferences) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateNotificationPreferences", ctx, prefs)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateNotificationPreferences indicates an expected call of UpdateNotificationPreferences.
+func (mr *MockStoreMockRecorder) UpdateNotificationPreferences(ctx, prefs any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateNotificationPreferences", reflect.TypeOf((*MockStore)(nil).UpdateNotificationPreferences), ctx, prefs)
 }
 
 // UpdateRecurringTransaction mocks base method.

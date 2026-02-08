@@ -115,6 +115,10 @@ dev-backend: check-port-backend
 	export GOOGLE_APPLICATION_CREDENTIALS=$(CURDIR)/pfinance-app-1748773335-firebase-adminsdk-fbsvc-4adcc18be2.json && \
 	export ML_SERVICE_URL=https://ben-ebsworth--pfinance-extraction-7b-web-app.modal.run && \
 	export GEMINI_API_KEY=AIzaSyBCfXD_CVctJuEYHq84efIqlifv-M56KRM && \
+	export STRIPE_SECRET_KEY=$$(grep STRIPE_SECRET_KEY .env 2>/dev/null | cut -d= -f2-) && \
+	export STRIPE_WEBHOOK_SECRET=$$(grep STRIPE_WEBHOOK_SECRET .env 2>/dev/null | cut -d= -f2-) && \
+	export STRIPE_PRODUCT_ID=$$(grep STRIPE_PRODUCT_ID .env 2>/dev/null | cut -d= -f2-) && \
+	export STRIPE_PRICE_ID=$$(grep STRIPE_PRICE_ID .env 2>/dev/null | cut -d= -f2-) && \
 	go run cmd/server/main.go
 
 dev-backend-memory: check-port-backend
@@ -125,6 +129,10 @@ dev-backend-memory: check-port-backend
 	export USE_MEMORY_STORE=true && \
 	export ML_SERVICE_URL=https://ben-ebsworth--pfinance-extraction-7b-web-app.modal.run && \
 	export GEMINI_API_KEY=AIzaSyBCfXD_CVctJuEYHq84efIqlifv-M56KRM && \
+	export STRIPE_SECRET_KEY=$$(grep STRIPE_SECRET_KEY .env 2>/dev/null | cut -d= -f2-) && \
+	export STRIPE_WEBHOOK_SECRET=$$(grep STRIPE_WEBHOOK_SECRET .env 2>/dev/null | cut -d= -f2-) && \
+	export STRIPE_PRODUCT_ID=$$(grep STRIPE_PRODUCT_ID .env 2>/dev/null | cut -d= -f2-) && \
+	export STRIPE_PRICE_ID=$$(grep STRIPE_PRICE_ID .env 2>/dev/null | cut -d= -f2-) && \
 	go run cmd/server/main.go
 
 dev-backend-firebase: check-port-backend
@@ -136,6 +144,10 @@ dev-backend-firebase: check-port-backend
 	export GOOGLE_APPLICATION_CREDENTIALS=$(CURDIR)/pfinance-app-1748773335-firebase-adminsdk-fbsvc-4adcc18be2.json && \
 	export ML_SERVICE_URL=https://ben-ebsworth--pfinance-extraction-7b-web-app.modal.run && \
 	export GEMINI_API_KEY=AIzaSyBCfXD_CVctJuEYHq84efIqlifv-M56KRM && \
+	export STRIPE_SECRET_KEY=$$(grep STRIPE_SECRET_KEY .env 2>/dev/null | cut -d= -f2-) && \
+	export STRIPE_WEBHOOK_SECRET=$$(grep STRIPE_WEBHOOK_SECRET .env 2>/dev/null | cut -d= -f2-) && \
+	export STRIPE_PRODUCT_ID=$$(grep STRIPE_PRODUCT_ID .env 2>/dev/null | cut -d= -f2-) && \
+	export STRIPE_PRICE_ID=$$(grep STRIPE_PRICE_ID .env 2>/dev/null | cut -d= -f2-) && \
 	go run cmd/server/main.go
 
 dev-frontend: check-port-frontend

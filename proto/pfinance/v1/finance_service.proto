@@ -111,6 +111,19 @@ service FinanceService {
   // Subscription detection operations
   rpc DetectSubscriptions(DetectSubscriptionsRequest) returns (DetectSubscriptionsResponse);
   rpc ConvertToRecurring(ConvertToRecurringRequest) returns (ConvertToRecurringResponse);
+
+  // Notification operations
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
+  rpc MarkNotificationRead(MarkNotificationReadRequest) returns (google.protobuf.Empty);
+  rpc MarkAllNotificationsRead(MarkAllNotificationsReadRequest) returns (google.protobuf.Empty);
+  rpc GetUnreadNotificationCount(GetUnreadNotificationCountRequest) returns (GetUnreadNotificationCountResponse);
+  rpc GetNotificationPreferences(GetNotificationPreferencesRequest) returns (GetNotificationPreferencesResponse);
+  rpc UpdateNotificationPreferences(UpdateNotificationPreferencesRequest) returns (UpdateNotificationPreferencesResponse);
+
+  // Stripe subscription operations
+  rpc CreateCheckoutSession(CreateCheckoutSessionRequest) returns (CreateCheckoutSessionResponse);
+  rpc GetSubscriptionStatus(GetSubscriptionStatusRequest) returns (GetSubscriptionStatusResponse);
+  rpc CancelSubscription(CancelSubscriptionRequest) returns (CancelSubscriptionResponse);
 }
 
 // User operations
@@ -930,4 +943,89 @@ message ConvertToRecurringRequest {
 
 message ConvertToRecurringResponse {
   RecurringTransaction recurring_transaction = 1;
+}
+
+// ============================================================================
+// Notification operations
+// ============================================================================
+
+message ListNotificationsRequest {
+  string user_id = 1;
+  bool unread_only = 2;             // If true, only return unread notifications
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+message ListNotificationsResponse {
+  repeated Notification notifications = 1;
+  string next_page_token = 2;
+  int32 total_unread = 3;
+}
+
+message MarkNotificationReadRequest {
+  string notification_id = 1;
+}
+
+message MarkAllNotificationsReadRequest {
+  string user_id = 1;
+}
+
+message GetUnreadNotificationCountRequest {
+  string user_id = 1;
+}
+
+message GetUnreadNotificationCountResponse {
+  int32 count = 1;
+}
+
+message GetNotificationPreferencesRequest {
+  string user_id = 1;
+}
+
+message GetNotificationPreferencesResponse {
+  NotificationPreferences preferences = 1;
+}
+
+message UpdateNotificationPreferencesRequest {
+  string user_id = 1;
+  NotificationPreferences preferences = 2;
+}
+
+message UpdateNotificationPreferencesResponse {
+  NotificationPreferences preferences = 1;
+}
+
+// ============================================================================
+// Stripe subscription operations
+// ============================================================================
+
+message CreateCheckoutSessionRequest {
+  string user_id = 1;
+  string success_url = 2;
+  string cancel_url = 3;
+}
+
+message CreateCheckoutSessionResponse {
+  string checkout_url = 1;
+  string session_id = 2;
+}
+
+message GetSubscriptionStatusRequest {
+  string user_id = 1;
+}
+
+message GetSubscriptionStatusResponse {
+  SubscriptionTier tier = 1;
+  SubscriptionStatus status = 2;
+  google.protobuf.Timestamp current_period_end = 3;
+  bool cancel_at_period_end = 4;
+}
+
+message CancelSubscriptionRequest {
+  string user_id = 1;
+}
+
+message CancelSubscriptionResponse {
+  SubscriptionStatus status = 1;
+  bool cancel_at_period_end = 2;
 }

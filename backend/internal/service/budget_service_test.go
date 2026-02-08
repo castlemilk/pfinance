@@ -19,7 +19,7 @@ func TestCreateBudget(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore)
+	service := NewFinanceService(mockStore, nil)
 
 	userID := "user123"
 	ctx := testContextWithUser(userID)
@@ -68,7 +68,7 @@ func TestGetBudgetProgress(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore)
+	service := NewFinanceService(mockStore, nil)
 
 	userID := "user123"
 	ctx := testContextWithUser(userID)
@@ -130,7 +130,7 @@ func TestListBudgets(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore)
+	service := NewFinanceService(mockStore, nil)
 
 	userID := "user123"
 	ctx := testContextWithUser(userID)
@@ -182,7 +182,7 @@ func TestGetBudget(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore)
+	service := NewFinanceService(mockStore, nil)
 
 	userID := "user-123"
 	ctx := testContextWithUser(userID)
@@ -267,7 +267,7 @@ func TestUpdateBudget(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore)
+	service := NewFinanceService(mockStore, nil)
 
 	userID := "user-123"
 	ctx := testContextWithUser(userID)
@@ -414,7 +414,7 @@ func TestDeleteBudget(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore)
+	service := NewFinanceService(mockStore, nil)
 
 	userID := "user-123"
 	ctx := testContextWithUser(userID)

@@ -109,18 +109,18 @@ func DetectSubscriptions(expenses []*pfinancev1.Expense, existingRecurring []*pf
 		category := mostCommonCategory(expenseGroup)
 
 		sub := &pfinancev1.DetectedSubscription{
-			MerchantName:      expenseGroup[0].Description,
-			NormalizedName:    name,
-			Category:          category.String(),
-			AverageAmount:     math.Round(avgAmount*100) / 100,
+			MerchantName:       expenseGroup[0].Description,
+			NormalizedName:     name,
+			Category:           category.String(),
+			AverageAmount:      math.Round(avgAmount*100) / 100,
 			AverageAmountCents: int64(math.Round(avgAmount * 100)),
-			DetectedFrequency: freq,
-			ConfidenceScore:   math.Round(confidence*100) / 100,
-			OccurrenceCount:   int32(len(expenseGroup)),
-			LastSeen:          lastSeen,
-			ExpectedNext:      expectedNext,
-			IsAlreadyTracked:  existingSet[name],
-			MatchedExpenseIds: expenseIDs,
+			DetectedFrequency:  freq,
+			ConfidenceScore:    math.Round(confidence*100) / 100,
+			OccurrenceCount:    int32(len(expenseGroup)),
+			LastSeen:           lastSeen,
+			ExpectedNext:       expectedNext,
+			IsAlreadyTracked:   existingSet[name],
+			MatchedExpenseIds:  expenseIDs,
 		}
 
 		results = append(results, sub)

@@ -15,6 +15,7 @@ import (
 	"github.com/castlemilk/pfinance/backend/internal/service"
 	"github.com/castlemilk/pfinance/backend/internal/store"
 	"github.com/rs/cors"
+	"github.com/stripe/stripe-go/v82"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
@@ -97,8 +98,20 @@ func main() {
 	service.SetExtractionService(extractionSvc)
 	log.Printf("✅ Document extraction enabled (ML service: %s)", mlServiceURL)
 
+	// Initialize Stripe if configured
+	var stripeClient *service.StripeClient
+	stripeSecretKey := os.Getenv("STRIPE_SECRET_KEY")
+	stripePriceID := os.Getenv("STRIPE_PRICE_ID")
+	if stripeSecretKey != "" && stripePriceID != "" {
+		stripe.Key = stripeSecretKey
+		stripeClient = service.NewStripeClient(stripePriceID)
+		log.Printf("✅ Stripe configured (price: %s)", stripePriceID)
+	} else {
+		log.Println("⚠️  STRIPE_SECRET_KEY or STRIPE_PRICE_ID not set, Stripe billing disabled")
+	}
+
 	// Create the finance service
-	financeService := service.NewFinanceService(storeImpl)
+	financeService := service.NewFinanceService(storeImpl, stripeClient)
 
 	// Create Connect handler with conditional auth interceptor
 	var interceptors []connect.Interceptor
@@ -128,6 +141,16 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
+
+	// Set up Stripe webhook handler if configured
+	stripeSecret := os.Getenv("STRIPE_WEBHOOK_SECRET")
+	if stripeSecret != "" {
+		stripeHandler := service.NewStripeWebhookHandler(storeImpl, stripeSecret)
+		mux.HandleFunc("/webhooks/stripe", stripeHandler.HandleWebhook)
+		log.Println("Stripe webhook handler registered at /webhooks/stripe")
+	} else {
+		log.Println("STRIPE_WEBHOOK_SECRET not set, Stripe webhooks disabled")
+	}
 
 	// Set up CORS
 	// NOTE: Frontend runs on port 1234, not 3000

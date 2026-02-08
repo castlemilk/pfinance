@@ -1,8 +1,8 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { 
-  User, 
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
+import {
+  User,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -33,12 +33,13 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
   const { isAdminMode, impersonatedUser } = useAdmin();
   const [actualUser, setActualUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const listenerFiredRef = useRef(false);
 
   // Determine the effective user (impersonated or actual)
-  const effectiveUser = isAdminMode && impersonatedUser 
-    ? impersonatedUser as unknown as User 
+  const effectiveUser = isAdminMode && impersonatedUser
+    ? impersonatedUser as unknown as User
     : actualUser;
-  
+
   // Debug logging
   console.log('[AuthContext] State:', {
     loading,
@@ -60,6 +61,8 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
     }
 
     let unsubscribe: (() => void) | undefined;
+    let safetyTimeout: ReturnType<typeof setTimeout> | undefined;
+    listenerFiredRef.current = false;
 
     // Set persistence to local (survives browser restarts)
     setPersistence(auth, browserLocalPersistence)
@@ -70,9 +73,23 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
 
         unsubscribe = onAuthStateChanged(auth, (user) => {
           console.log('[AuthContext] onAuthStateChanged:', user?.uid || 'no user');
+          listenerFiredRef.current = true;
+          if (safetyTimeout) {
+            clearTimeout(safetyTimeout);
+            safetyTimeout = undefined;
+          }
           setActualUser(user);
           setLoading(false);
         });
+
+        // Safety timeout: if the auth listener hasn't fired within 5 seconds
+        // after being registered, stop the loading state to prevent perpetual spinner
+        safetyTimeout = setTimeout(() => {
+          if (!listenerFiredRef.current) {
+            console.warn('[AuthContext] Safety timeout: auth listener did not fire within 5s, clearing loading state');
+            setLoading(false);
+          }
+        }, 5000);
       })
       .catch((error) => {
         console.error('[AuthContext] Error setting persistence:', error);
@@ -82,6 +99,9 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
     return () => {
       if (unsubscribe) {
         unsubscribe();
+      }
+      if (safetyTimeout) {
+        clearTimeout(safetyTimeout);
       }
     };
   }, []);
@@ -118,13 +138,13 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
     if (!auth) {
       throw new Error('Firebase auth not initialized');
     }
-    
+
     const provider = new GoogleAuthProvider();
-    
+
     // Add scopes if needed
     provider.addScope('profile');
     provider.addScope('email');
-    
+
     // Use popup for better UX (no redirects)
     try {
       await signInWithPopup(auth, provider);
