@@ -3325,3 +3325,171 @@ func (s *FinanceService) GetUpcomingBills(ctx context.Context, req *connect.Requ
 		UpcomingBills: bills,
 	}), nil
 }
+
+// SearchTransactions searches across expenses and incomes
+func (s *FinanceService) SearchTransactions(ctx context.Context, req *connect.Request[pfinancev1.SearchTransactionsRequest]) (*connect.Response[pfinancev1.SearchTransactionsResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	userID := req.Msg.UserId
+	if userID == "" {
+		userID = claims.UID
+	}
+
+	// Verify group membership if searching within a group
+	if req.Msg.GroupId != "" {
+		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
+		if err != nil {
+			return nil, auth.WrapStoreError("get group", err)
+		}
+		if !auth.IsGroupMember(claims.UID, group) {
+			return nil, connect.NewError(connect.CodePermissionDenied,
+				fmt.Errorf("user is not a member of this group"))
+		}
+	}
+
+	var startDate, endDate *time.Time
+	if req.Msg.StartDate != nil {
+		t := req.Msg.StartDate.AsTime()
+		startDate = &t
+	}
+	if req.Msg.EndDate != nil {
+		t := req.Msg.EndDate.AsTime()
+		endDate = &t
+	}
+
+	results, nextToken, totalCount, err := s.store.SearchTransactions(ctx,
+		userID, req.Msg.GroupId, req.Msg.Query, req.Msg.Category,
+		req.Msg.AmountMin, req.Msg.AmountMax,
+		startDate, endDate, req.Msg.Type,
+		req.Msg.PageSize, req.Msg.PageToken)
+	if err != nil {
+		return nil, auth.WrapStoreError("search transactions", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.SearchTransactionsResponse{
+		Results:       results,
+		NextPageToken: nextToken,
+		TotalCount:    int32(totalCount),
+	}), nil
+}
+
+// DetectSubscriptions detects recurring spending patterns
+func (s *FinanceService) DetectSubscriptions(ctx context.Context, req *connect.Request[pfinancev1.DetectSubscriptionsRequest]) (*connect.Response[pfinancev1.DetectSubscriptionsResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	userID := req.Msg.UserId
+	if userID == "" {
+		userID = claims.UID
+	}
+
+	lookbackMonths := int32(6)
+	if req.Msg.LookbackMonths > 0 {
+		lookbackMonths = req.Msg.LookbackMonths
+	}
+
+	// Fetch expenses for the lookback period
+	startTime := time.Now().AddDate(0, -int(lookbackMonths), 0)
+	expenses, _, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &startTime, nil, 1000, "")
+	if err != nil {
+		return nil, auth.WrapStoreError("list expenses", err)
+	}
+
+	// Fetch existing recurring transactions
+	existingRecurring, _, err := s.store.ListRecurringTransactions(ctx, userID, req.Msg.GroupId,
+		pfinancev1.RecurringTransactionStatus_RECURRING_TRANSACTION_STATUS_UNSPECIFIED,
+		false, false, 1000, "")
+	if err != nil {
+		return nil, auth.WrapStoreError("list recurring transactions", err)
+	}
+
+	// Run detection
+	subscriptions := DetectSubscriptions(expenses, existingRecurring)
+
+	// Calculate totals
+	var totalMonthlyCost float64
+	var totalMonthlyCostCents int64
+	forgottenCount := int32(0)
+	now := time.Now()
+	for _, sub := range subscriptions {
+		if sub.IsAlreadyTracked {
+			continue
+		}
+		monthlyCost := sub.AverageAmount
+		switch sub.DetectedFrequency {
+		case pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_WEEKLY:
+			monthlyCost *= 4.33
+		case pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_FORTNIGHTLY:
+			monthlyCost *= 2.17
+		case pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_QUARTERLY:
+			monthlyCost /= 3
+		case pfinancev1.ExpenseFrequency_EXPENSE_FREQUENCY_ANNUALLY:
+			monthlyCost /= 12
+		}
+		totalMonthlyCost += monthlyCost
+		totalMonthlyCostCents += int64(monthlyCost * 100)
+
+		if sub.ExpectedNext != nil && sub.ExpectedNext.AsTime().Before(now) {
+			forgottenCount++
+		}
+	}
+
+	return connect.NewResponse(&pfinancev1.DetectSubscriptionsResponse{
+		Subscriptions:         subscriptions,
+		TotalMonthlyCost:      totalMonthlyCost,
+		TotalMonthlyCostCents: totalMonthlyCostCents,
+		ForgottenCount:        forgottenCount,
+	}), nil
+}
+
+// ConvertToRecurring converts a detected subscription to a recurring transaction
+func (s *FinanceService) ConvertToRecurring(ctx context.Context, req *connect.Request[pfinancev1.ConvertToRecurringRequest]) (*connect.Response[pfinancev1.ConvertToRecurringResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	sub := req.Msg.Subscription
+	if sub == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("subscription is required"))
+	}
+
+	userID := req.Msg.UserId
+	if userID == "" {
+		userID = claims.UID
+	}
+
+	rt := &pfinancev1.RecurringTransaction{
+		Id:          uuid.New().String(),
+		UserId:      userID,
+		Description: sub.NormalizedName,
+		Amount:      sub.AverageAmount,
+		AmountCents: sub.AverageAmountCents,
+		Frequency:   sub.DetectedFrequency,
+		StartDate:   sub.LastSeen,
+		Status:      pfinancev1.RecurringTransactionStatus_RECURRING_TRANSACTION_STATUS_ACTIVE,
+		IsExpense:   true,
+		CreatedAt:   timestamppb.Now(),
+		UpdatedAt:   timestamppb.Now(),
+	}
+
+	// Set next occurrence from expected_next
+	if sub.ExpectedNext != nil {
+		rt.NextOccurrence = sub.ExpectedNext
+	} else if sub.LastSeen != nil {
+		rt.NextOccurrence = sub.LastSeen
+	}
+
+	if err := s.store.CreateRecurringTransaction(ctx, rt); err != nil {
+		return nil, auth.WrapStoreError("create recurring transaction", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.ConvertToRecurringResponse{
+		RecurringTransaction: rt,
+	}), nil
+}

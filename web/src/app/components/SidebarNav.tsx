@@ -21,7 +21,10 @@ import {
   UserCog,
   BookOpen,
   ExternalLink,
-  Repeat
+  Repeat,
+  Target,
+  Lightbulb,
+  Search
 } from 'lucide-react';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -57,6 +60,16 @@ const personalNavItems: NavItem[] = [
     title: 'Recurring',
     href: '/personal/recurring',
     icon: <Repeat className="w-4 h-4" />
+  },
+  {
+    title: 'Goals',
+    href: '/personal/goals',
+    icon: <Target className="w-4 h-4" />
+  },
+  {
+    title: 'Insights',
+    href: '/personal/insights',
+    icon: <Lightbulb className="w-4 h-4" />
   },
   {
     title: 'Reports',
@@ -140,6 +153,24 @@ export default function SidebarNav() {
             </Button>
           )}
         </div>
+      </div>
+
+      {/* Search Button */}
+      <div className="px-4 pt-2">
+        <Button
+          variant="outline"
+          className="w-full justify-start text-muted-foreground"
+          size="sm"
+          onClick={() => {
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
+          }}
+        >
+          <Search className="w-4 h-4 mr-2" />
+          <span>Search...</span>
+          <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+            <span className="text-xs">&#8984;</span>K
+          </kbd>
+        </Button>
       </div>
 
       {/* Main Navigation Tabs */}

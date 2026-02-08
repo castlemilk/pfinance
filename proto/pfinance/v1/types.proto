@@ -480,6 +480,49 @@ message SpendingInsight {
 }
 
 // ============================================================================
+// Search
+// ============================================================================
+
+// TransactionType for search filtering
+enum TransactionType {
+  TRANSACTION_TYPE_UNSPECIFIED = 0;
+  TRANSACTION_TYPE_EXPENSE = 1;
+  TRANSACTION_TYPE_INCOME = 2;
+}
+
+// SearchResult represents a single search result (expense or income)
+message SearchResult {
+  string id = 1;
+  TransactionType type = 2;
+  string description = 3;
+  string category = 4;
+  double amount = 5;
+  int64 amount_cents = 6;
+  google.protobuf.Timestamp date = 7;
+  string group_id = 8;
+}
+
+// ============================================================================
+// Subscription Detection
+// ============================================================================
+
+// DetectedSubscription represents a subscription pattern found in expense history
+message DetectedSubscription {
+  string merchant_name = 1;
+  string normalized_name = 2;
+  string category = 3;
+  double average_amount = 4;
+  int64 average_amount_cents = 5;
+  ExpenseFrequency detected_frequency = 6;
+  double confidence_score = 7;
+  int32 occurrence_count = 8;
+  google.protobuf.Timestamp last_seen = 9;
+  google.protobuf.Timestamp expected_next = 10;
+  bool is_already_tracked = 11;      // Matches an existing recurring transaction
+  repeated string matched_expense_ids = 12;
+}
+
+// ============================================================================
 // Document Extraction
 // ============================================================================
 

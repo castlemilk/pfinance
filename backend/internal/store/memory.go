@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -920,6 +921,133 @@ func (m *MemoryStore) ListGoalContributions(ctx context.Context, goalID string, 
 		result = append(result, m.goalContributions[id])
 	}
 	return result, nextToken, nil
+}
+
+// Search operations
+
+func (m *MemoryStore) SearchTransactions(ctx context.Context, userID, groupID, query, category string, amountMin, amountMax float64, startDate, endDate *time.Time, txType pfinancev1.TransactionType, pageSize int32, pageToken string) ([]*pfinancev1.SearchResult, string, int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	queryLower := strings.ToLower(query)
+	var results []*pfinancev1.SearchResult
+
+	// Search expenses
+	if txType == pfinancev1.TransactionType_TRANSACTION_TYPE_UNSPECIFIED || txType == pfinancev1.TransactionType_TRANSACTION_TYPE_EXPENSE {
+		for _, expense := range m.expenses {
+			if userID != "" && expense.UserId != userID {
+				continue
+			}
+			if groupID != "" && expense.GroupId != groupID {
+				continue
+			}
+			if query != "" && !strings.Contains(strings.ToLower(expense.Description), queryLower) {
+				continue
+			}
+			if category != "" && expense.Category.String() != category {
+				continue
+			}
+			if amountMin > 0 && expense.Amount < amountMin {
+				continue
+			}
+			if amountMax > 0 && expense.Amount > amountMax {
+				continue
+			}
+			if startDate != nil && expense.Date != nil && expense.Date.AsTime().Before(*startDate) {
+				continue
+			}
+			if endDate != nil && expense.Date != nil && expense.Date.AsTime().After(*endDate) {
+				continue
+			}
+			results = append(results, &pfinancev1.SearchResult{
+				Id:          expense.Id,
+				Type:        pfinancev1.TransactionType_TRANSACTION_TYPE_EXPENSE,
+				Description: expense.Description,
+				Category:    expense.Category.String(),
+				Amount:      expense.Amount,
+				AmountCents: expense.AmountCents,
+				Date:        expense.Date,
+				GroupId:     expense.GroupId,
+			})
+		}
+	}
+
+	// Search incomes
+	if txType == pfinancev1.TransactionType_TRANSACTION_TYPE_UNSPECIFIED || txType == pfinancev1.TransactionType_TRANSACTION_TYPE_INCOME {
+		for _, income := range m.incomes {
+			if userID != "" && income.UserId != userID {
+				continue
+			}
+			if groupID != "" && income.GroupId != groupID {
+				continue
+			}
+			if query != "" && !strings.Contains(strings.ToLower(income.Source), queryLower) {
+				continue
+			}
+			if amountMin > 0 && income.Amount < amountMin {
+				continue
+			}
+			if amountMax > 0 && income.Amount > amountMax {
+				continue
+			}
+			if startDate != nil && income.Date != nil && income.Date.AsTime().Before(*startDate) {
+				continue
+			}
+			if endDate != nil && income.Date != nil && income.Date.AsTime().After(*endDate) {
+				continue
+			}
+			results = append(results, &pfinancev1.SearchResult{
+				Id:          income.Id,
+				Type:        pfinancev1.TransactionType_TRANSACTION_TYPE_INCOME,
+				Description: income.Source,
+				Amount:      income.Amount,
+				AmountCents: income.AmountCents,
+				Date:        income.Date,
+				GroupId:     income.GroupId,
+			})
+		}
+	}
+
+	totalCount := len(results)
+
+	// Sort by date descending
+	sort.Slice(results, func(i, j int) bool {
+		if results[i].Date == nil || results[j].Date == nil {
+			return results[i].Date != nil
+		}
+		return results[i].Date.AsTime().After(results[j].Date.AsTime())
+	})
+
+	// Paginate
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+
+	startIdx := 0
+	if pageToken != "" {
+		cursorID, err := DecodePageToken(pageToken)
+		if err == nil {
+			for i, r := range results {
+				if r.Id == cursorID {
+					startIdx = i + 1
+					break
+				}
+			}
+		}
+	}
+
+	if startIdx >= len(results) {
+		return nil, "", totalCount, nil
+	}
+
+	results = results[startIdx:]
+	var nextToken string
+	if int32(len(results)) > pageSize {
+		nextToken = EncodePageToken(results[pageSize-1].Id)
+		results = results[:pageSize]
+	}
+
+	return results, nextToken, totalCount, nil
 }
 
 // Recurring transaction operations
