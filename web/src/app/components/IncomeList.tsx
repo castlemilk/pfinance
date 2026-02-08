@@ -39,6 +39,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useForm } from 'react-hook-form';
 import { Income, IncomeFrequency, TaxStatus } from '../types';
+import { useRouter } from 'next/navigation';
 import { Pencil, Trash2, ChevronRight } from 'lucide-react';
 import { getSourceColor, getFrequencyColor } from '../constants/theme';
 import { cn } from '@/lib/utils';
@@ -53,6 +54,7 @@ type EditIncomeFormData = {
 
 export default function IncomeList() {
   const { incomes, deleteIncome, updateIncome } = useFinance();
+  const router = useRouter();
   const [expandedIncomeId, setExpandedIncomeId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -168,8 +170,11 @@ export default function IncomeList() {
                 <TableBody>
                   {incomes.map((income) => (
                     <React.Fragment key={income.id}>
-                      <TableRow>
-                        <TableCell className="w-[30px] pr-0">
+                      <TableRow
+                        className="cursor-pointer"
+                        onClick={() => router.push(`/personal/income/${income.id}`)}
+                      >
+                        <TableCell className="w-[30px] pr-0" onClick={(e) => e.stopPropagation()}>
                           {income.deductions && income.deductions.length > 0 ? (
                             <Button 
                               variant="ghost" 
@@ -234,7 +239,7 @@ export default function IncomeList() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right font-medium">{formatCurrency(income.amount)}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-end gap-2">
                             <Button
                               variant="outline"

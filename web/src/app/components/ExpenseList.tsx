@@ -38,6 +38,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useForm } from 'react-hook-form';
 import { Expense, ExpenseCategory, ExpenseFrequency } from '../types';
+import { useRouter } from 'next/navigation';
 import { Pencil, Trash2, Share2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getCategoryColor, getFrequencyColor } from '../constants/theme';
@@ -58,6 +59,7 @@ interface ExpenseListProps {
 export default function ExpenseList({ limit }: ExpenseListProps = {}) {
   const { expenses, deleteExpense, deleteExpenses, updateExpense } = useFinance();
   const { groups } = useMultiUserFinance();
+  const router = useRouter();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
@@ -309,8 +311,12 @@ export default function ExpenseList({ limit }: ExpenseListProps = {}) {
               </TableHeader>
               <TableBody>
                 {(limit ? expenses.slice(0, limit) : expenses).map((expense, index) => (
-                  <TableRow key={expense.id}>
-                    <TableCell>
+                  <TableRow
+                    key={expense.id}
+                    className="cursor-pointer"
+                    onClick={() => router.push(`/personal/expenses/${expense.id}`)}
+                  >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={selectedExpenseIds.has(expense.id)}
@@ -341,7 +347,7 @@ export default function ExpenseList({ limit }: ExpenseListProps = {}) {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right font-medium">{formatCurrency(expense.amount)}</TableCell>
-                    <TableCell className="w-[140px] text-right">
+                    <TableCell className="w-[140px] text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
                         {canShare && (
                           <Button
