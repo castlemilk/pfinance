@@ -18,9 +18,9 @@ import (
 
 // StripeWebhookHandler handles Stripe webhook events
 type StripeWebhookHandler struct {
-	store        store.Store
+	store         store.Store
 	webhookSecret string
-	firebaseAuth *auth.FirebaseAuth
+	firebaseAuth  *auth.FirebaseAuth
 }
 
 // NewStripeWebhookHandler creates a new Stripe webhook handler

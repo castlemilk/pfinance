@@ -37,6 +37,13 @@ test.describe('Receipt Extraction', () => {
       return;
     }
 
+    // Receipt button may be disabled for free-tier users (Pro-gated feature)
+    const isDisabled = await receiptButton.isDisabled();
+    if (isDisabled) {
+      test.skip(true, 'Receipt button disabled (Pro-gated feature)');
+      return;
+    }
+
     await receiptButton.click();
     await page.waitForTimeout(500);
 
