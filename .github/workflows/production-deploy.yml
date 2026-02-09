@@ -70,6 +70,8 @@ jobs:
   deploy-backend:
     needs: build-backend
     runs-on: ubuntu-latest
+    environment:
+      name: Production
     permissions:
       contents: read
       id-token: write
@@ -114,7 +116,7 @@ jobs:
     needs: deploy-backend
     runs-on: ubuntu-latest
     environment:
-      name: production
+      name: Production
       url: https://pfinance.dev
     steps:
       - uses: actions/checkout@v4
