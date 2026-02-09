@@ -15,7 +15,7 @@ func TestListNotifications(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	svc := NewFinanceService(mockStore, nil)
+	svc := NewFinanceService(mockStore, nil, nil)
 
 	tests := []struct {
 		name          string
@@ -109,7 +109,7 @@ func TestMarkNotificationRead(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	svc := NewFinanceService(mockStore, nil)
+	svc := NewFinanceService(mockStore, nil, nil)
 
 	tests := []struct {
 		name          string
@@ -164,7 +164,7 @@ func TestMarkAllNotificationsRead(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	svc := NewFinanceService(mockStore, nil)
+	svc := NewFinanceService(mockStore, nil, nil)
 
 	t.Run("mark all read for own user", func(t *testing.T) {
 		mockStore.EXPECT().
@@ -196,7 +196,7 @@ func TestGetUnreadNotificationCount(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	svc := NewFinanceService(mockStore, nil)
+	svc := NewFinanceService(mockStore, nil, nil)
 
 	t.Run("get unread count", func(t *testing.T) {
 		mockStore.EXPECT().
@@ -221,7 +221,7 @@ func TestGetNotificationPreferences(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	svc := NewFinanceService(mockStore, nil)
+	svc := NewFinanceService(mockStore, nil, nil)
 
 	t.Run("get default preferences", func(t *testing.T) {
 		mockStore.EXPECT().
@@ -254,7 +254,7 @@ func TestUpdateNotificationPreferences(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	svc := NewFinanceService(mockStore, nil)
+	svc := NewFinanceService(mockStore, nil, nil)
 
 	t.Run("update preferences", func(t *testing.T) {
 		mockStore.EXPECT().

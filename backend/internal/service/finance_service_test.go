@@ -29,7 +29,7 @@ func TestCreateExpense(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	tests := []struct {
 		name          string
@@ -141,7 +141,7 @@ func TestGetExpense(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	userID := "user-123"
 	ctx := testContextWithUser(userID)
@@ -260,7 +260,7 @@ func TestCreateExpenseWithAllocation(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	tests := []struct {
 		name               string
@@ -355,7 +355,7 @@ func TestListExpenses(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	mockExpenses := []*pfinancev1.Expense{
 		{
@@ -463,7 +463,7 @@ func TestCreateGroup(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	tests := []struct {
 		name          string
@@ -549,7 +549,7 @@ func TestInviteToGroup(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	tests := []struct {
 		name          string
@@ -646,7 +646,7 @@ func TestAcceptInvitation(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	mockInvitation := &pfinancev1.GroupInvitation{
 		Id:           "inv-123",
@@ -748,7 +748,7 @@ func TestCreateIncome(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	tests := []struct {
 		name          string
@@ -835,7 +835,7 @@ func TestGetIncome(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	userID := "user-123"
 	ctx := testContextWithUser(userID)
@@ -953,7 +953,7 @@ func TestGetTaxConfig(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	mockTaxConfig := &pfinancev1.TaxConfig{
 		Enabled:           true,
@@ -1030,7 +1030,7 @@ func TestUpdateExpense(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	existingExpense := &pfinancev1.Expense{
 		Id:           "expense-123",
@@ -1141,7 +1141,7 @@ func TestDeleteExpense(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	// Mock expense for authorization check
 	mockExpense := &pfinancev1.Expense{
@@ -1225,7 +1225,7 @@ func TestBatchCreateExpenses(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	tests := []struct {
 		name          string
@@ -1414,7 +1414,7 @@ func TestUpdateIncome(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	// Helper function to create fresh mock income for each test
 	createMockIncome := func() *pfinancev1.Income {
@@ -1549,7 +1549,7 @@ func TestDeleteIncome(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	mockIncome := &pfinancev1.Income{
 		Id:     "income-123",
@@ -1632,7 +1632,7 @@ func TestListIncomes(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	mockIncomes := []*pfinancev1.Income{
 		{
@@ -1785,7 +1785,7 @@ func TestListGroups(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	mockGroups := []*pfinancev1.FinanceGroup{
 		{
@@ -1896,7 +1896,7 @@ func TestGetGroup(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	mockGroup := &pfinancev1.FinanceGroup{
 		Id:          "group-123",
@@ -1993,7 +1993,7 @@ func TestUpdateGroup(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	// Helper to create fresh mock group for each test
 	createMockGroup := func() *pfinancev1.FinanceGroup {
@@ -2130,7 +2130,7 @@ func TestDeleteGroup(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	tests := []struct {
 		name          string
@@ -2216,7 +2216,7 @@ func TestGetUser(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	tests := []struct {
 		name          string
@@ -2277,7 +2277,7 @@ func TestUpdateUser(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	tests := []struct {
 		name          string
@@ -2343,7 +2343,7 @@ func TestListInvitations(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	mockInvitations := []*pfinancev1.GroupInvitation{
 		{
@@ -2473,7 +2473,7 @@ func TestDeclineInvitation(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	mockInvitation := &pfinancev1.GroupInvitation{
 		Id:           "inv-123",
@@ -2570,7 +2570,7 @@ func TestRemoveFromGroup(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	existingGroup := &pfinancev1.FinanceGroup{
 		Id:        "group-123",
@@ -2678,7 +2678,7 @@ func TestUpdateMemberRole(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	existingGroup := &pfinancev1.FinanceGroup{
 		Id:        "group-123",
@@ -2805,7 +2805,7 @@ func TestGetMemberBalances(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	mockExpenses := []*pfinancev1.Expense{
 		{
@@ -2961,7 +2961,7 @@ func TestSettleExpense(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	tests := []struct {
 		name          string
@@ -3151,7 +3151,7 @@ func TestGetGroupSummary(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	mockExpenses := []*pfinancev1.Expense{
 		{
@@ -3377,7 +3377,7 @@ func TestCreateInviteLink(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	tests := []struct {
 		name          string
@@ -3524,7 +3524,7 @@ func TestGetInviteLinkByCode(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	mockGroup := &pfinancev1.FinanceGroup{
 		Id:      "group-123",
@@ -3671,7 +3671,7 @@ func TestJoinGroupByLink(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	tests := []struct {
 		name          string
@@ -3816,7 +3816,7 @@ func TestListInviteLinks(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	mockLinks := []*pfinancev1.GroupInviteLink{
 		{
@@ -3948,7 +3948,7 @@ func TestDeactivateInviteLink(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	tests := []struct {
 		name          string
@@ -4069,7 +4069,7 @@ func TestContributeExpenseToGroup(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	tests := []struct {
 		name          string
@@ -4243,7 +4243,7 @@ func TestListContributions(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	mockContributions := []*pfinancev1.ExpenseContribution{
 		{
@@ -4390,7 +4390,7 @@ func TestUpdateTaxConfig(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := NewFinanceService(mockStore, nil)
+	service := NewFinanceService(mockStore, nil, nil)
 
 	tests := []struct {
 		name          string

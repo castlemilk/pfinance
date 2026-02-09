@@ -111,7 +111,7 @@ func main() {
 	}
 
 	// Create the finance service
-	financeService := service.NewFinanceService(storeImpl, stripeClient)
+	financeService := service.NewFinanceService(storeImpl, stripeClient, firebaseAuth)
 
 	// Create Connect handler with conditional auth interceptor
 	var interceptors []connect.Interceptor

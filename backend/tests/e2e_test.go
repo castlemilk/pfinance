@@ -24,7 +24,7 @@ func TestE2EFinanceService(t *testing.T) {
 	mockStore := store.NewMockStore(ctrl)
 
 	// Create service
-	financeService := service.NewFinanceService(mockStore, nil)
+	financeService := service.NewFinanceService(mockStore, nil, nil)
 
 	// Create Connect handler with auth interceptor
 	interceptors := connect.WithInterceptors(auth.LocalDevInterceptor())
@@ -130,7 +130,7 @@ func TestConnectIntegration(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	service := service.NewFinanceService(mockStore, nil)
+	service := service.NewFinanceService(mockStore, nil, nil)
 
 	// Verify that our service implements the Connect interface
 	var _ pfinancev1connect.FinanceServiceHandler = service

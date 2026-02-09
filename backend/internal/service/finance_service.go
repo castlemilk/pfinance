@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"sort"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -19,14 +21,16 @@ import (
 
 type FinanceService struct {
 	pfinancev1connect.UnimplementedFinanceServiceHandler
-	store  store.Store
-	stripe *StripeClient // nil if Stripe is not configured
+	store        store.Store
+	stripe       *StripeClient      // nil if Stripe is not configured
+	firebaseAuth *auth.FirebaseAuth // nil if Firebase Auth is not configured
 }
 
-func NewFinanceService(store store.Store, stripe *StripeClient) *FinanceService {
+func NewFinanceService(store store.Store, stripe *StripeClient, firebaseAuth *auth.FirebaseAuth) *FinanceService {
 	return &FinanceService{
-		store:  store,
-		stripe: stripe,
+		store:        store,
+		stripe:       stripe,
+		firebaseAuth: firebaseAuth,
 	}
 }
 
@@ -3692,8 +3696,16 @@ func (s *FinanceService) CreateCheckoutSession(ctx context.Context, req *connect
 		_ = s.store.UpdateUser(ctx, user)
 	}
 
+	// Append Stripe session ID template to success URL for verification
+	successURL := req.Msg.SuccessUrl
+	if strings.Contains(successURL, "?") {
+		successURL += "&session_id={CHECKOUT_SESSION_ID}"
+	} else {
+		successURL += "?session_id={CHECKOUT_SESSION_ID}"
+	}
+
 	// Create the checkout session
-	result, err := s.stripe.CreateCheckoutSession(customerID, claims.UID, req.Msg.SuccessUrl, req.Msg.CancelUrl)
+	result, err := s.stripe.CreateCheckoutSession(customerID, claims.UID, successURL, req.Msg.CancelUrl)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal,
 			fmt.Errorf("failed to create checkout session: %v", err))
@@ -3783,4 +3795,103 @@ func mapStripeStatusEnum(status stripe.SubscriptionStatus) pfinancev1.Subscripti
 	default:
 		return pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNSPECIFIED
 	}
+}
+
+// VerifyCheckoutSession verifies a Stripe checkout session and activates the subscription.
+// This is called by the frontend after the user returns from Stripe Checkout,
+// providing immediate subscription activation without relying on webhooks.
+func (s *FinanceService) VerifyCheckoutSession(ctx context.Context, req *connect.Request[pfinancev1.VerifyCheckoutSessionRequest]) (*connect.Response[pfinancev1.VerifyCheckoutSessionResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.stripe == nil {
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("stripe is not configured"))
+	}
+
+	if req.Msg.SessionId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("session_id is required"))
+	}
+
+	// Retrieve the checkout session from Stripe
+	sess, err := s.stripe.GetCheckoutSession(req.Msg.SessionId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to verify checkout session: %v", err))
+	}
+
+	// Verify the session belongs to this user
+	userID := ""
+	if sess.Metadata != nil {
+		userID = sess.Metadata["pfinance_user_id"]
+	}
+	if userID != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("session does not belong to this user"))
+	}
+
+	// Check if payment was successful
+	if sess.PaymentStatus != "paid" && sess.Status != "complete" {
+		// Session not yet paid — return current status
+		user, _ := s.store.GetUser(ctx, claims.UID)
+		if user != nil {
+			return connect.NewResponse(&pfinancev1.VerifyCheckoutSessionResponse{
+				Tier:   user.SubscriptionTier,
+				Status: user.SubscriptionStatus,
+			}), nil
+		}
+		return connect.NewResponse(&pfinancev1.VerifyCheckoutSessionResponse{
+			Tier:   pfinancev1.SubscriptionTier_SUBSCRIPTION_TIER_FREE,
+			Status: pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNSPECIFIED,
+		}), nil
+	}
+
+	// Check if already activated (webhook may have already processed this)
+	user, err := s.store.GetUser(ctx, claims.UID)
+	if err == nil && user.SubscriptionTier == pfinancev1.SubscriptionTier_SUBSCRIPTION_TIER_PRO {
+		return connect.NewResponse(&pfinancev1.VerifyCheckoutSessionResponse{
+			Tier:          user.SubscriptionTier,
+			Status:        user.SubscriptionStatus,
+			AlreadyActive: true,
+		}), nil
+	}
+
+	// Activate the subscription (same logic as webhook handler)
+	if user == nil {
+		user = &pfinancev1.User{
+			Id:        claims.UID,
+			Email:     claims.Email,
+			CreatedAt: timestamppb.Now(),
+		}
+	}
+
+	customerID := ""
+	if sess.Customer != nil {
+		customerID = sess.Customer.ID
+	}
+	subscriptionID := ""
+	if sess.Subscription != nil {
+		subscriptionID = sess.Subscription.ID
+	}
+
+	user.StripeCustomerId = customerID
+	user.StripeSubscriptionId = subscriptionID
+	user.SubscriptionTier = pfinancev1.SubscriptionTier_SUBSCRIPTION_TIER_PRO
+	user.SubscriptionStatus = pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE
+	user.UpdatedAt = timestamppb.Now()
+
+	if err := s.store.UpdateUser(ctx, user); err != nil {
+		log.Printf("[VerifyCheckout] Failed to update user %s: %v", claims.UID, err)
+	}
+
+	// Set Firebase custom claims
+	if s.firebaseAuth != nil {
+		if err := s.firebaseAuth.SetSubscriptionClaims(ctx, claims.UID, user.SubscriptionTier, user.SubscriptionStatus); err != nil {
+			log.Printf("[VerifyCheckout] Warning: failed to set custom claims for user %s: %v", claims.UID, err)
+		}
+	}
+
+	return connect.NewResponse(&pfinancev1.VerifyCheckoutSessionResponse{
+		Tier:   user.SubscriptionTier,
+		Status: user.SubscriptionStatus,
+	}), nil
 }

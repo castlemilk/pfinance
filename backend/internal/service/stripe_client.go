@@ -114,6 +114,17 @@ func (c *StripeClient) CancelSubscriptionAtPeriodEnd(subscriptionID string) (*St
 	return subscriptionToInfo(sub), nil
 }
 
+// GetCheckoutSession retrieves a Stripe checkout session by ID.
+func (c *StripeClient) GetCheckoutSession(sessionID string) (*stripe.CheckoutSession, error) {
+	params := &stripe.CheckoutSessionParams{}
+	params.AddExpand("subscription")
+	sess, err := session.Get(sessionID, params)
+	if err != nil {
+		return nil, fmt.Errorf("get checkout session: %w", err)
+	}
+	return sess, nil
+}
+
 // subscriptionToInfo converts a Stripe subscription to our info struct.
 // In stripe-go v82, CurrentPeriodEnd lives on the subscription items.
 func subscriptionToInfo(sub *stripe.Subscription) *StripeSubscriptionInfo {

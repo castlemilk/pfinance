@@ -124,6 +124,7 @@ service FinanceService {
   rpc CreateCheckoutSession(CreateCheckoutSessionRequest) returns (CreateCheckoutSessionResponse);
   rpc GetSubscriptionStatus(GetSubscriptionStatusRequest) returns (GetSubscriptionStatusResponse);
   rpc CancelSubscription(CancelSubscriptionRequest) returns (CancelSubscriptionResponse);
+  rpc VerifyCheckoutSession(VerifyCheckoutSessionRequest) returns (VerifyCheckoutSessionResponse);
 }
 
 // User operations
@@ -1028,4 +1029,16 @@ message CancelSubscriptionRequest {
 message CancelSubscriptionResponse {
   SubscriptionStatus status = 1;
   bool cancel_at_period_end = 2;
+}
+
+message VerifyCheckoutSessionRequest {
+  string session_id = 1;
+}
+
+message VerifyCheckoutSessionResponse {
+  SubscriptionTier tier = 1;
+  SubscriptionStatus status = 2;
+  google.protobuf.Timestamp current_period_end = 3;
+  bool cancel_at_period_end = 4;
+  bool already_active = 5;
 }
