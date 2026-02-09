@@ -59,9 +59,10 @@ func (f *FirebaseAuth) VerifyToken(ctx context.Context, idToken string) (*UserCl
 	}
 
 	// Extract user information
+	verified, _ := token.Claims["email_verified"].(bool)
 	claims := &UserClaims{
 		UID:      token.UID,
-		Verified: token.Claims["email_verified"].(bool),
+		Verified: verified,
 	}
 
 	// Get email if available

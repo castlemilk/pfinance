@@ -45,7 +45,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
 
       - uses: bufbuild/buf-setup-action@v1
         with:
@@ -54,16 +54,13 @@ jobs:
       - name: Build & Push
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-          go install github.com/bufbuild/connect-go/cmd/protoc-gen-connect-go@latest
+          go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
           export PATH=$PATH:$(go env GOPATH)/bin
           cd proto && buf generate --template buf.gen.go.yaml
           cd ../backend
           docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} .
           docker push ${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-  # ===========================================
-  # 2. Deploy Infrastructure (Terraform)
-  # ===========================================
   # ===========================================
   # 2. Deploy Backend (Cloud Run)
   # ===========================================
@@ -106,9 +103,6 @@ jobs:
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "Backend deployed to: $URL"
 
-  # ===========================================
-  # 3. Deploy Frontend (Vercel)
-  # ===========================================
   # ===========================================
   # 3. Deploy Frontend (Vercel)
   # ===========================================
