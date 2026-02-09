@@ -55,12 +55,12 @@ export default function Navbar() {
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-3">
             <ThemeToggle />
-            <Link href="/personal/income/">
+            <Link href="/personal/">
               <Button variant="ghost" size="sm">
-                Sign In
+                Dashboard
               </Button>
             </Link>
-            <Link href="/personal/income/">
+            <Link href="/personal/">
               <Button variant="terminal" size="sm" className="group">
                 Get Started
                 <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -137,12 +137,12 @@ export default function Navbar() {
                   transition={{ delay: navLinks.length * 0.1 }}
                   className="pt-4 px-4 space-y-2"
                 >
-                  <Link href="/personal/income/" className="block">
+                  <Link href="/personal/" className="block">
                     <Button variant="outline" className="w-full">
-                      Sign In
+                      Dashboard
                     </Button>
                   </Link>
-                  <Link href="/personal/income/" className="block">
+                  <Link href="/personal/" className="block">
                     <Button variant="terminal" className="w-full">
                       Get Started Free
                     </Button>

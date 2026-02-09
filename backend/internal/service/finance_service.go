@@ -3718,6 +3718,8 @@ func (s *FinanceService) CreateCheckoutSession(ctx context.Context, req *connect
 }
 
 // GetSubscriptionStatus returns the user's current subscription tier and status.
+// When the user has a stripe_subscription_id and Stripe is configured, it verifies
+// the subscription status directly with Stripe and syncs any changes back to the store.
 func (s *FinanceService) GetSubscriptionStatus(ctx context.Context, req *connect.Request[pfinancev1.GetSubscriptionStatusRequest]) (*connect.Response[pfinancev1.GetSubscriptionStatusResponse], error) {
 	claims, err := auth.RequireAuth(ctx)
 	if err != nil {
@@ -3731,6 +3733,47 @@ func (s *FinanceService) GetSubscriptionStatus(ctx context.Context, req *connect
 			Tier:   pfinancev1.SubscriptionTier_SUBSCRIPTION_TIER_FREE,
 			Status: pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNSPECIFIED,
 		}), nil
+	}
+
+	// If Stripe is configured and user has a subscription, verify live status
+	if s.stripe != nil && user.StripeSubscriptionId != "" {
+		info, err := s.stripe.GetSubscription(user.StripeSubscriptionId)
+		if err != nil {
+			log.Printf("GetSubscriptionStatus: failed to verify with Stripe for user %s: %v", claims.UID, err)
+			// Fall through to cached store data
+		} else {
+			liveStatus := mapStripeStatusEnum(info.Status)
+			liveTier := user.SubscriptionTier
+			// If Stripe says canceled/unpaid, downgrade to FREE
+			if info.Status == stripe.SubscriptionStatusCanceled || info.Status == stripe.SubscriptionStatusUnpaid {
+				liveTier = pfinancev1.SubscriptionTier_SUBSCRIPTION_TIER_FREE
+			}
+
+			// Sync back to store if status drifted
+			if liveStatus != user.SubscriptionStatus || liveTier != user.SubscriptionTier {
+				user.SubscriptionStatus = liveStatus
+				user.SubscriptionTier = liveTier
+				if updateErr := s.store.UpdateUser(ctx, user); updateErr != nil {
+					log.Printf("GetSubscriptionStatus: failed to sync status to store for user %s: %v", claims.UID, updateErr)
+				}
+				// Also update Firebase claims so frontend stays in sync
+				if s.firebaseAuth != nil {
+					if claimErr := s.firebaseAuth.SetSubscriptionClaims(ctx, claims.UID, liveTier, liveStatus); claimErr != nil {
+						log.Printf("GetSubscriptionStatus: failed to sync Firebase claims for user %s: %v", claims.UID, claimErr)
+					}
+				}
+			}
+
+			resp := &pfinancev1.GetSubscriptionStatusResponse{
+				Tier:              liveTier,
+				Status:            liveStatus,
+				CancelAtPeriodEnd: info.CancelAtPeriodEnd,
+			}
+			if !info.CurrentPeriodEnd.IsZero() {
+				resp.CurrentPeriodEnd = timestamppb.New(info.CurrentPeriodEnd)
+			}
+			return connect.NewResponse(resp), nil
+		}
 	}
 
 	resp := &pfinancev1.GetSubscriptionStatusResponse{
