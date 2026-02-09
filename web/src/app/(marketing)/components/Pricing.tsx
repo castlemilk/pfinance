@@ -158,7 +158,7 @@ export default function Pricing() {
               </div>
 
               {/* CTA */}
-              <Link href="/personal/income/" className="block mb-8">
+              <Link href={plan.popular ? '/personal/billing/' : '/personal/'} className="block mb-8">
                 <Button
                   variant={plan.popular ? 'terminal' : 'outline'}
                   className="w-full"
