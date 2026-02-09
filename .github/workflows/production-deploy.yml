@@ -70,6 +70,8 @@ jobs:
   deploy-backend:
     needs: build-backend
     runs-on: ubuntu-latest
+    environment:
+      name: Production
     permissions:
       contents: read
       id-token: write
@@ -97,7 +99,7 @@ jobs:
             --allow-unauthenticated \
             --port 8111 \
             --memory 512Mi \
-            --set-env-vars GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }} \
+            --set-env-vars "GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }},STRIPE_PRICE_ID=${{ secrets.STRIPE_PRICE_ID }},STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}" \
             --quiet
           
           URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} --region ${{ env.REGION }} --format 'value(status.url)')
@@ -114,7 +116,7 @@ jobs:
     needs: deploy-backend
     runs-on: ubuntu-latest
     environment:
-      name: production
+      name: Production
       url: https://pfinance.dev
     steps:
       - uses: actions/checkout@v4

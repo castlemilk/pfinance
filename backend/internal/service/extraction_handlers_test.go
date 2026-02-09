@@ -79,7 +79,7 @@ func TestExtractDocument_Success(t *testing.T) {
 	SetExtractionService(mock)
 	defer SetExtractionService(nil)
 
-	svc := NewFinanceService(nil)
+	svc := NewFinanceService(nil, nil, nil)
 	ctx := authedCtx("user-1")
 
 	resp, err := svc.ExtractDocument(ctx, connect.NewRequest(&pfinancev1.ExtractDocumentRequest{
@@ -105,7 +105,7 @@ func TestExtractDocument_Success(t *testing.T) {
 func TestExtractDocument_ServiceNil(t *testing.T) {
 	SetExtractionService(nil)
 
-	svc := NewFinanceService(nil)
+	svc := NewFinanceService(nil, nil, nil)
 	ctx := authedCtx("user-1")
 
 	_, err := svc.ExtractDocument(ctx, connect.NewRequest(&pfinancev1.ExtractDocumentRequest{
@@ -135,7 +135,7 @@ func TestExtractDocument_ExtractionFails(t *testing.T) {
 	SetExtractionService(mock)
 	defer SetExtractionService(nil)
 
-	svc := NewFinanceService(nil)
+	svc := NewFinanceService(nil, nil, nil)
 	ctx := authedCtx("user-1")
 
 	_, err := svc.ExtractDocument(ctx, connect.NewRequest(&pfinancev1.ExtractDocumentRequest{
@@ -160,7 +160,7 @@ func TestExtractDocument_Unauthenticated(t *testing.T) {
 	SetExtractionService(mock)
 	defer SetExtractionService(nil)
 
-	svc := NewFinanceService(nil)
+	svc := NewFinanceService(nil, nil, nil)
 	// No auth claims in context
 	ctx := context.Background()
 
@@ -188,7 +188,7 @@ func TestExtractDocument_AsyncProcessing(t *testing.T) {
 	SetExtractionService(mock)
 	defer SetExtractionService(nil)
 
-	svc := NewFinanceService(nil)
+	svc := NewFinanceService(nil, nil, nil)
 	ctx := authedCtx("user-1")
 
 	resp, err := svc.ExtractDocument(ctx, connect.NewRequest(&pfinancev1.ExtractDocumentRequest{
@@ -219,7 +219,7 @@ func TestGetExtractionJob_Success(t *testing.T) {
 	SetExtractionService(mock)
 	defer SetExtractionService(nil)
 
-	svc := NewFinanceService(nil)
+	svc := NewFinanceService(nil, nil, nil)
 	ctx := authedCtx("user-1")
 
 	resp, err := svc.GetExtractionJob(ctx, connect.NewRequest(&pfinancev1.GetExtractionJobRequest{
@@ -241,7 +241,7 @@ func TestGetExtractionJob_NotFound(t *testing.T) {
 	SetExtractionService(mock)
 	defer SetExtractionService(nil)
 
-	svc := NewFinanceService(nil)
+	svc := NewFinanceService(nil, nil, nil)
 	ctx := authedCtx("user-1")
 
 	_, err := svc.GetExtractionJob(ctx, connect.NewRequest(&pfinancev1.GetExtractionJobRequest{
@@ -263,7 +263,7 @@ func TestGetExtractionJob_NotFound(t *testing.T) {
 func TestGetExtractionJob_ServiceNil(t *testing.T) {
 	SetExtractionService(nil)
 
-	svc := NewFinanceService(nil)
+	svc := NewFinanceService(nil, nil, nil)
 	ctx := authedCtx("user-1")
 
 	_, err := svc.GetExtractionJob(ctx, connect.NewRequest(&pfinancev1.GetExtractionJobRequest{
@@ -296,7 +296,7 @@ func TestParseExpenseText_Success(t *testing.T) {
 	SetExtractionService(mock)
 	defer SetExtractionService(nil)
 
-	svc := NewFinanceService(nil)
+	svc := NewFinanceService(nil, nil, nil)
 	ctx := authedCtx("user-1")
 
 	resp, err := svc.ParseExpenseText(ctx, connect.NewRequest(&pfinancev1.ParseExpenseTextRequest{
@@ -319,7 +319,7 @@ func TestParseExpenseText_EmptyText(t *testing.T) {
 	SetExtractionService(mock)
 	defer SetExtractionService(nil)
 
-	svc := NewFinanceService(nil)
+	svc := NewFinanceService(nil, nil, nil)
 	ctx := authedCtx("user-1")
 
 	_, err := svc.ParseExpenseText(ctx, connect.NewRequest(&pfinancev1.ParseExpenseTextRequest{
@@ -343,7 +343,7 @@ func TestParseExpenseText_GeminiUnavailable(t *testing.T) {
 	SetExtractionService(mock)
 	defer SetExtractionService(nil)
 
-	svc := NewFinanceService(nil)
+	svc := NewFinanceService(nil, nil, nil)
 	ctx := authedCtx("user-1")
 
 	_, err := svc.ParseExpenseText(ctx, connect.NewRequest(&pfinancev1.ParseExpenseTextRequest{
@@ -367,7 +367,7 @@ func TestParseExpenseText_Unauthenticated(t *testing.T) {
 	SetExtractionService(mock)
 	defer SetExtractionService(nil)
 
-	svc := NewFinanceService(nil)
+	svc := NewFinanceService(nil, nil, nil)
 	ctx := context.Background()
 
 	_, err := svc.ParseExpenseText(ctx, connect.NewRequest(&pfinancev1.ParseExpenseTextRequest{
@@ -396,7 +396,7 @@ func TestImportExtractedTransactions_Success(t *testing.T) {
 	SetExtractionService(mock)
 	defer SetExtractionService(nil)
 
-	svc := NewFinanceService(mockStore)
+	svc := NewFinanceService(mockStore, nil, nil)
 	ctx := authedCtx("user-1")
 
 	resp, err := svc.ImportExtractedTransactions(ctx, connect.NewRequest(&pfinancev1.ImportExtractedTransactionsRequest{
@@ -420,7 +420,7 @@ func TestImportExtractedTransactions_PermissionDenied(t *testing.T) {
 	SetExtractionService(mock)
 	defer SetExtractionService(nil)
 
-	svc := NewFinanceService(nil)
+	svc := NewFinanceService(nil, nil, nil)
 	ctx := authedCtx("user-1")
 
 	_, err := svc.ImportExtractedTransactions(ctx, connect.NewRequest(&pfinancev1.ImportExtractedTransactionsRequest{
@@ -458,7 +458,7 @@ func TestImportExtractedTransactions_PartialFailure(t *testing.T) {
 	SetExtractionService(mock)
 	defer SetExtractionService(nil)
 
-	svc := NewFinanceService(mockStore)
+	svc := NewFinanceService(mockStore, nil, nil)
 	ctx := authedCtx("user-1")
 
 	resp, err := svc.ImportExtractedTransactions(ctx, connect.NewRequest(&pfinancev1.ImportExtractedTransactionsRequest{
@@ -500,7 +500,7 @@ func TestImportExtractedTransactions_GroupCheck(t *testing.T) {
 	SetExtractionService(mock)
 	defer SetExtractionService(nil)
 
-	svc := NewFinanceService(mockStore)
+	svc := NewFinanceService(mockStore, nil, nil)
 	ctx := authedCtx("user-1")
 
 	resp, err := svc.ImportExtractedTransactions(ctx, connect.NewRequest(&pfinancev1.ImportExtractedTransactionsRequest{
@@ -533,7 +533,7 @@ func TestImportExtractedTransactions_GroupNotMember(t *testing.T) {
 	SetExtractionService(mock)
 	defer SetExtractionService(nil)
 
-	svc := NewFinanceService(mockStore)
+	svc := NewFinanceService(mockStore, nil, nil)
 	ctx := authedCtx("user-1")
 
 	_, err := svc.ImportExtractedTransactions(ctx, connect.NewRequest(&pfinancev1.ImportExtractedTransactionsRequest{

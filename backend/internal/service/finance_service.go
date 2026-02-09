@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"sort"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -12,18 +14,23 @@ import (
 	"github.com/castlemilk/pfinance/backend/internal/auth"
 	"github.com/castlemilk/pfinance/backend/internal/store"
 	"github.com/google/uuid"
+	"github.com/stripe/stripe-go/v82"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type FinanceService struct {
 	pfinancev1connect.UnimplementedFinanceServiceHandler
-	store store.Store
+	store        store.Store
+	stripe       *StripeClient      // nil if Stripe is not configured
+	firebaseAuth *auth.FirebaseAuth // nil if Firebase Auth is not configured
 }
 
-func NewFinanceService(store store.Store) *FinanceService {
+func NewFinanceService(store store.Store, stripe *StripeClient, firebaseAuth *auth.FirebaseAuth) *FinanceService {
 	return &FinanceService{
-		store: store,
+		store:        store,
+		stripe:       stripe,
+		firebaseAuth: firebaseAuth,
 	}
 }
 
@@ -3491,5 +3498,400 @@ func (s *FinanceService) ConvertToRecurring(ctx context.Context, req *connect.Re
 
 	return connect.NewResponse(&pfinancev1.ConvertToRecurringResponse{
 		RecurringTransaction: rt,
+	}), nil
+}
+
+// ============================================================================
+// Notification RPCs
+// ============================================================================
+
+func (s *FinanceService) ListNotifications(ctx context.Context, req *connect.Request[pfinancev1.ListNotificationsRequest]) (*connect.Response[pfinancev1.ListNotificationsResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	userID := req.Msg.UserId
+	if userID == "" {
+		userID = claims.UID
+	}
+	if userID != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("cannot list notifications for another user"))
+	}
+
+	notifications, nextPageToken, err := s.store.ListNotifications(ctx, userID, req.Msg.UnreadOnly, req.Msg.PageSize, req.Msg.PageToken)
+	if err != nil {
+		return nil, auth.WrapStoreError("list notifications", err)
+	}
+
+	// Count total unread
+	unreadCount, err := s.store.GetUnreadNotificationCount(ctx, userID)
+	if err != nil {
+		return nil, auth.WrapStoreError("get unread count", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.ListNotificationsResponse{
+		Notifications: notifications,
+		NextPageToken: nextPageToken,
+		TotalUnread:   unreadCount,
+	}), nil
+}
+
+func (s *FinanceService) MarkNotificationRead(ctx context.Context, req *connect.Request[pfinancev1.MarkNotificationReadRequest]) (*connect.Response[emptypb.Empty], error) {
+	_, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Msg.NotificationId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("notification_id is required"))
+	}
+
+	if err := s.store.MarkNotificationRead(ctx, req.Msg.NotificationId); err != nil {
+		return nil, auth.WrapStoreError("mark notification read", err)
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (s *FinanceService) MarkAllNotificationsRead(ctx context.Context, req *connect.Request[pfinancev1.MarkAllNotificationsReadRequest]) (*connect.Response[emptypb.Empty], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	userID := req.Msg.UserId
+	if userID == "" {
+		userID = claims.UID
+	}
+	if userID != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("cannot modify notifications for another user"))
+	}
+
+	if err := s.store.MarkAllNotificationsRead(ctx, userID); err != nil {
+		return nil, auth.WrapStoreError("mark all notifications read", err)
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (s *FinanceService) GetUnreadNotificationCount(ctx context.Context, req *connect.Request[pfinancev1.GetUnreadNotificationCountRequest]) (*connect.Response[pfinancev1.GetUnreadNotificationCountResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	userID := req.Msg.UserId
+	if userID == "" {
+		userID = claims.UID
+	}
+	if userID != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("cannot query notifications for another user"))
+	}
+
+	count, err := s.store.GetUnreadNotificationCount(ctx, userID)
+	if err != nil {
+		return nil, auth.WrapStoreError("get unread notification count", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.GetUnreadNotificationCountResponse{
+		Count: count,
+	}), nil
+}
+
+func (s *FinanceService) GetNotificationPreferences(ctx context.Context, req *connect.Request[pfinancev1.GetNotificationPreferencesRequest]) (*connect.Response[pfinancev1.GetNotificationPreferencesResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	userID := req.Msg.UserId
+	if userID == "" {
+		userID = claims.UID
+	}
+	if userID != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("cannot query notification preferences for another user"))
+	}
+
+	prefs, err := s.store.GetNotificationPreferences(ctx, userID)
+	if err != nil {
+		return nil, auth.WrapStoreError("get notification preferences", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.GetNotificationPreferencesResponse{
+		Preferences: prefs,
+	}), nil
+}
+
+func (s *FinanceService) UpdateNotificationPreferences(ctx context.Context, req *connect.Request[pfinancev1.UpdateNotificationPreferencesRequest]) (*connect.Response[pfinancev1.UpdateNotificationPreferencesResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	userID := req.Msg.UserId
+	if userID == "" {
+		userID = claims.UID
+	}
+	if userID != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("cannot update notification preferences for another user"))
+	}
+
+	if req.Msg.Preferences == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("preferences is required"))
+	}
+
+	prefs := req.Msg.Preferences
+	prefs.UserId = userID
+
+	if err := s.store.UpdateNotificationPreferences(ctx, prefs); err != nil {
+		return nil, auth.WrapStoreError("update notification preferences", err)
+	}
+
+	return connect.NewResponse(&pfinancev1.UpdateNotificationPreferencesResponse{
+		Preferences: prefs,
+	}), nil
+}
+
+// ============================================================================
+// Stripe subscription operations
+// ============================================================================
+
+// CreateCheckoutSession creates a Stripe Checkout session for upgrading to Pro.
+func (s *FinanceService) CreateCheckoutSession(ctx context.Context, req *connect.Request[pfinancev1.CreateCheckoutSessionRequest]) (*connect.Response[pfinancev1.CreateCheckoutSessionResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.stripe == nil {
+		return nil, connect.NewError(connect.CodeUnavailable,
+			fmt.Errorf("stripe is not configured"))
+	}
+
+	if req.Msg.SuccessUrl == "" || req.Msg.CancelUrl == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument,
+			fmt.Errorf("success_url and cancel_url are required"))
+	}
+
+	// Get or create the Stripe customer
+	customerID, err := s.stripe.GetOrCreateCustomer(claims.Email, claims.UID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal,
+			fmt.Errorf("failed to get or create stripe customer: %v", err))
+	}
+
+	// Store the Stripe customer ID on the user record
+	user, _ := s.store.GetUser(ctx, claims.UID)
+	if user == nil {
+		user = &pfinancev1.User{
+			Id:        claims.UID,
+			Email:     claims.Email,
+			CreatedAt: timestamppb.Now(),
+		}
+	}
+	if user.StripeCustomerId != customerID {
+		user.StripeCustomerId = customerID
+		user.UpdatedAt = timestamppb.Now()
+		_ = s.store.UpdateUser(ctx, user)
+	}
+
+	// Append Stripe session ID template to success URL for verification
+	successURL := req.Msg.SuccessUrl
+	if strings.Contains(successURL, "?") {
+		successURL += "&session_id={CHECKOUT_SESSION_ID}"
+	} else {
+		successURL += "?session_id={CHECKOUT_SESSION_ID}"
+	}
+
+	// Create the checkout session
+	result, err := s.stripe.CreateCheckoutSession(customerID, claims.UID, successURL, req.Msg.CancelUrl)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal,
+			fmt.Errorf("failed to create checkout session: %v", err))
+	}
+
+	return connect.NewResponse(&pfinancev1.CreateCheckoutSessionResponse{
+		CheckoutUrl: result.URL,
+		SessionId:   result.SessionID,
+	}), nil
+}
+
+// GetSubscriptionStatus returns the user's current subscription tier and status.
+func (s *FinanceService) GetSubscriptionStatus(ctx context.Context, req *connect.Request[pfinancev1.GetSubscriptionStatusRequest]) (*connect.Response[pfinancev1.GetSubscriptionStatusResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := s.store.GetUser(ctx, claims.UID)
+	if err != nil {
+		// User not in store yet — treat as free tier
+		return connect.NewResponse(&pfinancev1.GetSubscriptionStatusResponse{
+			Tier:   pfinancev1.SubscriptionTier_SUBSCRIPTION_TIER_FREE,
+			Status: pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNSPECIFIED,
+		}), nil
+	}
+
+	resp := &pfinancev1.GetSubscriptionStatusResponse{
+		Tier:   user.SubscriptionTier,
+		Status: user.SubscriptionStatus,
+	}
+
+	return connect.NewResponse(resp), nil
+}
+
+// CancelSubscription cancels the user's Pro subscription at the end of the billing period.
+func (s *FinanceService) CancelSubscription(ctx context.Context, req *connect.Request[pfinancev1.CancelSubscriptionRequest]) (*connect.Response[pfinancev1.CancelSubscriptionResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.stripe == nil {
+		return nil, connect.NewError(connect.CodeUnavailable,
+			fmt.Errorf("stripe is not configured"))
+	}
+
+	user, err := s.store.GetUser(ctx, claims.UID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound,
+			fmt.Errorf("user not found"))
+	}
+
+	if user.SubscriptionTier != pfinancev1.SubscriptionTier_SUBSCRIPTION_TIER_PRO {
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("no active subscription to cancel"))
+	}
+
+	if user.StripeSubscriptionId == "" {
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("no stripe subscription found"))
+	}
+
+	info, err := s.stripe.CancelSubscriptionAtPeriodEnd(user.StripeSubscriptionId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal,
+			fmt.Errorf("failed to cancel subscription: %v", err))
+	}
+
+	return connect.NewResponse(&pfinancev1.CancelSubscriptionResponse{
+		Status:            mapStripeStatusEnum(info.Status),
+		CancelAtPeriodEnd: info.CancelAtPeriodEnd,
+	}), nil
+}
+
+// mapStripeStatusEnum converts a stripe.SubscriptionStatus to the proto SubscriptionStatus enum.
+func mapStripeStatusEnum(status stripe.SubscriptionStatus) pfinancev1.SubscriptionStatus {
+	switch status {
+	case stripe.SubscriptionStatusActive:
+		return pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE
+	case stripe.SubscriptionStatusPastDue:
+		return pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_PAST_DUE
+	case stripe.SubscriptionStatusCanceled, stripe.SubscriptionStatusUnpaid:
+		return pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_CANCELED
+	case stripe.SubscriptionStatusTrialing:
+		return pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_TRIALING
+	default:
+		return pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNSPECIFIED
+	}
+}
+
+// VerifyCheckoutSession verifies a Stripe checkout session and activates the subscription.
+// This is called by the frontend after the user returns from Stripe Checkout,
+// providing immediate subscription activation without relying on webhooks.
+func (s *FinanceService) VerifyCheckoutSession(ctx context.Context, req *connect.Request[pfinancev1.VerifyCheckoutSessionRequest]) (*connect.Response[pfinancev1.VerifyCheckoutSessionResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.stripe == nil {
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("stripe is not configured"))
+	}
+
+	if req.Msg.SessionId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("session_id is required"))
+	}
+
+	// Retrieve the checkout session from Stripe
+	sess, err := s.stripe.GetCheckoutSession(req.Msg.SessionId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to verify checkout session: %v", err))
+	}
+
+	// Verify the session belongs to this user
+	userID := ""
+	if sess.Metadata != nil {
+		userID = sess.Metadata["pfinance_user_id"]
+	}
+	if userID != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("session does not belong to this user"))
+	}
+
+	// Check if payment was successful
+	if sess.PaymentStatus != "paid" && sess.Status != "complete" {
+		// Session not yet paid — return current status
+		user, _ := s.store.GetUser(ctx, claims.UID)
+		if user != nil {
+			return connect.NewResponse(&pfinancev1.VerifyCheckoutSessionResponse{
+				Tier:   user.SubscriptionTier,
+				Status: user.SubscriptionStatus,
+			}), nil
+		}
+		return connect.NewResponse(&pfinancev1.VerifyCheckoutSessionResponse{
+			Tier:   pfinancev1.SubscriptionTier_SUBSCRIPTION_TIER_FREE,
+			Status: pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNSPECIFIED,
+		}), nil
+	}
+
+	// Check if already activated (webhook may have already processed this)
+	user, err := s.store.GetUser(ctx, claims.UID)
+	if err == nil && user.SubscriptionTier == pfinancev1.SubscriptionTier_SUBSCRIPTION_TIER_PRO {
+		return connect.NewResponse(&pfinancev1.VerifyCheckoutSessionResponse{
+			Tier:          user.SubscriptionTier,
+			Status:        user.SubscriptionStatus,
+			AlreadyActive: true,
+		}), nil
+	}
+
+	// Activate the subscription (same logic as webhook handler)
+	if user == nil {
+		user = &pfinancev1.User{
+			Id:        claims.UID,
+			Email:     claims.Email,
+			CreatedAt: timestamppb.Now(),
+		}
+	}
+
+	customerID := ""
+	if sess.Customer != nil {
+		customerID = sess.Customer.ID
+	}
+	subscriptionID := ""
+	if sess.Subscription != nil {
+		subscriptionID = sess.Subscription.ID
+	}
+
+	user.StripeCustomerId = customerID
+	user.StripeSubscriptionId = subscriptionID
+	user.SubscriptionTier = pfinancev1.SubscriptionTier_SUBSCRIPTION_TIER_PRO
+	user.SubscriptionStatus = pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE
+	user.UpdatedAt = timestamppb.Now()
+
+	if err := s.store.UpdateUser(ctx, user); err != nil {
+		log.Printf("[VerifyCheckout] Failed to update user %s: %v", claims.UID, err)
+	}
+
+	// Set Firebase custom claims
+	if s.firebaseAuth != nil {
+		if err := s.firebaseAuth.SetSubscriptionClaims(ctx, claims.UID, user.SubscriptionTier, user.SubscriptionStatus); err != nil {
+			log.Printf("[VerifyCheckout] Warning: failed to set custom claims for user %s: %v", claims.UID, err)
+		}
+	}
+
+	return connect.NewResponse(&pfinancev1.VerifyCheckoutSessionResponse{
+		Tier:   user.SubscriptionTier,
+		Status: user.SubscriptionStatus,
 	}), nil
 }

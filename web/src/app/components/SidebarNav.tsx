@@ -24,7 +24,9 @@ import {
   Repeat,
   Target,
   Lightbulb,
-  Search
+  Search,
+  CreditCard,
+  Crown
 } from 'lucide-react';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -32,6 +34,8 @@ import { Badge } from '@/components/ui/badge';
 import { ThemeToggle } from './ThemeToggle';
 import { PaletteSelector } from './PaletteSelector';
 import { Skeleton } from '@/components/ui/skeleton';
+import NotificationCenter from './notifications/NotificationCenter';
+import { useSubscription } from '../hooks/useSubscription';
 
 interface NavItem {
   title: string;
@@ -80,6 +84,11 @@ const personalNavItems: NavItem[] = [
     title: 'Settings',
     href: '/personal/settings',
     icon: <Settings className="w-4 h-4" />
+  },
+  {
+    title: 'Billing',
+    href: '/personal/billing',
+    icon: <CreditCard className="w-4 h-4" />
   }
 ];
 
@@ -112,9 +121,10 @@ const sharedNavItems: NavItem[] = [
 
 export default function SidebarNav() {
   const { user, logout, isImpersonating, loading } = useAuth();
+  const { isPro, isFree } = useSubscription();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
+
   const isPersonal = pathname.startsWith('/personal');
   const isShared = pathname.startsWith('/shared');
 
@@ -142,16 +152,19 @@ export default function SidebarNav() {
             />
             <h1 className="text-2xl font-bold group-hover:text-primary transition-colors">PFinance</h1>
           </Link>
-          {showCloseButton && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="lg:hidden"
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            <NotificationCenter />
+            {showCloseButton && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="lg:hidden"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -214,7 +227,7 @@ export default function SidebarNav() {
             </Button>
           </Link>
         ))}
-        
+
         {isShared && sharedNavItems.map((item) => {
           // Don't filter out nav items while loading - only when we know there's no user
           if (item.requiresAuth && !loading && !user) return null;
@@ -258,7 +271,7 @@ export default function SidebarNav() {
           <ThemeToggle />
           <PaletteSelector />
         </div>
-        
+
         {loading ? (
           // Show skeleton while auth is loading
           <div className="space-y-3">
@@ -288,6 +301,12 @@ export default function SidebarNav() {
                 <p className="text-sm font-medium truncate">
                   {user.displayName || user.email}
                 </p>
+                {isPro && (
+                  <Badge variant="default" className="text-xs bg-amber-500/90 hover:bg-amber-500">
+                    <Crown className="w-3 h-3 mr-0.5" />
+                    Pro
+                  </Badge>
+                )}
                 {isImpersonating && (
                   <Badge variant="secondary" className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/50">
                     Test User
@@ -295,9 +314,17 @@ export default function SidebarNav() {
                 )}
               </div>
             </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            {isFree && user && (
+              <Link href="/personal/billing/">
+                <Button variant="default" size="sm" className="w-full gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white">
+                  <Crown className="w-4 h-4" />
+                  Upgrade to Pro
+                </Button>
+              </Link>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
               onClick={logout}
               className="w-full"
             >
@@ -344,7 +371,7 @@ export default function SidebarNav() {
 
       {/* Mobile Backdrop */}
       {isMobileMenuOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-30 lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />

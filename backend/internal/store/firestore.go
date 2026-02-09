@@ -1505,3 +1505,131 @@ func (s *FirestoreStore) ListRecurringTransactions(ctx context.Context, userID, 
 
 	return results, nextPageToken, nil
 }
+
+// Notification operations
+
+func (s *FirestoreStore) CreateNotification(ctx context.Context, notification *pfinancev1.Notification) error {
+	_, err := s.client.Collection("notifications").Doc(notification.Id).Set(ctx, notification)
+	return err
+}
+
+func (s *FirestoreStore) ListNotifications(ctx context.Context, userID string, unreadOnly bool, pageSize int32, pageToken string) ([]*pfinancev1.Notification, string, error) {
+	query := s.client.Collection("notifications").Where("UserId", "==", userID)
+
+	if unreadOnly {
+		query = query.Where("IsRead", "==", false)
+	}
+
+	query = query.OrderBy("CreatedAt", firestore.Desc)
+
+	if pageToken != "" {
+		docID, err := DecodePageToken(pageToken)
+		if err != nil {
+			return nil, "", fmt.Errorf("invalid page token: %w", err)
+		}
+		cursorDoc, err := s.client.Collection("notifications").Doc(docID).Get(ctx)
+		if err != nil {
+			return nil, "", fmt.Errorf("invalid page token document: %w", err)
+		}
+		query = query.StartAfter(cursorDoc.Data()["CreatedAt"])
+	}
+
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+	query = query.Limit(int(pageSize) + 1)
+
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to list notifications: %w", err)
+	}
+
+	var nextPageToken string
+	if len(docs) > int(pageSize) {
+		docs = docs[:pageSize]
+		nextPageToken = EncodePageToken(docs[pageSize-1].Ref.ID)
+	}
+
+	notifications := make([]*pfinancev1.Notification, 0, len(docs))
+	for _, doc := range docs {
+		var notification pfinancev1.Notification
+		if err := doc.DataTo(&notification); err != nil {
+			return nil, "", fmt.Errorf("failed to parse notification: %w", err)
+		}
+		notifications = append(notifications, &notification)
+	}
+
+	return notifications, nextPageToken, nil
+}
+
+func (s *FirestoreStore) MarkNotificationRead(ctx context.Context, notificationID string) error {
+	_, err := s.client.Collection("notifications").Doc(notificationID).Update(ctx, []firestore.Update{
+		{Path: "IsRead", Value: true},
+		{Path: "ReadAt", Value: timestamppb.Now()},
+	})
+	if err != nil {
+		return fmt.Errorf("notification not found: %w", err)
+	}
+	return nil
+}
+
+func (s *FirestoreStore) MarkAllNotificationsRead(ctx context.Context, userID string) error {
+	docs, err := s.client.Collection("notifications").
+		Where("UserId", "==", userID).
+		Where("IsRead", "==", false).
+		Documents(ctx).GetAll()
+	if err != nil {
+		return fmt.Errorf("failed to query unread notifications: %w", err)
+	}
+
+	now := timestamppb.Now()
+	batch := s.client.Batch()
+	for _, doc := range docs {
+		batch.Update(doc.Ref, []firestore.Update{
+			{Path: "IsRead", Value: true},
+			{Path: "ReadAt", Value: now},
+		})
+	}
+
+	_, err = batch.Commit(ctx)
+	return err
+}
+
+func (s *FirestoreStore) GetUnreadNotificationCount(ctx context.Context, userID string) (int32, error) {
+	docs, err := s.client.Collection("notifications").
+		Where("UserId", "==", userID).
+		Where("IsRead", "==", false).
+		Documents(ctx).GetAll()
+	if err != nil {
+		return 0, fmt.Errorf("failed to count unread notifications: %w", err)
+	}
+
+	return int32(len(docs)), nil
+}
+
+func (s *FirestoreStore) GetNotificationPreferences(ctx context.Context, userID string) (*pfinancev1.NotificationPreferences, error) {
+	doc, err := s.client.Collection("notificationPreferences").Doc(userID).Get(ctx)
+	if err != nil {
+		return &pfinancev1.NotificationPreferences{
+			UserId:             userID,
+			BudgetAlerts:       true,
+			GoalMilestones:     true,
+			BillReminders:      true,
+			UnusualSpending:    true,
+			SubscriptionAlerts: true,
+			WeeklyDigest:       false,
+			BillReminderDays:   3,
+		}, nil
+	}
+
+	var prefs pfinancev1.NotificationPreferences
+	if err := doc.DataTo(&prefs); err != nil {
+		return nil, fmt.Errorf("failed to parse notification preferences: %w", err)
+	}
+	return &prefs, nil
+}
+
+func (s *FirestoreStore) UpdateNotificationPreferences(ctx context.Context, prefs *pfinancev1.NotificationPreferences) error {
+	_, err := s.client.Collection("notificationPreferences").Doc(prefs.UserId).Set(ctx, prefs)
+	return err
+}

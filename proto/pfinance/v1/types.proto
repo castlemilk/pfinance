@@ -55,6 +55,22 @@ enum TaxCountry {
   TAX_COUNTRY_SIMPLE = 3;
 }
 
+// SubscriptionTier represents the user's subscription plan
+enum SubscriptionTier {
+  SUBSCRIPTION_TIER_UNSPECIFIED = 0;
+  SUBSCRIPTION_TIER_FREE = 1;
+  SUBSCRIPTION_TIER_PRO = 2;
+}
+
+// SubscriptionStatus represents the current state of a subscription
+enum SubscriptionStatus {
+  SUBSCRIPTION_STATUS_UNSPECIFIED = 0;
+  SUBSCRIPTION_STATUS_ACTIVE = 1;
+  SUBSCRIPTION_STATUS_PAST_DUE = 2;
+  SUBSCRIPTION_STATUS_CANCELED = 3;
+  SUBSCRIPTION_STATUS_TRIALING = 4;
+}
+
 // User represents a user in the system
 message User {
   string id = 1;
@@ -63,6 +79,10 @@ message User {
   google.protobuf.Timestamp created_at = 4;
   google.protobuf.Timestamp updated_at = 5;
   string photo_url = 6;
+  SubscriptionTier subscription_tier = 7;
+  SubscriptionStatus subscription_status = 8;
+  string stripe_customer_id = 9;
+  string stripe_subscription_id = 10;
 }
 
 // SplitType represents how an expense is split among members
@@ -105,6 +125,7 @@ message Expense {
   bool is_settled = 14; // Whether all allocations have been settled
   repeated string tags = 15; // Optional tags for filtering/grouping
   int64 amount_cents = 16; // Amount in cents (preferred over amount)
+  ExtractionMethod extraction_method = 17; // Which ML method extracted this expense (if any)
 }
 
 // Income represents a single income entry
@@ -520,6 +541,49 @@ message DetectedSubscription {
   google.protobuf.Timestamp expected_next = 10;
   bool is_already_tracked = 11;      // Matches an existing recurring transaction
   repeated string matched_expense_ids = 12;
+}
+
+// ============================================================================
+// Notifications
+// ============================================================================
+
+// NotificationType represents the type of notification
+enum NotificationType {
+  NOTIFICATION_TYPE_UNSPECIFIED = 0;
+  NOTIFICATION_TYPE_BUDGET_THRESHOLD = 1;   // Budget at 50%, 80%, or 100%
+  NOTIFICATION_TYPE_GOAL_MILESTONE = 2;     // Goal at 25%, 50%, 75%, or 100%
+  NOTIFICATION_TYPE_BILL_REMINDER = 3;      // Upcoming recurring transaction due
+  NOTIFICATION_TYPE_UNUSUAL_SPENDING = 4;   // Spending anomaly detected
+  NOTIFICATION_TYPE_SUBSCRIPTION_ALERT = 5; // Forgotten or new subscription
+  NOTIFICATION_TYPE_SYSTEM = 6;             // System announcements
+}
+
+// Notification represents an in-app notification
+message Notification {
+  string id = 1;
+  string user_id = 2;
+  NotificationType type = 3;
+  string title = 4;
+  string message = 5;
+  bool is_read = 6;
+  string action_url = 7;           // Deep link (e.g., "/personal/budgets/")
+  string reference_id = 8;         // ID of related entity (budget, goal, etc.)
+  string reference_type = 9;       // "budget", "goal", "recurring_transaction"
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp read_at = 11;
+  map<string, string> metadata = 12; // Flexible data (threshold %, amount, etc.)
+}
+
+// NotificationPreferences represents a user's notification settings
+message NotificationPreferences {
+  string user_id = 1;
+  bool budget_alerts = 2;          // Default: true
+  bool goal_milestones = 3;        // Default: true
+  bool bill_reminders = 4;         // Default: true
+  bool unusual_spending = 5;       // Default: true
+  bool subscription_alerts = 6;    // Default: true
+  bool weekly_digest = 7;          // Default: false
+  int32 bill_reminder_days = 8;    // Days before due date (default: 3)
 }
 
 // ============================================================================

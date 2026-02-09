@@ -52,6 +52,22 @@ test.describe('Theme Toggle', () => {
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(500);
 
+    // Dismiss any overlay banners (e.g. Firebase connection error) that block clicks
+    const alertBanners = page.locator('div[role="alert"]');
+    const bannerCount = await alertBanners.count();
+    for (let i = 0; i < bannerCount; i++) {
+      await alertBanners.nth(0).evaluate(el => el.remove()).catch(() => {});
+    }
+    // Also remove any fixed/sticky elements with high z-index that may block clicks
+    await page.evaluate(() => {
+      document.querySelectorAll('[style*="z-index"]').forEach(el => {
+        const style = window.getComputedStyle(el);
+        if ((style.position === 'fixed' || style.position === 'sticky') && parseInt(style.zIndex) > 1000) {
+          el.remove();
+        }
+      });
+    });
+
     // Find theme toggle button - look for a button with sun or moon icon
     const themeToggle = page.locator('button').filter({ has: page.locator('svg') }).first();
 

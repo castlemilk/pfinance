@@ -1,8 +1,8 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { 
-  User, 
+import { createContext, useContext, useEffect, useState, useRef, useCallback, ReactNode } from 'react';
+import {
+  User,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -15,6 +15,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useAdmin } from './AdminContext';
+import { SubscriptionTier, SubscriptionStatus } from '@/gen/pfinance/v1/types_pb';
 
 interface AuthContextType {
   user: User | null;
@@ -25,6 +26,9 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isImpersonating: boolean;
   actualUser: User | null; // The real logged-in user (if any)
+  subscriptionTier: SubscriptionTier;
+  subscriptionStatus: SubscriptionStatus;
+  refreshSubscription: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,12 +37,15 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
   const { isAdminMode, impersonatedUser } = useAdmin();
   const [actualUser, setActualUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const listenerFiredRef = useRef(false);
+  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>(SubscriptionTier.FREE);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>(SubscriptionStatus.UNSPECIFIED);
 
   // Determine the effective user (impersonated or actual)
-  const effectiveUser = isAdminMode && impersonatedUser 
-    ? impersonatedUser as unknown as User 
+  const effectiveUser = isAdminMode && impersonatedUser
+    ? impersonatedUser as unknown as User
     : actualUser;
-  
+
   // Debug logging
   console.log('[AuthContext] State:', {
     loading,
@@ -60,6 +67,8 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
     }
 
     let unsubscribe: (() => void) | undefined;
+    let safetyTimeout: ReturnType<typeof setTimeout> | undefined;
+    listenerFiredRef.current = false;
 
     // Set persistence to local (survives browser restarts)
     setPersistence(auth, browserLocalPersistence)
@@ -70,9 +79,23 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
 
         unsubscribe = onAuthStateChanged(auth, (user) => {
           console.log('[AuthContext] onAuthStateChanged:', user?.uid || 'no user');
+          listenerFiredRef.current = true;
+          if (safetyTimeout) {
+            clearTimeout(safetyTimeout);
+            safetyTimeout = undefined;
+          }
           setActualUser(user);
           setLoading(false);
         });
+
+        // Safety timeout: if the auth listener hasn't fired within 5 seconds
+        // after being registered, stop the loading state to prevent perpetual spinner
+        safetyTimeout = setTimeout(() => {
+          if (!listenerFiredRef.current) {
+            console.warn('[AuthContext] Safety timeout: auth listener did not fire within 5s, clearing loading state');
+            setLoading(false);
+          }
+        }, 5000);
       })
       .catch((error) => {
         console.error('[AuthContext] Error setting persistence:', error);
@@ -83,8 +106,48 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
       if (unsubscribe) {
         unsubscribe();
       }
+      if (safetyTimeout) {
+        clearTimeout(safetyTimeout);
+      }
     };
   }, []);
+
+  const extractSubscriptionFromToken = useCallback(async (firebaseUser: User) => {
+    try {
+      const tokenResult = await firebaseUser.getIdTokenResult();
+      const claims = tokenResult.claims;
+      const tierStr = claims.subscription_tier as string | undefined;
+      const statusStr = claims.subscription_status as string | undefined;
+
+      setSubscriptionTier(tierStr === 'PRO' ? SubscriptionTier.PRO : SubscriptionTier.FREE);
+
+      const statusMap: Record<string, SubscriptionStatus> = {
+        'ACTIVE': SubscriptionStatus.ACTIVE,
+        'TRIALING': SubscriptionStatus.TRIALING,
+        'PAST_DUE': SubscriptionStatus.PAST_DUE,
+        'CANCELED': SubscriptionStatus.CANCELED,
+      };
+      setSubscriptionStatus(statusMap[statusStr || ''] || SubscriptionStatus.UNSPECIFIED);
+    } catch (err) {
+      console.error('[AuthContext] Failed to extract subscription from token:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (effectiveUser && !isAdminMode) {
+      extractSubscriptionFromToken(effectiveUser);
+    }
+  }, [effectiveUser?.uid, isAdminMode, extractSubscriptionFromToken]);
+
+  const refreshSubscription = useCallback(async () => {
+    if (!effectiveUser || isAdminMode) return;
+    try {
+      await effectiveUser.getIdToken(true); // Force refresh
+      await extractSubscriptionFromToken(effectiveUser);
+    } catch (err) {
+      console.error('[AuthContext] Failed to refresh subscription:', err);
+    }
+  }, [effectiveUser, isAdminMode, extractSubscriptionFromToken]);
 
   const signIn = async (email: string, password: string) => {
     if (isAdminMode && impersonatedUser) {
@@ -118,13 +181,13 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
     if (!auth) {
       throw new Error('Firebase auth not initialized');
     }
-    
+
     const provider = new GoogleAuthProvider();
-    
+
     // Add scopes if needed
     provider.addScope('profile');
     provider.addScope('email');
-    
+
     // Use popup for better UX (no redirects)
     try {
       await signInWithPopup(auth, provider);
@@ -156,7 +219,10 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
     signInWithGoogle,
     logout,
     isImpersonating: isAdminMode && !!impersonatedUser,
-    actualUser
+    actualUser,
+    subscriptionTier,
+    subscriptionStatus,
+    refreshSubscription,
   };
 
   return (

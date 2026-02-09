@@ -93,6 +93,15 @@ type Store interface {
 	UpdateRecurringTransaction(ctx context.Context, rt *pfinancev1.RecurringTransaction) error
 	DeleteRecurringTransaction(ctx context.Context, rtID string) error
 	ListRecurringTransactions(ctx context.Context, userID, groupID string, status pfinancev1.RecurringTransactionStatus, filterIsExpense bool, isExpense bool, pageSize int32, pageToken string) ([]*pfinancev1.RecurringTransaction, string, error)
+
+	// Notification operations
+	CreateNotification(ctx context.Context, notification *pfinancev1.Notification) error
+	ListNotifications(ctx context.Context, userID string, unreadOnly bool, pageSize int32, pageToken string) ([]*pfinancev1.Notification, string, error)
+	MarkNotificationRead(ctx context.Context, notificationID string) error
+	MarkAllNotificationsRead(ctx context.Context, userID string) error
+	GetUnreadNotificationCount(ctx context.Context, userID string) (int32, error)
+	GetNotificationPreferences(ctx context.Context, userID string) (*pfinancev1.NotificationPreferences, error)
+	UpdateNotificationPreferences(ctx context.Context, prefs *pfinancev1.NotificationPreferences) error
 }
 
 // EncodePageToken encodes a document ID into a page token.

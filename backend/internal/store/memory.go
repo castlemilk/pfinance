@@ -10,6 +10,7 @@ import (
 
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // MemoryStore implements Store interface with in-memory storage
@@ -17,37 +18,41 @@ type MemoryStore struct {
 	mu sync.RWMutex
 
 	// Storage maps
-	expenses              map[string]*pfinancev1.Expense
-	incomes               map[string]*pfinancev1.Income
-	groups                map[string]*pfinancev1.FinanceGroup
-	invitations           map[string]*pfinancev1.GroupInvitation
-	inviteLinks           map[string]*pfinancev1.GroupInviteLink
-	contributions         map[string]*pfinancev1.ExpenseContribution
-	incomeContributions   map[string]*pfinancev1.IncomeContribution
-	taxConfigs            map[string]*pfinancev1.TaxConfig
-	budgets               map[string]*pfinancev1.Budget
-	users                 map[string]*pfinancev1.User
-	goals                 map[string]*pfinancev1.FinancialGoal
-	goalContributions     map[string]*pfinancev1.GoalContribution
-	recurringTransactions map[string]*pfinancev1.RecurringTransaction
+	expenses                map[string]*pfinancev1.Expense
+	incomes                 map[string]*pfinancev1.Income
+	groups                  map[string]*pfinancev1.FinanceGroup
+	invitations             map[string]*pfinancev1.GroupInvitation
+	inviteLinks             map[string]*pfinancev1.GroupInviteLink
+	contributions           map[string]*pfinancev1.ExpenseContribution
+	incomeContributions     map[string]*pfinancev1.IncomeContribution
+	taxConfigs              map[string]*pfinancev1.TaxConfig
+	budgets                 map[string]*pfinancev1.Budget
+	users                   map[string]*pfinancev1.User
+	goals                   map[string]*pfinancev1.FinancialGoal
+	goalContributions       map[string]*pfinancev1.GoalContribution
+	recurringTransactions   map[string]*pfinancev1.RecurringTransaction
+	notifications           map[string]*pfinancev1.Notification
+	notificationPreferences map[string]*pfinancev1.NotificationPreferences
 }
 
 // NewMemoryStore creates a new in-memory store
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
-		expenses:              make(map[string]*pfinancev1.Expense),
-		incomes:               make(map[string]*pfinancev1.Income),
-		groups:                make(map[string]*pfinancev1.FinanceGroup),
-		invitations:           make(map[string]*pfinancev1.GroupInvitation),
-		inviteLinks:           make(map[string]*pfinancev1.GroupInviteLink),
-		contributions:         make(map[string]*pfinancev1.ExpenseContribution),
-		incomeContributions:   make(map[string]*pfinancev1.IncomeContribution),
-		taxConfigs:            make(map[string]*pfinancev1.TaxConfig),
-		budgets:               make(map[string]*pfinancev1.Budget),
-		users:                 make(map[string]*pfinancev1.User),
-		goals:                 make(map[string]*pfinancev1.FinancialGoal),
-		goalContributions:     make(map[string]*pfinancev1.GoalContribution),
-		recurringTransactions: make(map[string]*pfinancev1.RecurringTransaction),
+		expenses:                make(map[string]*pfinancev1.Expense),
+		incomes:                 make(map[string]*pfinancev1.Income),
+		groups:                  make(map[string]*pfinancev1.FinanceGroup),
+		invitations:             make(map[string]*pfinancev1.GroupInvitation),
+		inviteLinks:             make(map[string]*pfinancev1.GroupInviteLink),
+		contributions:           make(map[string]*pfinancev1.ExpenseContribution),
+		incomeContributions:     make(map[string]*pfinancev1.IncomeContribution),
+		taxConfigs:              make(map[string]*pfinancev1.TaxConfig),
+		budgets:                 make(map[string]*pfinancev1.Budget),
+		users:                   make(map[string]*pfinancev1.User),
+		goals:                   make(map[string]*pfinancev1.FinancialGoal),
+		goalContributions:       make(map[string]*pfinancev1.GoalContribution),
+		recurringTransactions:   make(map[string]*pfinancev1.RecurringTransaction),
+		notifications:           make(map[string]*pfinancev1.Notification),
+		notificationPreferences: make(map[string]*pfinancev1.NotificationPreferences),
 	}
 }
 
@@ -1123,4 +1128,145 @@ func (m *MemoryStore) ListRecurringTransactions(ctx context.Context, userID, gro
 		result = append(result, m.recurringTransactions[id])
 	}
 	return result, nextToken, nil
+}
+
+// Notification operations
+
+func (m *MemoryStore) CreateNotification(ctx context.Context, notification *pfinancev1.Notification) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if notification.Id == "" {
+		notification.Id = uuid.New().String()
+	}
+
+	m.notifications[notification.Id] = notification
+	return nil
+}
+
+func (m *MemoryStore) ListNotifications(ctx context.Context, userID string, unreadOnly bool, pageSize int32, pageToken string) ([]*pfinancev1.Notification, string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Collect matching notifications
+	var matching []*pfinancev1.Notification
+	for _, n := range m.notifications {
+		if n.UserId != userID {
+			continue
+		}
+		if unreadOnly && n.IsRead {
+			continue
+		}
+		matching = append(matching, n)
+	}
+
+	// Sort by created_at descending (newest first)
+	sort.Slice(matching, func(i, j int) bool {
+		if matching[i].CreatedAt == nil || matching[j].CreatedAt == nil {
+			return matching[i].CreatedAt != nil
+		}
+		return matching[i].CreatedAt.AsTime().After(matching[j].CreatedAt.AsTime())
+	})
+
+	// Paginate
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+
+	startIdx := 0
+	if pageToken != "" {
+		cursorID, err := DecodePageToken(pageToken)
+		if err == nil {
+			for i, n := range matching {
+				if n.Id == cursorID {
+					startIdx = i + 1
+					break
+				}
+			}
+		}
+	}
+
+	if startIdx >= len(matching) {
+		return nil, "", nil
+	}
+
+	matching = matching[startIdx:]
+	var nextToken string
+	if int32(len(matching)) > pageSize {
+		nextToken = EncodePageToken(matching[pageSize-1].Id)
+		matching = matching[:pageSize]
+	}
+
+	return matching, nextToken, nil
+}
+
+func (m *MemoryStore) MarkNotificationRead(ctx context.Context, notificationID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	notification, ok := m.notifications[notificationID]
+	if !ok {
+		return fmt.Errorf("notification not found: %s", notificationID)
+	}
+
+	notification.IsRead = true
+	notification.ReadAt = timestamppb.Now()
+	return nil
+}
+
+func (m *MemoryStore) MarkAllNotificationsRead(ctx context.Context, userID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	now := timestamppb.Now()
+	for _, notification := range m.notifications {
+		if notification.UserId == userID && !notification.IsRead {
+			notification.IsRead = true
+			notification.ReadAt = now
+		}
+	}
+	return nil
+}
+
+func (m *MemoryStore) GetUnreadNotificationCount(ctx context.Context, userID string) (int32, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var count int32
+	for _, notification := range m.notifications {
+		if notification.UserId == userID && !notification.IsRead {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (m *MemoryStore) GetNotificationPreferences(ctx context.Context, userID string) (*pfinancev1.NotificationPreferences, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	prefs, ok := m.notificationPreferences[userID]
+	if !ok {
+		// Return default preferences
+		return &pfinancev1.NotificationPreferences{
+			UserId:             userID,
+			BudgetAlerts:       true,
+			GoalMilestones:     true,
+			BillReminders:      true,
+			UnusualSpending:    true,
+			SubscriptionAlerts: true,
+			WeeklyDigest:       false,
+			BillReminderDays:   3,
+		}, nil
+	}
+
+	return prefs, nil
+}
+
+func (m *MemoryStore) UpdateNotificationPreferences(ctx context.Context, prefs *pfinancev1.NotificationPreferences) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.notificationPreferences[prefs.UserId] = prefs
+	return nil
 }

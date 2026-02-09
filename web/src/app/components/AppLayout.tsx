@@ -4,6 +4,7 @@ import { ReactNode } from 'react';
 import SidebarNav from './SidebarNav';
 import Breadcrumbs from './Breadcrumbs';
 import DebugPanel from './DebugPanel';
+import { FirebaseInitBanner } from './FirebaseInitBanner';
 import { cn } from '@/lib/utils';
 
 interface AppLayoutProps {
@@ -13,6 +14,7 @@ interface AppLayoutProps {
 export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
+      <FirebaseInitBanner />
       <SidebarNav />
       
       {/* Main Content Area */}
