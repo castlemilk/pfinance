@@ -1,8 +1,6 @@
 module github.com/castlemilk/pfinance/backend
 
-go 1.24.0
-
-toolchain go1.24.3
+go 1.25.0
 
 require (
 	cloud.google.com/go/firestore v1.18.0
@@ -11,6 +9,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/rs/cors v1.10.1
 	github.com/stretchr/testify v1.10.0
+	github.com/stripe/stripe-go/v82 v82.5.1
 	go.uber.org/mock v0.5.2
 	golang.org/x/net v0.40.0
 	golang.org/x/text v0.25.0
@@ -49,7 +48,6 @@ require (
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.5.0 // indirect
-	github.com/stripe/stripe-go/v82 v82.5.1 // indirect
 	github.com/zeebo/errs v1.4.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.34.0 // indirect

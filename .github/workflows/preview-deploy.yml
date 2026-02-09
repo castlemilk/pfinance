@@ -78,7 +78,7 @@ jobs:
       - uses: actions/setup-go@v5
         if: needs.changes.outputs.backend == 'true'
         with:
-          go-version: '1.24'
+          go-version: '1.25'
           cache: true
           cache-dependency-path: backend/go.sum
 
