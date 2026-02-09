@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, useCallback, ReactNode } from 'react';
 import {
   User,
   onAuthStateChanged,
@@ -15,6 +15,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useAdmin } from './AdminContext';
+import { SubscriptionTier, SubscriptionStatus } from '@/gen/pfinance/v1/types_pb';
 
 interface AuthContextType {
   user: User | null;
@@ -25,6 +26,9 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isImpersonating: boolean;
   actualUser: User | null; // The real logged-in user (if any)
+  subscriptionTier: SubscriptionTier;
+  subscriptionStatus: SubscriptionStatus;
+  refreshSubscription: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,6 +38,8 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
   const [actualUser, setActualUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const listenerFiredRef = useRef(false);
+  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>(SubscriptionTier.FREE);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>(SubscriptionStatus.UNSPECIFIED);
 
   // Determine the effective user (impersonated or actual)
   const effectiveUser = isAdminMode && impersonatedUser
@@ -106,6 +112,43 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const extractSubscriptionFromToken = useCallback(async (firebaseUser: User) => {
+    try {
+      const tokenResult = await firebaseUser.getIdTokenResult();
+      const claims = tokenResult.claims;
+      const tierStr = claims.subscription_tier as string | undefined;
+      const statusStr = claims.subscription_status as string | undefined;
+
+      setSubscriptionTier(tierStr === 'PRO' ? SubscriptionTier.PRO : SubscriptionTier.FREE);
+
+      const statusMap: Record<string, SubscriptionStatus> = {
+        'ACTIVE': SubscriptionStatus.ACTIVE,
+        'TRIALING': SubscriptionStatus.TRIALING,
+        'PAST_DUE': SubscriptionStatus.PAST_DUE,
+        'CANCELED': SubscriptionStatus.CANCELED,
+      };
+      setSubscriptionStatus(statusMap[statusStr || ''] || SubscriptionStatus.UNSPECIFIED);
+    } catch (err) {
+      console.error('[AuthContext] Failed to extract subscription from token:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (effectiveUser && !isAdminMode) {
+      extractSubscriptionFromToken(effectiveUser);
+    }
+  }, [effectiveUser?.uid, isAdminMode, extractSubscriptionFromToken]);
+
+  const refreshSubscription = useCallback(async () => {
+    if (!effectiveUser || isAdminMode) return;
+    try {
+      await effectiveUser.getIdToken(true); // Force refresh
+      await extractSubscriptionFromToken(effectiveUser);
+    } catch (err) {
+      console.error('[AuthContext] Failed to refresh subscription:', err);
+    }
+  }, [effectiveUser, isAdminMode, extractSubscriptionFromToken]);
+
   const signIn = async (email: string, password: string) => {
     if (isAdminMode && impersonatedUser) {
       // In admin mode, don't actually sign in
@@ -176,7 +219,10 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
     signInWithGoogle,
     logout,
     isImpersonating: isAdminMode && !!impersonatedUser,
-    actualUser
+    actualUser,
+    subscriptionTier,
+    subscriptionStatus,
+    refreshSubscription,
   };
 
   return (

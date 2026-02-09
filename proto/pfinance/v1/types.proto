@@ -82,6 +82,7 @@ message User {
   SubscriptionTier subscription_tier = 7;
   SubscriptionStatus subscription_status = 8;
   string stripe_customer_id = 9;
+  string stripe_subscription_id = 10;
 }
 
 // SplitType represents how an expense is split among members

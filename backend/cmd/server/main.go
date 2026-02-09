@@ -145,7 +145,7 @@ func main() {
 	// Set up Stripe webhook handler if configured
 	stripeSecret := os.Getenv("STRIPE_WEBHOOK_SECRET")
 	if stripeSecret != "" {
-		stripeHandler := service.NewStripeWebhookHandler(storeImpl, stripeSecret)
+		stripeHandler := service.NewStripeWebhookHandler(storeImpl, stripeSecret, firebaseAuth)
 		mux.HandleFunc("/webhooks/stripe", stripeHandler.HandleWebhook)
 		log.Println("Stripe webhook handler registered at /webhooks/stripe")
 	} else {

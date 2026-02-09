@@ -12,6 +12,7 @@ import (
 	"github.com/castlemilk/pfinance/backend/internal/auth"
 	"github.com/castlemilk/pfinance/backend/internal/store"
 	"github.com/google/uuid"
+	"github.com/stripe/stripe-go/v82"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -3751,17 +3752,35 @@ func (s *FinanceService) CancelSubscription(ctx context.Context, req *connect.Re
 			fmt.Errorf("no active subscription to cancel"))
 	}
 
-	if user.StripeCustomerId == "" {
+	if user.StripeSubscriptionId == "" {
 		return nil, connect.NewError(connect.CodeFailedPrecondition,
-			fmt.Errorf("no stripe customer associated"))
+			fmt.Errorf("no stripe subscription found"))
 	}
 
-	// We don't store subscription ID on the user record directly.
-	// For now, return the current stored status and mark as cancelling.
-	// The webhook will handle the actual status update when Stripe processes it.
-	// In a production system, we'd also store the subscription ID on the user.
+	info, err := s.stripe.CancelSubscriptionAtPeriodEnd(user.StripeSubscriptionId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal,
+			fmt.Errorf("failed to cancel subscription: %v", err))
+	}
+
 	return connect.NewResponse(&pfinancev1.CancelSubscriptionResponse{
-		Status:            user.SubscriptionStatus,
-		CancelAtPeriodEnd: true,
+		Status:            mapStripeStatusEnum(info.Status),
+		CancelAtPeriodEnd: info.CancelAtPeriodEnd,
 	}), nil
+}
+
+// mapStripeStatusEnum converts a stripe.SubscriptionStatus to the proto SubscriptionStatus enum.
+func mapStripeStatusEnum(status stripe.SubscriptionStatus) pfinancev1.SubscriptionStatus {
+	switch status {
+	case stripe.SubscriptionStatusActive:
+		return pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE
+	case stripe.SubscriptionStatusPastDue:
+		return pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_PAST_DUE
+	case stripe.SubscriptionStatusCanceled, stripe.SubscriptionStatusUnpaid:
+		return pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_CANCELED
+	case stripe.SubscriptionStatusTrialing:
+		return pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_TRIALING
+	default:
+		return pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNSPECIFIED
+	}
 }

@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
+	"github.com/castlemilk/pfinance/backend/internal/auth"
 	"github.com/castlemilk/pfinance/backend/internal/store"
 	"github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/webhook"
@@ -17,13 +18,14 @@ import (
 
 // StripeWebhookHandler handles Stripe webhook events
 type StripeWebhookHandler struct {
-	store         store.Store
+	store        store.Store
 	webhookSecret string
+	firebaseAuth *auth.FirebaseAuth
 }
 
 // NewStripeWebhookHandler creates a new Stripe webhook handler
-func NewStripeWebhookHandler(s store.Store, webhookSecret string) *StripeWebhookHandler {
-	return &StripeWebhookHandler{store: s, webhookSecret: webhookSecret}
+func NewStripeWebhookHandler(s store.Store, webhookSecret string, firebaseAuth *auth.FirebaseAuth) *StripeWebhookHandler {
+	return &StripeWebhookHandler{store: s, webhookSecret: webhookSecret, firebaseAuth: firebaseAuth}
 }
 
 // HandleWebhook processes incoming Stripe webhook events
@@ -94,12 +96,20 @@ func (h *StripeWebhookHandler) handleCheckoutCompleted(ctx context.Context, even
 	}
 
 	user.StripeCustomerId = session.Customer
+	user.StripeSubscriptionId = session.Subscription
 	user.SubscriptionTier = pfinancev1.SubscriptionTier_SUBSCRIPTION_TIER_PRO
 	user.SubscriptionStatus = pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE
 	user.UpdatedAt = timestamppb.Now()
 
 	if err := h.store.UpdateUser(ctx, user); err != nil {
 		log.Printf("[Stripe] Failed to update user %s after checkout: %v", userID, err)
+	}
+
+	// Update Firebase custom claims
+	if h.firebaseAuth != nil {
+		if err := h.firebaseAuth.SetSubscriptionClaims(ctx, userID, user.SubscriptionTier, user.SubscriptionStatus); err != nil {
+			log.Printf("[Stripe] Warning: failed to set custom claims for user %s: %v", userID, err)
+		}
 	}
 }
 
@@ -135,6 +145,13 @@ func (h *StripeWebhookHandler) handleSubscriptionUpdated(ctx context.Context, ev
 	if err := h.store.UpdateUser(ctx, user); err != nil {
 		log.Printf("[Stripe] Failed to update user %s subscription status: %v", userID, err)
 	}
+
+	// Update Firebase custom claims
+	if h.firebaseAuth != nil {
+		if err := h.firebaseAuth.SetSubscriptionClaims(ctx, userID, user.SubscriptionTier, user.SubscriptionStatus); err != nil {
+			log.Printf("[Stripe] Warning: failed to set custom claims for user %s: %v", userID, err)
+		}
+	}
 }
 
 // handleSubscriptionDeleted downgrades user to FREE tier.
@@ -168,6 +185,13 @@ func (h *StripeWebhookHandler) handleSubscriptionDeleted(ctx context.Context, ev
 
 	if err := h.store.UpdateUser(ctx, user); err != nil {
 		log.Printf("[Stripe] Failed to update user %s after subscription deletion: %v", userID, err)
+	}
+
+	// Update Firebase custom claims
+	if h.firebaseAuth != nil {
+		if err := h.firebaseAuth.SetSubscriptionClaims(ctx, userID, user.SubscriptionTier, user.SubscriptionStatus); err != nil {
+			log.Printf("[Stripe] Warning: failed to set custom claims for user %s: %v", userID, err)
+		}
 	}
 }
 
@@ -204,6 +228,13 @@ func (h *StripeWebhookHandler) handlePaymentFailed(ctx context.Context, event st
 
 	if err := h.store.UpdateUser(ctx, user); err != nil {
 		log.Printf("[Stripe] Failed to update user %s subscription status to past_due: %v", userID, err)
+	}
+
+	// Update Firebase custom claims
+	if h.firebaseAuth != nil {
+		if err := h.firebaseAuth.SetSubscriptionClaims(ctx, userID, user.SubscriptionTier, user.SubscriptionStatus); err != nil {
+			log.Printf("[Stripe] Warning: failed to set custom claims for user %s: %v", userID, err)
+		}
 	}
 }
 

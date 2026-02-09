@@ -23,6 +23,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useFinance } from '../context/FinanceContext';
+import { useSubscription } from '../hooks/useSubscription';
 import { ExpenseCategory, ExpenseFrequency } from '../types';
 import { financeClient, DocumentType } from '@/lib/financeService';
 import { ExtractionMethod, ExtractionStatus } from '@/gen/pfinance/v1/types_pb';
@@ -48,6 +49,7 @@ import {
   Cpu,
   Cloud,
   FileText,
+  Lock,
 } from 'lucide-react';
 
 type EntryMode = 'smart' | 'photo' | 'manual';
@@ -331,6 +333,7 @@ function parseNaturalLanguage(input: string): ParsedExpense | null {
 
 export default function SmartExpenseEntry() {
   const { addExpense } = useFinance();
+  const { hasProAccess } = useSubscription();
   const [mode, setMode] = useState<EntryMode>('smart');
   const [step, setStep] = useState(1);
   const [smartInput, setSmartInput] = useState('');
@@ -891,23 +894,29 @@ export default function SmartExpenseEntry() {
         variant={mode === 'smart' ? 'default' : 'outline'}
         className="flex flex-col items-center gap-1 h-auto py-3"
         onClick={() => {
+          if (!hasProAccess) return;
           setMode('smart');
           resetForm();
         }}
+        disabled={!hasProAccess}
       >
         <Sparkles className="h-5 w-5" />
         <span className="text-xs">Quick Add</span>
+        {!hasProAccess && <Lock className="h-3 w-3 text-muted-foreground" />}
       </Button>
       <Button
         variant={mode === 'photo' ? 'default' : 'outline'}
         className="flex flex-col items-center gap-1 h-auto py-3"
         onClick={() => {
+          if (!hasProAccess) return;
           setMode('photo');
           resetForm();
         }}
+        disabled={!hasProAccess}
       >
         <Camera className="h-5 w-5" />
         <span className="text-xs">Receipt</span>
+        {!hasProAccess && <Lock className="h-3 w-3 text-muted-foreground" />}
       </Button>
       <Button
         variant={mode === 'manual' ? 'default' : 'outline'}

@@ -11,7 +11,7 @@ import { financeClient } from '@/lib/financeService';
 import { SubscriptionTier, SubscriptionStatus } from '@/gen/pfinance/v1/types_pb';
 
 export default function BillingPage() {
-  const { user } = useAuth();
+  const { user, refreshSubscription } = useAuth();
   const searchParams = useSearchParams();
 
   const [tier, setTier] = useState<SubscriptionTier>(SubscriptionTier.FREE);
@@ -41,6 +41,41 @@ export default function BillingPage() {
   useEffect(() => {
     loadSubscription();
   }, [loadSubscription]);
+
+  // Poll for subscription update after checkout success
+  useEffect(() => {
+    if (checkoutResult !== 'success' || !user) return;
+
+    let cancelled = false;
+    let pollCount = 0;
+    const maxPolls = 10;
+
+    const poll = async () => {
+      while (!cancelled && pollCount < maxPolls) {
+        pollCount++;
+        try {
+          const res = await financeClient.getSubscriptionStatus({ userId: user.uid });
+          if (res.tier === SubscriptionTier.PRO) {
+            setTier(res.tier);
+            setStatus(res.status);
+            setCancelAtPeriodEnd(res.cancelAtPeriodEnd);
+            // Also refresh the auth token to get updated custom claims
+            if (refreshSubscription) {
+              await refreshSubscription();
+            }
+            return;
+          }
+        } catch (err) {
+          console.error('Poll failed:', err);
+        }
+        // Wait 2 seconds between polls
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    };
+
+    poll();
+    return () => { cancelled = true; };
+  }, [checkoutResult, user, refreshSubscription]);
 
   const handleUpgrade = async () => {
     if (!user) return;

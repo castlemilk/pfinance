@@ -6,6 +6,7 @@ import { useAuth } from '../AuthWithAdminContext';
 
 import { financeClient } from '@/lib/financeService';
 import { timestampFromDate } from '@bufbuild/protobuf/wkt';
+import { SubscriptionTier, SubscriptionStatus } from '@/gen/pfinance/v1/types_pb';
 
 // Mock financeService
 jest.mock('@/lib/financeService', () => ({
@@ -143,6 +144,9 @@ describe('MultiUserFinanceContext', () => {
       logout: jest.fn(),
       isImpersonating: false,
       actualUser: null,
+      subscriptionTier: SubscriptionTier.FREE,
+      subscriptionStatus: SubscriptionStatus.UNSPECIFIED,
+      refreshSubscription: jest.fn(),
     });
 
     render(
@@ -172,6 +176,9 @@ describe('MultiUserFinanceContext', () => {
       logout: jest.fn(),
       isImpersonating: false,
       actualUser: mockUser,
+      subscriptionTier: SubscriptionTier.FREE,
+      subscriptionStatus: SubscriptionStatus.UNSPECIFIED,
+      refreshSubscription: jest.fn(),
     });
 
     const mockGroups = [
@@ -228,6 +235,9 @@ describe('MultiUserFinanceContext', () => {
       logout: jest.fn(),
       isImpersonating: false,
       actualUser: mockUser,
+      subscriptionTier: SubscriptionTier.FREE,
+      subscriptionStatus: SubscriptionStatus.UNSPECIFIED,
+      refreshSubscription: jest.fn(),
     });
 
     const mockNewGroup = {
@@ -284,6 +294,9 @@ describe('MultiUserFinanceContext', () => {
       logout: jest.fn(),
       isImpersonating: false,
       actualUser: null,
+      subscriptionTier: SubscriptionTier.FREE,
+      subscriptionStatus: SubscriptionStatus.UNSPECIFIED,
+      refreshSubscription: jest.fn(),
     });
 
     render(
@@ -320,6 +333,9 @@ describe('MultiUserFinanceContext', () => {
       logout: jest.fn(),
       isImpersonating: false,
       actualUser: mockUser,
+      subscriptionTier: SubscriptionTier.FREE,
+      subscriptionStatus: SubscriptionStatus.UNSPECIFIED,
+      refreshSubscription: jest.fn(),
     });
 
     function TestSetActiveGroup() {
@@ -382,6 +398,9 @@ describe('MultiUserFinanceContext', () => {
       logout: jest.fn(),
       isImpersonating: false,
       actualUser: mockUser,
+      subscriptionTier: SubscriptionTier.FREE,
+      subscriptionStatus: SubscriptionStatus.UNSPECIFIED,
+      refreshSubscription: jest.fn(),
     });
 
     const testGroup = {
