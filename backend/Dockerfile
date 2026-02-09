@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 # Install dependencies
 RUN apk add --no-cache git
@@ -31,7 +31,7 @@ WORKDIR /root/
 COPY --from=builder /app/main .
 
 # Expose port
-EXPOSE 8080
+EXPOSE 8111
 
 # Run the binary
 CMD ["./main"]

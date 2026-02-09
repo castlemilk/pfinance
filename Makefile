@@ -114,7 +114,7 @@ dev-backend: check-port-backend
 	export USE_MEMORY_STORE=false && \
 	export GOOGLE_APPLICATION_CREDENTIALS=$(CURDIR)/pfinance-app-1748773335-firebase-adminsdk-fbsvc-4adcc18be2.json && \
 	export ML_SERVICE_URL=https://ben-ebsworth--pfinance-extraction-7b-web-app.modal.run && \
-	export GEMINI_API_KEY=AIzaSyBCfXD_CVctJuEYHq84efIqlifv-M56KRM && \
+	export GEMINI_API_KEY=$$(grep GEMINI_API_KEY .env 2>/dev/null | cut -d= -f2- || echo "$$GEMINI_API_KEY") && \
 	export STRIPE_SECRET_KEY=$$(grep STRIPE_SECRET_KEY .env 2>/dev/null | cut -d= -f2-) && \
 	export STRIPE_WEBHOOK_SECRET=$$(grep STRIPE_WEBHOOK_SECRET .env 2>/dev/null | cut -d= -f2-) && \
 	export STRIPE_PRODUCT_ID=$$(grep STRIPE_PRODUCT_ID .env 2>/dev/null | cut -d= -f2-) && \
@@ -128,7 +128,7 @@ dev-backend-memory: check-port-backend
 	export PORT=$(BACKEND_PORT) && \
 	export USE_MEMORY_STORE=true && \
 	export ML_SERVICE_URL=https://ben-ebsworth--pfinance-extraction-7b-web-app.modal.run && \
-	export GEMINI_API_KEY=AIzaSyBCfXD_CVctJuEYHq84efIqlifv-M56KRM && \
+	export GEMINI_API_KEY=$$(grep GEMINI_API_KEY .env 2>/dev/null | cut -d= -f2- || echo "$$GEMINI_API_KEY") && \
 	export STRIPE_SECRET_KEY=$$(grep STRIPE_SECRET_KEY .env 2>/dev/null | cut -d= -f2-) && \
 	export STRIPE_WEBHOOK_SECRET=$$(grep STRIPE_WEBHOOK_SECRET .env 2>/dev/null | cut -d= -f2-) && \
 	export STRIPE_PRODUCT_ID=$$(grep STRIPE_PRODUCT_ID .env 2>/dev/null | cut -d= -f2-) && \
@@ -143,7 +143,7 @@ dev-backend-firebase: check-port-backend
 	export USE_MEMORY_STORE=false && \
 	export GOOGLE_APPLICATION_CREDENTIALS=$(CURDIR)/pfinance-app-1748773335-firebase-adminsdk-fbsvc-4adcc18be2.json && \
 	export ML_SERVICE_URL=https://ben-ebsworth--pfinance-extraction-7b-web-app.modal.run && \
-	export GEMINI_API_KEY=AIzaSyBCfXD_CVctJuEYHq84efIqlifv-M56KRM && \
+	export GEMINI_API_KEY=$$(grep GEMINI_API_KEY .env 2>/dev/null | cut -d= -f2- || echo "$$GEMINI_API_KEY") && \
 	export STRIPE_SECRET_KEY=$$(grep STRIPE_SECRET_KEY .env 2>/dev/null | cut -d= -f2-) && \
 	export STRIPE_WEBHOOK_SECRET=$$(grep STRIPE_WEBHOOK_SECRET .env 2>/dev/null | cut -d= -f2-) && \
 	export STRIPE_PRODUCT_ID=$$(grep STRIPE_PRODUCT_ID .env 2>/dev/null | cut -d= -f2-) && \

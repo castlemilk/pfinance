@@ -53,3 +53,7 @@ __pycache__/
 *.pyc
 playwright-report/
 test-results/
+
+# Claude Code artifacts
+.settings.json
+PLAN.md

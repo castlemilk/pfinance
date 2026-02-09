@@ -164,7 +164,7 @@ func main() {
 			"https://*.preview.pfinance.dev", // PR preview custom domains (pr-123.preview.pfinance.dev)
 			"https://pfinance-app-1748773335.web.app",
 			"https://pfinance-app-1748773335.firebaseapp.com",
-			"https://*.vercel.app", // Vercel preview deployments
+			"https://pfinance-*.vercel.app", // Vercel preview deployments (project-scoped)
 		},
 		AllowedMethods: []string{
 			http.MethodGet,
