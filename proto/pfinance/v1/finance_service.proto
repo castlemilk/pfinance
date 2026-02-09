@@ -125,6 +125,14 @@ service FinanceService {
   rpc GetSubscriptionStatus(GetSubscriptionStatusRequest) returns (GetSubscriptionStatusResponse);
   rpc CancelSubscription(CancelSubscriptionRequest) returns (CancelSubscriptionResponse);
   rpc VerifyCheckoutSession(VerifyCheckoutSessionRequest) returns (VerifyCheckoutSessionResponse);
+
+  // Analytics operations (Pro tier)
+  rpc GetDailyAggregates(GetDailyAggregatesRequest) returns (GetDailyAggregatesResponse);
+  rpc GetSpendingTrends(GetSpendingTrendsRequest) returns (GetSpendingTrendsResponse);
+  rpc GetCategoryComparison(GetCategoryComparisonRequest) returns (GetCategoryComparisonResponse);
+  rpc DetectAnomalies(DetectAnomaliesRequest) returns (DetectAnomaliesResponse);
+  rpc GetCashFlowForecast(GetCashFlowForecastRequest) returns (GetCashFlowForecastResponse);
+  rpc GetWaterfallData(GetWaterfallDataRequest) returns (GetWaterfallDataResponse);
 }
 
 // User operations
@@ -1041,4 +1049,87 @@ message VerifyCheckoutSessionResponse {
   google.protobuf.Timestamp current_period_end = 3;
   bool cancel_at_period_end = 4;
   bool already_active = 5;
+}
+
+// ============================================================================
+// Analytics operations (Pro tier)
+// ============================================================================
+
+message GetDailyAggregatesRequest {
+  string user_id = 1;
+  string group_id = 2;              // Optional
+  google.protobuf.Timestamp start_date = 3;
+  google.protobuf.Timestamp end_date = 4;
+}
+
+message GetDailyAggregatesResponse {
+  repeated DailyAggregate aggregates = 1;
+  double max_daily_amount = 2;
+  int64 max_daily_amount_cents = 3;
+}
+
+message GetSpendingTrendsRequest {
+  string user_id = 1;
+  string group_id = 2;              // Optional
+  Granularity granularity = 3;
+  int32 periods = 4;                // Number of periods to include
+  ExpenseCategory category = 5;     // Optional: filter by category
+}
+
+message GetSpendingTrendsResponse {
+  repeated TimeSeriesDataPoint expense_series = 1;
+  repeated TimeSeriesDataPoint income_series = 2;
+  double trend_slope = 3;           // Linear regression slope
+  double trend_r_squared = 4;       // R-squared for trend fit
+}
+
+message GetCategoryComparisonRequest {
+  string user_id = 1;
+  string group_id = 2;              // Optional
+  string current_period = 3;        // "week", "month", "quarter"
+  bool include_budgets = 4;
+}
+
+message GetCategoryComparisonResponse {
+  repeated CategorySpending categories = 1;
+}
+
+message DetectAnomaliesRequest {
+  string user_id = 1;
+  string group_id = 2;              // Optional
+  int32 lookback_days = 3;          // Default 90
+  double sensitivity = 4;           // 0.0-1.0, default 0.5
+}
+
+message DetectAnomaliesResponse {
+  repeated SpendingAnomaly anomalies = 1;
+  int32 total_anomalies = 2;
+  double anomalous_spend_total = 3;
+  int64 anomalous_spend_total_cents = 4;
+  string top_anomaly_category = 5;
+}
+
+message GetCashFlowForecastRequest {
+  string user_id = 1;
+  string group_id = 2;              // Optional
+  int32 forecast_days = 3;          // Default 30
+}
+
+message GetCashFlowForecastResponse {
+  repeated ForecastPoint income_forecast = 1;
+  repeated ForecastPoint expense_forecast = 2;
+  repeated ForecastPoint net_forecast = 3;
+  repeated TimeSeriesDataPoint income_history = 4;
+  repeated TimeSeriesDataPoint expense_history = 5;
+}
+
+message GetWaterfallDataRequest {
+  string user_id = 1;
+  string group_id = 2;              // Optional
+  string period = 3;                // "month", "quarter", "year"
+}
+
+message GetWaterfallDataResponse {
+  repeated WaterfallEntry entries = 1;
+  string period_label = 2;
 }

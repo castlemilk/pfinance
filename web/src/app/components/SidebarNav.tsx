@@ -24,6 +24,7 @@ import {
   Repeat,
   Target,
   Lightbulb,
+  BarChart3,
   Search,
   CreditCard,
   Crown
@@ -74,6 +75,11 @@ const personalNavItems: NavItem[] = [
     title: 'Insights',
     href: '/personal/insights',
     icon: <Lightbulb className="w-4 h-4" />
+  },
+  {
+    title: 'Analytics',
+    href: '/personal/analytics',
+    icon: <BarChart3 className="w-4 h-4" />
   },
   {
     title: 'Reports',

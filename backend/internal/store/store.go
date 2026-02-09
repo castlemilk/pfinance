@@ -102,6 +102,9 @@ type Store interface {
 	GetUnreadNotificationCount(ctx context.Context, userID string) (int32, error)
 	GetNotificationPreferences(ctx context.Context, userID string) (*pfinancev1.NotificationPreferences, error)
 	UpdateNotificationPreferences(ctx context.Context, prefs *pfinancev1.NotificationPreferences) error
+
+	// Analytics operations
+	GetDailyAggregates(ctx context.Context, userID, groupID string, startDate, endDate time.Time) ([]*pfinancev1.DailyAggregate, error)
 }
 
 // EncodePageToken encodes a document ID into a page token.

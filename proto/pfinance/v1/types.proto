@@ -705,3 +705,117 @@ message ValidationDiscrepancy {
   string validated_value = 3;
   string transaction_id = 4;
 }
+
+// ============================================================================
+// Analytics
+// ============================================================================
+
+// Granularity for time series aggregation
+enum Granularity {
+  GRANULARITY_UNSPECIFIED = 0;
+  GRANULARITY_DAY = 1;
+  GRANULARITY_WEEK = 2;
+  GRANULARITY_MONTH = 3;
+}
+
+// AnomalyType categorizes the kind of spending anomaly
+enum AnomalyType {
+  ANOMALY_TYPE_UNSPECIFIED = 0;
+  ANOMALY_TYPE_AMOUNT_OUTLIER = 1;     // Unusually high or low amount
+  ANOMALY_TYPE_NEW_MERCHANT = 2;       // First-time merchant
+  ANOMALY_TYPE_UNUSUAL_TIMING = 3;     // Unusual time of day/week
+  ANOMALY_TYPE_CATEGORY_SPIKE = 4;     // Category spending spike
+}
+
+// AnomalySeverity indicates how unusual the anomaly is
+enum AnomalySeverity {
+  ANOMALY_SEVERITY_UNSPECIFIED = 0;
+  ANOMALY_SEVERITY_LOW = 1;
+  ANOMALY_SEVERITY_MEDIUM = 2;
+  ANOMALY_SEVERITY_HIGH = 3;
+}
+
+// DailyAggregate represents spending aggregated for a single day
+message DailyAggregate {
+  string date = 1;                     // YYYY-MM-DD format
+  double total_amount = 2;
+  int64 total_amount_cents = 3;
+  int32 transaction_count = 4;
+  repeated CategoryAmount category_amounts = 5;
+}
+
+// CategoryAmount represents spending in a single category
+message CategoryAmount {
+  ExpenseCategory category = 1;
+  double amount = 2;
+  int64 amount_cents = 3;
+  int32 count = 4;
+}
+
+// TimeSeriesDataPoint represents a single point in a time series
+message TimeSeriesDataPoint {
+  string date = 1;                     // ISO date string
+  double value = 2;
+  int64 value_cents = 3;
+  string label = 4;                    // Optional label
+}
+
+// CategorySpending represents a category's spending for comparison
+message CategorySpending {
+  ExpenseCategory category = 1;
+  double current_amount = 2;
+  int64 current_amount_cents = 3;
+  double previous_amount = 4;
+  int64 previous_amount_cents = 5;
+  double budget_amount = 6;
+  int64 budget_amount_cents = 7;
+  double change_percent = 8;
+}
+
+// SpendingAnomaly represents a detected spending anomaly
+message SpendingAnomaly {
+  string id = 1;
+  string expense_id = 2;
+  string description = 3;
+  double amount = 4;
+  int64 amount_cents = 5;
+  ExpenseCategory category = 6;
+  google.protobuf.Timestamp date = 7;
+  double z_score = 8;
+  double expected_amount = 9;
+  int64 expected_amount_cents = 10;
+  AnomalyType anomaly_type = 11;
+  AnomalySeverity severity = 12;
+}
+
+// ForecastPoint represents a single forecast data point
+message ForecastPoint {
+  string date = 1;                     // YYYY-MM-DD
+  double predicted = 2;
+  int64 predicted_cents = 3;
+  double lower_bound = 4;
+  int64 lower_bound_cents = 5;
+  double upper_bound = 6;
+  int64 upper_bound_cents = 7;
+  bool is_recurring = 8;              // True if driven by a recurring transaction
+}
+
+// WaterfallEntryType categorizes waterfall chart entries
+enum WaterfallEntryType {
+  WATERFALL_ENTRY_TYPE_UNSPECIFIED = 0;
+  WATERFALL_ENTRY_TYPE_INCOME = 1;
+  WATERFALL_ENTRY_TYPE_EXPENSE = 2;
+  WATERFALL_ENTRY_TYPE_TAX = 3;
+  WATERFALL_ENTRY_TYPE_SAVINGS = 4;
+  WATERFALL_ENTRY_TYPE_SUBTOTAL = 5;
+}
+
+// WaterfallEntry represents a single bar in a waterfall chart
+message WaterfallEntry {
+  string label = 1;
+  double amount = 2;
+  int64 amount_cents = 3;
+  WaterfallEntryType entry_type = 4;
+  double running_total = 5;
+  int64 running_total_cents = 6;
+}

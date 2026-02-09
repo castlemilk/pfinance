@@ -339,6 +339,21 @@ func (mr *MockStoreMockRecorder) GetContribution(ctx, contributionID any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContribution", reflect.TypeOf((*MockStore)(nil).GetContribution), ctx, contributionID)
 }
 
+// GetDailyAggregates mocks base method.
+func (m *MockStore) GetDailyAggregates(ctx context.Context, userID, groupID string, startDate, endDate time.Time) ([]*pfinancev1.DailyAggregate, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDailyAggregates", ctx, userID, groupID, startDate, endDate)
+	ret0, _ := ret[0].([]*pfinancev1.DailyAggregate)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDailyAggregates indicates an expected call of GetDailyAggregates.
+func (mr *MockStoreMockRecorder) GetDailyAggregates(ctx, userID, groupID, startDate, endDate any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDailyAggregates", reflect.TypeOf((*MockStore)(nil).GetDailyAggregates), ctx, userID, groupID, startDate, endDate)
+}
+
 // GetExpense mocks base method.
 func (m *MockStore) GetExpense(ctx context.Context, expenseID string) (*pfinancev1.Expense, error) {
 	m.ctrl.T.Helper()
