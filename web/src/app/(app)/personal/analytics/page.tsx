@@ -24,7 +24,8 @@ import {
   useCashFlowForecast,
   useWaterfallData,
 } from '../../../metrics/hooks/useAnalyticsData';
-import { AlertCircle } from 'lucide-react';
+import { useExtractionMetrics } from '../../../metrics/hooks/useExtractionMetrics';
+import { AlertCircle, FileSearch } from 'lucide-react';
 
 function ErrorBanner({ message }: { message: string }) {
   return (
@@ -365,6 +366,146 @@ function FlowTab() {
 }
 
 // ============================================================================
+// Tab: Extraction Quality
+// ============================================================================
+
+function ExtractionTab() {
+  const [days, setDays] = useState(30);
+  const { data, loading, error } = useExtractionMetrics(days);
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <div>
+          <CardTitle>Extraction Quality</CardTitle>
+          <CardDescription>ML extraction accuracy and correction metrics</CardDescription>
+        </div>
+        <Select value={String(days)} onValueChange={(v) => setDays(Number(v))}>
+          <SelectTrigger className="w-24">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7">7 days</SelectItem>
+            <SelectItem value="30">30 days</SelectItem>
+            <SelectItem value="90">90 days</SelectItem>
+          </SelectContent>
+        </Select>
+      </CardHeader>
+      <CardContent>
+        {error && <ErrorBanner message={error} />}
+        {loading && <LoadingSkeleton />}
+        {!loading && !error && data && (
+          <div className="space-y-6">
+            {/* Summary Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-4 rounded-lg border bg-card">
+                <div className="text-sm text-muted-foreground">Extractions</div>
+                <div className="text-2xl font-bold">{data.totalExtractions}</div>
+              </div>
+              <div className="p-4 rounded-lg border bg-card">
+                <div className="text-sm text-muted-foreground">Transactions</div>
+                <div className="text-2xl font-bold">{data.totalTransactions}</div>
+              </div>
+              <div className="p-4 rounded-lg border bg-card">
+                <div className="text-sm text-muted-foreground">Avg Confidence</div>
+                <div className="text-2xl font-bold">
+                  {(data.averageConfidence * 100).toFixed(1)}%
+                </div>
+              </div>
+              <div className="p-4 rounded-lg border bg-card">
+                <div className="text-sm text-muted-foreground">Correction Rate</div>
+                <div className="text-2xl font-bold">
+                  {(data.correctionRate * 100).toFixed(1)}%
+                </div>
+              </div>
+            </div>
+
+            {/* Corrections by Field */}
+            {Object.keys(data.correctionsByField).length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium mb-3">Corrections by Field</h4>
+                <div className="space-y-2">
+                  {Object.entries(data.correctionsByField)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([field, count]) => {
+                      const maxCount = Math.max(...Object.values(data.correctionsByField));
+                      const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                      return (
+                        <div key={field} className="flex items-center gap-3">
+                          <span className="text-sm text-muted-foreground w-28 truncate">
+                            {field.replace('CORRECTION_FIELD_', '').toLowerCase()}
+                          </span>
+                          <div className="flex-1 h-5 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-primary rounded-full transition-all"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="text-sm font-mono w-8 text-right">{count}</span>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* Corrections by Category */}
+            {Object.keys(data.correctionsByCategory).length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium mb-3">Corrections by Category</h4>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(data.correctionsByCategory)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([category, count]) => (
+                      <Badge key={category} variant="secondary">
+                        {category.replace('EXPENSE_CATEGORY_', '').toLowerCase()}: {count}
+                      </Badge>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Recent Events */}
+            {data.recentEvents.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium mb-3">Recent Extractions</h4>
+                <div className="space-y-2">
+                  {data.recentEvents.slice(0, 10).map((event) => (
+                    <div
+                      key={event.id}
+                      className="flex items-center justify-between p-3 rounded-lg border text-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileSearch className="h-4 w-4 text-muted-foreground" />
+                        <span>{event.transactionCount} transactions</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge variant={event.overallConfidence >= 0.8 ? 'default' : 'secondary'}>
+                          {(event.overallConfidence * 100).toFixed(0)}%
+                        </Badge>
+                        <span className="text-muted-foreground">
+                          {event.processingTimeMs}ms
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {data.totalExtractions === 0 && (
+              <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+                No extraction data yet. Extract a receipt or bank statement to see metrics.
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ============================================================================
 // Analytics Page
 // ============================================================================
 
@@ -387,6 +528,7 @@ export default function AnalyticsPage() {
             <TabsTrigger value="anomalies">Anomalies</TabsTrigger>
             <TabsTrigger value="forecast">Forecast</TabsTrigger>
             <TabsTrigger value="flow">Flow</TabsTrigger>
+            <TabsTrigger value="extraction">Extraction</TabsTrigger>
           </TabsList>
 
           <TabsContent value="heatmap">
@@ -406,6 +548,9 @@ export default function AnalyticsPage() {
           </TabsContent>
           <TabsContent value="flow">
             <FlowTab />
+          </TabsContent>
+          <TabsContent value="extraction">
+            <ExtractionTab />
           </TabsContent>
         </Tabs>
       </ProFeatureGate>

@@ -95,6 +95,10 @@ func main() {
 		EnableML:         true,
 		EnableValidation: os.Getenv("GEMINI_API_KEY") != "",
 	})
+	// Wire user-specific merchant lookups into extraction
+	merchantLookup := extraction.NewStoreMerchantLookup(storeImpl)
+	extractionSvc.SetMerchantLookup(merchantLookup)
+
 	service.SetExtractionService(extractionSvc)
 	log.Printf("✅ Document extraction enabled (ML service: %s)", mlServiceURL)
 

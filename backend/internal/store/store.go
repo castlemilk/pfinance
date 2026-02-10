@@ -105,6 +105,14 @@ type Store interface {
 
 	// Analytics operations
 	GetDailyAggregates(ctx context.Context, userID, groupID string, startDate, endDate time.Time) ([]*pfinancev1.DailyAggregate, error)
+
+	// ML Feedback operations
+	CreateCorrectionRecord(ctx context.Context, record *pfinancev1.CorrectionRecord) error
+	ListCorrectionRecords(ctx context.Context, userID string, limit int) ([]*pfinancev1.CorrectionRecord, error)
+	UpsertMerchantMapping(ctx context.Context, mapping *pfinancev1.MerchantMapping) error
+	GetMerchantMappings(ctx context.Context, userID string) ([]*pfinancev1.MerchantMapping, error)
+	CreateExtractionEvent(ctx context.Context, event *pfinancev1.ExtractionEvent) error
+	ListExtractionEvents(ctx context.Context, userID string, since time.Time) ([]*pfinancev1.ExtractionEvent, error)
 }
 
 // EncodePageToken encodes a document ID into a page token.

@@ -33,6 +33,9 @@ type MemoryStore struct {
 	recurringTransactions   map[string]*pfinancev1.RecurringTransaction
 	notifications           map[string]*pfinancev1.Notification
 	notificationPreferences map[string]*pfinancev1.NotificationPreferences
+	correctionRecords       map[string]*pfinancev1.CorrectionRecord
+	merchantMappings        map[string]*pfinancev1.MerchantMapping
+	extractionEvents        map[string]*pfinancev1.ExtractionEvent
 }
 
 // NewMemoryStore creates a new in-memory store
@@ -53,6 +56,9 @@ func NewMemoryStore() *MemoryStore {
 		recurringTransactions:   make(map[string]*pfinancev1.RecurringTransaction),
 		notifications:           make(map[string]*pfinancev1.Notification),
 		notificationPreferences: make(map[string]*pfinancev1.NotificationPreferences),
+		correctionRecords:       make(map[string]*pfinancev1.CorrectionRecord),
+		merchantMappings:        make(map[string]*pfinancev1.MerchantMapping),
+		extractionEvents:        make(map[string]*pfinancev1.ExtractionEvent),
 	}
 }
 
@@ -1356,4 +1362,106 @@ func (m *MemoryStore) GetDailyAggregates(ctx context.Context, userID, groupID st
 	})
 
 	return result, nil
+}
+
+// CreateCorrectionRecord stores a correction record
+func (m *MemoryStore) CreateCorrectionRecord(ctx context.Context, record *pfinancev1.CorrectionRecord) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if record.Id == "" {
+		record.Id = uuid.New().String()
+	}
+	m.correctionRecords[record.Id] = record
+	return nil
+}
+
+// ListCorrectionRecords lists correction records for a user
+func (m *MemoryStore) ListCorrectionRecords(ctx context.Context, userID string, limit int) ([]*pfinancev1.CorrectionRecord, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var records []*pfinancev1.CorrectionRecord
+	for _, r := range m.correctionRecords {
+		if r.UserId == userID {
+			records = append(records, r)
+		}
+	}
+	sort.Slice(records, func(i, j int) bool {
+		if records[i].CreatedAt == nil || records[j].CreatedAt == nil {
+			return false
+		}
+		return records[i].CreatedAt.AsTime().After(records[j].CreatedAt.AsTime())
+	})
+	if limit > 0 && len(records) > limit {
+		records = records[:limit]
+	}
+	return records, nil
+}
+
+// UpsertMerchantMapping creates or updates a merchant mapping
+func (m *MemoryStore) UpsertMerchantMapping(ctx context.Context, mapping *pfinancev1.MerchantMapping) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	// Check for existing mapping with same user + raw_pattern
+	for id, existing := range m.merchantMappings {
+		if existing.UserId == mapping.UserId && strings.EqualFold(existing.RawPattern, mapping.RawPattern) {
+			existing.NormalizedName = mapping.NormalizedName
+			existing.Category = mapping.Category
+			existing.CorrectionCount = mapping.CorrectionCount
+			existing.Confidence = mapping.Confidence
+			existing.LastUsed = mapping.LastUsed
+			m.merchantMappings[id] = existing
+			return nil
+		}
+	}
+	if mapping.Id == "" {
+		mapping.Id = uuid.New().String()
+	}
+	m.merchantMappings[mapping.Id] = mapping
+	return nil
+}
+
+// GetMerchantMappings returns all merchant mappings for a user
+func (m *MemoryStore) GetMerchantMappings(ctx context.Context, userID string) ([]*pfinancev1.MerchantMapping, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var mappings []*pfinancev1.MerchantMapping
+	for _, mm := range m.merchantMappings {
+		if mm.UserId == userID {
+			mappings = append(mappings, mm)
+		}
+	}
+	return mappings, nil
+}
+
+// CreateExtractionEvent stores an extraction event
+func (m *MemoryStore) CreateExtractionEvent(ctx context.Context, event *pfinancev1.ExtractionEvent) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if event.Id == "" {
+		event.Id = uuid.New().String()
+	}
+	m.extractionEvents[event.Id] = event
+	return nil
+}
+
+// ListExtractionEvents lists extraction events for a user since a given time
+func (m *MemoryStore) ListExtractionEvents(ctx context.Context, userID string, since time.Time) ([]*pfinancev1.ExtractionEvent, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var events []*pfinancev1.ExtractionEvent
+	for _, e := range m.extractionEvents {
+		if e.UserId == userID {
+			if e.CreatedAt != nil && e.CreatedAt.AsTime().Before(since) {
+				continue
+			}
+			events = append(events, e)
+		}
+	}
+	sort.Slice(events, func(i, j int) bool {
+		if events[i].CreatedAt == nil || events[j].CreatedAt == nil {
+			return false
+		}
+		return events[i].CreatedAt.AsTime().After(events[j].CreatedAt.AsTime())
+	})
+	return events, nil
 }

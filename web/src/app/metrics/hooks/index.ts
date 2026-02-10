@@ -23,6 +23,12 @@ export {
   type UseBudgetMetricsReturn,
 } from './useBudgetMetrics';
 
+// Extraction metrics hooks
+export {
+  useExtractionMetrics,
+  type ExtractionMetricsData,
+} from './useExtractionMetrics';
+
 // Visualization data hooks
 export {
   useVisualizationData,

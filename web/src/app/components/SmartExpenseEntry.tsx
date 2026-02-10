@@ -31,6 +31,7 @@ import type { FieldConfidence } from '@/gen/pfinance/v1/types_pb';
 import { ConfidenceBadge } from '@/components/ui/confidence-badge';
 import { FieldConfidenceDetail } from './FieldConfidenceDetail';
 import { ConfidenceWarningBanner } from './ConfidenceWarningBanner';
+import { useMerchantSuggestion } from '../hooks/useMerchantSuggestion';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -356,6 +357,11 @@ export default function SmartExpenseEntry() {
   const [isAiParsing, setIsAiParsing] = useState(false);
   const [aiReasoning, setAiReasoning] = useState<string | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Merchant suggestion from user history / static normalizer
+  const { suggestion: merchantSuggestion } = useMerchantSuggestion(
+    parsedExpense?.description ?? ''
+  );
 
   const form = useForm<FormData>({
     defaultValues: {
@@ -1025,6 +1031,16 @@ export default function SmartExpenseEntry() {
           <div className="text-center py-4">
             <div className="text-3xl font-bold">${parsedExpense.amount.toFixed(2)}</div>
             <div className="text-lg text-muted-foreground">{parsedExpense.description}</div>
+            {merchantSuggestion && merchantSuggestion.source === 'user_history' &&
+              merchantSuggestion.suggestedName !== parsedExpense.description && (
+              <button
+                onClick={() => setParsedExpense({ ...parsedExpense, description: merchantSuggestion.suggestedName })}
+                className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+              >
+                <Sparkles className="h-3 w-3" />
+                Use &quot;{merchantSuggestion.suggestedName}&quot;
+              </button>
+            )}
             {parsedExpense.date && (
               <div className="text-sm text-muted-foreground mt-1">
                 📅 {parsedExpense.date.toLocaleDateString()}

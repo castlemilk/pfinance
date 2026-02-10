@@ -1731,3 +1731,82 @@ func (s *FirestoreStore) GetDailyAggregates(ctx context.Context, userID, groupID
 
 	return result, nil
 }
+
+// CreateCorrectionRecord stores a correction record
+func (s *FirestoreStore) CreateCorrectionRecord(ctx context.Context, record *pfinancev1.CorrectionRecord) error {
+	_, err := s.client.Collection("correction_records").Doc(record.Id).Set(ctx, record)
+	return err
+}
+
+// ListCorrectionRecords lists correction records for a user
+func (s *FirestoreStore) ListCorrectionRecords(ctx context.Context, userID string, limit int) ([]*pfinancev1.CorrectionRecord, error) {
+	query := s.client.Collection("correction_records").Where("user_id", "==", userID).OrderBy("created_at", firestore.Desc)
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("list correction records: %w", err)
+	}
+	var records []*pfinancev1.CorrectionRecord
+	for _, doc := range docs {
+		var r pfinancev1.CorrectionRecord
+		if err := doc.DataTo(&r); err != nil {
+			continue
+		}
+		records = append(records, &r)
+	}
+	return records, nil
+}
+
+// UpsertMerchantMapping creates or updates a merchant mapping.
+// Uses a deterministic document ID derived from userId+rawPattern to prevent race conditions.
+func (s *FirestoreStore) UpsertMerchantMapping(ctx context.Context, mapping *pfinancev1.MerchantMapping) error {
+	docID := fmt.Sprintf("%s_%s", mapping.UserId, mapping.RawPattern)
+	_, err := s.client.Collection("merchant_mappings").Doc(docID).Set(ctx, mapping)
+	return err
+}
+
+// GetMerchantMappings returns all merchant mappings for a user
+func (s *FirestoreStore) GetMerchantMappings(ctx context.Context, userID string) ([]*pfinancev1.MerchantMapping, error) {
+	docs, err := s.client.Collection("merchant_mappings").Where("user_id", "==", userID).Documents(ctx).GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("get merchant mappings: %w", err)
+	}
+	var mappings []*pfinancev1.MerchantMapping
+	for _, doc := range docs {
+		var mm pfinancev1.MerchantMapping
+		if err := doc.DataTo(&mm); err != nil {
+			continue
+		}
+		mappings = append(mappings, &mm)
+	}
+	return mappings, nil
+}
+
+// CreateExtractionEvent stores an extraction event
+func (s *FirestoreStore) CreateExtractionEvent(ctx context.Context, event *pfinancev1.ExtractionEvent) error {
+	_, err := s.client.Collection("extraction_events").Doc(event.Id).Set(ctx, event)
+	return err
+}
+
+// ListExtractionEvents lists extraction events for a user since a given time
+func (s *FirestoreStore) ListExtractionEvents(ctx context.Context, userID string, since time.Time) ([]*pfinancev1.ExtractionEvent, error) {
+	query := s.client.Collection("extraction_events").
+		Where("user_id", "==", userID).
+		Where("created_at", ">=", timestamppb.New(since)).
+		OrderBy("created_at", firestore.Desc)
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("list extraction events: %w", err)
+	}
+	var events []*pfinancev1.ExtractionEvent
+	for _, doc := range docs {
+		var e pfinancev1.ExtractionEvent
+		if err := doc.DataTo(&e); err != nil {
+			continue
+		}
+		events = append(events, &e)
+	}
+	return events, nil
+}
