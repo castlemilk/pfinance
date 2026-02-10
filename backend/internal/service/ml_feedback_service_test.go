@@ -365,7 +365,7 @@ func TestGetExtractionMetrics(t *testing.T) {
 					CorrectedCategory: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
 					CreatedAt:         timestamppb.New(now),
 					Corrections: []*pfinancev1.FieldCorrection{
-						{Field: pfinancev1.CorrectionFieldType_CORRECTION_FIELD_CATEGORY},
+						{Field: pfinancev1.CorrectionFieldType_CORRECTION_FIELD_TYPE_CATEGORY},
 					},
 				},
 			}, nil)

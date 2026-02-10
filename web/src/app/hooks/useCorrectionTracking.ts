@@ -106,7 +106,7 @@ export function useCorrectionTracking(originalTransactions: ExtractedTransaction
       const entry = ensureEntry(txId);
       entry.originalMerchant = originalMerchant;
       entry.correctedMerchant = correctedMerchant;
-      entry.fieldCorrections.set(CorrectionFieldType.CORRECTION_FIELD_MERCHANT, {
+      entry.fieldCorrections.set(CorrectionFieldType.MERCHANT, {
         originalValue: originalMerchant,
         correctedValue: correctedMerchant,
       });
@@ -126,7 +126,7 @@ export function useCorrectionTracking(originalTransactions: ExtractedTransaction
       const entry = ensureEntry(txId);
       entry.originalCategory = originalCategory;
       entry.correctedCategory = correctedCategory;
-      entry.fieldCorrections.set(CorrectionFieldType.CORRECTION_FIELD_CATEGORY, {
+      entry.fieldCorrections.set(CorrectionFieldType.CATEGORY, {
         originalValue: String(originalCategory),
         correctedValue: String(correctedCategory),
       });

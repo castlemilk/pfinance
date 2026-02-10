@@ -433,7 +433,7 @@ function ExtractionTab() {
                       return (
                         <div key={field} className="flex items-center gap-3">
                           <span className="text-sm text-muted-foreground w-28 truncate">
-                            {field.replace('CORRECTION_FIELD_', '').toLowerCase()}
+                            {field.replace('CORRECTION_FIELD_TYPE_', '').toLowerCase()}
                           </span>
                           <div className="flex-1 h-5 bg-muted rounded-full overflow-hidden">
                             <div
