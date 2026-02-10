@@ -819,3 +819,80 @@ message WaterfallEntry {
   double running_total = 5;
   int64 running_total_cents = 6;
 }
+
+// ============================================================================
+// ML Feedback & Correction Tracking
+// ============================================================================
+
+// CorrectionFieldType represents which field was corrected
+enum CorrectionFieldType {
+  CORRECTION_FIELD_TYPE_UNSPECIFIED = 0;
+  CORRECTION_FIELD_TYPE_AMOUNT = 1;
+  CORRECTION_FIELD_TYPE_CATEGORY = 2;
+  CORRECTION_FIELD_TYPE_DESCRIPTION = 3;
+  CORRECTION_FIELD_TYPE_DATE = 4;
+  CORRECTION_FIELD_TYPE_MERCHANT = 5;
+}
+
+// FieldCorrection represents a single field-level correction
+message FieldCorrection {
+  CorrectionFieldType field = 1;
+  string original_value = 2;
+  string corrected_value = 3;
+}
+
+// CorrectionRecord captures user corrections to extracted data
+message CorrectionRecord {
+  string id = 1;
+  string user_id = 2;
+  string extraction_id = 3;           // Links to ExtractionResult
+  string transaction_id = 4;          // Links to ExtractedTransaction
+  repeated FieldCorrection corrections = 5;
+  string original_merchant = 6;
+  string corrected_merchant = 7;
+  ExpenseCategory original_category = 8;
+  ExpenseCategory corrected_category = 9;
+  double original_confidence = 10;
+  google.protobuf.Timestamp created_at = 11;
+  ExtractionMethod extraction_method = 12;
+}
+
+// MerchantMapping stores learned merchant->category associations from user corrections
+message MerchantMapping {
+  string id = 1;
+  string user_id = 2;
+  string raw_pattern = 3;             // Original merchant string pattern
+  string normalized_name = 4;         // User-corrected clean name
+  ExpenseCategory category = 5;
+  int32 correction_count = 6;         // How many times user corrected to this
+  double confidence = 7;              // Derived from correction_count
+  google.protobuf.Timestamp last_used = 8;
+  google.protobuf.Timestamp created_at = 9;
+}
+
+// ExtractionEvent tracks extraction quality metrics over time
+message ExtractionEvent {
+  string id = 1;
+  string user_id = 2;
+  ExtractionMethod method = 3;
+  int32 transaction_count = 4;
+  int32 accepted_count = 5;
+  int32 rejected_count = 6;
+  int32 corrected_count = 7;
+  double overall_confidence = 8;
+  int32 processing_time_ms = 9;
+  DocumentType document_type = 10;
+  google.protobuf.Timestamp created_at = 11;
+}
+
+// DuplicateCandidate represents a potential duplicate of an extracted transaction
+message DuplicateCandidate {
+  string existing_expense_id = 1;
+  string description = 2;
+  double amount = 3;
+  int64 amount_cents = 4;
+  string date = 5;
+  ExpenseCategory category = 6;
+  double match_score = 7;             // 0.0-1.0 similarity
+  string match_reason = 8;            // "Same amount + date", "Similar merchant"
+}

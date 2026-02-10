@@ -70,6 +70,20 @@ func (mr *MockStoreMockRecorder) CreateContribution(ctx, contribution any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContribution", reflect.TypeOf((*MockStore)(nil).CreateContribution), ctx, contribution)
 }
 
+// CreateCorrectionRecord mocks base method.
+func (m *MockStore) CreateCorrectionRecord(ctx context.Context, record *pfinancev1.CorrectionRecord) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateCorrectionRecord", ctx, record)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateCorrectionRecord indicates an expected call of CreateCorrectionRecord.
+func (mr *MockStoreMockRecorder) CreateCorrectionRecord(ctx, record any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCorrectionRecord", reflect.TypeOf((*MockStore)(nil).CreateCorrectionRecord), ctx, record)
+}
+
 // CreateExpense mocks base method.
 func (m *MockStore) CreateExpense(ctx context.Context, expense *pfinancev1.Expense) error {
 	m.ctrl.T.Helper()
@@ -82,6 +96,20 @@ func (m *MockStore) CreateExpense(ctx context.Context, expense *pfinancev1.Expen
 func (mr *MockStoreMockRecorder) CreateExpense(ctx, expense any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateExpense", reflect.TypeOf((*MockStore)(nil).CreateExpense), ctx, expense)
+}
+
+// CreateExtractionEvent mocks base method.
+func (m *MockStore) CreateExtractionEvent(ctx context.Context, event *pfinancev1.ExtractionEvent) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateExtractionEvent", ctx, event)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateExtractionEvent indicates an expected call of CreateExtractionEvent.
+func (mr *MockStoreMockRecorder) CreateExtractionEvent(ctx, event any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateExtractionEvent", reflect.TypeOf((*MockStore)(nil).CreateExtractionEvent), ctx, event)
 }
 
 // CreateGoal mocks base method.
@@ -489,6 +517,21 @@ func (mr *MockStoreMockRecorder) GetInviteLinkByCode(ctx, code any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInviteLinkByCode", reflect.TypeOf((*MockStore)(nil).GetInviteLinkByCode), ctx, code)
 }
 
+// GetMerchantMappings mocks base method.
+func (m *MockStore) GetMerchantMappings(ctx context.Context, userID string) ([]*pfinancev1.MerchantMapping, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMerchantMappings", ctx, userID)
+	ret0, _ := ret[0].([]*pfinancev1.MerchantMapping)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMerchantMappings indicates an expected call of GetMerchantMappings.
+func (mr *MockStoreMockRecorder) GetMerchantMappings(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMerchantMappings", reflect.TypeOf((*MockStore)(nil).GetMerchantMappings), ctx, userID)
+}
+
 // GetNotificationPreferences mocks base method.
 func (m *MockStore) GetNotificationPreferences(ctx context.Context, userID string) (*pfinancev1.NotificationPreferences, error) {
 	m.ctrl.T.Helper()
@@ -596,6 +639,21 @@ func (mr *MockStoreMockRecorder) ListContributions(ctx, groupID, userID, pageSiz
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListContributions", reflect.TypeOf((*MockStore)(nil).ListContributions), ctx, groupID, userID, pageSize, pageToken)
 }
 
+// ListCorrectionRecords mocks base method.
+func (m *MockStore) ListCorrectionRecords(ctx context.Context, userID string, limit int) ([]*pfinancev1.CorrectionRecord, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListCorrectionRecords", ctx, userID, limit)
+	ret0, _ := ret[0].([]*pfinancev1.CorrectionRecord)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListCorrectionRecords indicates an expected call of ListCorrectionRecords.
+func (mr *MockStoreMockRecorder) ListCorrectionRecords(ctx, userID, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCorrectionRecords", reflect.TypeOf((*MockStore)(nil).ListCorrectionRecords), ctx, userID, limit)
+}
+
 // ListExpenses mocks base method.
 func (m *MockStore) ListExpenses(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, pageSize int32, pageToken string) ([]*pfinancev1.Expense, string, error) {
 	m.ctrl.T.Helper()
@@ -610,6 +668,21 @@ func (m *MockStore) ListExpenses(ctx context.Context, userID, groupID string, st
 func (mr *MockStoreMockRecorder) ListExpenses(ctx, userID, groupID, startDate, endDate, pageSize, pageToken any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListExpenses", reflect.TypeOf((*MockStore)(nil).ListExpenses), ctx, userID, groupID, startDate, endDate, pageSize, pageToken)
+}
+
+// ListExtractionEvents mocks base method.
+func (m *MockStore) ListExtractionEvents(ctx context.Context, userID string, since time.Time) ([]*pfinancev1.ExtractionEvent, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListExtractionEvents", ctx, userID, since)
+	ret0, _ := ret[0].([]*pfinancev1.ExtractionEvent)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListExtractionEvents indicates an expected call of ListExtractionEvents.
+func (mr *MockStoreMockRecorder) ListExtractionEvents(ctx, userID, since any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListExtractionEvents", reflect.TypeOf((*MockStore)(nil).ListExtractionEvents), ctx, userID, since)
 }
 
 // ListGoalContributions mocks base method.
@@ -953,4 +1026,18 @@ func (m *MockStore) UpdateUser(ctx context.Context, user *pfinancev1.User) error
 func (mr *MockStoreMockRecorder) UpdateUser(ctx, user any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUser", reflect.TypeOf((*MockStore)(nil).UpdateUser), ctx, user)
+}
+
+// UpsertMerchantMapping mocks base method.
+func (m *MockStore) UpsertMerchantMapping(ctx context.Context, mapping *pfinancev1.MerchantMapping) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpsertMerchantMapping", ctx, mapping)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpsertMerchantMapping indicates an expected call of UpsertMerchantMapping.
+func (mr *MockStoreMockRecorder) UpsertMerchantMapping(ctx, mapping any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertMerchantMapping", reflect.TypeOf((*MockStore)(nil).UpsertMerchantMapping), ctx, mapping)
 }

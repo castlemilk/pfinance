@@ -133,6 +133,12 @@ service FinanceService {
   rpc DetectAnomalies(DetectAnomaliesRequest) returns (DetectAnomaliesResponse);
   rpc GetCashFlowForecast(GetCashFlowForecastRequest) returns (GetCashFlowForecastResponse);
   rpc GetWaterfallData(GetWaterfallDataRequest) returns (GetWaterfallDataResponse);
+
+  // ML Feedback operations
+  rpc SubmitCorrections(SubmitCorrectionsRequest) returns (SubmitCorrectionsResponse);
+  rpc CheckDuplicates(CheckDuplicatesRequest) returns (CheckDuplicatesResponse);
+  rpc GetMerchantSuggestions(GetMerchantSuggestionsRequest) returns (GetMerchantSuggestionsResponse);
+  rpc GetExtractionMetrics(GetExtractionMetricsRequest) returns (GetExtractionMetricsResponse);
 }
 
 // User operations
@@ -1132,4 +1138,60 @@ message GetWaterfallDataRequest {
 message GetWaterfallDataResponse {
   repeated WaterfallEntry entries = 1;
   string period_label = 2;
+}
+
+// ============================================================================
+// ML Feedback operations
+// ============================================================================
+
+message SubmitCorrectionsRequest {
+  string user_id = 1;
+  repeated CorrectionRecord corrections = 2;
+}
+
+message SubmitCorrectionsResponse {
+  int32 processed_count = 1;
+  int32 merchant_mappings_updated = 2;
+}
+
+message CheckDuplicatesRequest {
+  string user_id = 1;
+  string group_id = 2;
+  repeated ExtractedTransaction transactions = 3;
+}
+
+message CheckDuplicatesResponse {
+  map<string, DuplicateCandidateList> duplicates = 1; // tx_id -> candidates
+}
+
+message DuplicateCandidateList {
+  repeated DuplicateCandidate candidates = 1;
+}
+
+message GetMerchantSuggestionsRequest {
+  string user_id = 1;
+  string merchant_text = 2;
+}
+
+message GetMerchantSuggestionsResponse {
+  string suggested_name = 1;
+  ExpenseCategory suggested_category = 2;
+  double confidence = 3;
+  string source = 4;  // "user_history", "static", "keyword"
+}
+
+message GetExtractionMetricsRequest {
+  string user_id = 1;
+  int32 days = 2;  // Lookback period
+}
+
+message GetExtractionMetricsResponse {
+  int32 total_extractions = 1;
+  int32 total_transactions = 2;
+  int32 total_corrections = 3;
+  double correction_rate = 4;           // corrections / transactions
+  double average_confidence = 5;
+  map<string, int32> corrections_by_field = 6;  // field -> count
+  map<string, int32> corrections_by_category = 7;
+  repeated ExtractionEvent recent_events = 8;
 }

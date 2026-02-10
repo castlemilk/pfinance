@@ -34,12 +34,18 @@ type Extractor interface {
 	StartAsyncExtraction(ctx context.Context, userID string, data []byte, filename string, docType pfinancev1.DocumentType, method pfinancev1.ExtractionMethod) (string, error)
 }
 
+// MerchantLookup provides user-specific merchant lookups.
+type MerchantLookup interface {
+	LookupMerchant(ctx context.Context, userID string, rawMerchant string) (*MerchantInfo, error)
+}
+
 // ExtractionService provides document extraction functionality.
 type ExtractionService struct {
-	mlClient  *MLClient
-	validator *ValidationService
-	mlEnabled bool
-	jobStore  *JobStore
+	mlClient       *MLClient
+	validator      *ValidationService
+	mlEnabled      bool
+	jobStore       *JobStore
+	merchantLookup MerchantLookup
 }
 
 // Config holds configuration for the extraction service.
@@ -69,6 +75,11 @@ func NewExtractionService(cfg Config) *ExtractionService {
 		mlEnabled: cfg.EnableML && mlClient != nil,
 		jobStore:  NewJobStore(1 * time.Hour),
 	}
+}
+
+// SetMerchantLookup sets the merchant lookup for user-specific merchant resolution.
+func (s *ExtractionService) SetMerchantLookup(lookup MerchantLookup) {
+	s.merchantLookup = lookup
 }
 
 // ExtractDocument extracts transactions from a document.
@@ -208,11 +219,31 @@ func (s *ExtractionService) ExtractDocumentWithMethod(
 
 // postProcessResult applies normalization, confidence merging, and auto-rejection.
 func (s *ExtractionService) postProcessResult(result *pfinancev1.ExtractionResult) {
+	s.postProcessResultWithUser(context.Background(), "", result)
+}
+
+// postProcessResultWithUser applies normalization with user-specific merchant lookups.
+func (s *ExtractionService) postProcessResultWithUser(ctx context.Context, userID string, result *pfinancev1.ExtractionResult) {
 	var accepted []*pfinancev1.ExtractedTransaction
 	var rejected []*pfinancev1.ExtractedTransaction
 
 	for _, tx := range result.Transactions {
+		// 1. Check user-specific merchant mappings first (highest priority)
+		var userInfo *MerchantInfo
+		if s.merchantLookup != nil && userID != "" {
+			if info, err := s.merchantLookup.LookupMerchant(ctx, userID, tx.Description); err == nil && info != nil {
+				userInfo = info
+			}
+		}
+
+		// 2. Static normalizer
 		info := NormalizeMerchant(tx.Description)
+
+		// Prefer user mapping over static
+		if userInfo != nil && userInfo.Confidence > info.Confidence {
+			info = *userInfo
+		}
+
 		if tx.NormalizedMerchant == "" {
 			tx.NormalizedMerchant = info.Name
 		}

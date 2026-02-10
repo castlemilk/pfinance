@@ -3,11 +3,14 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"connectrpc.com/connect"
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 	"github.com/castlemilk/pfinance/backend/internal/auth"
 	"github.com/castlemilk/pfinance/backend/internal/extraction"
+	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // extractionService is the extraction service instance (set via SetExtractionService)
@@ -86,6 +89,23 @@ func (s *FinanceService) ExtractDocument(ctx context.Context, req *connect.Reque
 	)
 	if err != nil {
 		return nil, mapExtractionError(err)
+	}
+
+	// Record extraction event for metrics tracking
+	if s.store != nil {
+		event := &pfinancev1.ExtractionEvent{
+			Id:                uuid.New().String(),
+			UserId:            userID.UID,
+			Method:            result.MethodUsed,
+			TransactionCount:  int32(len(result.Transactions)),
+			OverallConfidence: result.OverallConfidence,
+			ProcessingTimeMs:  result.ProcessingTimeMs,
+			DocumentType:      result.DocumentType,
+			CreatedAt:         timestamppb.Now(),
+		}
+		if err := s.store.CreateExtractionEvent(ctx, event); err != nil {
+			log.Printf("Failed to record extraction event: %v", err)
+		}
 	}
 
 	return connect.NewResponse(&pfinancev1.ExtractDocumentResponse{
