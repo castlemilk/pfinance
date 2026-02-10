@@ -1270,3 +1270,90 @@ func (m *MemoryStore) UpdateNotificationPreferences(ctx context.Context, prefs *
 	m.notificationPreferences[prefs.UserId] = prefs
 	return nil
 }
+
+// Analytics operations
+
+func (m *MemoryStore) GetDailyAggregates(ctx context.Context, userID, groupID string, startDate, endDate time.Time) ([]*pfinancev1.DailyAggregate, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Map of date string -> aggregate data
+	type categoryKey struct {
+		date     string
+		category pfinancev1.ExpenseCategory
+	}
+	type dayData struct {
+		totalAmount      float64
+		totalAmountCents int64
+		transactionCount int32
+		categoryAmounts  map[pfinancev1.ExpenseCategory]*pfinancev1.CategoryAmount
+	}
+
+	days := make(map[string]*dayData)
+
+	for _, expense := range m.expenses {
+		if userID != "" && expense.UserId != userID {
+			continue
+		}
+		if groupID != "" && expense.GroupId != groupID {
+			continue
+		}
+		if expense.Date == nil {
+			continue
+		}
+
+		expenseTime := expense.Date.AsTime()
+		if expenseTime.Before(startDate) || expenseTime.After(endDate) {
+			continue
+		}
+
+		dateStr := expenseTime.Format("2006-01-02")
+
+		day, ok := days[dateStr]
+		if !ok {
+			day = &dayData{
+				categoryAmounts: make(map[pfinancev1.ExpenseCategory]*pfinancev1.CategoryAmount),
+			}
+			days[dateStr] = day
+		}
+
+		day.totalAmount += expense.Amount
+		day.totalAmountCents += expense.AmountCents
+		day.transactionCount++
+
+		ca, ok := day.categoryAmounts[expense.Category]
+		if !ok {
+			ca = &pfinancev1.CategoryAmount{
+				Category: expense.Category,
+			}
+			day.categoryAmounts[expense.Category] = ca
+		}
+		ca.Amount += expense.Amount
+		ca.AmountCents += expense.AmountCents
+		ca.Count++
+	}
+
+	// Build result slice
+	result := make([]*pfinancev1.DailyAggregate, 0, len(days))
+	for dateStr, day := range days {
+		categoryAmounts := make([]*pfinancev1.CategoryAmount, 0, len(day.categoryAmounts))
+		for _, ca := range day.categoryAmounts {
+			categoryAmounts = append(categoryAmounts, ca)
+		}
+
+		result = append(result, &pfinancev1.DailyAggregate{
+			Date:             dateStr,
+			TotalAmount:      day.totalAmount,
+			TotalAmountCents: day.totalAmountCents,
+			TransactionCount: day.transactionCount,
+			CategoryAmounts:  categoryAmounts,
+		})
+	}
+
+	// Sort by date ascending
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Date < result[j].Date
+	})
+
+	return result, nil
+}

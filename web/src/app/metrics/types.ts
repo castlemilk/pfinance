@@ -434,3 +434,72 @@ export interface MetricsContextValue {
   /** Access to utility functions */
   utils: MetricUtils;
 }
+
+// ============================================================================
+// Analytics Visualization Types
+// ============================================================================
+
+/**
+ * Heatmap day data for calendar heatmap visualization
+ */
+export interface HeatmapDay {
+  date: string;
+  value: number;
+  count: number;
+}
+
+/**
+ * Aggregated heatmap data
+ */
+export interface HeatmapData {
+  days: HeatmapDay[];
+  maxValue: number;
+}
+
+/**
+ * Radar chart axis data for category comparison
+ */
+export interface RadarAxis {
+  category: string;
+  currentValue: number;
+  previousValue: number;
+  budgetValue?: number;
+  maxValue: number;
+}
+
+/**
+ * Anomaly point for scatter plot visualization
+ */
+export interface AnomalyPoint {
+  id: string;
+  expenseId: string;
+  description: string;
+  amount: number;
+  category: string;
+  date: Date;
+  zScore: number;
+  expectedAmount: number;
+  anomalyType: string;
+  severity: 'low' | 'medium' | 'high';
+}
+
+/**
+ * Forecast data series for cash flow forecast
+ */
+export interface ForecastSeries {
+  date: Date;
+  predicted: number;
+  lowerBound: number;
+  upperBound: number;
+}
+
+/**
+ * Waterfall bar data for income-to-savings flow
+ */
+export interface WaterfallBar {
+  label: string;
+  amount: number;
+  type: 'income' | 'expense' | 'tax' | 'savings' | 'subtotal';
+  runningTotal: number;
+  color: string;
+}

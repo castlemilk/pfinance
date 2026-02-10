@@ -1633,3 +1633,101 @@ func (s *FirestoreStore) UpdateNotificationPreferences(ctx context.Context, pref
 	_, err := s.client.Collection("notificationPreferences").Doc(prefs.UserId).Set(ctx, prefs)
 	return err
 }
+
+// Analytics operations
+
+func (s *FirestoreStore) GetDailyAggregates(ctx context.Context, userID, groupID string, startDate, endDate time.Time) ([]*pfinancev1.DailyAggregate, error) {
+	collection := "expenses"
+	if groupID != "" {
+		collection = "groupExpenses"
+	}
+
+	var query firestore.Query
+	query = s.client.Collection(collection).Query
+
+	// Apply filters
+	// NOTE: Field names must match Go struct field names (PascalCase) as that's how Firestore serializes protobuf structs
+	if groupID != "" {
+		query = query.Where("GroupId", "==", groupID)
+	} else if userID != "" {
+		query = query.Where("UserId", "==", userID)
+	}
+
+	query = query.Where("Date", ">=", startDate)
+	query = query.Where("Date", "<=", endDate)
+
+	// Execute query
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get daily aggregates: %w", err)
+	}
+
+	// Group results client-side by day
+	type dayData struct {
+		totalAmount      float64
+		totalAmountCents int64
+		transactionCount int32
+		categoryAmounts  map[pfinancev1.ExpenseCategory]*pfinancev1.CategoryAmount
+	}
+
+	days := make(map[string]*dayData)
+
+	for _, doc := range docs {
+		var expense pfinancev1.Expense
+		if err := doc.DataTo(&expense); err != nil {
+			continue
+		}
+		if expense.Date == nil {
+			continue
+		}
+
+		dateStr := expense.Date.AsTime().Format("2006-01-02")
+
+		day, ok := days[dateStr]
+		if !ok {
+			day = &dayData{
+				categoryAmounts: make(map[pfinancev1.ExpenseCategory]*pfinancev1.CategoryAmount),
+			}
+			days[dateStr] = day
+		}
+
+		day.totalAmount += expense.Amount
+		day.totalAmountCents += expense.AmountCents
+		day.transactionCount++
+
+		ca, ok := day.categoryAmounts[expense.Category]
+		if !ok {
+			ca = &pfinancev1.CategoryAmount{
+				Category: expense.Category,
+			}
+			day.categoryAmounts[expense.Category] = ca
+		}
+		ca.Amount += expense.Amount
+		ca.AmountCents += expense.AmountCents
+		ca.Count++
+	}
+
+	// Build result slice
+	result := make([]*pfinancev1.DailyAggregate, 0, len(days))
+	for dateStr, day := range days {
+		categoryAmounts := make([]*pfinancev1.CategoryAmount, 0, len(day.categoryAmounts))
+		for _, ca := range day.categoryAmounts {
+			categoryAmounts = append(categoryAmounts, ca)
+		}
+
+		result = append(result, &pfinancev1.DailyAggregate{
+			Date:             dateStr,
+			TotalAmount:      day.totalAmount,
+			TotalAmountCents: day.totalAmountCents,
+			TransactionCount: day.transactionCount,
+			CategoryAmounts:  categoryAmounts,
+		})
+	}
+
+	// Sort by date ascending
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Date < result[j].Date
+	})
+
+	return result, nil
+}
