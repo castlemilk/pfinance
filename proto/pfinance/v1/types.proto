@@ -557,6 +557,8 @@ enum NotificationType {
   NOTIFICATION_TYPE_SUBSCRIPTION_ALERT = 5;    // Forgotten or new subscription
   NOTIFICATION_TYPE_SYSTEM = 6;                // System announcements
   NOTIFICATION_TYPE_EXTRACTION_COMPLETE = 7;   // Document extraction finished
+  NOTIFICATION_TYPE_GROUP_ACTIVITY = 8;        // Group expense/income added by another member
+  NOTIFICATION_TYPE_WEEKLY_DIGEST = 9;         // Weekly financial summary digest
 }
 
 // Notification represents an in-app notification

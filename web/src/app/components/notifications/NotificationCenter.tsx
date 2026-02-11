@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Bell } from 'lucide-react';
+import { Bell, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -15,6 +15,7 @@ export default function NotificationCenter() {
     notifications,
     unreadCount,
     loading,
+    error,
     loadNotifications,
     markAllRead,
   } = useNotifications();
@@ -66,7 +67,21 @@ export default function NotificationCenter() {
 
         {/* Notification list */}
         <ScrollArea className="h-[320px]">
-          {loading && notifications.length === 0 ? (
+          {error ? (
+            <div className="flex flex-col items-center justify-center py-8 px-4">
+              <AlertCircle className="w-8 h-8 text-red-500/60 mb-2" />
+              <p className="text-sm text-muted-foreground mb-3">Failed to load notifications</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => loadNotifications()}
+                className="gap-2"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Retry
+              </Button>
+            </div>
+          ) : loading && notifications.length === 0 ? (
             <div className="flex items-center justify-center py-8">
               <p className="text-sm text-muted-foreground">Loading...</p>
             </div>

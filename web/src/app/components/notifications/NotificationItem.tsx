@@ -9,6 +9,9 @@ import {
   AlertCircle,
   CreditCard,
   Info,
+  Users,
+  BarChart3,
+  CheckCircle,
 } from 'lucide-react';
 import type { Notification } from '@/gen/pfinance/v1/types_pb';
 import { NotificationType } from '@/gen/pfinance/v1/types_pb';
@@ -53,6 +56,12 @@ function getNotificationIcon(type: NotificationType) {
       return <AlertCircle className="w-4 h-4 text-red-500" />;
     case NotificationType.SUBSCRIPTION_ALERT:
       return <CreditCard className="w-4 h-4 text-purple-500" />;
+    case NotificationType.GROUP_ACTIVITY:
+      return <Users className="w-4 h-4 text-indigo-500" />;
+    case NotificationType.WEEKLY_DIGEST:
+      return <BarChart3 className="w-4 h-4 text-teal-500" />;
+    case NotificationType.EXTRACTION_COMPLETE:
+      return <CheckCircle className="w-4 h-4 text-green-500" />;
     case NotificationType.SYSTEM:
     default:
       return <Info className="w-4 h-4 text-muted-foreground" />;

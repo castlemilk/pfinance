@@ -2,12 +2,77 @@
 
 import TaxConfig from '../../../components/TaxConfig';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Copy, Check, Terminal } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Users, Copy, Check, Terminal, Bell } from 'lucide-react';
 import { useAuth } from '../../../context/AuthWithAdminContext';
+import { useNotifications } from '../../../context/NotificationContext';
 import { Button } from '@/components/ui/button';
 import AuthModal from '../../../components/AuthModal';
 import { useState } from 'react';
 import { auth } from '@/lib/firebase';
+
+function NotificationPreferencesCard() {
+  const { preferences, updatePreferences } = useNotifications();
+
+  const togglePref = (key: string, value: boolean) => {
+    updatePreferences({ [key]: value });
+  };
+
+  const prefs = [
+    { key: 'budgetAlerts', label: 'Budget Alerts', desc: 'Get notified when spending approaches budget limits', value: preferences?.budgetAlerts ?? true },
+    { key: 'goalMilestones', label: 'Goal Milestones', desc: 'Celebrate when you hit savings milestones', value: preferences?.goalMilestones ?? true },
+    { key: 'billReminders', label: 'Bill Reminders', desc: 'Reminders before recurring bills are due', value: preferences?.billReminders ?? true },
+    { key: 'unusualSpending', label: 'Unusual Spending', desc: 'Alerts for spending that deviates from your patterns', value: preferences?.unusualSpending ?? true },
+    { key: 'subscriptionAlerts', label: 'Subscription Alerts', desc: 'Updates about your subscription status', value: preferences?.subscriptionAlerts ?? true },
+    { key: 'weeklyDigest', label: 'Weekly Digest', desc: 'A weekly summary of your financial activity', value: preferences?.weeklyDigest ?? false },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Bell className="w-5 h-5" />
+          Notification Preferences
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {prefs.map(({ key, label, desc, value }) => (
+          <div key={key} className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor={key} className="text-sm font-medium">{label}</Label>
+              <p className="text-xs text-muted-foreground">{desc}</p>
+            </div>
+            <Switch
+              id={key}
+              checked={value}
+              onCheckedChange={(checked) => togglePref(key, checked)}
+            />
+          </div>
+        ))}
+
+        <div className="pt-2 border-t">
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="billReminderDays" className="text-sm font-medium">Bill Reminder Days</Label>
+              <p className="text-xs text-muted-foreground">How many days before a bill to send a reminder</p>
+            </div>
+            <Input
+              id="billReminderDays"
+              type="number"
+              min={1}
+              max={30}
+              className="w-20"
+              value={preferences?.billReminderDays ?? 3}
+              onChange={(e) => updatePreferences({ billReminderDays: parseInt(e.target.value) || 3 })}
+            />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function DevToolsCard({ userId }: { userId: string }) {
   const [copiedUid, setCopiedUid] = useState(false);
@@ -170,6 +235,9 @@ export default function PersonalSettingsPage() {
           )}
         </div>
       </div>
+
+      {/* Notification Preferences - only show when signed in */}
+      {user && <NotificationPreferencesCard />}
 
       {/* Developer Tools - only show when signed in */}
       {user && (

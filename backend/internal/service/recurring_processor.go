@@ -42,7 +42,22 @@ func (s *FinanceService) ProcessRecurringTransactions(
 				fmt.Errorf("failed to list recurring transactions: %w", err))
 		}
 
+		trigger := NewNotificationTrigger(s.store)
 		for _, rt := range rts {
+			// Before processing: check if bill reminder should fire
+			if rt.NextOccurrence != nil && rt.IsExpense {
+				nextOcc := rt.NextOccurrence.AsTime()
+				prefs, _ := s.store.GetNotificationPreferences(ctx, rt.UserId)
+				reminderDays := int32(3)
+				if prefs != nil && prefs.BillReminderDays > 0 {
+					reminderDays = prefs.BillReminderDays
+				}
+				reminderWindow := now.AddDate(0, 0, int(reminderDays))
+				if nextOcc.After(now) && nextOcc.Before(reminderWindow) {
+					trigger.BillReminder(ctx, rt.UserId, rt)
+				}
+			}
+
 			processed, ended, procErr := s.processOneRecurringTransaction(ctx, rt, now)
 			if procErr != nil {
 				log.Printf("[RecurringProcessor] error processing rt %s (user %s): %v", rt.Id, rt.UserId, procErr)

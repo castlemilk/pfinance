@@ -1611,11 +1611,15 @@ func (s *FirestoreStore) CreateNotification(ctx context.Context, notification *p
 	return err
 }
 
-func (s *FirestoreStore) ListNotifications(ctx context.Context, userID string, unreadOnly bool, pageSize int32, pageToken string) ([]*pfinancev1.Notification, string, error) {
+func (s *FirestoreStore) ListNotifications(ctx context.Context, userID string, unreadOnly bool, typeFilter pfinancev1.NotificationType, pageSize int32, pageToken string) ([]*pfinancev1.Notification, string, error) {
 	query := s.client.Collection("notifications").Where("UserId", "==", userID)
 
 	if unreadOnly {
 		query = query.Where("IsRead", "==", false)
+	}
+
+	if typeFilter != pfinancev1.NotificationType_NOTIFICATION_TYPE_UNSPECIFIED {
+		query = query.Where("Type", "==", int32(typeFilter))
 	}
 
 	query = query.OrderBy("CreatedAt", firestore.Desc)
@@ -1730,6 +1734,41 @@ func (s *FirestoreStore) GetNotificationPreferences(ctx context.Context, userID 
 func (s *FirestoreStore) UpdateNotificationPreferences(ctx context.Context, prefs *pfinancev1.NotificationPreferences) error {
 	_, err := s.client.Collection("notificationPreferences").Doc(prefs.UserId).Set(ctx, prefs)
 	return err
+}
+
+func (s *FirestoreStore) HasNotification(ctx context.Context, userID string, notifType pfinancev1.NotificationType, referenceID string, metadataKey string, metadataValue string, withinHours int) (bool, error) {
+	query := s.client.Collection("notifications").
+		Where("UserId", "==", userID).
+		Where("Type", "==", int32(notifType)).
+		Where("ReferenceId", "==", referenceID)
+
+	if withinHours > 0 {
+		cutoff := time.Now().Add(-time.Duration(withinHours) * time.Hour)
+		query = query.Where("CreatedAt", ">=", timestamppb.New(cutoff))
+	}
+
+	query = query.OrderBy("CreatedAt", firestore.Asc).Limit(50)
+
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		return false, fmt.Errorf("failed to check for existing notification: %w", err)
+	}
+
+	if metadataKey == "" {
+		return len(docs) > 0, nil
+	}
+
+	// Check metadata match
+	for _, doc := range docs {
+		var n pfinancev1.Notification
+		if err := doc.DataTo(&n); err != nil {
+			continue
+		}
+		if n.Metadata != nil && n.Metadata[metadataKey] == metadataValue {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // Analytics operations

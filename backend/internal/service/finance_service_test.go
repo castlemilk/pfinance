@@ -81,10 +81,24 @@ func TestCreateExpense(t *testing.T) {
 						Id:        "group-456",
 						OwnerId:   "user-123",
 						MemberIds: []string{"user-123"},
-					}, nil)
+					}, nil).
+					AnyTimes()
 				mockStore.EXPECT().
 					CreateExpense(gomock.Any(), gomock.Any()).
 					Return(nil)
+				// Group notification trigger calls
+				mockStore.EXPECT().
+					GetNotificationPreferences(gomock.Any(), gomock.Any()).
+					Return(&pfinancev1.NotificationPreferences{}, nil).
+					AnyTimes()
+				mockStore.EXPECT().
+					HasNotification(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(false, nil).
+					AnyTimes()
+				mockStore.EXPECT().
+					CreateNotification(gomock.Any(), gomock.Any()).
+					Return(nil).
+					AnyTimes()
 			},
 			expectedError: false,
 		},
@@ -319,6 +333,15 @@ func TestCreateExpenseWithAllocation(t *testing.T) {
 		ListBudgets(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil, "", nil).
 		AnyTimes()
+	// Group notification trigger calls
+	mockStore.EXPECT().
+		HasNotification(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(false, nil).
+		AnyTimes()
+	mockStore.EXPECT().
+		CreateNotification(gomock.Any(), gomock.Any()).
+		Return(nil).
+		AnyTimes()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -330,7 +353,8 @@ func TestCreateExpenseWithAllocation(t *testing.T) {
 						Id:        tt.request.GroupId,
 						OwnerId:   tt.request.UserId,
 						MemberIds: []string{tt.request.UserId},
-					}, nil)
+					}, nil).
+					AnyTimes()
 			}
 
 			mockStore.EXPECT().

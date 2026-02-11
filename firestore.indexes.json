@@ -88,6 +88,33 @@
         { "fieldPath": "TargetGroupId", "order": "ASCENDING" },
         { "fieldPath": "IsActive", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "UserId", "order": "ASCENDING" },
+        { "fieldPath": "CreatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "UserId", "order": "ASCENDING" },
+        { "fieldPath": "IsRead", "order": "ASCENDING" },
+        { "fieldPath": "CreatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "UserId", "order": "ASCENDING" },
+        { "fieldPath": "Type", "order": "ASCENDING" },
+        { "fieldPath": "ReferenceId", "order": "ASCENDING" },
+        { "fieldPath": "CreatedAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

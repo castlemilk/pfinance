@@ -607,6 +607,21 @@ func (mr *MockStoreMockRecorder) GetUser(ctx, userID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUser", reflect.TypeOf((*MockStore)(nil).GetUser), ctx, userID)
 }
 
+// HasNotification mocks base method.
+func (m *MockStore) HasNotification(ctx context.Context, userID string, notifType pfinancev1.NotificationType, referenceID, metadataKey, metadataValue string, withinHours int) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasNotification", ctx, userID, notifType, referenceID, metadataKey, metadataValue, withinHours)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HasNotification indicates an expected call of HasNotification.
+func (mr *MockStoreMockRecorder) HasNotification(ctx, userID, notifType, referenceID, metadataKey, metadataValue, withinHours any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasNotification", reflect.TypeOf((*MockStore)(nil).HasNotification), ctx, userID, notifType, referenceID, metadataKey, metadataValue, withinHours)
+}
+
 // ListBudgets mocks base method.
 func (m *MockStore) ListBudgets(ctx context.Context, userID, groupID string, includeInactive bool, pageSize int32, pageToken string) ([]*pfinancev1.Budget, string, error) {
 	m.ctrl.T.Helper()
@@ -798,9 +813,9 @@ func (mr *MockStoreMockRecorder) ListInviteLinks(ctx, groupID, includeInactive, 
 }
 
 // ListNotifications mocks base method.
-func (m *MockStore) ListNotifications(ctx context.Context, userID string, unreadOnly bool, pageSize int32, pageToken string) ([]*pfinancev1.Notification, string, error) {
+func (m *MockStore) ListNotifications(ctx context.Context, userID string, unreadOnly bool, typeFilter pfinancev1.NotificationType, pageSize int32, pageToken string) ([]*pfinancev1.Notification, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListNotifications", ctx, userID, unreadOnly, pageSize, pageToken)
+	ret := m.ctrl.Call(m, "ListNotifications", ctx, userID, unreadOnly, typeFilter, pageSize, pageToken)
 	ret0, _ := ret[0].([]*pfinancev1.Notification)
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
@@ -808,9 +823,9 @@ func (m *MockStore) ListNotifications(ctx context.Context, userID string, unread
 }
 
 // ListNotifications indicates an expected call of ListNotifications.
-func (mr *MockStoreMockRecorder) ListNotifications(ctx, userID, unreadOnly, pageSize, pageToken any) *gomock.Call {
+func (mr *MockStoreMockRecorder) ListNotifications(ctx, userID, unreadOnly, typeFilter, pageSize, pageToken any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListNotifications", reflect.TypeOf((*MockStore)(nil).ListNotifications), ctx, userID, unreadOnly, pageSize, pageToken)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListNotifications", reflect.TypeOf((*MockStore)(nil).ListNotifications), ctx, userID, unreadOnly, typeFilter, pageSize, pageToken)
 }
 
 // ListRecurringTransactions mocks base method.

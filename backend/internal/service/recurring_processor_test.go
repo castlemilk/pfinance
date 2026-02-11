@@ -11,12 +11,30 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// setupNotificationMocks adds AnyTimes expectations for notification-related store methods
+// used by bill reminder triggers and group notification triggers in the recurring processor.
+func setupNotificationMocks(mockStore *store.MockStore) {
+	mockStore.EXPECT().
+		GetNotificationPreferences(gomock.Any(), gomock.Any()).
+		Return(&pfinancev1.NotificationPreferences{}, nil).
+		AnyTimes()
+	mockStore.EXPECT().
+		HasNotification(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(false, nil).
+		AnyTimes()
+	mockStore.EXPECT().
+		CreateNotification(gomock.Any(), gomock.Any()).
+		Return(nil).
+		AnyTimes()
+}
+
 func TestProcessRecurringTransactions_CreatesExpense(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
 	svc := NewFinanceService(mockStore, nil, nil)
+	setupNotificationMocks(mockStore)
 
 	pastDate := time.Now().Add(-24 * time.Hour) // yesterday
 	rt := &pfinancev1.RecurringTransaction{
@@ -138,6 +156,7 @@ func TestProcessRecurringTransactions_CreatesIncome(t *testing.T) {
 
 	mockStore := store.NewMockStore(ctrl)
 	svc := NewFinanceService(mockStore, nil, nil)
+	setupNotificationMocks(mockStore)
 
 	pastDate := time.Now().Add(-2 * time.Hour)
 	rt := &pfinancev1.RecurringTransaction{
@@ -195,6 +214,7 @@ func TestProcessRecurringTransactions_SkipsNotYetDue(t *testing.T) {
 
 	mockStore := store.NewMockStore(ctrl)
 	svc := NewFinanceService(mockStore, nil, nil)
+	setupNotificationMocks(mockStore)
 
 	futureDate := time.Now().Add(7 * 24 * time.Hour) // 1 week from now
 	rt := &pfinancev1.RecurringTransaction{
@@ -235,6 +255,7 @@ func TestProcessRecurringTransactions_MarksEnded(t *testing.T) {
 
 	mockStore := store.NewMockStore(ctrl)
 	svc := NewFinanceService(mockStore, nil, nil)
+	setupNotificationMocks(mockStore)
 
 	pastDate := time.Now().Add(-24 * time.Hour)
 	endDate := time.Now().Add(-48 * time.Hour) // end date is before next occurrence
@@ -288,6 +309,7 @@ func TestProcessRecurringTransactions_MultipleTransactions(t *testing.T) {
 
 	mockStore := store.NewMockStore(ctrl)
 	svc := NewFinanceService(mockStore, nil, nil)
+	setupNotificationMocks(mockStore)
 
 	pastDate := time.Now().Add(-24 * time.Hour)
 	futureDate := time.Now().Add(7 * 24 * time.Hour)
@@ -350,6 +372,7 @@ func TestProcessRecurringTransactions_GroupExpenseWithAllocations(t *testing.T) 
 
 	mockStore := store.NewMockStore(ctrl)
 	svc := NewFinanceService(mockStore, nil, nil)
+	setupNotificationMocks(mockStore)
 
 	pastDate := time.Now().Add(-1 * time.Hour)
 	rt := &pfinancev1.RecurringTransaction{
@@ -413,6 +436,7 @@ func TestProcessRecurringTransactions_EndsAfterProcessing(t *testing.T) {
 
 	mockStore := store.NewMockStore(ctrl)
 	svc := NewFinanceService(mockStore, nil, nil)
+	setupNotificationMocks(mockStore)
 
 	pastDate := time.Now().Add(-1 * time.Hour)
 	// End date is in the future relative to next_occurrence but before the NEXT next_occurrence
@@ -470,6 +494,7 @@ func TestProcessRecurringTransactions_Empty(t *testing.T) {
 
 	mockStore := store.NewMockStore(ctrl)
 	svc := NewFinanceService(mockStore, nil, nil)
+	setupNotificationMocks(mockStore)
 
 	mockStore.EXPECT().
 		ListRecurringTransactions(gomock.Any(), "", "", pfinancev1.RecurringTransactionStatus_RECURRING_TRANSACTION_STATUS_ACTIVE, false, false, int32(1000), "").
