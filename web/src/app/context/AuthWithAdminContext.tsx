@@ -114,7 +114,7 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
 
   const extractSubscriptionFromToken = useCallback(async (firebaseUser: User) => {
     try {
-      const tokenResult = await firebaseUser.getIdTokenResult();
+      const tokenResult = await firebaseUser.getIdTokenResult(true); // Force refresh to get latest custom claims
       const claims = tokenResult.claims;
       const tierStr = claims.subscription_tier as string | undefined;
       const statusStr = claims.subscription_status as string | undefined;
