@@ -29,8 +29,10 @@ import { UpgradePrompt } from '../../../components/ProFeatureGate';
 import { AlertCircle, FileSearch } from 'lucide-react';
 
 function isSubscriptionError(message: string): boolean {
-  return message.toLowerCase().includes('pro subscription') ||
-    message.toLowerCase().includes('permission_denied');
+  const lower = message.toLowerCase();
+  return lower.includes('pro subscription') ||
+    lower.includes('pro tier') ||
+    lower.includes('requires a pro');
 }
 
 function ErrorBanner({ message }: { message: string }) {
