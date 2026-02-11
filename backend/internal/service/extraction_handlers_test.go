@@ -385,6 +385,8 @@ func TestImportExtractedTransactions_Success(t *testing.T) {
 
 	mockStore := store.NewMockStore(ctrl)
 	mockStore.EXPECT().CreateExpense(gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	// Notification trigger calls (fire-and-forget)
+	mockStore.EXPECT().CreateNotification(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	mock := &mockExtractor{
 		importExpenses: []*pfinancev1.Expense{
@@ -447,6 +449,8 @@ func TestImportExtractedTransactions_PartialFailure(t *testing.T) {
 	mockStore := store.NewMockStore(ctrl)
 	mockStore.EXPECT().CreateExpense(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 	mockStore.EXPECT().CreateExpense(gomock.Any(), gomock.Any()).Return(fmt.Errorf("db error")).Times(1)
+	// Notification trigger calls (fire-and-forget)
+	mockStore.EXPECT().CreateNotification(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	mock := &mockExtractor{
 		importExpenses: []*pfinancev1.Expense{
@@ -491,6 +495,8 @@ func TestImportExtractedTransactions_GroupCheck(t *testing.T) {
 		MemberIds: []string{"user-1"},
 	}, nil)
 	mockStore.EXPECT().CreateExpense(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+	// Notification trigger calls (fire-and-forget)
+	mockStore.EXPECT().CreateNotification(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	mock := &mockExtractor{
 		importExpenses: []*pfinancev1.Expense{

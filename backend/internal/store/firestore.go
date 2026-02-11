@@ -1740,7 +1740,7 @@ func (s *FirestoreStore) CreateCorrectionRecord(ctx context.Context, record *pfi
 
 // ListCorrectionRecords lists correction records for a user
 func (s *FirestoreStore) ListCorrectionRecords(ctx context.Context, userID string, limit int) ([]*pfinancev1.CorrectionRecord, error) {
-	query := s.client.Collection("correction_records").Where("user_id", "==", userID).OrderBy("created_at", firestore.Desc)
+	query := s.client.Collection("correction_records").Where("UserId", "==", userID).OrderBy("CreatedAt", firestore.Desc)
 	if limit > 0 {
 		query = query.Limit(limit)
 	}
@@ -1769,7 +1769,7 @@ func (s *FirestoreStore) UpsertMerchantMapping(ctx context.Context, mapping *pfi
 
 // GetMerchantMappings returns all merchant mappings for a user
 func (s *FirestoreStore) GetMerchantMappings(ctx context.Context, userID string) ([]*pfinancev1.MerchantMapping, error) {
-	docs, err := s.client.Collection("merchant_mappings").Where("user_id", "==", userID).Documents(ctx).GetAll()
+	docs, err := s.client.Collection("merchant_mappings").Where("UserId", "==", userID).Documents(ctx).GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("get merchant mappings: %w", err)
 	}
@@ -1793,9 +1793,9 @@ func (s *FirestoreStore) CreateExtractionEvent(ctx context.Context, event *pfina
 // ListExtractionEvents lists extraction events for a user since a given time
 func (s *FirestoreStore) ListExtractionEvents(ctx context.Context, userID string, since time.Time) ([]*pfinancev1.ExtractionEvent, error) {
 	query := s.client.Collection("extraction_events").
-		Where("user_id", "==", userID).
-		Where("created_at", ">=", timestamppb.New(since)).
-		OrderBy("created_at", firestore.Desc)
+		Where("UserId", "==", userID).
+		Where("CreatedAt", ">=", timestamppb.New(since)).
+		OrderBy("CreatedAt", firestore.Desc)
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("list extraction events: %w", err)

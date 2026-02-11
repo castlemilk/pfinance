@@ -104,6 +104,7 @@ service FinanceService {
   rpc PauseRecurringTransaction(PauseRecurringTransactionRequest) returns (PauseRecurringTransactionResponse);
   rpc ResumeRecurringTransaction(ResumeRecurringTransactionRequest) returns (ResumeRecurringTransactionResponse);
   rpc GetUpcomingBills(GetUpcomingBillsRequest) returns (GetUpcomingBillsResponse);
+  rpc ProcessRecurringTransactions(ProcessRecurringTransactionsRequest) returns (ProcessRecurringTransactionsResponse);
 
   // Search operations
   rpc SearchTransactions(SearchTransactionsRequest) returns (SearchTransactionsResponse);
@@ -609,6 +610,7 @@ message ContributeIncomeToGroupRequest {
   string target_group_id = 2;
   string contributed_by = 3;
   double amount = 4; // Amount to contribute (can be partial, defaults to full income amount)
+  int64 amount_cents = 5;           // Amount in cents (preferred over amount)
 }
 
 message ContributeIncomeToGroupResponse {
@@ -645,6 +647,8 @@ message CreateGoalRequest {
   repeated ExpenseCategory category_ids = 10; // For SPENDING_LIMIT type
   string icon = 11;                  // Emoji or icon name
   string color = 12;                 // Hex color for UI
+  int64 target_amount_cents = 13;    // Target amount in cents (preferred over target_amount)
+  int64 initial_amount_cents = 14;   // Initial amount in cents (preferred over initial_amount)
 }
 
 message CreateGoalResponse {
@@ -669,6 +673,7 @@ message UpdateGoalRequest {
   repeated ExpenseCategory category_ids = 7;
   string icon = 8;
   string color = 9;
+  int64 target_amount_cents = 10;    // Target amount in cents (preferred over target_amount)
 }
 
 message UpdateGoalResponse {
@@ -707,6 +712,7 @@ message ContributeToGoalRequest {
   string user_id = 2;
   double amount = 3;
   string note = 4;                  // Optional note for the contribution
+  int64 amount_cents = 5;           // Amount in cents (preferred over amount)
 }
 
 message ContributeToGoalResponse {
@@ -800,6 +806,7 @@ message ParsedExpense {
   string raw_input = 8;             // Original input text
   string reasoning = 9;             // Brief explanation of parsing decisions
   FieldConfidence field_confidences = 10; // Per-field confidence scores
+  int64 amount_cents = 11;          // Amount in cents (preferred over amount)
 }
 
 // Smart text parsing response
@@ -906,6 +913,17 @@ message GetUpcomingBillsRequest {
 
 message GetUpcomingBillsResponse {
   repeated RecurringTransaction upcoming_bills = 1;
+}
+
+// ProcessRecurringTransactions is called by Cloud Scheduler to create
+// expenses/incomes for all recurring transactions that are due.
+message ProcessRecurringTransactionsRequest {}
+
+message ProcessRecurringTransactionsResponse {
+  int32 processed_count = 1;        // Number of transactions that generated expenses/incomes
+  int32 skipped_count = 2;          // Number of active transactions not yet due
+  int32 ended_count = 3;            // Number of transactions marked as ended (past end_date)
+  int32 error_count = 4;            // Number of transactions that failed to process
 }
 
 // ============================================================================

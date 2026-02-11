@@ -201,9 +201,17 @@ func (s *FinanceService) ImportExtractedTransactions(ctx context.Context, req *c
 		createdExpenses = append(createdExpenses, expense)
 	}
 
+	importedCount := int32(len(createdExpenses))
+
+	// Fire-and-forget: send extraction complete notification
+	func() {
+		trigger := NewNotificationTrigger(s.store)
+		trigger.ExtractionComplete(ctx, claims.UID, importedCount, int32(skippedCount))
+	}()
+
 	return connect.NewResponse(&pfinancev1.ImportExtractedTransactionsResponse{
 		CreatedExpenses: createdExpenses,
-		ImportedCount:   int32(len(createdExpenses)),
+		ImportedCount:   importedCount,
 		SkippedCount:    int32(skippedCount),
 		SkippedReasons:  skippedReasons,
 	}), nil

@@ -131,6 +131,30 @@ func (t *NotificationTrigger) BillReminder(ctx context.Context, userID string, r
 	}
 }
 
+// ExtractionComplete creates a SYSTEM notification when document extraction finishes.
+func (t *NotificationTrigger) ExtractionComplete(ctx context.Context, userID string, importedCount int32, skippedCount int32) {
+	title := "Document Import Complete"
+	msg := fmt.Sprintf("Successfully imported %d transactions.", importedCount)
+	if skippedCount > 0 {
+		msg = fmt.Sprintf("Imported %d transactions (%d skipped).", importedCount, skippedCount)
+	}
+
+	notification := &pfinancev1.Notification{
+		Id:        uuid.New().String(),
+		UserId:    userID,
+		Type:      pfinancev1.NotificationType_NOTIFICATION_TYPE_EXTRACTION_COMPLETE,
+		Title:     title,
+		Message:   msg,
+		IsRead:    false,
+		ActionUrl: "/personal/expenses/",
+		CreatedAt: timestamppb.Now(),
+	}
+
+	if err := t.store.CreateNotification(ctx, notification); err != nil {
+		log.Printf("[NotificationTrigger] Failed to create extraction complete notification: %v", err)
+	}
+}
+
 // SubscriptionAlert creates a notification about a detected subscription change.
 func (t *NotificationTrigger) SubscriptionAlert(ctx context.Context, userID string, subscriptionName string, message string) {
 	prefs, err := t.store.GetNotificationPreferences(ctx, userID)

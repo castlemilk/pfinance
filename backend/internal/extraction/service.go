@@ -307,9 +307,13 @@ func (s *ExtractionService) ParseExpenseText(ctx context.Context, text string) (
 	}
 
 	for i, exp := range result.Expenses {
+		// Dual-write amount/cents
+		amountCents := int64(exp.Amount * 100)
+
 		parsedExp := &pfinancev1.ParsedExpense{
 			Description: exp.Description,
 			Amount:      exp.Amount,
+			AmountCents: amountCents,
 			Category:    parseCategory(exp.Category),
 			Frequency:   parseFrequency(exp.Frequency),
 			Confidence:  exp.Confidence,

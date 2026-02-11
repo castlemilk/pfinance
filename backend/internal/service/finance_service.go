@@ -95,9 +95,74 @@ func (s *FinanceService) CreateExpense(ctx context.Context, req *connect.Request
 		return nil, auth.WrapStoreError("create expense", err)
 	}
 
+	// Fire-and-forget: check budget thresholds for personal expenses
+	if expense.GroupId == "" {
+		s.checkBudgetThresholdsForExpense(ctx, expense.UserId, expense.Category)
+	}
+
 	return connect.NewResponse(&pfinancev1.CreateExpenseResponse{
 		Expense: expense,
 	}), nil
+}
+
+// checkBudgetThresholdsForExpense checks if an expense pushes any budget past a threshold.
+// This is fire-and-forget: errors are logged but never returned to the caller.
+func (s *FinanceService) checkBudgetThresholdsForExpense(ctx context.Context, userID string, category pfinancev1.ExpenseCategory) {
+	trigger := NewNotificationTrigger(s.store)
+
+	// Fetch user's notification preferences; skip if budget_alerts is off
+	prefs, err := s.store.GetNotificationPreferences(ctx, userID)
+	if err != nil {
+		log.Printf("[NotificationTrigger] Failed to get notification preferences for user %s: %v", userID, err)
+		return
+	}
+	if !prefs.BudgetAlerts {
+		return
+	}
+
+	// List user's active budgets (first page, up to 100)
+	budgets, _, err := s.store.ListBudgets(ctx, userID, "", false, 100, "")
+	if err != nil {
+		log.Printf("[NotificationTrigger] Failed to list budgets for user %s: %v", userID, err)
+		return
+	}
+
+	for _, budget := range budgets {
+		if !budget.IsActive {
+			continue
+		}
+
+		// Check if this budget covers the expense's category
+		coversCategory := false
+		if len(budget.CategoryIds) == 0 {
+			// Budget with no category filter applies to all categories
+			coversCategory = true
+		} else {
+			for _, catID := range budget.CategoryIds {
+				if catID == category {
+					coversCategory = true
+					break
+				}
+			}
+		}
+		if !coversCategory {
+			continue
+		}
+
+		// Get budget progress to find current spent amount
+		progress, err := s.store.GetBudgetProgress(ctx, budget.Id, time.Now())
+		if err != nil {
+			log.Printf("[NotificationTrigger] Failed to get budget progress for budget %s: %v", budget.Id, err)
+			continue
+		}
+
+		spentCents := progress.SpentAmountCents
+
+		// Check thresholds at 50%, 80%, and 100%
+		trigger.CheckBudgetThreshold(ctx, userID, budget, spentCents, 50)
+		trigger.CheckBudgetThreshold(ctx, userID, budget, spentCents, 80)
+		trigger.CheckBudgetThreshold(ctx, userID, budget, spentCents, 100)
+	}
 }
 
 // GetExpense retrieves a single expense by ID
@@ -2174,24 +2239,35 @@ func (s *FinanceService) ContributeIncomeToGroup(ctx context.Context, req *conne
 			fmt.Errorf("user is not a member of the target group"))
 	}
 
-	// Calculate amount to contribute
+	// Dual-write amount/cents
 	amount := req.Msg.Amount
+	amountCents := req.Msg.AmountCents
+	if amountCents != 0 && amount == 0 {
+		amount = float64(amountCents) / 100.0
+	} else if amount != 0 && amountCents == 0 {
+		amountCents = int64(amount * 100)
+	}
 	if amount <= 0 {
 		amount = sourceIncome.Amount
+		amountCents = sourceIncome.AmountCents
+		if amountCents == 0 && amount != 0 {
+			amountCents = int64(amount * 100)
+		}
 	}
 
 	// Create the group income
 	groupIncome := &pfinancev1.Income{
-		Id:        uuid.New().String(),
-		UserId:    req.Msg.ContributedBy,
-		GroupId:   req.Msg.TargetGroupId,
-		Source:    sourceIncome.Source + " (contributed)",
-		Amount:    amount,
-		Frequency: sourceIncome.Frequency,
-		TaxStatus: pfinancev1.TaxStatus_TAX_STATUS_POST_TAX,
-		Date:      sourceIncome.Date,
-		CreatedAt: timestamppb.Now(),
-		UpdatedAt: timestamppb.Now(),
+		Id:          uuid.New().String(),
+		UserId:      req.Msg.ContributedBy,
+		GroupId:     req.Msg.TargetGroupId,
+		Source:      sourceIncome.Source + " (contributed)",
+		Amount:      amount,
+		AmountCents: amountCents,
+		Frequency:   sourceIncome.Frequency,
+		TaxStatus:   pfinancev1.TaxStatus_TAX_STATUS_POST_TAX,
+		Date:        sourceIncome.Date,
+		CreatedAt:   timestamppb.Now(),
+		UpdatedAt:   timestamppb.Now(),
 	}
 
 	if err := s.store.CreateIncome(ctx, groupIncome); err != nil {
@@ -2205,6 +2281,7 @@ func (s *FinanceService) ContributeIncomeToGroup(ctx context.Context, req *conne
 		TargetGroupId:        req.Msg.TargetGroupId,
 		ContributedBy:        req.Msg.ContributedBy,
 		Amount:               amount,
+		AmountCents:          amountCents,
 		CreatedGroupIncomeId: groupIncome.Id,
 		ContributedAt:        timestamppb.Now(),
 	}
@@ -2314,24 +2391,44 @@ func (s *FinanceService) CreateGoal(ctx context.Context, req *connect.Request[pf
 		{Id: uuid.New().String(), Name: "Goal achieved!", TargetPercentage: 100, IsAchieved: false},
 	}
 
+	// Dual-write target amount/cents
+	targetAmount := req.Msg.TargetAmount
+	targetAmountCents := req.Msg.TargetAmountCents
+	if targetAmountCents != 0 && targetAmount == 0 {
+		targetAmount = float64(targetAmountCents) / 100.0
+	} else if targetAmount != 0 && targetAmountCents == 0 {
+		targetAmountCents = int64(targetAmount * 100)
+	}
+
+	// Dual-write initial amount/cents
+	initialAmount := req.Msg.InitialAmount
+	initialAmountCents := req.Msg.InitialAmountCents
+	if initialAmountCents != 0 && initialAmount == 0 {
+		initialAmount = float64(initialAmountCents) / 100.0
+	} else if initialAmount != 0 && initialAmountCents == 0 {
+		initialAmountCents = int64(initialAmount * 100)
+	}
+
 	goal := &pfinancev1.FinancialGoal{
-		Id:            uuid.New().String(),
-		UserId:        req.Msg.UserId,
-		GroupId:       req.Msg.GroupId,
-		Name:          req.Msg.Name,
-		Description:   req.Msg.Description,
-		GoalType:      req.Msg.GoalType,
-		TargetAmount:  req.Msg.TargetAmount,
-		CurrentAmount: req.Msg.InitialAmount,
-		StartDate:     req.Msg.StartDate,
-		TargetDate:    req.Msg.TargetDate,
-		Status:        pfinancev1.GoalStatus_GOAL_STATUS_ACTIVE,
-		CategoryIds:   req.Msg.CategoryIds,
-		Icon:          req.Msg.Icon,
-		Color:         req.Msg.Color,
-		Milestones:    milestones,
-		CreatedAt:     timestamppb.Now(),
-		UpdatedAt:     timestamppb.Now(),
+		Id:                 uuid.New().String(),
+		UserId:             req.Msg.UserId,
+		GroupId:            req.Msg.GroupId,
+		Name:               req.Msg.Name,
+		Description:        req.Msg.Description,
+		GoalType:           req.Msg.GoalType,
+		TargetAmount:       targetAmount,
+		TargetAmountCents:  targetAmountCents,
+		CurrentAmount:      initialAmount,
+		CurrentAmountCents: initialAmountCents,
+		StartDate:          req.Msg.StartDate,
+		TargetDate:         req.Msg.TargetDate,
+		Status:             pfinancev1.GoalStatus_GOAL_STATUS_ACTIVE,
+		CategoryIds:        req.Msg.CategoryIds,
+		Icon:               req.Msg.Icon,
+		Color:              req.Msg.Color,
+		Milestones:         milestones,
+		CreatedAt:          timestamppb.Now(),
+		UpdatedAt:          timestamppb.Now(),
 	}
 
 	if err := s.store.CreateGoal(ctx, goal); err != nil {
@@ -2419,8 +2516,17 @@ func (s *FinanceService) UpdateGoal(ctx context.Context, req *connect.Request[pf
 	if req.Msg.Description != "" {
 		existing.Description = req.Msg.Description
 	}
-	if req.Msg.TargetAmount > 0 {
-		existing.TargetAmount = req.Msg.TargetAmount
+	if req.Msg.TargetAmount > 0 || req.Msg.TargetAmountCents > 0 {
+		// Dual-write target amount/cents
+		targetAmount := req.Msg.TargetAmount
+		targetAmountCents := req.Msg.TargetAmountCents
+		if targetAmountCents != 0 && targetAmount == 0 {
+			targetAmount = float64(targetAmountCents) / 100.0
+		} else if targetAmount != 0 && targetAmountCents == 0 {
+			targetAmountCents = int64(targetAmount * 100)
+		}
+		existing.TargetAmount = targetAmount
+		existing.TargetAmountCents = targetAmountCents
 	}
 	if req.Msg.TargetDate != nil {
 		existing.TargetDate = req.Msg.TargetDate
@@ -2619,12 +2725,22 @@ func (s *FinanceService) ContributeToGoal(ctx context.Context, req *connect.Requ
 			fmt.Errorf("can only contribute to active goals"))
 	}
 
+	// Dual-write amount/cents
+	amount := req.Msg.Amount
+	amountCents := req.Msg.AmountCents
+	if amountCents != 0 && amount == 0 {
+		amount = float64(amountCents) / 100.0
+	} else if amount != 0 && amountCents == 0 {
+		amountCents = int64(amount * 100)
+	}
+
 	// Create the contribution record
 	contribution := &pfinancev1.GoalContribution{
 		Id:            uuid.New().String(),
 		GoalId:        req.Msg.GoalId,
 		UserId:        claims.UID,
-		Amount:        req.Msg.Amount,
+		Amount:        amount,
+		AmountCents:   amountCents,
 		Note:          req.Msg.Note,
 		ContributedAt: timestamppb.Now(),
 	}
@@ -2634,7 +2750,8 @@ func (s *FinanceService) ContributeToGoal(ctx context.Context, req *connect.Requ
 	}
 
 	// Update goal current amount
-	goal.CurrentAmount += req.Msg.Amount
+	goal.CurrentAmount += amount
+	goal.CurrentAmountCents += amountCents
 	goal.UpdatedAt = timestamppb.Now()
 
 	// Check and update milestones
@@ -2654,6 +2771,17 @@ func (s *FinanceService) ContributeToGoal(ctx context.Context, req *connect.Requ
 	if err := s.store.UpdateGoal(ctx, goal); err != nil {
 		return nil, auth.WrapStoreError("update goal", err)
 	}
+
+	// Fire-and-forget: check if a goal milestone was crossed
+	func() {
+		trigger := NewNotificationTrigger(s.store)
+		// Use CurrentAmountCents if available, otherwise derive from CurrentAmount
+		currentCents := goal.CurrentAmountCents
+		if currentCents == 0 && goal.CurrentAmount > 0 {
+			currentCents = int64(goal.CurrentAmount * 100)
+		}
+		trigger.GoalMilestoneReached(ctx, claims.UID, goal, currentCents)
+	}()
 
 	return connect.NewResponse(&pfinancev1.ContributeToGoalResponse{
 		Goal:         goal,
