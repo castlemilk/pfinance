@@ -24,6 +24,33 @@ func NewFirestoreStore(client *firestore.Client) Store {
 	}
 }
 
+// applyDateAwarePagination handles pagination for queries with date range filters.
+// Firestore requires OrderBy on inequality fields first, so we use OrderBy("Date") + OrderBy(__name__).
+// The cursor must include both the Date value and the document ID.
+func (s *FirestoreStore) applyDateAwarePagination(ctx context.Context, query firestore.Query, collection string, pageSize int32, pageToken string) (firestore.Query, error) {
+	query = query.OrderBy("Date", firestore.Asc).OrderBy(firestore.DocumentID, firestore.Asc)
+
+	if pageToken != "" {
+		docID, err := DecodePageToken(pageToken)
+		if err != nil {
+			return query, fmt.Errorf("invalid page token: %w", err)
+		}
+		// Fetch the cursor document to get its Date value for composite StartAfter
+		cursorDoc, err := s.client.Collection(collection).Doc(docID).Get(ctx)
+		if err != nil {
+			return query, fmt.Errorf("failed to fetch cursor document: %w", err)
+		}
+		dateVal := cursorDoc.Data()["Date"]
+		query = query.StartAfter(dateVal, docID)
+	}
+
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+	query = query.Limit(int(pageSize) + 1)
+	return query, nil
+}
+
 // applyCursorPagination adds OrderBy + StartAfter + Limit to a query for cursor-based pagination.
 // It fetches pageSize+1 docs so the caller can detect whether a next page exists.
 func (s *FirestoreStore) applyCursorPagination(query firestore.Query, pageSize int32, pageToken string) (firestore.Query, error) {
@@ -109,11 +136,47 @@ func (s *FirestoreStore) ListExpenses(ctx context.Context, userID, groupID strin
 		query = query.Where("UserId", "==", userID)
 	}
 
+	hasDateFilter := startDate != nil || endDate != nil
 	if startDate != nil {
 		query = query.Where("Date", ">=", *startDate)
 	}
 	if endDate != nil {
 		query = query.Where("Date", "<=", *endDate)
+	}
+
+	// When date range filters are present, Firestore requires OrderBy on the range
+	// field first. Use date-aware pagination to avoid "cannot contain more fields
+	// after the key" errors.
+	if hasDateFilter {
+		query, err := s.applyDateAwarePagination(ctx, query, collection, pageSize, pageToken)
+		if err != nil {
+			return nil, "", err
+		}
+
+		docs, err := query.Documents(ctx).GetAll()
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to list expenses: %w", err)
+		}
+
+		if pageSize <= 0 {
+			pageSize = 100
+		}
+
+		var nextPageToken string
+		if len(docs) > int(pageSize) {
+			docs = docs[:pageSize]
+			nextPageToken = EncodePageToken(docs[pageSize-1].Ref.ID)
+		}
+
+		expenses := make([]*pfinancev1.Expense, 0, len(docs))
+		for _, doc := range docs {
+			var expense pfinancev1.Expense
+			if err := doc.DataTo(&expense); err != nil {
+				return nil, "", fmt.Errorf("failed to parse expense: %w", err)
+			}
+			expenses = append(expenses, &expense)
+		}
+		return expenses, nextPageToken, nil
 	}
 
 	query, err := s.applyCursorPagination(query, pageSize, pageToken)
@@ -241,11 +304,46 @@ func (s *FirestoreStore) ListIncomes(ctx context.Context, userID, groupID string
 		query = query.Where("UserId", "==", userID)
 	}
 
+	hasDateFilter := startDate != nil || endDate != nil
 	if startDate != nil {
 		query = query.Where("Date", ">=", *startDate)
 	}
 	if endDate != nil {
 		query = query.Where("Date", "<=", *endDate)
+	}
+
+	// When date range filters are present, Firestore requires OrderBy on the range
+	// field first. Use date-aware pagination to avoid query ordering conflicts.
+	if hasDateFilter {
+		query, err := s.applyDateAwarePagination(ctx, query, collection, pageSize, pageToken)
+		if err != nil {
+			return nil, "", err
+		}
+
+		docs, err := query.Documents(ctx).GetAll()
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to list incomes: %w", err)
+		}
+
+		if pageSize <= 0 {
+			pageSize = 100
+		}
+
+		var nextPageToken string
+		if len(docs) > int(pageSize) {
+			docs = docs[:pageSize]
+			nextPageToken = EncodePageToken(docs[pageSize-1].Ref.ID)
+		}
+
+		incomes := make([]*pfinancev1.Income, 0, len(docs))
+		for _, doc := range docs {
+			var income pfinancev1.Income
+			if err := doc.DataTo(&income); err != nil {
+				return nil, "", fmt.Errorf("failed to parse income: %w", err)
+			}
+			incomes = append(incomes, &income)
+		}
+		return incomes, nextPageToken, nil
 	}
 
 	query, err := s.applyCursorPagination(query, pageSize, pageToken)

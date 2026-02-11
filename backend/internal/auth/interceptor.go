@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"log"
 
 	"connectrpc.com/connect"
 )
@@ -39,6 +40,9 @@ func AuthInterceptor(firebaseAuth *FirebaseAuth) connect.UnaryInterceptorFunc {
 			if rawClaims != nil {
 				subInfo := GetSubscriptionClaimsFromToken(rawClaims)
 				ctx = WithSubscription(ctx, subInfo)
+				log.Printf("[Auth] User %s: tier=%v status=%v (from token claims)", claims.UID, subInfo.Tier, subInfo.Status)
+			} else {
+				log.Printf("[Auth] User %s: no raw claims in token", claims.UID)
 			}
 
 			return next(ctx, req)
