@@ -96,12 +96,13 @@ type Store interface {
 
 	// Notification operations
 	CreateNotification(ctx context.Context, notification *pfinancev1.Notification) error
-	ListNotifications(ctx context.Context, userID string, unreadOnly bool, pageSize int32, pageToken string) ([]*pfinancev1.Notification, string, error)
+	ListNotifications(ctx context.Context, userID string, unreadOnly bool, typeFilter pfinancev1.NotificationType, pageSize int32, pageToken string) ([]*pfinancev1.Notification, string, error)
 	MarkNotificationRead(ctx context.Context, notificationID string) error
 	MarkAllNotificationsRead(ctx context.Context, userID string) error
 	GetUnreadNotificationCount(ctx context.Context, userID string) (int32, error)
 	GetNotificationPreferences(ctx context.Context, userID string) (*pfinancev1.NotificationPreferences, error)
 	UpdateNotificationPreferences(ctx context.Context, prefs *pfinancev1.NotificationPreferences) error
+	HasNotification(ctx context.Context, userID string, notifType pfinancev1.NotificationType, referenceID string, metadataKey string, metadataValue string, withinHours int) (bool, error)
 
 	// Analytics operations
 	GetDailyAggregates(ctx context.Context, userID, groupID string, startDate, endDate time.Time) ([]*pfinancev1.DailyAggregate, error)

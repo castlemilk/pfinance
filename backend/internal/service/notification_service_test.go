@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -35,7 +36,7 @@ func TestListNotifications(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					ListNotifications(gomock.Any(), "user-123", false, int32(50), "").
+					ListNotifications(gomock.Any(), "user-123", false, pfinancev1.NotificationType_NOTIFICATION_TYPE_UNSPECIFIED, int32(50), "").
 					Return([]*pfinancev1.Notification{
 						{Id: "n1", UserId: "user-123", Title: "Budget Alert", IsRead: false},
 						{Id: "n2", UserId: "user-123", Title: "Goal Reached", IsRead: true},
@@ -57,7 +58,7 @@ func TestListNotifications(t *testing.T) {
 			},
 			setupMock: func() {
 				mockStore.EXPECT().
-					ListNotifications(gomock.Any(), "user-123", true, int32(50), "").
+					ListNotifications(gomock.Any(), "user-123", true, pfinancev1.NotificationType_NOTIFICATION_TYPE_UNSPECIFIED, int32(50), "").
 					Return([]*pfinancev1.Notification{
 						{Id: "n1", UserId: "user-123", Title: "Budget Alert", IsRead: false},
 					}, "", nil)
@@ -305,6 +306,11 @@ func TestNotificationTrigger_BudgetThreshold(t *testing.T) {
 				BudgetAlerts: true,
 			}, nil)
 		mockStore.EXPECT().
+			HasNotification(gomock.Any(), "user-123",
+				pfinancev1.NotificationType_NOTIFICATION_TYPE_BUDGET_THRESHOLD,
+				"budget-1", "threshold", "80", 720).
+			Return(false, nil)
+		mockStore.EXPECT().
 			CreateNotification(gomock.Any(), gomock.Any()).
 			Return(nil)
 
@@ -343,6 +349,36 @@ func TestNotificationTrigger_BudgetThreshold(t *testing.T) {
 	})
 }
 
+func TestNotificationTrigger_BudgetThreshold_Dedup(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	trigger := NewNotificationTrigger(mockStore)
+
+	t.Run("skips when duplicate exists", func(t *testing.T) {
+		mockStore.EXPECT().
+			GetNotificationPreferences(gomock.Any(), "user-123").
+			Return(&pfinancev1.NotificationPreferences{
+				UserId:       "user-123",
+				BudgetAlerts: true,
+			}, nil)
+		mockStore.EXPECT().
+			HasNotification(gomock.Any(), "user-123",
+				pfinancev1.NotificationType_NOTIFICATION_TYPE_BUDGET_THRESHOLD,
+						"budget-1", "threshold", "80", 720).
+			Return(true, nil) // duplicate exists!
+		// No CreateNotification expected
+
+		budget := &pfinancev1.Budget{
+			Id:          "budget-1",
+			Name:        "Food",
+			AmountCents: 50000,
+		}
+		trigger.CheckBudgetThreshold(testContext("user-123"), "user-123", budget, 45000, 80)
+	})
+}
+
 func TestNotificationTrigger_GoalMilestone(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -357,6 +393,11 @@ func TestNotificationTrigger_GoalMilestone(t *testing.T) {
 				UserId:         "user-123",
 				GoalMilestones: true,
 			}, nil)
+		mockStore.EXPECT().
+			HasNotification(gomock.Any(), "user-123",
+				pfinancev1.NotificationType_NOTIFICATION_TYPE_GOAL_MILESTONE,
+				"goal-1", "milestone", "50", 8760).
+			Return(false, nil)
 		mockStore.EXPECT().
 			CreateNotification(gomock.Any(), gomock.Any()).
 			Return(nil)
@@ -376,6 +417,11 @@ func TestNotificationTrigger_GoalMilestone(t *testing.T) {
 				UserId:         "user-123",
 				GoalMilestones: true,
 			}, nil)
+		mockStore.EXPECT().
+			HasNotification(gomock.Any(), "user-123",
+				pfinancev1.NotificationType_NOTIFICATION_TYPE_GOAL_MILESTONE,
+				"goal-1", "milestone", "100", 8760).
+			Return(false, nil)
 		mockStore.EXPECT().
 			CreateNotification(gomock.Any(), gomock.Any()).
 			Return(nil)
@@ -405,6 +451,36 @@ func TestNotificationTrigger_GoalMilestone(t *testing.T) {
 	})
 }
 
+func TestNotificationTrigger_GoalMilestone_Dedup(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	trigger := NewNotificationTrigger(mockStore)
+
+	t.Run("skips when milestone duplicate exists", func(t *testing.T) {
+		mockStore.EXPECT().
+			GetNotificationPreferences(gomock.Any(), "user-123").
+			Return(&pfinancev1.NotificationPreferences{
+				UserId:         "user-123",
+				GoalMilestones: true,
+			}, nil)
+		mockStore.EXPECT().
+			HasNotification(gomock.Any(), "user-123",
+				pfinancev1.NotificationType_NOTIFICATION_TYPE_GOAL_MILESTONE,
+				"goal-1", "milestone", "50", 8760).
+			Return(true, nil)
+		// No CreateNotification expected
+
+		goal := &pfinancev1.FinancialGoal{
+			Id:                "goal-1",
+			Name:              "Emergency Fund",
+			TargetAmountCents: 1000000,
+		}
+		trigger.GoalMilestoneReached(testContext("user-123"), "user-123", goal, 500000)
+	})
+}
+
 func TestNotificationTrigger_BillReminder(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -419,6 +495,11 @@ func TestNotificationTrigger_BillReminder(t *testing.T) {
 				UserId:        "user-123",
 				BillReminders: true,
 			}, nil)
+		mockStore.EXPECT().
+			HasNotification(gomock.Any(), "user-123",
+				pfinancev1.NotificationType_NOTIFICATION_TYPE_BILL_REMINDER,
+				"rt-1", "", "", 720).
+			Return(false, nil)
 		mockStore.EXPECT().
 			CreateNotification(gomock.Any(), gomock.Any()).
 			Return(nil)
@@ -444,5 +525,168 @@ func TestNotificationTrigger_BillReminder(t *testing.T) {
 			Description: "Netflix",
 		}
 		trigger.BillReminder(testContext("user-123"), "user-123", rt)
+	})
+
+	t.Run("skips when bill reminder duplicate exists", func(t *testing.T) {
+		mockStore.EXPECT().
+			GetNotificationPreferences(gomock.Any(), "user-123").
+			Return(&pfinancev1.NotificationPreferences{
+				UserId:        "user-123",
+				BillReminders: true,
+			}, nil)
+		mockStore.EXPECT().
+			HasNotification(gomock.Any(), "user-123",
+				pfinancev1.NotificationType_NOTIFICATION_TYPE_BILL_REMINDER,
+				"rt-1", "", "", 720).
+			Return(true, nil)
+		// No CreateNotification expected
+
+		rt := &pfinancev1.RecurringTransaction{
+			Id:          "rt-1",
+			Description: "Netflix",
+		}
+		trigger.BillReminder(testContext("user-123"), "user-123", rt)
+	})
+}
+
+func TestNotificationTrigger_GroupExpenseAdded(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	trigger := NewNotificationTrigger(mockStore)
+
+	t.Run("notifies all members except actor", func(t *testing.T) {
+		group := &pfinancev1.FinanceGroup{
+			Id:        "group-1",
+			Name:      "Household",
+			MemberIds: []string{"user-1", "user-2", "user-3"},
+			Members: []*pfinancev1.GroupMember{
+				{UserId: "user-1", DisplayName: "Alice"},
+				{UserId: "user-2", DisplayName: "Bob"},
+				{UserId: "user-3", DisplayName: "Charlie"},
+			},
+		}
+		expense := &pfinancev1.Expense{
+			Id:          "expense-1",
+			Description: "Groceries",
+			AmountCents: 5000,
+		}
+
+		// Expect notifications for user-2 and user-3 (not user-1 = actor)
+		mockStore.EXPECT().
+			CreateNotification(gomock.Any(), gomock.Any()).
+			Return(nil).Times(2)
+
+		trigger.GroupExpenseAdded(testContext("user-1"), "user-1", group, expense)
+	})
+}
+
+func TestNotificationTrigger_GroupIncomeAdded(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	trigger := NewNotificationTrigger(mockStore)
+
+	t.Run("notifies all members except actor", func(t *testing.T) {
+		group := &pfinancev1.FinanceGroup{
+			Id:        "group-1",
+			Name:      "Household",
+			MemberIds: []string{"user-1", "user-2"},
+			Members: []*pfinancev1.GroupMember{
+				{UserId: "user-1", DisplayName: "Alice"},
+				{UserId: "user-2", DisplayName: "Bob"},
+			},
+		}
+		income := &pfinancev1.Income{
+			Id:          "income-1",
+			Source:      "Salary",
+			AmountCents: 500000,
+		}
+
+		// Only user-2 should get notified (user-1 is actor)
+		mockStore.EXPECT().
+			CreateNotification(gomock.Any(), gomock.Any()).
+			Return(nil).Times(1)
+
+		trigger.GroupIncomeAdded(testContext("user-1"), "user-1", group, income)
+	})
+}
+
+func TestGenerateWeeklyDigest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	t.Run("generates digest for opted-in user", func(t *testing.T) {
+		mockStore.EXPECT().
+			GetNotificationPreferences(gomock.Any(), "user-123").
+			Return(&pfinancev1.NotificationPreferences{
+				UserId:       "user-123",
+				WeeklyDigest: true,
+			}, nil)
+		mockStore.EXPECT().
+			ListExpenses(gomock.Any(), "user-123", "", gomock.Any(), gomock.Any(), int32(1000), "").
+			Return([]*pfinancev1.Expense{
+				{AmountCents: 5000, Category: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD},
+				{AmountCents: 3000, Category: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_TRANSPORTATION},
+			}, "", nil)
+		mockStore.EXPECT().
+			ListIncomes(gomock.Any(), "user-123", "", gomock.Any(), gomock.Any(), int32(1000), "").
+			Return([]*pfinancev1.Income{
+				{AmountCents: 100000},
+			}, "", nil)
+		mockStore.EXPECT().
+			ListBudgets(gomock.Any(), "user-123", "", false, int32(100), "").
+			Return([]*pfinancev1.Budget{}, "", nil)
+		mockStore.EXPECT().
+			ListGoals(gomock.Any(), "user-123", "",
+				pfinancev1.GoalStatus_GOAL_STATUS_ACTIVE,
+				pfinancev1.GoalType_GOAL_TYPE_UNSPECIFIED,
+				int32(100), "").
+			Return([]*pfinancev1.FinancialGoal{}, "", nil)
+		mockStore.EXPECT().
+			ListRecurringTransactions(gomock.Any(), "user-123", "",
+				pfinancev1.RecurringTransactionStatus_RECURRING_TRANSACTION_STATUS_ACTIVE,
+				true, true, int32(100), "").
+			Return([]*pfinancev1.RecurringTransaction{}, "", nil)
+		mockStore.EXPECT().
+			CreateNotification(gomock.Any(), gomock.Any()).
+			Return(nil)
+
+		ctx := testContext("user-123")
+		resp, err := svc.GenerateWeeklyDigest(ctx, connect.NewRequest(&pfinancev1.GenerateWeeklyDigestRequest{
+			UserId: "user-123",
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resp.Msg.DigestsSent != 1 {
+			t.Errorf("expected 1 digest sent, got %d", resp.Msg.DigestsSent)
+		}
+	})
+
+	t.Run("skips user without weekly digest enabled", func(t *testing.T) {
+		mockStore.EXPECT().
+			GetNotificationPreferences(gomock.Any(), "user-456").
+			Return(&pfinancev1.NotificationPreferences{
+				UserId:       "user-456",
+				WeeklyDigest: false,
+			}, nil)
+
+		ctx := testContext("user-456")
+		resp, err := svc.GenerateWeeklyDigest(ctx, connect.NewRequest(&pfinancev1.GenerateWeeklyDigestRequest{
+			UserId: "user-456",
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resp.Msg.DigestsSent != 0 {
+			t.Errorf("expected 0 digests sent, got %d", resp.Msg.DigestsSent)
+		}
 	})
 }

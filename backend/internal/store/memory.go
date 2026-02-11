@@ -1150,7 +1150,7 @@ func (m *MemoryStore) CreateNotification(ctx context.Context, notification *pfin
 	return nil
 }
 
-func (m *MemoryStore) ListNotifications(ctx context.Context, userID string, unreadOnly bool, pageSize int32, pageToken string) ([]*pfinancev1.Notification, string, error) {
+func (m *MemoryStore) ListNotifications(ctx context.Context, userID string, unreadOnly bool, typeFilter pfinancev1.NotificationType, pageSize int32, pageToken string) ([]*pfinancev1.Notification, string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -1161,6 +1161,9 @@ func (m *MemoryStore) ListNotifications(ctx context.Context, userID string, unre
 			continue
 		}
 		if unreadOnly && n.IsRead {
+			continue
+		}
+		if typeFilter != pfinancev1.NotificationType_NOTIFICATION_TYPE_UNSPECIFIED && n.Type != typeFilter {
 			continue
 		}
 		matching = append(matching, n)
@@ -1275,6 +1278,32 @@ func (m *MemoryStore) UpdateNotificationPreferences(ctx context.Context, prefs *
 
 	m.notificationPreferences[prefs.UserId] = prefs
 	return nil
+}
+
+func (m *MemoryStore) HasNotification(ctx context.Context, userID string, notifType pfinancev1.NotificationType, referenceID string, metadataKey string, metadataValue string, withinHours int) (bool, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	cutoff := time.Time{}
+	if withinHours > 0 {
+		cutoff = time.Now().Add(-time.Duration(withinHours) * time.Hour)
+	}
+
+	for _, n := range m.notifications {
+		if n.UserId != userID || n.Type != notifType || n.ReferenceId != referenceID {
+			continue
+		}
+		if withinHours > 0 && n.CreatedAt != nil && n.CreatedAt.AsTime().Before(cutoff) {
+			continue
+		}
+		if metadataKey != "" {
+			if n.Metadata == nil || n.Metadata[metadataKey] != metadataValue {
+				continue
+			}
+		}
+		return true, nil
+	}
+	return false, nil
 }
 
 // Analytics operations

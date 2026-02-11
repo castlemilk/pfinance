@@ -98,6 +98,9 @@ func (s *FinanceService) CreateExpense(ctx context.Context, req *connect.Request
 	// Fire-and-forget: check budget thresholds for personal expenses
 	if expense.GroupId == "" {
 		s.checkBudgetThresholdsForExpense(ctx, expense.UserId, expense.Category)
+	} else {
+		// Notify group members about new expense
+		s.notifyGroupExpenseAdded(ctx, claims.UID, expense)
 	}
 
 	return connect.NewResponse(&pfinancev1.CreateExpenseResponse{
@@ -163,6 +166,28 @@ func (s *FinanceService) checkBudgetThresholdsForExpense(ctx context.Context, us
 		trigger.CheckBudgetThreshold(ctx, userID, budget, spentCents, 80)
 		trigger.CheckBudgetThreshold(ctx, userID, budget, spentCents, 100)
 	}
+}
+
+// notifyGroupExpenseAdded sends group activity notifications for a new expense.
+func (s *FinanceService) notifyGroupExpenseAdded(ctx context.Context, actorUID string, expense *pfinancev1.Expense) {
+	group, err := s.store.GetGroup(ctx, expense.GroupId)
+	if err != nil {
+		log.Printf("[NotificationTrigger] Failed to get group for expense notification: %v", err)
+		return
+	}
+	trigger := NewNotificationTrigger(s.store)
+	trigger.GroupExpenseAdded(ctx, actorUID, group, expense)
+}
+
+// notifyGroupIncomeAdded sends group activity notifications for a new income.
+func (s *FinanceService) notifyGroupIncomeAdded(ctx context.Context, actorUID string, income *pfinancev1.Income) {
+	group, err := s.store.GetGroup(ctx, income.GroupId)
+	if err != nil {
+		log.Printf("[NotificationTrigger] Failed to get group for income notification: %v", err)
+		return
+	}
+	trigger := NewNotificationTrigger(s.store)
+	trigger.GroupIncomeAdded(ctx, actorUID, group, income)
 }
 
 // GetExpense retrieves a single expense by ID
@@ -537,6 +562,12 @@ func (s *FinanceService) CreateIncome(ctx context.Context, req *connect.Request[
 
 	if err := s.store.CreateIncome(ctx, income); err != nil {
 		return nil, auth.WrapStoreError("create income", err)
+	}
+
+	// Fire-and-forget: notify group members about new income
+	if income.GroupId != "" {
+		// Notify group members about new income
+		s.notifyGroupIncomeAdded(ctx, claims.UID, income)
 	}
 
 	return connect.NewResponse(&pfinancev1.CreateIncomeResponse{
@@ -3647,7 +3678,7 @@ func (s *FinanceService) ListNotifications(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("cannot list notifications for another user"))
 	}
 
-	notifications, nextPageToken, err := s.store.ListNotifications(ctx, userID, req.Msg.UnreadOnly, req.Msg.PageSize, req.Msg.PageToken)
+	notifications, nextPageToken, err := s.store.ListNotifications(ctx, userID, req.Msg.UnreadOnly, req.Msg.TypeFilter, req.Msg.PageSize, req.Msg.PageToken)
 	if err != nil {
 		return nil, auth.WrapStoreError("list notifications", err)
 	}

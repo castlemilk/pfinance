@@ -120,6 +120,7 @@ service FinanceService {
   rpc GetUnreadNotificationCount(GetUnreadNotificationCountRequest) returns (GetUnreadNotificationCountResponse);
   rpc GetNotificationPreferences(GetNotificationPreferencesRequest) returns (GetNotificationPreferencesResponse);
   rpc UpdateNotificationPreferences(UpdateNotificationPreferencesRequest) returns (UpdateNotificationPreferencesResponse);
+  rpc GenerateWeeklyDigest(GenerateWeeklyDigestRequest) returns (GenerateWeeklyDigestResponse);
 
   // Stripe subscription operations
   rpc CreateCheckoutSession(CreateCheckoutSessionRequest) returns (CreateCheckoutSessionResponse);
@@ -987,6 +988,7 @@ message ListNotificationsRequest {
   bool unread_only = 2;             // If true, only return unread notifications
   int32 page_size = 3;
   string page_token = 4;
+  NotificationType type_filter = 5; // Optional: filter by notification type
 }
 
 message ListNotificationsResponse {
@@ -1026,6 +1028,46 @@ message UpdateNotificationPreferencesRequest {
 
 message UpdateNotificationPreferencesResponse {
   NotificationPreferences preferences = 1;
+}
+
+// ============================================================================
+// Weekly Digest operations
+// ============================================================================
+
+message GenerateWeeklyDigestRequest {
+  string user_id = 1;              // Optional: generate for a specific user (empty = all opted-in users)
+}
+
+message GenerateWeeklyDigestResponse {
+  int32 users_processed = 1;
+  int32 digests_sent = 2;
+}
+
+// WeeklyDigestData is serialized as JSON in notification metadata
+message WeeklyDigestData {
+  int64 total_spent_cents = 1;
+  int64 total_income_cents = 2;
+  int64 net_cents = 3;
+  repeated CategoryAmount top_categories = 4;
+  repeated DigestBudgetSummary budget_summaries = 5;
+  repeated DigestGoalSummary goal_summaries = 6;
+  int32 upcoming_bills_count = 7;
+  string period_start = 8;         // YYYY-MM-DD
+  string period_end = 9;           // YYYY-MM-DD
+}
+
+message DigestBudgetSummary {
+  string name = 1;
+  int64 spent_cents = 2;
+  int64 budget_cents = 3;
+  double percentage_used = 4;
+}
+
+message DigestGoalSummary {
+  string name = 1;
+  int64 current_cents = 2;
+  int64 target_cents = 3;
+  double percentage_complete = 4;
 }
 
 // ============================================================================

@@ -13,6 +13,7 @@ interface NotificationContextType {
   notifications: Notification[];
   unreadCount: number;
   loading: boolean;
+  error: string | null;
   preferences: NotificationPreferences | null;
   loadNotifications: () => Promise<void>;
   markRead: (id: string) => Promise<void>;
@@ -38,6 +39,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -63,6 +65,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (!isAuthenticated || !userId) return;
 
     setLoading(true);
+    setError(null);
     try {
       const response = await financeClient.listNotifications({
         userId,
@@ -73,7 +76,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       setNotifications(response.notifications);
       setUnreadCount(response.totalUnread);
     } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to load notifications';
       console.error('[NotificationContext] Failed to load notifications:', e);
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -191,6 +196,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     notifications,
     unreadCount,
     loading,
+    error,
     preferences,
     loadNotifications,
     markRead,
