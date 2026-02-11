@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useMemo, useCallback } from 'react';
-import { HeatmapRect } from '@visx/heatmap';
 import { scaleLinear } from '@visx/scale';
 import { Group } from '@visx/group';
 import { useTooltip, TooltipWithBounds, defaultStyles } from '@visx/tooltip';
@@ -161,11 +160,14 @@ function HeatmapChart({
   const cellSize = Math.max(2, Math.floor((innerWidth - gap * (numWeeks - 1)) / numWeeks));
   const adjustedCellSize = Math.min(cellSize, Math.floor((innerHeight - gap * 6) / 7));
 
-  const colorScale = useMemo(
+  // CSS variables can't be interpolated by D3's scaleLinear, so we use
+  // an opacity scale with a fixed fill color for proper heat intensity.
+  const opacityScale = useMemo(
     () =>
-      scaleLinear<string>({
-        domain: [0, data.maxValue * 0.5, data.maxValue],
-        range: ['var(--muted)', 'var(--primary)', 'var(--chart-1)'],
+      scaleLinear<number>({
+        domain: [0, data.maxValue],
+        range: [0.08, 1],
+        clamp: true,
       }),
     [data.maxValue]
   );
@@ -252,42 +254,31 @@ function HeatmapChart({
 
         {/* Heatmap grid */}
         <Group left={margin.left} top={margin.top}>
-          <HeatmapRect
-            data={binData}
-            xScale={(d) => xScale(d) ?? 0}
-            yScale={(d) => yScale(d) ?? 0}
-            colorScale={colorScale}
-            binWidth={adjustedCellSize}
-            binHeight={adjustedCellSize}
-            gap={gap}
-            count={(d) => (d as HeatmapBin).value}
-          >
-            {(heatmap) =>
-              heatmap.map((heatmapBins) =>
-                heatmapBins.map((bin) => (
-                  <rect
-                    key={`heatmap-rect-${bin.row}-${bin.column}`}
-                    width={bin.width}
-                    height={bin.height}
-                    x={bin.x}
-                    y={bin.y}
-                    rx={2}
-                    fill={bin.color}
-                    style={{ cursor: onDayClick ? 'pointer' : 'default', opacity: bin.opacity }}
-                    onMouseMove={(e) => {
-                      const originalBin = binData[bin.column]?.bins[bin.row];
-                      if (originalBin) handleMouseMove(e, originalBin);
-                    }}
-                    onMouseLeave={hideTooltip}
-                    onClick={() => {
-                      const originalBin = binData[bin.column]?.bins[bin.row];
-                      if (originalBin && onDayClick) onDayClick(originalBin.date);
-                    }}
-                  />
-                ))
-              )
-            }
-          </HeatmapRect>
+          {binData.map((weekData, col) =>
+            weekData.bins.map((bin, row) => {
+              const x = xScale(col) ?? 0;
+              const y = yScale(row) ?? 0;
+              const hasValue = bin.value > 0;
+              return (
+                <rect
+                  key={`heatmap-rect-${row}-${col}`}
+                  width={adjustedCellSize}
+                  height={adjustedCellSize}
+                  x={x}
+                  y={y}
+                  rx={2}
+                  fill={hasValue ? 'var(--chart-1)' : 'var(--muted)'}
+                  opacity={hasValue ? opacityScale(bin.value) : 0.3}
+                  style={{ cursor: onDayClick ? 'pointer' : 'default' }}
+                  onMouseMove={(e) => handleMouseMove(e, bin)}
+                  onMouseLeave={hideTooltip}
+                  onClick={() => {
+                    if (onDayClick) onDayClick(bin.date);
+                  }}
+                />
+              );
+            })
+          )}
         </Group>
       </svg>
 

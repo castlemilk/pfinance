@@ -286,15 +286,15 @@ function parseNaturalLanguage(input: string): ParsedExpense | null {
   // Enhanced patterns for expense parsing
   const patterns = [
     // Split pattern: "Split $50 dinner with John"
-    /split\s+\$?([\d,]+(?:\.\d{2})?)\s+(.+?)(?:\s+with|$)/i,
+    /split\s+\$?([\d,]+(?:\.\d{1,2})?)\s+(.+?)(?:\s+with|$)/i,
     // Recurring pattern: "Monthly Netflix $15.99"
-    /(?:monthly|weekly|yearly|daily)\s+(.+?)\s+\$?([\d,]+(?:\.\d{2})?)/i,
+    /(?:monthly|weekly|yearly|daily)\s+(.+?)\s+\$?([\d,]+(?:\.\d{1,2})?)/i,
     // "$XX.XX description" or "$XX description"
-    /\$?([\d,]+(?:\.\d{2})?)\s+(.+)/i,
+    /\$?([\d,]+(?:\.\d{1,2})?)\s+(.+)/i,
     // "description $XX.XX" or "description XX.XX"
-    /(.+?)\s+\$?([\d,]+(?:\.\d{2})?)\s*$/i,
+    /(.+?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s*$/i,
     // "description for $XX" or "description - $XX"
-    /(.+?)(?:\s+for\s+|\s*-\s*)\$?([\d,]+(?:\.\d{2})?)/i,
+    /(.+?)(?:\s+for\s+|\s*-\s*)\$?([\d,]+(?:\.\d{1,2})?)/i,
   ];
 
   for (const pattern of patterns) {
