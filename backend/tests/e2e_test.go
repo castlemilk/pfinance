@@ -62,6 +62,12 @@ func TestE2EFinanceService(t *testing.T) {
 		mockStore.EXPECT().
 			CreateExpense(gomock.Any(), gomock.Any()).
 			Return(nil)
+		mockStore.EXPECT().
+			GetNotificationPreferences(gomock.Any(), gomock.Any()).
+			Return(&pfinancev1.NotificationPreferences{}, nil).AnyTimes()
+		mockStore.EXPECT().
+			ListBudgets(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, "", nil).AnyTimes()
 
 		ctx := context.Background()
 

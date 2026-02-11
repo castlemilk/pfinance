@@ -67,7 +67,8 @@ func isPublicEndpoint(procedure string) bool {
 	publicEndpoints := []string{
 		"/health",
 		"/ping",
-		// Add other public endpoints here
+		// ProcessRecurringTransactions is called by Cloud Scheduler without user auth
+		"/pfinance.v1.FinanceService/ProcessRecurringTransactions",
 	}
 
 	for _, endpoint := range publicEndpoints {

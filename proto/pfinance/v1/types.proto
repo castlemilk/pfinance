@@ -550,12 +550,13 @@ message DetectedSubscription {
 // NotificationType represents the type of notification
 enum NotificationType {
   NOTIFICATION_TYPE_UNSPECIFIED = 0;
-  NOTIFICATION_TYPE_BUDGET_THRESHOLD = 1;   // Budget at 50%, 80%, or 100%
-  NOTIFICATION_TYPE_GOAL_MILESTONE = 2;     // Goal at 25%, 50%, 75%, or 100%
-  NOTIFICATION_TYPE_BILL_REMINDER = 3;      // Upcoming recurring transaction due
-  NOTIFICATION_TYPE_UNUSUAL_SPENDING = 4;   // Spending anomaly detected
-  NOTIFICATION_TYPE_SUBSCRIPTION_ALERT = 5; // Forgotten or new subscription
-  NOTIFICATION_TYPE_SYSTEM = 6;             // System announcements
+  NOTIFICATION_TYPE_BUDGET_THRESHOLD = 1;      // Budget at 50%, 80%, or 100%
+  NOTIFICATION_TYPE_GOAL_MILESTONE = 2;        // Goal at 25%, 50%, 75%, or 100%
+  NOTIFICATION_TYPE_BILL_REMINDER = 3;         // Upcoming recurring transaction due
+  NOTIFICATION_TYPE_UNUSUAL_SPENDING = 4;      // Spending anomaly detected
+  NOTIFICATION_TYPE_SUBSCRIPTION_ALERT = 5;    // Forgotten or new subscription
+  NOTIFICATION_TYPE_SYSTEM = 6;                // System announcements
+  NOTIFICATION_TYPE_EXTRACTION_COMPLETE = 7;   // Document extraction finished
 }
 
 // Notification represents an in-app notification

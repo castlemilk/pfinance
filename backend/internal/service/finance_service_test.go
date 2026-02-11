@@ -51,6 +51,15 @@ func TestCreateExpense(t *testing.T) {
 				mockStore.EXPECT().
 					CreateExpense(gomock.Any(), gomock.Any()).
 					Return(nil)
+				// Notification trigger calls (fire-and-forget)
+				mockStore.EXPECT().
+					GetNotificationPreferences(gomock.Any(), gomock.Any()).
+					Return(&pfinancev1.NotificationPreferences{}, nil).
+					AnyTimes()
+				mockStore.EXPECT().
+					ListBudgets(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(nil, "", nil).
+					AnyTimes()
 			},
 			expectedError: false,
 		},
@@ -300,6 +309,16 @@ func TestCreateExpenseWithAllocation(t *testing.T) {
 			expectedAmount:     0,
 		},
 	}
+
+	// Notification trigger calls (fire-and-forget for personal expenses)
+	mockStore.EXPECT().
+		GetNotificationPreferences(gomock.Any(), gomock.Any()).
+		Return(&pfinancev1.NotificationPreferences{}, nil).
+		AnyTimes()
+	mockStore.EXPECT().
+		ListBudgets(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(nil, "", nil).
+		AnyTimes()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
