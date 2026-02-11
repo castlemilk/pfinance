@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"math"
 	"sort"
 	"time"
@@ -12,6 +13,24 @@ import (
 	"github.com/castlemilk/pfinance/backend/internal/auth"
 	"github.com/google/uuid"
 )
+
+// requireProWithFallback checks Pro tier from context (token claims), falling back
+// to a store lookup if token claims are stale (e.g., issued before subscription was set).
+func (s *FinanceService) requireProWithFallback(ctx context.Context, claims *auth.UserClaims) error {
+	if err := auth.RequireProTier(ctx); err != nil {
+		// Token claims may be stale; check store as fallback
+		user, userErr := s.store.GetUser(ctx, claims.UID)
+		if userErr == nil && user != nil &&
+			user.SubscriptionTier == pfinancev1.SubscriptionTier_SUBSCRIPTION_TIER_PRO &&
+			(user.SubscriptionStatus == pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE ||
+				user.SubscriptionStatus == pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_TRIALING) {
+			log.Printf("[Auth] User %s has Pro in store but stale token claims — allowing access", claims.UID)
+			return nil
+		}
+		return err
+	}
+	return nil
+}
 
 // ============================================================================
 // Analytics Handlers
@@ -23,7 +42,7 @@ func (s *FinanceService) GetDailyAggregates(ctx context.Context, req *connect.Re
 	if err != nil {
 		return nil, err
 	}
-	if err := auth.RequireProTier(ctx); err != nil {
+	if err := s.requireProWithFallback(ctx, claims); err != nil {
 		return nil, err
 	}
 
@@ -88,7 +107,7 @@ func (s *FinanceService) GetSpendingTrends(ctx context.Context, req *connect.Req
 	if err != nil {
 		return nil, err
 	}
-	if err := auth.RequireProTier(ctx); err != nil {
+	if err := s.requireProWithFallback(ctx, claims); err != nil {
 		return nil, err
 	}
 
@@ -209,7 +228,7 @@ func (s *FinanceService) GetCategoryComparison(ctx context.Context, req *connect
 	if err != nil {
 		return nil, err
 	}
-	if err := auth.RequireProTier(ctx); err != nil {
+	if err := s.requireProWithFallback(ctx, claims); err != nil {
 		return nil, err
 	}
 
@@ -355,7 +374,7 @@ func (s *FinanceService) DetectAnomalies(ctx context.Context, req *connect.Reque
 	if err != nil {
 		return nil, err
 	}
-	if err := auth.RequireProTier(ctx); err != nil {
+	if err := s.requireProWithFallback(ctx, claims); err != nil {
 		return nil, err
 	}
 
@@ -558,7 +577,7 @@ func (s *FinanceService) GetCashFlowForecast(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, err
 	}
-	if err := auth.RequireProTier(ctx); err != nil {
+	if err := s.requireProWithFallback(ctx, claims); err != nil {
 		return nil, err
 	}
 
@@ -785,7 +804,7 @@ func (s *FinanceService) GetWaterfallData(ctx context.Context, req *connect.Requ
 	if err != nil {
 		return nil, err
 	}
-	if err := auth.RequireProTier(ctx); err != nil {
+	if err := s.requireProWithFallback(ctx, claims); err != nil {
 		return nil, err
 	}
 

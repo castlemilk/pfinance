@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -38,6 +39,8 @@ func TestAnalyticsGetDailyAggregates(t *testing.T) {
 
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore, nil, nil)
+	// Pro tier fallback may call GetUser for non-Pro contexts
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
 
 	userID := "user-123"
 
@@ -175,6 +178,8 @@ func TestAnalyticsGetSpendingTrends(t *testing.T) {
 
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore, nil, nil)
+	// Pro tier fallback may call GetUser for non-Pro contexts
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
 
 	userID := "user-123"
 
@@ -289,6 +294,8 @@ func TestAnalyticsGetCategoryComparison(t *testing.T) {
 
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore, nil, nil)
+	// Pro tier fallback may call GetUser for non-Pro contexts
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
 
 	userID := "user-123"
 
@@ -425,6 +432,8 @@ func TestAnalyticsDetectAnomalies(t *testing.T) {
 
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore, nil, nil)
+	// Pro tier fallback may call GetUser for non-Pro contexts
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
 
 	userID := "user-123"
 
@@ -552,6 +561,8 @@ func TestAnalyticsGetCashFlowForecast(t *testing.T) {
 
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore, nil, nil)
+	// Pro tier fallback may call GetUser for non-Pro contexts
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
 
 	userID := "user-123"
 
@@ -712,6 +723,8 @@ func TestAnalyticsGetWaterfallData(t *testing.T) {
 
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore, nil, nil)
+	// Pro tier fallback may call GetUser for non-Pro contexts
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
 
 	userID := "user-123"
 
