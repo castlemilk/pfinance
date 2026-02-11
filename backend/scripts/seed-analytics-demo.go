@@ -479,4 +479,3 @@ func randAmount(rng *rand.Rand, min, max float64) float64 {
 	v := min + rng.Float64()*(max-min)
 	return math.Round(v*100) / 100
 }
-

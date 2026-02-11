@@ -42,9 +42,9 @@ interface TooltipData {
 
 const tooltipStyles: React.CSSProperties = {
   ...defaultStyles,
-  backgroundColor: 'hsl(var(--popover))',
-  color: 'hsl(var(--popover-foreground))',
-  border: '1px solid hsl(var(--border))',
+  backgroundColor: 'var(--popover)',
+  color: 'var(--popover-foreground)',
+  border: '1px solid var(--border)',
   borderRadius: '6px',
   fontSize: '12px',
   padding: '8px 12px',
@@ -208,7 +208,7 @@ function TrendChart({
           <GridRows
             scale={yScale}
             width={innerWidth}
-            stroke="hsl(var(--border))"
+            stroke="var(--border)"
             strokeOpacity={0.5}
             strokeDasharray="3,3"
             numTicks={5}
@@ -223,7 +223,7 @@ function TrendChart({
                 y={(d) => yScale(d.value) ?? 0}
                 yScale={yScale}
                 curve={curveMonotoneX}
-                fill="hsl(var(--chart-2))"
+                fill="var(--chart-2)"
                 fillOpacity={0.2}
               />
               <LinePath
@@ -231,7 +231,7 @@ function TrendChart({
                 x={(d) => xScale(d.date) ?? 0}
                 y={(d) => yScale(d.value) ?? 0}
                 curve={curveMonotoneX}
-                stroke="hsl(var(--chart-2))"
+                stroke="var(--chart-2)"
                 strokeWidth={2}
               />
             </>
@@ -244,7 +244,7 @@ function TrendChart({
             y={(d) => yScale(d.value) ?? 0}
             yScale={yScale}
             curve={curveMonotoneX}
-            fill="hsl(var(--chart-1))"
+            fill="var(--chart-1)"
             fillOpacity={0.2}
           />
           <LinePath
@@ -252,7 +252,7 @@ function TrendChart({
             x={(d) => xScale(d.date) ?? 0}
             y={(d) => yScale(d.value) ?? 0}
             curve={curveMonotoneX}
-            stroke="hsl(var(--chart-1))"
+            stroke="var(--chart-1)"
             strokeWidth={2}
           />
 
@@ -262,7 +262,7 @@ function TrendChart({
               data={trendLine}
               x={(d) => xScale(d.date) ?? 0}
               y={(d) => yScale(d.value) ?? 0}
-              stroke="hsl(var(--primary))"
+              stroke="var(--primary)"
               strokeWidth={1.5}
               strokeDasharray="6,4"
             />
@@ -274,10 +274,10 @@ function TrendChart({
             scale={xScale}
             numTicks={Math.min(6, expenseSeries.length)}
             tickFormat={(d) => formatDateLabel(d as Date)}
-            stroke="hsl(var(--border))"
-            tickStroke="hsl(var(--border))"
+            stroke="var(--border)"
+            tickStroke="var(--border)"
             tickLabelProps={() => ({
-              fill: 'hsl(var(--muted-foreground))',
+              fill: 'var(--muted-foreground)',
               fontSize: 10,
               textAnchor: 'middle' as const,
             })}
@@ -286,10 +286,10 @@ function TrendChart({
             scale={yScale}
             numTicks={5}
             tickFormat={(d) => `$${(d as number).toLocaleString()}`}
-            stroke="hsl(var(--border))"
-            tickStroke="hsl(var(--border))"
+            stroke="var(--border)"
+            tickStroke="var(--border)"
             tickLabelProps={() => ({
-              fill: 'hsl(var(--muted-foreground))',
+              fill: 'var(--muted-foreground)',
               fontSize: 10,
               textAnchor: 'end' as const,
               dx: '-0.25em',
@@ -316,7 +316,7 @@ function TrendChart({
               <Line
                 from={{ x: (tooltipLeft ?? 0) - margin.left, y: 0 }}
                 to={{ x: (tooltipLeft ?? 0) - margin.left, y: innerHeight }}
-                stroke="hsl(var(--muted-foreground))"
+                stroke="var(--muted-foreground)"
                 strokeWidth={1}
                 strokeDasharray="3,3"
                 pointerEvents="none"
@@ -325,8 +325,8 @@ function TrendChart({
                 cx={(tooltipLeft ?? 0) - margin.left}
                 cy={(tooltipTop ?? 0) - margin.top}
                 r={4}
-                fill="hsl(var(--chart-1))"
-                stroke="hsl(var(--background))"
+                fill="var(--chart-1)"
+                stroke="var(--background)"
                 strokeWidth={2}
                 pointerEvents="none"
               />
@@ -343,7 +343,7 @@ function TrendChart({
             top: margin.top + 4,
             right: margin.right + 4,
             fontSize: 10,
-            color: 'hsl(var(--muted-foreground))',
+            color: 'var(--muted-foreground)',
           }}
         >
           R² = {trendRSquared.toFixed(3)}
@@ -360,12 +360,12 @@ function TrendChart({
             {formatDateLabel(tooltipData.date)}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'hsl(var(--chart-1))', display: 'inline-block' }} />
+            <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--chart-1)', display: 'inline-block' }} />
             Expenses: {formatAmount(tooltipData.expense)}
           </div>
           {tooltipData.income != null && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'hsl(var(--chart-2))', display: 'inline-block' }} />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--chart-2)', display: 'inline-block' }} />
               Income: {formatAmount(tooltipData.income)}
             </div>
           )}

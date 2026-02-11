@@ -27,9 +27,9 @@ interface TooltipData {
 
 const tooltipStyles: React.CSSProperties = {
   ...defaultStyles,
-  backgroundColor: 'hsl(var(--popover))',
-  color: 'hsl(var(--popover-foreground))',
-  border: '1px solid hsl(var(--border))',
+  backgroundColor: 'var(--popover)',
+  color: 'var(--popover-foreground)',
+  border: '1px solid var(--border)',
   borderRadius: '6px',
   fontSize: '12px',
   padding: '8px 12px',
@@ -161,7 +161,7 @@ function RadarChart({
               cy={cy}
               r={maxRadius * level}
               fill="none"
-              stroke="hsl(var(--border))"
+              stroke="var(--border)"
               strokeOpacity={0.4}
               strokeDasharray={level < 1 ? '2,3' : undefined}
             />
@@ -178,7 +178,7 @@ function RadarChart({
                 y1={cy}
                 x2={end.x}
                 y2={end.y}
-                stroke="hsl(var(--border))"
+                stroke="var(--border)"
                 strokeOpacity={0.4}
               />
             );
@@ -189,7 +189,7 @@ function RadarChart({
             <path
               d={budgetPath}
               fill="none"
-              stroke="hsl(var(--chart-4))"
+              stroke="var(--chart-4)"
               strokeWidth={1.5}
               strokeDasharray="5,3"
               opacity={0.7}
@@ -199,9 +199,9 @@ function RadarChart({
           {/* Previous period polygon (outline muted) */}
           <path
             d={previousPath}
-            fill="hsl(var(--muted))"
+            fill="var(--muted)"
             fillOpacity={0.15}
-            stroke="hsl(var(--muted-foreground))"
+            stroke="var(--muted-foreground)"
             strokeWidth={1}
             strokeDasharray="3,3"
           />
@@ -209,9 +209,9 @@ function RadarChart({
           {/* Current period polygon (filled primary) */}
           <path
             d={currentPath}
-            fill="hsl(var(--primary))"
+            fill="var(--primary)"
             fillOpacity={0.25}
-            stroke="hsl(var(--primary))"
+            stroke="var(--primary)"
             strokeWidth={2}
           />
 
@@ -227,8 +227,8 @@ function RadarChart({
                 cx={pos.x}
                 cy={pos.y}
                 r={3.5}
-                fill="hsl(var(--primary))"
-                stroke="hsl(var(--background))"
+                fill="var(--primary)"
+                stroke="var(--background)"
                 strokeWidth={1.5}
               />
             );
@@ -250,7 +250,7 @@ function RadarChart({
                 textAnchor={textAnchor}
                 dominantBaseline="middle"
                 fontSize={11}
-                fill="hsl(var(--foreground))"
+                fill="var(--foreground)"
                 style={{ fontWeight: 500 }}
               >
                 {d.category}
@@ -288,16 +288,16 @@ function RadarChart({
         >
           <div style={{ fontWeight: 600, marginBottom: 4 }}>{tooltipData.category}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'hsl(var(--primary))', display: 'inline-block' }} />
+            <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'inline-block' }} />
             Current: {formatAmount(tooltipData.currentValue)}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'hsl(var(--muted-foreground))', display: 'inline-block' }} />
+            <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--muted-foreground)', display: 'inline-block' }} />
             Previous: {formatAmount(tooltipData.previousValue)}
           </div>
           {tooltipData.budgetValue != null && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'hsl(var(--chart-4))', display: 'inline-block' }} />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--chart-4)', display: 'inline-block' }} />
               Budget: {formatAmount(tooltipData.budgetValue)}
             </div>
           )}

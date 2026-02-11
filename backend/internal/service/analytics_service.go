@@ -32,6 +32,14 @@ func (s *FinanceService) requireProWithFallback(ctx context.Context, claims *aut
 	return nil
 }
 
+// effectiveDollars returns the effective amount in dollars, preferring the cents field when available.
+func effectiveDollars(amountCents int64, amountDollars float64) float64 {
+	if amountCents != 0 {
+		return float64(amountCents) / 100.0
+	}
+	return amountDollars
+}
+
 // ============================================================================
 // Analytics Handlers
 // ============================================================================
@@ -179,7 +187,7 @@ func (s *FinanceService) GetSpendingTrends(ctx context.Context, req *connect.Req
 			if req.Msg.Category != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED && e.Category != req.Msg.Category {
 				continue
 			}
-			expenseTotal += e.Amount
+			expenseTotal += effectiveDollars(e.AmountCents, e.Amount)
 		}
 
 		// Fetch incomes for this period
@@ -190,7 +198,7 @@ func (s *FinanceService) GetSpendingTrends(ctx context.Context, req *connect.Req
 
 		var incomeTotal float64
 		for _, inc := range incomes {
-			incomeTotal += inc.Amount
+			incomeTotal += effectiveDollars(inc.AmountCents, inc.Amount)
 		}
 
 		expenseSeries = append(expenseSeries, &pfinancev1.TimeSeriesDataPoint{
@@ -300,10 +308,10 @@ func (s *FinanceService) GetCategoryComparison(ctx context.Context, req *connect
 	prevByCategory := make(map[pfinancev1.ExpenseCategory]float64)
 
 	for _, e := range currentExpenses {
-		currentByCategory[e.Category] += e.Amount
+		currentByCategory[e.Category] += effectiveDollars(e.AmountCents, e.Amount)
 	}
 	for _, e := range prevExpenses {
-		prevByCategory[e.Category] += e.Amount
+		prevByCategory[e.Category] += effectiveDollars(e.AmountCents, e.Amount)
 	}
 
 	// Collect all categories
@@ -325,7 +333,7 @@ func (s *FinanceService) GetCategoryComparison(ctx context.Context, req *connect
 		}
 		for _, b := range budgets {
 			for _, catID := range b.CategoryIds {
-				budgetByCategory[catID] = b.Amount
+				budgetByCategory[catID] = effectiveDollars(b.AmountCents, b.Amount)
 			}
 		}
 	}
@@ -429,7 +437,7 @@ func (s *FinanceService) DetectAnomalies(ctx context.Context, req *connect.Reque
 			cs = &categoryStats{}
 			byCat[e.Category] = cs
 		}
-		cs.amounts = append(cs.amounts, e.Amount)
+		cs.amounts = append(cs.amounts, effectiveDollars(e.AmountCents, e.Amount))
 		cs.expenses = append(cs.expenses, e)
 
 		// Track merchant first occurrence
@@ -479,7 +487,8 @@ func (s *FinanceService) DetectAnomalies(ctx context.Context, req *connect.Reque
 		}
 
 		for _, e := range cs.expenses {
-			zScore := (e.Amount - mean) / stddev
+			amt := effectiveDollars(e.AmountCents, e.Amount)
+			zScore := (amt - mean) / stddev
 			absZ := math.Abs(zScore)
 			if absZ > threshold {
 				// Map z-score to severity
@@ -493,17 +502,18 @@ func (s *FinanceService) DetectAnomalies(ctx context.Context, req *connect.Reque
 				}
 
 				anomalies = append(anomalies, &pfinancev1.SpendingAnomaly{
-					Id:             uuid.New().String(),
-					ExpenseId:      e.Id,
-					Description:    e.Description,
-					Amount:         e.Amount,
-					AmountCents:    int64(e.Amount * 100),
-					Category:       cat,
-					Date:           e.Date,
-					ZScore:         zScore,
-					ExpectedAmount: mean,
-					AnomalyType:    pfinancev1.AnomalyType_ANOMALY_TYPE_AMOUNT_OUTLIER,
-					Severity:       severity,
+					Id:                  uuid.New().String(),
+					ExpenseId:           e.Id,
+					Description:         e.Description,
+					Amount:              amt,
+					AmountCents:         int64(amt * 100),
+					Category:            cat,
+					Date:                e.Date,
+					ZScore:              zScore,
+					ExpectedAmount:      mean,
+					ExpectedAmountCents: int64(mean * 100),
+					AnomalyType:         pfinancev1.AnomalyType_ANOMALY_TYPE_AMOUNT_OUTLIER,
+					Severity:            severity,
 				})
 			}
 		}
@@ -524,12 +534,13 @@ func (s *FinanceService) DetectAnomalies(ctx context.Context, req *connect.Reque
 		}
 		// If the merchant was first seen in the lookback and appears only once
 		if count == 1 && !firstSeen.Before(startDate) {
+			amt := effectiveDollars(e.AmountCents, e.Amount)
 			anomalies = append(anomalies, &pfinancev1.SpendingAnomaly{
 				Id:          uuid.New().String(),
 				ExpenseId:   e.Id,
 				Description: fmt.Sprintf("New merchant: %s", e.Description),
-				Amount:      e.Amount,
-				AmountCents: int64(e.Amount * 100),
+				Amount:      amt,
+				AmountCents: int64(amt * 100),
 				Category:    e.Category,
 				Date:        e.Date,
 				AnomalyType: pfinancev1.AnomalyType_ANOMALY_TYPE_NEW_MERCHANT,
@@ -623,13 +634,13 @@ func (s *FinanceService) GetCashFlowForecast(ctx context.Context, req *connect.R
 	for _, e := range expenses {
 		if e.Date != nil {
 			day := e.Date.AsTime().Format("2006-01-02")
-			expenseByDay[day] += e.Amount
+			expenseByDay[day] += effectiveDollars(e.AmountCents, e.Amount)
 		}
 	}
 	for _, inc := range incomes {
 		if inc.Date != nil {
 			day := inc.Date.AsTime().Format("2006-01-02")
-			incomeByDay[day] += inc.Amount
+			incomeByDay[day] += effectiveDollars(inc.AmountCents, inc.Amount)
 		}
 	}
 
@@ -711,10 +722,11 @@ func (s *FinanceService) GetCashFlowForecast(ctx context.Context, req *connect.R
 		for !current.After(forecastEnd) {
 			if current.After(now) {
 				dayStr := current.Format("2006-01-02")
+				rtAmt := effectiveDollars(rt.AmountCents, rt.Amount)
 				if rt.IsExpense {
-					recurringExpenseByDay[dayStr] += rt.Amount
+					recurringExpenseByDay[dayStr] += rtAmt
 				} else {
-					recurringIncomeByDay[dayStr] += rt.Amount
+					recurringIncomeByDay[dayStr] += rtAmt
 				}
 				recurringDays[dayStr] = true
 			}
@@ -872,15 +884,16 @@ func (s *FinanceService) GetWaterfallData(ctx context.Context, req *connect.Requ
 	// Sum incomes
 	var totalIncome float64
 	for _, inc := range incomesList {
-		totalIncome += inc.Amount
+		totalIncome += effectiveDollars(inc.AmountCents, inc.Amount)
 	}
 
 	// Group expenses by category
 	expenseByCategory := make(map[pfinancev1.ExpenseCategory]float64)
 	var totalExpenses float64
 	for _, e := range expensesList {
-		expenseByCategory[e.Category] += e.Amount
-		totalExpenses += e.Amount
+		amt := effectiveDollars(e.AmountCents, e.Amount)
+		expenseByCategory[e.Category] += amt
+		totalExpenses += amt
 	}
 
 	// Build waterfall entries
