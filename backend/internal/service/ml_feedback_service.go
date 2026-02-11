@@ -377,7 +377,11 @@ func (s *FinanceService) GetExtractionMetrics(ctx context.Context, req *connect.
 		return nil, err
 	}
 
-	if req.Msg.UserId != claims.UID {
+	userID := req.Msg.UserId
+	if userID == "" {
+		userID = claims.UID
+	}
+	if userID != claims.UID {
 		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("cannot get metrics for another user"))
 	}
 
