@@ -38,9 +38,9 @@ interface TooltipData {
 
 const tooltipStyles: React.CSSProperties = {
   ...defaultStyles,
-  backgroundColor: 'hsl(var(--popover))',
-  color: 'hsl(var(--popover-foreground))',
-  border: '1px solid hsl(var(--border))',
+  backgroundColor: 'var(--popover)',
+  color: 'var(--popover-foreground)',
+  border: '1px solid var(--border)',
   borderRadius: '6px',
   fontSize: '12px',
   padding: '8px 12px',
@@ -90,9 +90,9 @@ function ForecastChart({
 
   const seriesConfigs: SeriesConfig[] = useMemo(
     () => [
-      { label: 'Income', data: incomeForecast, color: 'hsl(var(--chart-2))' },
-      { label: 'Expenses', data: expenseForecast, color: 'hsl(var(--chart-1))' },
-      { label: 'Net', data: netForecast, color: 'hsl(var(--primary))' },
+      { label: 'Income', data: incomeForecast, color: 'var(--chart-2)' },
+      { label: 'Expenses', data: expenseForecast, color: 'var(--chart-1)' },
+      { label: 'Net', data: netForecast, color: 'var(--primary)' },
     ],
     [incomeForecast, expenseForecast, netForecast]
   );
@@ -205,7 +205,7 @@ function ForecastChart({
           <GridRows
             scale={yScale}
             width={innerWidth}
-            stroke="hsl(var(--border))"
+            stroke="var(--border)"
             strokeOpacity={0.3}
             strokeDasharray="3,3"
             numTicks={5}
@@ -269,7 +269,7 @@ function ForecastChart({
               <Line
                 from={{ x: todayX, y: 0 }}
                 to={{ x: todayX, y: innerHeight }}
-                stroke="hsl(var(--muted-foreground))"
+                stroke="var(--muted-foreground)"
                 strokeWidth={1}
                 strokeDasharray="6,4"
               />
@@ -278,7 +278,7 @@ function ForecastChart({
                 y={-4}
                 textAnchor="middle"
                 fontSize={10}
-                fill="hsl(var(--muted-foreground))"
+                fill="var(--muted-foreground)"
               >
                 Today
               </text>
@@ -291,10 +291,10 @@ function ForecastChart({
             scale={xScale}
             numTicks={6}
             tickFormat={(d) => formatDateLabel(d as Date)}
-            stroke="hsl(var(--border))"
-            tickStroke="hsl(var(--border))"
+            stroke="var(--border)"
+            tickStroke="var(--border)"
             tickLabelProps={() => ({
-              fill: 'hsl(var(--muted-foreground))',
+              fill: 'var(--muted-foreground)',
               fontSize: 10,
               textAnchor: 'middle' as const,
             })}
@@ -303,10 +303,10 @@ function ForecastChart({
             scale={yScale}
             numTicks={5}
             tickFormat={(d) => `$${(d as number).toLocaleString()}`}
-            stroke="hsl(var(--border))"
-            tickStroke="hsl(var(--border))"
+            stroke="var(--border)"
+            tickStroke="var(--border)"
             tickLabelProps={() => ({
-              fill: 'hsl(var(--muted-foreground))',
+              fill: 'var(--muted-foreground)',
               fontSize: 10,
               textAnchor: 'end' as const,
               dx: '-0.25em',
@@ -332,7 +332,7 @@ function ForecastChart({
             <Line
               from={{ x: (tooltipLeft ?? 0) - margin.left, y: 0 }}
               to={{ x: (tooltipLeft ?? 0) - margin.left, y: innerHeight }}
-              stroke="hsl(var(--muted-foreground))"
+              stroke="var(--muted-foreground)"
               strokeWidth={1}
               strokeDasharray="3,3"
               pointerEvents="none"
@@ -350,19 +350,19 @@ function ForecastChart({
           display: 'flex',
           gap: 12,
           fontSize: 10,
-          color: 'hsl(var(--muted-foreground))',
+          color: 'var(--muted-foreground)',
         }}
       >
         <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <span style={{ width: 12, height: 2, backgroundColor: 'hsl(var(--chart-2))', display: 'inline-block' }} />
+          <span style={{ width: 12, height: 2, backgroundColor: 'var(--chart-2)', display: 'inline-block' }} />
           Income
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <span style={{ width: 12, height: 2, backgroundColor: 'hsl(var(--chart-1))', display: 'inline-block' }} />
+          <span style={{ width: 12, height: 2, backgroundColor: 'var(--chart-1)', display: 'inline-block' }} />
           Expenses
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <span style={{ width: 12, height: 2, backgroundColor: 'hsl(var(--primary))', display: 'inline-block' }} />
+          <span style={{ width: 12, height: 2, backgroundColor: 'var(--primary)', display: 'inline-block' }} />
           Net
         </span>
       </div>
@@ -376,17 +376,17 @@ function ForecastChart({
           <div style={{ fontWeight: 600, marginBottom: 4 }}>
             {formatDateLabel(tooltipData.date)}
             {tooltipData.isForecast && (
-              <span style={{ fontWeight: 400, fontSize: 10, marginLeft: 6, color: 'hsl(var(--muted-foreground))' }}>
+              <span style={{ fontWeight: 400, fontSize: 10, marginLeft: 6, color: 'var(--muted-foreground)' }}>
                 (Forecast)
               </span>
             )}
           </div>
           {tooltipData.income && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'hsl(var(--chart-2))', display: 'inline-block' }} />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--chart-2)', display: 'inline-block' }} />
               Income: {formatAmount(tooltipData.income.predicted)}
               {tooltipData.isForecast && (
-                <span style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))' }}>
+                <span style={{ fontSize: 10, color: 'var(--muted-foreground)' }}>
                   ({formatAmount(tooltipData.income.lower)} - {formatAmount(tooltipData.income.upper)})
                 </span>
               )}
@@ -394,10 +394,10 @@ function ForecastChart({
           )}
           {tooltipData.expense && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'hsl(var(--chart-1))', display: 'inline-block' }} />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--chart-1)', display: 'inline-block' }} />
               Expenses: {formatAmount(tooltipData.expense.predicted)}
               {tooltipData.isForecast && (
-                <span style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))' }}>
+                <span style={{ fontSize: 10, color: 'var(--muted-foreground)' }}>
                   ({formatAmount(tooltipData.expense.lower)} - {formatAmount(tooltipData.expense.upper)})
                 </span>
               )}
@@ -405,10 +405,10 @@ function ForecastChart({
           )}
           {tooltipData.net && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'hsl(var(--primary))', display: 'inline-block' }} />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'inline-block' }} />
               Net: {formatAmount(tooltipData.net.predicted)}
               {tooltipData.isForecast && (
-                <span style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))' }}>
+                <span style={{ fontSize: 10, color: 'var(--muted-foreground)' }}>
                   ({formatAmount(tooltipData.net.lower)} - {formatAmount(tooltipData.net.upper)})
                 </span>
               )}

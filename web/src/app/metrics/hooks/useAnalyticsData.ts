@@ -164,16 +164,16 @@ function waterfallEntryTypeToString(
 function waterfallEntryColor(t: WaterfallEntryType): string {
   switch (t) {
     case WaterfallEntryType.INCOME:
-      return 'hsl(var(--chart-2))';
+      return 'var(--chart-2)';
     case WaterfallEntryType.EXPENSE:
-      return 'hsl(var(--chart-1))';
+      return 'var(--chart-1)';
     case WaterfallEntryType.TAX:
-      return 'hsl(var(--chart-4))';
+      return 'var(--chart-4)';
     case WaterfallEntryType.SAVINGS:
-      return 'hsl(var(--chart-3))';
+      return 'var(--chart-3)';
     case WaterfallEntryType.SUBTOTAL:
     default:
-      return 'hsl(var(--muted))';
+      return 'var(--muted)';
   }
 }
 

@@ -41,9 +41,9 @@ interface TooltipData {
 
 const tooltipStyles: React.CSSProperties = {
   ...defaultStyles,
-  backgroundColor: 'hsl(var(--popover))',
-  color: 'hsl(var(--popover-foreground))',
-  border: '1px solid hsl(var(--border))',
+  backgroundColor: 'var(--popover)',
+  color: 'var(--popover-foreground)',
+  border: '1px solid var(--border)',
   borderRadius: '6px',
   fontSize: '12px',
   padding: '8px 12px',
@@ -165,7 +165,7 @@ function HeatmapChart({
     () =>
       scaleLinear<string>({
         domain: [0, data.maxValue * 0.5, data.maxValue],
-        range: ['hsl(var(--muted))', 'hsl(var(--primary))', 'hsl(var(--chart-1))'],
+        range: ['var(--muted)', 'var(--primary)', 'var(--chart-1)'],
       }),
     [data.maxValue]
   );
@@ -225,7 +225,7 @@ function HeatmapChart({
               x={m.x}
               y={0}
               fontSize={10}
-              fill="hsl(var(--muted-foreground))"
+              fill="var(--muted-foreground)"
               textAnchor="start"
             >
               {m.label}
@@ -241,7 +241,7 @@ function HeatmapChart({
               x={margin.left - 6}
               y={i * (adjustedCellSize + gap) + adjustedCellSize / 2}
               fontSize={9}
-              fill="hsl(var(--muted-foreground))"
+              fill="var(--muted-foreground)"
               textAnchor="end"
               dominantBaseline="middle"
             >

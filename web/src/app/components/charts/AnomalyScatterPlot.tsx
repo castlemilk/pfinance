@@ -42,9 +42,9 @@ interface TooltipData {
 
 const tooltipStyles: React.CSSProperties = {
   ...defaultStyles,
-  backgroundColor: 'hsl(var(--popover))',
-  color: 'hsl(var(--popover-foreground))',
-  border: '1px solid hsl(var(--border))',
+  backgroundColor: 'var(--popover)',
+  color: 'var(--popover-foreground)',
+  border: '1px solid var(--border)',
   borderRadius: '6px',
   fontSize: '12px',
   padding: '8px 12px',
@@ -63,11 +63,11 @@ function formatDateLabel(date: Date): string {
 function severityColor(severity: 'low' | 'medium' | 'high'): string {
   switch (severity) {
     case 'low':
-      return 'hsl(var(--chart-4))';
+      return 'var(--chart-4)';
     case 'medium':
-      return 'hsl(var(--chart-5))';
+      return 'var(--chart-5)';
     case 'high':
-      return 'hsl(var(--chart-1))';
+      return 'var(--chart-1)';
   }
 }
 
@@ -201,7 +201,7 @@ function ScatterPlot({
           <GridRows
             scale={yScale}
             width={innerWidth}
-            stroke="hsl(var(--border))"
+            stroke="var(--border)"
             strokeOpacity={0.3}
             strokeDasharray="3,3"
             numTicks={5}
@@ -209,7 +209,7 @@ function ScatterPlot({
           <GridColumns
             scale={xScale}
             height={innerHeight}
-            stroke="hsl(var(--border))"
+            stroke="var(--border)"
             strokeOpacity={0.3}
             strokeDasharray="3,3"
             numTicks={6}
@@ -222,7 +222,7 @@ function ScatterPlot({
               cx={xScale(point.date)}
               cy={yScale(point.amount)}
               r={3}
-              fill="hsl(var(--muted-foreground))"
+              fill="var(--muted-foreground)"
               fillOpacity={0.4}
               style={{ cursor: 'pointer' }}
               onMouseMove={(e) => handleNormalHover(e, point)}
@@ -250,7 +250,7 @@ function ScatterPlot({
                   cy={yScale(point.amount)}
                   r={radius}
                   fill={color}
-                  stroke="hsl(var(--background))"
+                  stroke="var(--background)"
                   strokeWidth={1.5}
                   style={{ cursor: 'pointer' }}
                   onMouseMove={(e) => handleAnomalyHover(e, point)}
@@ -266,10 +266,10 @@ function ScatterPlot({
             scale={xScale}
             numTicks={Math.min(6, allDates.length)}
             tickFormat={(d) => formatDateLabel(d as Date)}
-            stroke="hsl(var(--border))"
-            tickStroke="hsl(var(--border))"
+            stroke="var(--border)"
+            tickStroke="var(--border)"
             tickLabelProps={() => ({
-              fill: 'hsl(var(--muted-foreground))',
+              fill: 'var(--muted-foreground)',
               fontSize: 10,
               textAnchor: 'middle' as const,
             })}
@@ -278,10 +278,10 @@ function ScatterPlot({
             scale={yScale}
             numTicks={5}
             tickFormat={(d) => `$${(d as number).toLocaleString()}`}
-            stroke="hsl(var(--border))"
-            tickStroke="hsl(var(--border))"
+            stroke="var(--border)"
+            tickStroke="var(--border)"
             tickLabelProps={() => ({
-              fill: 'hsl(var(--muted-foreground))',
+              fill: 'var(--muted-foreground)',
               fontSize: 10,
               textAnchor: 'end' as const,
               dx: '-0.25em',
@@ -300,19 +300,19 @@ function ScatterPlot({
           display: 'flex',
           gap: 12,
           fontSize: 10,
-          color: 'hsl(var(--muted-foreground))',
+          color: 'var(--muted-foreground)',
         }}
       >
         <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'hsl(var(--chart-4))', display: 'inline-block' }} />
+          <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--chart-4)', display: 'inline-block' }} />
           Low
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'hsl(var(--chart-5))', display: 'inline-block' }} />
+          <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--chart-5)', display: 'inline-block' }} />
           Medium
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'hsl(var(--chart-1))', display: 'inline-block' }} />
+          <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--chart-1)', display: 'inline-block' }} />
           High
         </span>
       </div>

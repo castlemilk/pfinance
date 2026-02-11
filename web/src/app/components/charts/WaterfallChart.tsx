@@ -32,9 +32,9 @@ interface TooltipData {
 
 const tooltipStyles: React.CSSProperties = {
   ...defaultStyles,
-  backgroundColor: 'hsl(var(--popover))',
-  color: 'hsl(var(--popover-foreground))',
-  border: '1px solid hsl(var(--border))',
+  backgroundColor: 'var(--popover)',
+  color: 'var(--popover-foreground)',
+  border: '1px solid var(--border)',
   borderRadius: '6px',
   fontSize: '12px',
   padding: '8px 12px',
@@ -61,17 +61,17 @@ function getBarColor(bar: WaterfallBar): string {
   if (bar.color) return bar.color;
   switch (bar.type) {
     case 'income':
-      return 'hsl(var(--chart-2))';
+      return 'var(--chart-2)';
     case 'expense':
-      return 'hsl(var(--chart-1))';
+      return 'var(--chart-1)';
     case 'tax':
-      return 'hsl(var(--chart-4))';
+      return 'var(--chart-4)';
     case 'savings':
-      return 'hsl(var(--primary))';
+      return 'var(--primary)';
     case 'subtotal':
-      return 'hsl(var(--muted-foreground))';
+      return 'var(--muted-foreground)';
     default:
-      return 'hsl(var(--muted-foreground))';
+      return 'var(--muted-foreground)';
   }
 }
 
@@ -183,7 +183,7 @@ function WaterfallInner({
           <GridRows
             scale={yScale}
             width={innerWidth}
-            stroke="hsl(var(--border))"
+            stroke="var(--border)"
             strokeOpacity={0.3}
             strokeDasharray="3,3"
             numTicks={5}
@@ -193,7 +193,7 @@ function WaterfallInner({
           <Line
             from={{ x: 0, y: yScale(0) }}
             to={{ x: innerWidth, y: yScale(0) }}
-            stroke="hsl(var(--border))"
+            stroke="var(--border)"
             strokeWidth={1}
           />
 
@@ -212,7 +212,7 @@ function WaterfallInner({
                 key={`connector-${i}`}
                 from={{ x: currentX, y: connectY }}
                 to={{ x: nextX, y: connectY }}
-                stroke="hsl(var(--muted-foreground))"
+                stroke="var(--muted-foreground)"
                 strokeWidth={1}
                 strokeDasharray="2,2"
                 strokeOpacity={0.5}
@@ -262,7 +262,7 @@ function WaterfallInner({
                     textAnchor="middle"
                     verticalAnchor="middle"
                     fontSize={10}
-                    fill="hsl(var(--foreground))"
+                    fill="var(--foreground)"
                     fontWeight={500}
                   >
                     {formatCompactAmount(cb.bar.amount)}
@@ -276,10 +276,10 @@ function WaterfallInner({
           <AxisBottom
             top={innerHeight}
             scale={xScale}
-            stroke="hsl(var(--border))"
-            tickStroke="hsl(var(--border))"
+            stroke="var(--border)"
+            tickStroke="var(--border)"
             tickLabelProps={() => ({
-              fill: 'hsl(var(--muted-foreground))',
+              fill: 'var(--muted-foreground)',
               fontSize: 10,
               textAnchor: 'middle' as const,
               dy: '0.25em',
@@ -290,7 +290,7 @@ function WaterfallInner({
                 y={y}
                 dy="0.75em"
                 fontSize={10}
-                fill="hsl(var(--muted-foreground))"
+                fill="var(--muted-foreground)"
                 textAnchor="middle"
                 style={{
                   maxWidth: xScale.bandwidth?.() ?? 60,
@@ -305,10 +305,10 @@ function WaterfallInner({
             scale={yScale}
             numTicks={5}
             tickFormat={(d) => `$${(d as number).toLocaleString()}`}
-            stroke="hsl(var(--border))"
-            tickStroke="hsl(var(--border))"
+            stroke="var(--border)"
+            tickStroke="var(--border)"
             tickLabelProps={() => ({
-              fill: 'hsl(var(--muted-foreground))',
+              fill: 'var(--muted-foreground)',
               fontSize: 10,
               textAnchor: 'end' as const,
               dx: '-0.25em',
@@ -327,7 +327,7 @@ function WaterfallInner({
           <div style={{ fontWeight: 600, marginBottom: 4 }}>{tooltipData.label}</div>
           <div>Amount: {formatAmount(tooltipData.amount)}</div>
           <div>Running Total: {formatAmount(tooltipData.runningTotal)}</div>
-          <div style={{ marginTop: 4, fontSize: 10, color: 'hsl(var(--muted-foreground))' }}>
+          <div style={{ marginTop: 4, fontSize: 10, color: 'var(--muted-foreground)' }}>
             Type: {tooltipData.type}
           </div>
         </TooltipWithBounds>
