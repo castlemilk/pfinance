@@ -50,12 +50,12 @@ func NewFirebaseAuth(ctx context.Context) (*FirebaseAuth, error) {
 	}, nil
 }
 
-// VerifyToken verifies a Firebase ID token and returns user claims
-func (f *FirebaseAuth) VerifyToken(ctx context.Context, idToken string) (*UserClaims, error) {
+// VerifyToken verifies a Firebase ID token and returns user claims plus the raw token claims map.
+func (f *FirebaseAuth) VerifyToken(ctx context.Context, idToken string) (*UserClaims, map[string]interface{}, error) {
 	// Verify the ID token
 	token, err := f.client.VerifyIDToken(ctx, idToken)
 	if err != nil {
-		return nil, fmt.Errorf("failed to verify ID token: %w", err)
+		return nil, nil, fmt.Errorf("failed to verify ID token: %w", err)
 	}
 
 	// Extract user information
@@ -80,7 +80,7 @@ func (f *FirebaseAuth) VerifyToken(ctx context.Context, idToken string) (*UserCl
 		claims.Picture = picture
 	}
 
-	return claims, nil
+	return claims, token.Claims, nil
 }
 
 // ExtractTokenFromHeader extracts the Bearer token from Authorization header

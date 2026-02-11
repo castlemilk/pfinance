@@ -27,13 +27,19 @@ func AuthInterceptor(firebaseAuth *FirebaseAuth) connect.UnaryInterceptorFunc {
 			}
 
 			// Verify the token
-			claims, err := firebaseAuth.VerifyToken(ctx, token)
+			claims, rawClaims, err := firebaseAuth.VerifyToken(ctx, token)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeUnauthenticated, err)
 			}
 
 			// Add user claims to context
 			ctx = withUserClaims(ctx, claims)
+
+			// Extract subscription info from Firebase custom claims
+			if rawClaims != nil {
+				subInfo := GetSubscriptionClaimsFromToken(rawClaims)
+				ctx = WithSubscription(ctx, subInfo)
+			}
 
 			return next(ctx, req)
 		}

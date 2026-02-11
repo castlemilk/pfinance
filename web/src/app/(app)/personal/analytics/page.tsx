@@ -25,9 +25,19 @@ import {
   useWaterfallData,
 } from '../../../metrics/hooks/useAnalyticsData';
 import { useExtractionMetrics } from '../../../metrics/hooks/useExtractionMetrics';
+import { UpgradePrompt } from '../../../components/ProFeatureGate';
 import { AlertCircle, FileSearch } from 'lucide-react';
 
+function isSubscriptionError(message: string): boolean {
+  return message.toLowerCase().includes('pro subscription') ||
+    message.toLowerCase().includes('permission_denied');
+}
+
 function ErrorBanner({ message }: { message: string }) {
+  if (isSubscriptionError(message)) {
+    return <UpgradePrompt feature="Advanced Analytics" />;
+  }
+
   return (
     <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 text-destructive text-sm">
       <AlertCircle className="h-4 w-4 shrink-0" />
