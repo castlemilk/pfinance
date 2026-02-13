@@ -97,7 +97,7 @@ jobs:
             --allow-unauthenticated \
             --port 8111 \
             --memory 512Mi \
-            --set-env-vars "GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }},STRIPE_PRICE_ID=${{ secrets.STRIPE_PRICE_ID }},STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}" \
+            --set-env-vars "GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }},STRIPE_PRICE_ID=${{ secrets.STRIPE_PRICE_ID }},STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}" \
             --quiet
           
           URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} --region ${{ env.REGION }} --format 'value(status.url)')
@@ -131,15 +131,16 @@ jobs:
           VERCEL_ORG_ID: team_xE5DMN3hIo8aPqyHNkBybg8r
           VERCEL_PROJECT_ID: prj_TakUttZsa4fdddSwfVp08YFfyAdF
           API_URL: ${{ needs.deploy-backend.outputs.api_url }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           # Pull latest environment variables and project config
           vercel pull --yes --environment=production --token=$VERCEL_TOKEN
-          
+
           # Build with the dynamic API URL from Terraform
-          vercel build --prod --token=$VERCEL_TOKEN
-          
-          # Deploy using the build artifacts and injecting the API URL env var
-          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN --env NEXT_PUBLIC_API_URL=$API_URL --env NEXT_PUBLIC_DEV_MODE=false
+          GEMINI_API_KEY=$GEMINI_API_KEY vercel build --prod --token=$VERCEL_TOKEN
+
+          # Deploy using the build artifacts and injecting env vars
+          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN --env NEXT_PUBLIC_API_URL=$API_URL --env NEXT_PUBLIC_DEV_MODE=false --env GEMINI_API_KEY=$GEMINI_API_KEY
 
   # ===========================================
   # 4. Deploy Firebase Indexes
