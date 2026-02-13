@@ -168,6 +168,7 @@ jobs:
           VERCEL_PROJECT_ID: prj_TakUttZsa4fdddSwfVp08YFfyAdF
           BACKEND_URL: ${{ needs.backend.outputs.url }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           npm i -g vercel@latest
           cd web
@@ -181,10 +182,10 @@ jobs:
           vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
 
           # Build the project with the backend URL (NEXT_PUBLIC_ vars need to be set at build time)
-          NEXT_PUBLIC_API_URL=$BACKEND_URL GEMINI_API_KEY=$GEMINI_API_KEY vercel build --token=$VERCEL_TOKEN
+          NEXT_PUBLIC_API_URL=$BACKEND_URL GEMINI_API_KEY=$GEMINI_API_KEY OPENAI_API_KEY=$OPENAI_API_KEY vercel build --token=$VERCEL_TOKEN
 
           # Deploy the prebuilt project with server-side env vars
-          DEPLOY_URL=$(vercel deploy --prebuilt --token=$VERCEL_TOKEN --env GEMINI_API_KEY=$GEMINI_API_KEY)
+          DEPLOY_URL=$(vercel deploy --prebuilt --token=$VERCEL_TOKEN --env GEMINI_API_KEY=$GEMINI_API_KEY --env OPENAI_API_KEY=$OPENAI_API_KEY)
           echo "Deployed to: $DEPLOY_URL"
 
           # Alias to PR-specific preview domain (e.g., pr-123.preview.pfinance.dev)

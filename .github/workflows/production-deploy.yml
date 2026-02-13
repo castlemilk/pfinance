@@ -132,15 +132,16 @@ jobs:
           VERCEL_PROJECT_ID: prj_TakUttZsa4fdddSwfVp08YFfyAdF
           API_URL: ${{ needs.deploy-backend.outputs.api_url }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           # Pull latest environment variables and project config
           vercel pull --yes --environment=production --token=$VERCEL_TOKEN
 
           # Build with the dynamic API URL from Terraform
-          GEMINI_API_KEY=$GEMINI_API_KEY vercel build --prod --token=$VERCEL_TOKEN
+          GEMINI_API_KEY=$GEMINI_API_KEY OPENAI_API_KEY=$OPENAI_API_KEY vercel build --prod --token=$VERCEL_TOKEN
 
           # Deploy using the build artifacts and injecting env vars
-          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN --env NEXT_PUBLIC_API_URL=$API_URL --env NEXT_PUBLIC_DEV_MODE=false --env GEMINI_API_KEY=$GEMINI_API_KEY
+          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN --env NEXT_PUBLIC_API_URL=$API_URL --env NEXT_PUBLIC_DEV_MODE=false --env GEMINI_API_KEY=$GEMINI_API_KEY --env OPENAI_API_KEY=$OPENAI_API_KEY
 
   # ===========================================
   # 4. Deploy Firebase Indexes
