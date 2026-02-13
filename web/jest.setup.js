@@ -10,6 +10,31 @@ if (typeof globalThis.TextDecoder === 'undefined') {
   globalThis.TextDecoder = TextDecoder;
 }
 
+// Polyfill structuredClone for jsdom (required by ai SDK generateText)
+// Node 22 has structuredClone natively but jsdom may not expose it
+if (typeof globalThis.structuredClone === 'undefined') {
+  const { structuredClone: nodeStructuredClone } = require('node:util');
+  if (nodeStructuredClone) {
+    globalThis.structuredClone = nodeStructuredClone;
+  } else {
+    // Fallback that handles BigInt via v8 serialize/deserialize
+    const v8 = require('v8');
+    globalThis.structuredClone = (val) => v8.deserialize(v8.serialize(val));
+  }
+}
+
+// Polyfill Web Streams API for jsdom (required by ai SDK / eventsource-parser)
+const streams = require('stream/web');
+if (typeof globalThis.TransformStream === 'undefined') {
+  globalThis.TransformStream = streams.TransformStream;
+}
+if (typeof globalThis.ReadableStream === 'undefined') {
+  globalThis.ReadableStream = streams.ReadableStream;
+}
+if (typeof globalThis.WritableStream === 'undefined') {
+  globalThis.WritableStream = streams.WritableStream;
+}
+
 // Polyfill fetch for Node.js test environment
 // OpenAI client requires fetch to be available globally
 if (typeof globalThis.fetch === 'undefined') {

@@ -111,7 +111,7 @@ jobs:
             --port 8111 \
             --memory 256Mi \
             --max-instances 2 \
-            --set-env-vars "GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }},STRIPE_PRICE_ID=${{ secrets.STRIPE_PRICE_ID }},STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}" \
+            --set-env-vars "GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }},STRIPE_PRICE_ID=${{ secrets.STRIPE_PRICE_ID }},STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}" \
             --quiet
 
           URL=$(gcloud run services describe $SERVICE --region ${{ env.REGION }} --format 'value(status.url)')
@@ -167,6 +167,8 @@ jobs:
           VERCEL_ORG_ID: team_xE5DMN3hIo8aPqyHNkBybg8r
           VERCEL_PROJECT_ID: prj_TakUttZsa4fdddSwfVp08YFfyAdF
           BACKEND_URL: ${{ needs.backend.outputs.url }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           npm i -g vercel@latest
           cd web
@@ -180,10 +182,10 @@ jobs:
           vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
 
           # Build the project with the backend URL (NEXT_PUBLIC_ vars need to be set at build time)
-          NEXT_PUBLIC_API_URL=$BACKEND_URL vercel build --token=$VERCEL_TOKEN
+          NEXT_PUBLIC_API_URL=$BACKEND_URL GEMINI_API_KEY=$GEMINI_API_KEY OPENAI_API_KEY=$OPENAI_API_KEY vercel build --token=$VERCEL_TOKEN
 
-          # Deploy the prebuilt project
-          DEPLOY_URL=$(vercel deploy --prebuilt --token=$VERCEL_TOKEN)
+          # Deploy the prebuilt project with server-side env vars
+          DEPLOY_URL=$(vercel deploy --prebuilt --token=$VERCEL_TOKEN --env GEMINI_API_KEY=$GEMINI_API_KEY --env OPENAI_API_KEY=$OPENAI_API_KEY)
           echo "Deployed to: $DEPLOY_URL"
 
           # Alias to PR-specific preview domain (e.g., pr-123.preview.pfinance.dev)
