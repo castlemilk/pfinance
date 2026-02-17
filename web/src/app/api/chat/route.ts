@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     system: buildSystemPrompt({ userId, displayName, email, isPro }),
     messages: await convertToModelMessages(messages),
     tools,
-    stopWhen: stepCountIs(5),
+    stopWhen: stepCountIs(10),
   });
 
   return result.toUIMessageStreamResponse();

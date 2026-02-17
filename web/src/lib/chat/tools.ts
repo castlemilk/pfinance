@@ -67,7 +67,7 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
     // --- Read-only tools ---
 
     list_expenses: tool({
-      description: 'List expenses for the user, optionally filtered by date range. Returns up to 20 items.',
+      description: 'List expenses for the user, optionally filtered by date range. Returns up to 20 items. Use alongside get_spending_summary for comprehensive spending analysis.',
       inputSchema: z.object({
         startDate: z.string().optional().describe('ISO date string for range start (e.g. 2025-01-01)'),
         endDate: z.string().optional().describe('ISO date string for range end (e.g. 2025-01-31)'),
@@ -123,7 +123,7 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
     }),
 
     get_spending_summary: tool({
-      description: 'Get spending insights with category breakdowns for a given period.',
+      description: 'Get spending insights with category breakdowns and totals for a given period. Call this proactively for any question about spending patterns, top categories, or where money goes.',
       inputSchema: z.object({
         period: z.enum(['week', 'month', 'quarter', 'year']).optional().describe('Time period (default: month)'),
       }),
