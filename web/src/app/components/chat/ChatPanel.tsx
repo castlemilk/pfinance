@@ -23,7 +23,7 @@ const SUGGESTED_PROMPTS = [
 ];
 
 export function ChatPanel({ compact = false }: ChatPanelProps) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { isPro } = useSubscription();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState('');
@@ -90,6 +90,15 @@ export function ChatPanel({ compact = false }: ChatPanelProps) {
       }
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-6 gap-3">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Loading assistant...</p>
+      </div>
+    );
+  }
 
   if (!user) {
     return (

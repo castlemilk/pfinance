@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sort"
@@ -374,18 +375,34 @@ func (s *FinanceService) UpdateUser(ctx context.Context, req *connect.Request[pf
 	}
 
 	user := &pfinancev1.User{
-		Id:          req.Msg.UserId,
-		DisplayName: req.Msg.DisplayName,
-		UpdatedAt:   timestamppb.Now(),
+		Id:        req.Msg.UserId,
+		UpdatedAt: timestamppb.Now(),
 	}
 
-	// Try to get email from existing record
+	// Try to get existing record to preserve fields
 	existing, err := s.store.GetUser(ctx, req.Msg.UserId)
 	if err == nil {
 		user.Email = existing.Email
+		user.DisplayName = existing.DisplayName
+		user.PhotoUrl = existing.PhotoUrl
 		user.CreatedAt = existing.CreatedAt
+		user.SubscriptionTier = existing.SubscriptionTier
+		user.SubscriptionStatus = existing.SubscriptionStatus
+		user.StripeCustomerId = existing.StripeCustomerId
+		user.StripeSubscriptionId = existing.StripeSubscriptionId
 	} else {
 		user.CreatedAt = timestamppb.Now()
+	}
+
+	// Merge request fields (only overwrite if non-empty)
+	if req.Msg.DisplayName != "" {
+		user.DisplayName = req.Msg.DisplayName
+	}
+	if req.Msg.PhotoUrl != "" {
+		user.PhotoUrl = req.Msg.PhotoUrl
+	}
+	if req.Msg.Email != "" {
+		user.Email = req.Msg.Email
 	}
 
 	// Fall back to auth claims for missing data
@@ -395,6 +412,9 @@ func (s *FinanceService) UpdateUser(ctx context.Context, req *connect.Request[pf
 	if user.DisplayName == "" {
 		user.DisplayName = claims.DisplayName
 	}
+	if user.PhotoUrl == "" {
+		user.PhotoUrl = claims.Picture
+	}
 
 	if err := s.store.UpdateUser(ctx, user); err != nil {
 		return nil, auth.WrapStoreError("update user", err)
@@ -402,6 +422,67 @@ func (s *FinanceService) UpdateUser(ctx context.Context, req *connect.Request[pf
 
 	return connect.NewResponse(&pfinancev1.UpdateUserResponse{
 		User: user,
+	}), nil
+}
+
+// DeleteUser deletes a user account and all associated data
+func (s *FinanceService) DeleteUser(ctx context.Context, req *connect.Request[pfinancev1.DeleteUserRequest]) (*connect.Response[emptypb.Empty], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Msg.UserId != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("cannot delete another user's account"))
+	}
+
+	if !req.Msg.Confirm {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("must confirm account deletion"))
+	}
+
+	if err := s.store.DeleteUser(ctx, req.Msg.UserId); err != nil {
+		return nil, auth.WrapStoreError("delete user", err)
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// ExportUserData exports all user data as JSON
+func (s *FinanceService) ExportUserData(ctx context.Context, req *connect.Request[pfinancev1.ExportUserDataRequest]) (*connect.Response[pfinancev1.ExportUserDataResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Msg.UserId != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("cannot export another user's data"))
+	}
+
+	// Fetch all user data
+	expenses, _, _ := s.store.ListExpenses(ctx, req.Msg.UserId, "", nil, nil, 10000, "")
+	incomes, _, _ := s.store.ListIncomes(ctx, req.Msg.UserId, "", nil, nil, 10000, "")
+	budgets, _, _ := s.store.ListBudgets(ctx, req.Msg.UserId, "", true, 10000, "")
+	goals, _, _ := s.store.ListGoals(ctx, req.Msg.UserId, "", 0, 0, 10000, "")
+	user, _ := s.store.GetUser(ctx, req.Msg.UserId)
+
+	data := map[string]interface{}{
+		"user":        user,
+		"expenses":    expenses,
+		"incomes":     incomes,
+		"budgets":     budgets,
+		"goals":       goals,
+		"exported_at": time.Now().Format(time.RFC3339),
+	}
+
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to marshal data: %w", err))
+	}
+
+	return connect.NewResponse(&pfinancev1.ExportUserDataResponse{
+		Data:        jsonData,
+		Filename:    fmt.Sprintf("pfinance-export-%s.json", time.Now().Format("2006-01-02")),
+		ContentType: "application/json",
 	}), nil
 }
 

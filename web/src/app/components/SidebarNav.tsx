@@ -93,6 +93,11 @@ const personalNavItems: NavItem[] = [
     icon: <FileText className="w-4 h-4" />
   },
   {
+    title: 'Account',
+    href: '/personal/account',
+    icon: <UserCog className="w-4 h-4" />
+  },
+  {
     title: 'Settings',
     href: '/personal/settings',
     icon: <Settings className="w-4 h-4" />

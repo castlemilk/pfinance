@@ -11,6 +11,8 @@ service FinanceService {
   // User operations
   rpc GetUser(GetUserRequest) returns (GetUserResponse);
   rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  rpc DeleteUser(DeleteUserRequest) returns (google.protobuf.Empty);
+  rpc ExportUserData(ExportUserDataRequest) returns (ExportUserDataResponse);
 
   // Expense operations
   rpc CreateExpense(CreateExpenseRequest) returns (CreateExpenseResponse);
@@ -155,10 +157,28 @@ message GetUserResponse {
 message UpdateUserRequest {
   string user_id = 1;
   string display_name = 2;
+  string photo_url = 3;
+  string email = 4;
 }
 
 message UpdateUserResponse {
   User user = 1;
+}
+
+message DeleteUserRequest {
+  string user_id = 1;
+  bool confirm = 2; // Must be true to actually delete
+}
+
+message ExportUserDataRequest {
+  string user_id = 1;
+  string format = 2; // "json" or "csv"
+}
+
+message ExportUserDataResponse {
+  bytes data = 1;
+  string filename = 2;
+  string content_type = 3;
 }
 
 // Expense operations
