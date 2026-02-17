@@ -322,6 +322,20 @@ func (mr *MockStoreMockRecorder) DeleteRecurringTransaction(ctx, rtID any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRecurringTransaction", reflect.TypeOf((*MockStore)(nil).DeleteRecurringTransaction), ctx, rtID)
 }
 
+// DeleteUser mocks base method.
+func (m *MockStore) DeleteUser(ctx context.Context, userID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteUser", ctx, userID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteUser indicates an expected call of DeleteUser.
+func (mr *MockStoreMockRecorder) DeleteUser(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUser", reflect.TypeOf((*MockStore)(nil).DeleteUser), ctx, userID)
+}
+
 // GetBudget mocks base method.
 func (m *MockStore) GetBudget(ctx context.Context, budgetID string) (*pfinancev1.Budget, error) {
 	m.ctrl.T.Helper()

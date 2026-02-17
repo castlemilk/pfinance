@@ -27,7 +27,8 @@ import {
   BarChart3,
   Search,
   CreditCard,
-  Crown
+  Crown,
+  Bot
 } from 'lucide-react';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -77,6 +78,11 @@ const personalNavItems: NavItem[] = [
     icon: <Lightbulb className="w-4 h-4" />
   },
   {
+    title: 'Assistant',
+    href: '/personal/assistant',
+    icon: <Bot className="w-4 h-4" />
+  },
+  {
     title: 'Analytics',
     href: '/personal/analytics',
     icon: <BarChart3 className="w-4 h-4" />
@@ -85,6 +91,11 @@ const personalNavItems: NavItem[] = [
     title: 'Reports',
     href: '/personal/reports',
     icon: <FileText className="w-4 h-4" />
+  },
+  {
+    title: 'Account',
+    href: '/personal/account',
+    icon: <UserCog className="w-4 h-4" />
   },
   {
     title: 'Settings',
