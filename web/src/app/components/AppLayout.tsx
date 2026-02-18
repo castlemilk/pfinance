@@ -13,6 +13,7 @@ import {
   SheetContent,
   SheetTrigger,
   SheetTitle,
+  SheetDescription,
 } from '@/components/ui/sheet';
 import { ChatPanel } from './chat/ChatPanel';
 import { ChatHistoryProvider } from '@/lib/chat/ChatHistoryContext';
@@ -55,6 +56,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </SheetTrigger>
           <SheetContent side="right" className="w-[400px] sm:w-[540px] p-0">
             <SheetTitle className="sr-only">Finance Assistant</SheetTitle>
+            <SheetDescription className="sr-only">Chat with your financial data</SheetDescription>
             <ChatPanel compact />
           </SheetContent>
         </Sheet>

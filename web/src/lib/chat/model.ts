@@ -20,10 +20,14 @@ export function getChatModel(): LanguageModel {
       return openai(modelId || 'gpt-4o');
     }
     default: {
+      // The @ai-sdk/google package checks GOOGLE_GENERATIVE_AI_API_KEY env var internally.
+      // Ensure it's set from GEMINI_API_KEY if the canonical env var is missing.
+      const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '';
+      if (apiKey && !process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+        process.env.GOOGLE_GENERATIVE_AI_API_KEY = apiKey;
+      }
       const { createGoogleGenerativeAI } = require('@ai-sdk/google');
-      const google = createGoogleGenerativeAI({
-        apiKey: process.env.GEMINI_API_KEY,
-      });
+      const google = createGoogleGenerativeAI({ apiKey });
       return google(modelId || 'gemini-2.0-flash');
     }
   }
