@@ -19,7 +19,7 @@ export default function AssistantPage() {
             <ConversationList />
           </div>
         </div>
-        {/* Chat panel */}
+        {/* Chat panel — on mobile, showHistory button is available in the header */}
         <div className="flex-1 min-w-0">
           <div className="border rounded-lg overflow-hidden bg-background">
             <ChatPanel />

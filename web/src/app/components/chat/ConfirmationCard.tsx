@@ -12,12 +12,13 @@ interface ConfirmationCardProps {
   details?: Record<string, unknown>;
   expenses?: Array<{ description: string; amount: number; date: string; category: string }>;
   changes?: Record<string, { from: unknown; to: unknown }>;
+  disabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-export function ConfirmationCard({ action, message, details, expenses, changes, onConfirm, onCancel }: ConfirmationCardProps) {
-  const [responded, setResponded] = useState(false);
+export function ConfirmationCard({ action, message, details, expenses, changes, disabled = false, onConfirm, onCancel }: ConfirmationCardProps) {
+  const [responded, setResponded] = useState(disabled);
 
   const isDelete = action.includes('delete');
 

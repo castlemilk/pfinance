@@ -1,6 +1,8 @@
 'use client';
 
 import type { UIMessage } from 'ai';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Bot, User } from 'lucide-react';
 import { ExpenseCard } from './ExpenseCard';
 import { SummaryCard } from './SummaryCard';
@@ -11,9 +13,10 @@ interface ChatMessageProps {
   message: UIMessage;
   onConfirm: (message: string) => void;
   onCancel: (message: string) => void;
+  isHistorical?: boolean;
 }
 
-export function ChatMessage({ message, onConfirm, onCancel }: ChatMessageProps) {
+export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false }: ChatMessageProps) {
   const isUser = message.role === 'user';
 
   // Extract text content from parts
@@ -40,13 +43,21 @@ export function ChatMessage({ message, onConfirm, onCancel }: ChatMessageProps) 
 
       {/* Content */}
       <div className={cn('flex flex-col gap-2 max-w-[85%]', isUser ? 'items-end' : 'items-start')}>
-        {/* Text content */}
+        {/* Text content — P1-7 fix: render markdown for assistant messages */}
         {textContent && (
           <div className={cn(
             'rounded-lg px-3 py-2 text-sm',
             isUser ? 'bg-primary text-primary-foreground' : 'bg-muted'
           )}>
-            <div className="whitespace-pre-wrap">{textContent}</div>
+            {isUser ? (
+              <div className="whitespace-pre-wrap">{textContent}</div>
+            ) : (
+              <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {textContent}
+                </ReactMarkdown>
+              </div>
+            )}
           </div>
         )}
 
@@ -56,14 +67,20 @@ export function ChatMessage({ message, onConfirm, onCancel }: ChatMessageProps) 
 
           // Handle confirmation requests
           if (result.status === 'pending_confirmation') {
+            // P1-3 fix: handle singular `expense` field for single delete, plus `expenses` for batch
+            const expensesList = (result.expenses as Array<{ description: string; amount: number; date: string; category: string }> | undefined)
+              || (result.expense ? [result.expense as { description: string; amount: number; date: string; category: string }] : undefined);
+
             return (
               <ConfirmationCard
                 key={idx}
                 action={result.action as string}
                 message={result.message as string}
                 details={result.details as Record<string, unknown> | undefined}
-                expenses={result.expenses as Array<{ description: string; amount: number; date: string; category: string }> | undefined}
+                expenses={expensesList}
                 changes={result.changes as Record<string, { from: unknown; to: unknown }> | undefined}
+                // P1-1 fix: pass disabled prop for historical conversations
+                disabled={isHistorical}
                 onConfirm={() => onConfirm('Yes, proceed with the operation.')}
                 onCancel={() => onCancel('Cancel, do not proceed.')}
               />
@@ -138,6 +155,30 @@ export function ChatMessage({ message, onConfirm, onCancel }: ChatMessageProps) 
                 count={(result.count as number) || (result.incomes as unknown[]).length}
               />
             );
+          }
+
+          // Handle anomalies (Pro tool)
+          if (result.anomalies && Array.isArray(result.anomalies)) {
+            const anomalyInsights = (result.anomalies as Array<Record<string, unknown>>).map(a => ({
+              title: (a.type as string) || 'Anomaly',
+              description: a.description as string,
+              amount: a.amount as number,
+              percentageChange: undefined,
+              category: undefined,
+            }));
+            return <SummaryCard key={idx} type="insights" insights={anomalyInsights} />;
+          }
+
+          // Handle category comparison (Pro tool)
+          if (result.comparisons && Array.isArray(result.comparisons)) {
+            const comparisonInsights = (result.comparisons as Array<Record<string, unknown>>).map(c => ({
+              title: c.category as string,
+              description: `Current: $${(c.currentAmount as number).toFixed(2)} | Previous: $${(c.previousAmount as number).toFixed(2)}`,
+              amount: c.currentAmount as number,
+              percentageChange: c.changePercent as number,
+              category: c.category as string,
+            }));
+            return <SummaryCard key={idx} type="insights" insights={comparisonInsights} />;
           }
 
           return null;

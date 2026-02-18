@@ -28,17 +28,24 @@ const SUGGESTED_PROMPTS = [
 export function ChatPanel({ compact = false, showHistory = false }: ChatPanelProps) {
   const { user, loading } = useAuth();
   const { isPro } = useSubscription();
-  const scrollRef = useRef<HTMLDivElement>(null);
+  // P0-1 fix: use a sentinel div at the bottom for scrollIntoView instead of ScrollArea ref
+  const scrollEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState('');
   const [showConversations, setShowConversations] = useState(showHistory);
+  // P0-3 fix: use a ref to track conversation ID for immediate use (avoids state async lag)
+  const conversationIdRef = useRef<string | null>(null);
 
   const {
     activeConversationId,
     createConversation,
     saveMessages,
     loadMessages,
-    selectConversation,
   } = useChatHistory();
+
+  // Keep ref in sync with context state
+  useEffect(() => {
+    conversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
 
   const getHeaders = useCallback(async (): Promise<Record<string, string>> => {
     if (!user) return {};
@@ -71,29 +78,28 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
 
   const isLoading = status === 'submitted' || status === 'streaming';
 
-  // Load messages when active conversation changes
+  // P0-2 fix: always call setMessages when conversation changes (even for empty convos)
   useEffect(() => {
     if (activeConversationId) {
       const loaded = loadMessages(activeConversationId);
-      if (loaded.length > 0) {
-        setMessages(loaded);
-      }
+      setMessages(loaded);
+    } else {
+      setMessages([]);
     }
   }, [activeConversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-save messages when they change (debounced by streaming status)
+  // Auto-save messages when streaming completes
   useEffect(() => {
-    if (activeConversationId && messages.length > 0 && !isLoading) {
-      saveMessages(activeConversationId, messages);
+    const convId = conversationIdRef.current;
+    if (convId && messages.length > 0 && !isLoading) {
+      saveMessages(convId, messages);
     }
-  }, [messages, isLoading, activeConversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [messages, isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-scroll to bottom on new messages
+  // P0-1 fix: auto-scroll using sentinel div
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+    scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
 
   const handleConfirm = useCallback((text: string) => {
     sendMessage({ text });
@@ -103,12 +109,15 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
     sendMessage({ text });
   }, [sendMessage]);
 
+  // P0-3 fix: create conversation synchronously and return the ID via ref
   const ensureConversation = useCallback(() => {
-    if (!activeConversationId) {
-      return createConversation();
+    if (!conversationIdRef.current) {
+      const newId = createConversation();
+      conversationIdRef.current = newId;
+      return newId;
     }
-    return activeConversationId;
-  }, [activeConversationId, createConversation]);
+    return conversationIdRef.current;
+  }, [createConversation]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,9 +147,10 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
     setShowConversations(false);
   };
 
+  // P1-6 fix: clear messages first, then create conversation
   const handleNewChat = () => {
-    createConversation();
     setMessages([]);
+    createConversation();
     setShowConversations(false);
   };
 
@@ -194,8 +204,9 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
               size="icon"
               onClick={() => {
                 setMessages([]);
-                if (activeConversationId) {
-                  saveMessages(activeConversationId, []);
+                const convId = conversationIdRef.current;
+                if (convId) {
+                  saveMessages(convId, []);
                 }
               }}
               className="h-8 w-8"
@@ -216,7 +227,7 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
       ) : (
         <>
           {/* Messages */}
-          <ScrollArea className="flex-1" ref={scrollRef}>
+          <ScrollArea className="flex-1">
             <div className="p-4 space-y-4">
               {messages.length === 0 ? (
                 <div className="space-y-4 pt-8">
@@ -266,6 +277,9 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
                   Something went wrong. Please try again.
                 </div>
               )}
+
+              {/* P0-1 fix: scroll sentinel */}
+              <div ref={scrollEndRef} />
             </div>
           </ScrollArea>
 
