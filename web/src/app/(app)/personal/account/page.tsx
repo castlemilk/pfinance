@@ -182,7 +182,7 @@ export default function AccountPage() {
       });
 
       // Create a blob and download
-      const blob = new Blob([response.data], {
+      const blob = new Blob([response.data as BlobPart], {
         type: response.contentType || 'application/json',
       });
       const url = URL.createObjectURL(blob);
