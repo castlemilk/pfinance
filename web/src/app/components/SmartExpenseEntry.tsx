@@ -22,6 +22,8 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { compressImage } from '../utils/imageCompression';
+import { BulkUploadTrigger } from './BulkUpload';
 import { useFinance } from '../context/FinanceContext';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { useSubscription } from '../hooks/useSubscription';
@@ -53,10 +55,11 @@ import {
   Cpu,
   Cloud,
   FileText,
+  Files,
   Lock,
 } from 'lucide-react';
 
-type EntryMode = 'smart' | 'receipt' | 'statement' | 'manual';
+type EntryMode = 'smart' | 'receipt' | 'statement' | 'manual' | 'bulk';
 
 interface ParsedExpense {
   description: string;
@@ -569,58 +572,7 @@ export default function SmartExpenseEntry() {
     }
   };
 
-  // Compress image to reduce upload size - max 1920px, JPEG quality 0.8
-  const compressImage = (file: File, maxDimension: number = 1920, quality: number = 0.8): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const reader = new FileReader();
-
-      reader.onload = (e) => {
-        img.src = e.target?.result as string;
-      };
-
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let { width, height } = img;
-
-        // Calculate new dimensions maintaining aspect ratio
-        if (width > maxDimension || height > maxDimension) {
-          if (width > height) {
-            height = Math.round((height * maxDimension) / width);
-            width = maxDimension;
-          } else {
-            width = Math.round((width * maxDimension) / height);
-            height = maxDimension;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Could not get canvas context'));
-          return;
-        }
-
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Convert to JPEG with specified quality
-        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-
-        // Log compression stats
-        const originalSize = (file.size / 1024).toFixed(1);
-        const compressedSize = (compressedDataUrl.length * 0.75 / 1024).toFixed(1); // base64 is ~33% larger
-        console.log(`Image compressed: ${originalSize}KB → ~${compressedSize}KB (${img.width}x${img.height} → ${width}x${height})`);
-
-        resolve(compressedDataUrl);
-      };
-
-      img.onerror = () => reject(new Error('Failed to load image'));
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsDataURL(file);
-    });
-  };
+  // Image compression imported from shared utility (see utils/imageCompression.ts)
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -940,7 +892,7 @@ export default function SmartExpenseEntry() {
   };
 
   const renderModeSelector = () => (
-    <div className="grid grid-cols-4 gap-2 mb-6">
+    <div className="grid grid-cols-5 gap-2 mb-6">
       <Button
         variant={mode === 'smart' ? 'default' : 'outline'}
         className="flex flex-col items-center gap-1 h-auto py-3"
@@ -981,6 +933,20 @@ export default function SmartExpenseEntry() {
       >
         <FileText className="h-5 w-5" />
         <span className="text-xs">Statement</span>
+        {proLocked && <Lock className="h-3 w-3 text-muted-foreground" />}
+      </Button>
+      <Button
+        variant={mode === 'bulk' ? 'default' : 'outline'}
+        className="flex flex-col items-center gap-1 h-auto py-3"
+        onClick={() => {
+          if (proLocked) return;
+          setMode('bulk');
+          resetForm();
+        }}
+        disabled={proLocked}
+      >
+        <Files className="h-5 w-5" />
+        <span className="text-xs">Bulk</span>
         {proLocked && <Lock className="h-3 w-3 text-muted-foreground" />}
       </Button>
       <Button
@@ -1586,7 +1552,7 @@ export default function SmartExpenseEntry() {
       <CardContent>
         {renderModeSelector()}
 
-        {mode !== 'manual' && (
+        {mode !== 'manual' && mode !== 'bulk' && (
           <div className="mb-4">
             <Progress value={(step / totalSteps) * 100} className="h-1" />
             <div className="flex justify-between text-xs text-muted-foreground mt-1">
@@ -1606,6 +1572,7 @@ export default function SmartExpenseEntry() {
         {mode === 'smart' && renderSmartEntry()}
         {(mode === 'receipt' || mode === 'statement') && renderDocumentEntry()}
         {mode === 'manual' && renderManualEntry()}
+        {mode === 'bulk' && <BulkUploadTrigger useGemini={useGemini} setUseGemini={setUseGemini} />}
       </CardContent>
     </Card>
   );
