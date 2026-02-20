@@ -30,8 +30,8 @@ test.describe('Receipt Extraction', () => {
       return;
     }
 
-    // Click on the Receipt button
-    const receiptButton = page.locator('button:has-text("Receipt")');
+    // Click on the Receipt button (exact match to avoid matching sidebar "Receipts & Statements")
+    const receiptButton = page.getByRole('button', { name: 'Receipt', exact: true });
     if (!(await receiptButton.isVisible())) {
       test.skip(true, 'Receipt button not visible');
       return;

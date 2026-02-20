@@ -126,7 +126,7 @@ test.describe('Personal Expenses Page', () => {
   });
 
   test('should display page heading', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: 'Personal Expenses' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Receipts & Statements' })).toBeVisible();
   });
 
   test('should display expense form', async ({ page }) => {
@@ -135,9 +135,10 @@ test.describe('Personal Expenses Page', () => {
   });
 
   test('should display expense entry modes', async ({ page }) => {
-    // Look for the mode selector buttons (Quick Add, Receipt, Manual)
-    await expect(page.getByRole('button', { name: /Quick Add/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Receipt/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Manual/i })).toBeVisible();
+    // Look for the mode selector buttons (Quick Add, Receipt, Statement, Manual)
+    await expect(page.getByRole('button', { name: 'Quick Add' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Receipt', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Statement', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Manual' })).toBeVisible();
   });
 });

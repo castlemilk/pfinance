@@ -23,7 +23,9 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useFinance } from '../context/FinanceContext';
+import { useAuth } from '../context/AuthWithAdminContext';
 import { useSubscription } from '../hooks/useSubscription';
+import { checkForDuplicates, type DuplicateMatch } from '@/lib/checkDuplicates';
 import { ExpenseCategory, ExpenseFrequency } from '../types';
 import { financeClient, DocumentType } from '@/lib/financeService';
 import { ExtractionMethod, ExtractionStatus } from '@/gen/pfinance/v1/types_pb';
@@ -47,13 +49,14 @@ import {
   X,
   ImageIcon,
   AlertCircle,
+  AlertTriangle,
   Cpu,
   Cloud,
   FileText,
   Lock,
 } from 'lucide-react';
 
-type EntryMode = 'smart' | 'photo' | 'manual';
+type EntryMode = 'smart' | 'receipt' | 'statement' | 'manual';
 
 interface ParsedExpense {
   description: string;
@@ -334,6 +337,7 @@ function parseNaturalLanguage(input: string): ParsedExpense | null {
 
 export default function SmartExpenseEntry() {
   const { addExpense } = useFinance();
+  const { user } = useAuth();
   const { hasProAccess } = useSubscription();
   const [mode, setMode] = useState<EntryMode>('smart');
   const [step, setStep] = useState(1);
@@ -358,6 +362,11 @@ export default function SmartExpenseEntry() {
   const [aiReasoning, setAiReasoning] = useState<string | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Duplicate detection state
+  const [duplicateMatches, setDuplicateMatches] = useState<DuplicateMatch[]>([]);
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
+
   // Merchant suggestion from user history / static normalizer
   const { suggestion: merchantSuggestion } = useMerchantSuggestion(
     parsedExpense?.description ?? ''
@@ -373,6 +382,7 @@ export default function SmartExpenseEntry() {
   });
 
   const totalSteps = mode === 'manual' ? 1 : 2;
+  const isDocumentMode = mode === 'receipt' || mode === 'statement';
 
   // Map proto category enum to frontend category string
   const mapProtoCategoryToString = (protoCategory: number): ExpenseCategory => {
@@ -856,23 +866,54 @@ export default function SmartExpenseEntry() {
     return categoryMap[protoCategory] || 'Other';
   }
 
-  const handleConfirmExpense = () => {
+  const createExpenseFromParsed = () => {
     if (!parsedExpense) return;
-
-    // Use the parsed frequency, defaulting to 'once'
     const frequency = parsedExpense.frequency || 'once';
-
     addExpense(
       parsedExpense.description,
       parsedExpense.amount,
       parsedExpense.category,
       frequency as ExpenseFrequency
     );
-
     setSuccess(true);
+    setShowDuplicateWarning(false);
+    setDuplicateMatches([]);
     setTimeout(() => {
       resetForm();
     }, 2000);
+  };
+
+  const handleConfirmExpense = async () => {
+    if (!parsedExpense) return;
+
+    // If already showing the warning, user already decided — this shouldn't be called directly
+    if (showDuplicateWarning) {
+      createExpenseFromParsed();
+      return;
+    }
+
+    // Pre-flight duplicate check
+    if (user?.uid) {
+      setIsCheckingDuplicates(true);
+      const dateStr = parsedExpense.date
+        ? parsedExpense.date.toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0];
+      const matches = await checkForDuplicates(
+        user.uid,
+        parsedExpense.description,
+        parsedExpense.amount,
+        dateStr,
+      );
+      setIsCheckingDuplicates(false);
+
+      if (matches.length > 0) {
+        setDuplicateMatches(matches);
+        setShowDuplicateWarning(true);
+        return;
+      }
+    }
+
+    createExpenseFromParsed();
   };
 
   const handleManualSubmit = (data: FormData) => {
@@ -890,12 +931,14 @@ export default function SmartExpenseEntry() {
     setCapturedImage(null);
     setError(null);
     setSuccess(false);
+    setDuplicateMatches([]);
+    setShowDuplicateWarning(false);
     form.reset();
     stopCamera();
   };
 
   const renderModeSelector = () => (
-    <div className="grid grid-cols-3 gap-2 mb-6">
+    <div className="grid grid-cols-4 gap-2 mb-6">
       <Button
         variant={mode === 'smart' ? 'default' : 'outline'}
         className="flex flex-col items-center gap-1 h-auto py-3"
@@ -911,17 +954,31 @@ export default function SmartExpenseEntry() {
         {!hasProAccess && <Lock className="h-3 w-3 text-muted-foreground" />}
       </Button>
       <Button
-        variant={mode === 'photo' ? 'default' : 'outline'}
+        variant={mode === 'receipt' ? 'default' : 'outline'}
         className="flex flex-col items-center gap-1 h-auto py-3"
         onClick={() => {
           if (!hasProAccess) return;
-          setMode('photo');
+          setMode('receipt');
           resetForm();
         }}
         disabled={!hasProAccess}
       >
         <Camera className="h-5 w-5" />
         <span className="text-xs">Receipt</span>
+        {!hasProAccess && <Lock className="h-3 w-3 text-muted-foreground" />}
+      </Button>
+      <Button
+        variant={mode === 'statement' ? 'default' : 'outline'}
+        className="flex flex-col items-center gap-1 h-auto py-3"
+        onClick={() => {
+          if (!hasProAccess) return;
+          setMode('statement');
+          resetForm();
+        }}
+        disabled={!hasProAccess}
+      >
+        <FileText className="h-5 w-5" />
+        <span className="text-xs">Statement</span>
         {!hasProAccess && <Lock className="h-3 w-3 text-muted-foreground" />}
       </Button>
       <Button
@@ -1106,14 +1163,44 @@ export default function SmartExpenseEntry() {
             )}
           </div>
 
+          {/* Duplicate warning */}
+          {showDuplicateWarning && duplicateMatches.length > 0 && (
+            <div className="border border-amber-500/50 bg-amber-500/10 rounded-lg p-3 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="h-4 w-4" />
+                Similar expense{duplicateMatches.length > 1 ? 's' : ''} found
+              </div>
+              <div className="text-xs space-y-1 text-muted-foreground">
+                {duplicateMatches.map((d, i) => (
+                  <div key={i} className="flex justify-between">
+                    <span className="truncate">{d.description} ({d.date})</span>
+                    <span className="font-medium shrink-0 ml-2">${d.amount.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" size="sm" onClick={() => { setShowDuplicateWarning(false); setDuplicateMatches([]); }} className="flex-1">
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={createExpenseFromParsed} className="flex-1">
+                  Create Anyway
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
               <ChevronLeft className="mr-2 h-4 w-4" />
               Back
             </Button>
-            <Button onClick={handleConfirmExpense} className="flex-1">
-              <Check className="mr-2 h-4 w-4" />
-              Add Expense
+            <Button onClick={handleConfirmExpense} disabled={isCheckingDuplicates || showDuplicateWarning} className="flex-1">
+              {isCheckingDuplicates ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="mr-2 h-4 w-4" />
+              )}
+              {isCheckingDuplicates ? 'Checking...' : 'Add Expense'}
             </Button>
           </div>
         </div>
@@ -1121,7 +1208,9 @@ export default function SmartExpenseEntry() {
     </div>
   );
 
-  const renderPhotoEntry = () => (
+  const isStatementMode = mode === 'statement';
+
+  const renderDocumentEntry = () => (
     <div className="space-y-4">
       {step === 1 && (
         <>
@@ -1155,22 +1244,34 @@ export default function SmartExpenseEntry() {
                 className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
                 onClick={() => fileInputRef.current?.click()}
               >
-                <ImageIcon className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
-                <p className="font-medium">Upload a receipt or bank statement</p>
-                <p className="text-sm text-muted-foreground">Images (JPG, PNG) or PDF files</p>
+                {isStatementMode ? (
+                  <FileText className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+                ) : (
+                  <ImageIcon className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+                )}
+                <p className="font-medium">
+                  {isStatementMode ? 'Upload a bank statement' : 'Upload a receipt'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {isStatementMode ? 'PDF files' : 'Images (JPG, PNG)'}
+                </p>
               </div>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*,.pdf,application/pdf"
+                accept={isStatementMode ? '.pdf,application/pdf' : 'image/*'}
                 onChange={handleFileSelect}
                 className="hidden"
               />
-              <div className="text-center text-sm text-muted-foreground">or</div>
-              <Button onClick={startCamera} variant="outline" className="w-full">
-                <Camera className="mr-2 h-4 w-4" />
-                Take a Photo
-              </Button>
+              {!isStatementMode && (
+                <>
+                  <div className="text-center text-sm text-muted-foreground">or</div>
+                  <Button onClick={startCamera} variant="outline" className="w-full">
+                    <Camera className="mr-2 h-4 w-4" />
+                    Take a Photo
+                  </Button>
+                </>
+              )}
             </div>
           )}
 
@@ -1314,14 +1415,44 @@ export default function SmartExpenseEntry() {
             </div>
           </div>
 
+          {/* Duplicate warning */}
+          {showDuplicateWarning && duplicateMatches.length > 0 && (
+            <div className="border border-amber-500/50 bg-amber-500/10 rounded-lg p-3 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="h-4 w-4" />
+                Similar expense{duplicateMatches.length > 1 ? 's' : ''} found
+              </div>
+              <div className="text-xs space-y-1 text-muted-foreground">
+                {duplicateMatches.map((d, i) => (
+                  <div key={i} className="flex justify-between">
+                    <span className="truncate">{d.description} ({d.date})</span>
+                    <span className="font-medium shrink-0 ml-2">${d.amount.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" size="sm" onClick={() => { setShowDuplicateWarning(false); setDuplicateMatches([]); }} className="flex-1">
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={createExpenseFromParsed} className="flex-1">
+                  Create Anyway
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <Button variant="outline" onClick={resetForm} className="flex-1">
               <X className="mr-2 h-4 w-4" />
               Cancel
             </Button>
-            <Button onClick={handleConfirmExpense} className="flex-1">
-              <Check className="mr-2 h-4 w-4" />
-              Add Expense
+            <Button onClick={handleConfirmExpense} disabled={isCheckingDuplicates || showDuplicateWarning} className="flex-1">
+              {isCheckingDuplicates ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="mr-2 h-4 w-4" />
+              )}
+              {isCheckingDuplicates ? 'Checking...' : 'Add Expense'}
             </Button>
           </div>
         </div>
@@ -1471,7 +1602,7 @@ export default function SmartExpenseEntry() {
         )}
 
         {mode === 'smart' && renderSmartEntry()}
-        {mode === 'photo' && renderPhotoEntry()}
+        {(mode === 'receipt' || mode === 'statement') && renderDocumentEntry()}
         {mode === 'manual' && renderManualEntry()}
       </CardContent>
     </Card>
