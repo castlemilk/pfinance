@@ -92,12 +92,12 @@ function HeatmapTab() {
         {error && <ErrorBanner message={error} />}
         {loading && <LoadingSkeleton />}
         {data && (
-          <div className="h-[300px]">
+          <div className="h-[500px]">
             <LazySpendingHeatmap data={data} />
           </div>
         )}
         {!loading && !error && !data && (
-          <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">
+          <div className="h-[500px] flex items-center justify-center text-muted-foreground text-sm">
             No spending data available for this period.
           </div>
         )}
