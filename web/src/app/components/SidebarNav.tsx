@@ -53,7 +53,7 @@ const personalNavItems: NavItem[] = [
     icon: <Home className="w-4 h-4" />
   },
   {
-    title: 'Receipts & Statements',
+    title: 'Expenses',
     href: '/personal/expenses',
     icon: <Receipt className="w-4 h-4" />
   },
@@ -117,7 +117,7 @@ const sharedNavItems: NavItem[] = [
     requiresAuth: true
   },
   {
-    title: 'Receipts & Statements',
+    title: 'Expenses',
     href: '/shared/expenses',
     icon: <Receipt className="w-4 h-4" />,
     requiresAuth: true

@@ -202,6 +202,11 @@ export function useHeatmapData(startDate: Date, endDate: Date) {
           date: agg.date,
           value: centsOrFallback(agg.totalAmountCents, agg.totalAmount),
           count: agg.transactionCount,
+          categories: agg.categoryAmounts.map((ca) => ({
+            category: categoryToString(ca.category),
+            amount: centsOrFallback(ca.amountCents, ca.amount),
+            count: ca.count,
+          })),
         })
       );
 

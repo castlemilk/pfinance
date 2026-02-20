@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,7 +39,7 @@ import { Input } from '@/components/ui/input';
 import { useForm } from 'react-hook-form';
 import { Expense, ExpenseCategory, ExpenseFrequency } from '../types';
 import { useRouter } from 'next/navigation';
-import { Pencil, Trash2, Share2 } from 'lucide-react';
+import { Pencil, Trash2, Share2, X, CalendarDays } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getCategoryColor, getFrequencyColor } from '../constants/theme';
 import ContributeExpenseModal from './ContributeExpenseModal';
@@ -54,9 +54,13 @@ type EditFormData = {
 
 interface ExpenseListProps {
   limit?: number;
+  /** YYYY-MM-DD date string to filter expenses to a specific day */
+  filterDate?: string | null;
+  /** Called when the user clears the date filter */
+  onClearFilter?: () => void;
 }
 
-export default function ExpenseList({ limit }: ExpenseListProps = {}) {
+export default function ExpenseList({ limit, filterDate, onClearFilter }: ExpenseListProps = {}) {
   const { expenses, deleteExpense, deleteExpenses, updateExpense } = useFinance();
   const { groups } = useMultiUserFinance();
   const router = useRouter();
@@ -72,6 +76,18 @@ export default function ExpenseList({ limit }: ExpenseListProps = {}) {
   
   // Check if user has groups to share with
   const canShare = groups.length > 0;
+
+  // Filter expenses by date if filterDate is provided
+  const filteredExpenses = useMemo(() => {
+    if (!filterDate) return expenses;
+    return expenses.filter((e) => {
+      const d = e.date;
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}` === filterDate;
+    });
+  }, [expenses, filterDate]);
 
   const form = useForm<EditFormData>({
     defaultValues: {
@@ -226,10 +242,10 @@ export default function ExpenseList({ limit }: ExpenseListProps = {}) {
 
   // Handler for selecting all expenses
   const handleSelectAll = () => {
-    if (selectedExpenseIds.size === expenses.length) {
+    if (selectedExpenseIds.size === filteredExpenses.length) {
       setSelectedExpenseIds(new Set());
     } else {
-      setSelectedExpenseIds(new Set(expenses.map(e => e.id)));
+      setSelectedExpenseIds(new Set(filteredExpenses.map(e => e.id)));
     }
     // Reset last selected index when using select all
     setLastSelectedIndex(null);
@@ -266,6 +282,8 @@ export default function ExpenseList({ limit }: ExpenseListProps = {}) {
     'annually'
   ];
 
+  const displayExpenses = filteredExpenses;
+
   return (
     <>
       <Card className="w-full">
@@ -285,10 +303,38 @@ export default function ExpenseList({ limit }: ExpenseListProps = {}) {
               )}
             </div>
           </div>
+          {filterDate && (
+            <div className="flex items-center gap-2 mt-2 p-2 rounded-md bg-accent/50 text-sm">
+              <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span>
+                Showing {displayExpenses.length} expense{displayExpenses.length !== 1 ? 's' : ''} for{' '}
+                <span className="font-medium">
+                  {new Date(filterDate + 'T00:00:00').toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </span>
+              </span>
+              {onClearFilter && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 ml-auto"
+                  onClick={onClearFilter}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+          )}
         </CardHeader>
         <CardContent>
-          {expenses.length === 0 ? (
-            <p className="text-center text-muted-foreground py-4">No expenses recorded yet.</p>
+          {displayExpenses.length === 0 ? (
+            <p className="text-center text-muted-foreground py-4">
+              {filterDate ? 'No expenses found for this date.' : 'No expenses recorded yet.'}
+            </p>
           ) : (
             <Table>
               <TableHeader>
@@ -296,7 +342,7 @@ export default function ExpenseList({ limit }: ExpenseListProps = {}) {
                   <TableHead className="w-[50px]">
                     <input
                       type="checkbox"
-                      checked={selectedExpenseIds.size === expenses.length}
+                      checked={displayExpenses.length > 0 && selectedExpenseIds.size === displayExpenses.length}
                       onChange={handleSelectAll}
                       className="w-4 h-4"
                     />
@@ -310,7 +356,7 @@ export default function ExpenseList({ limit }: ExpenseListProps = {}) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(limit ? expenses.slice(0, limit) : expenses).map((expense, index) => (
+                {(limit ? displayExpenses.slice(0, limit) : displayExpenses).map((expense, index) => (
                   <TableRow
                     key={expense.id}
                     className="cursor-pointer"

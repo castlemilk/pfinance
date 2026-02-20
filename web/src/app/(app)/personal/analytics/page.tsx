@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -57,7 +58,12 @@ function LoadingSkeleton() {
 // ============================================================================
 
 function HeatmapTab() {
+  const router = useRouter();
   const [range, setRange] = useState<'3m' | '6m' | '1y'>('6m');
+
+  const handleDayClick = useCallback((date: string) => {
+    router.push(`/personal/expenses?date=${date}`);
+  }, [router]);
 
   const { startDate, endDate } = useMemo(() => {
     const end = new Date();
@@ -93,7 +99,7 @@ function HeatmapTab() {
         {loading && <LoadingSkeleton />}
         {data && (
           <div className="h-[500px]">
-            <LazySpendingHeatmap data={data} />
+            <LazySpendingHeatmap data={data} onDayClick={handleDayClick} />
           </div>
         )}
         {!loading && !error && !data && (

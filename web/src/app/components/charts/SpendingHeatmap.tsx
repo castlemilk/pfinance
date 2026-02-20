@@ -5,7 +5,7 @@ import { scaleLinear } from '@visx/scale';
 import { Group } from '@visx/group';
 import { useTooltip, TooltipWithBounds, defaultStyles } from '@visx/tooltip';
 import { ParentSize } from '@visx/responsive';
-import type { HeatmapData, HeatmapDay } from '@/app/metrics/types';
+import type { HeatmapData, HeatmapDay, HeatmapCategoryAmount } from '@/app/metrics/types';
 
 // ============================================================================
 // Types
@@ -21,6 +21,7 @@ interface HeatmapBin {
   count: number;
   date: string;
   value: number;
+  categories?: HeatmapCategoryAmount[];
 }
 
 interface HeatmapBinData {
@@ -32,6 +33,7 @@ interface TooltipData {
   date: string;
   value: number;
   count: number;
+  categories?: HeatmapCategoryAmount[];
 }
 
 // ============================================================================
@@ -43,10 +45,11 @@ const tooltipStyles: React.CSSProperties = {
   backgroundColor: 'var(--popover)',
   color: 'var(--popover-foreground)',
   border: '1px solid var(--border)',
-  borderRadius: '6px',
+  borderRadius: '8px',
   fontSize: '12px',
-  padding: '8px 12px',
+  padding: '0',
   boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+  maxWidth: '280px',
 };
 
 const DAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
@@ -96,6 +99,7 @@ function transformToBinData(days: HeatmapDay[]): HeatmapBinData[] {
         count: entry?.count ?? 0,
         date: dateStr,
         value: entry?.value ?? 0,
+        categories: entry?.categories,
       });
       current.setDate(current.getDate() + 1);
     }
@@ -200,7 +204,7 @@ function HeatmapChart({
       const rect = (event.currentTarget as SVGElement).closest('svg')?.getBoundingClientRect();
       if (!rect) return;
       showTooltip({
-        tooltipData: { date: bin.date, value: bin.value, count: bin.count },
+        tooltipData: { date: bin.date, value: bin.value, count: bin.count, categories: bin.categories },
         tooltipLeft: event.clientX - rect.left,
         tooltipTop: event.clientY - rect.top - 10,
       });
@@ -269,11 +273,11 @@ function HeatmapChart({
                   rx={2}
                   fill={hasValue ? 'var(--chart-1)' : 'var(--muted)'}
                   opacity={hasValue ? opacityScale(bin.value) : 0.3}
-                  style={{ cursor: onDayClick ? 'pointer' : 'default' }}
+                  style={{ cursor: hasValue && onDayClick ? 'pointer' : 'default' }}
                   onMouseMove={(e) => handleMouseMove(e, bin)}
                   onMouseLeave={hideTooltip}
                   onClick={() => {
-                    if (onDayClick) onDayClick(bin.date);
+                    if (hasValue && onDayClick) onDayClick(bin.date);
                   }}
                 />
               );
@@ -288,11 +292,45 @@ function HeatmapChart({
           top={tooltipTop}
           style={tooltipStyles}
         >
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>
-            {formatDate(tooltipData.date)}
+          <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ fontWeight: 600, marginBottom: 2 }}>
+              {formatDate(tooltipData.date)}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>{formatAmount(tooltipData.value)}</span>
+              <span style={{ color: 'var(--muted-foreground)' }}>
+                {tooltipData.count} transaction{tooltipData.count !== 1 ? 's' : ''}
+              </span>
+            </div>
           </div>
-          <div>Spent: {formatAmount(tooltipData.value)}</div>
-          <div>Transactions: {tooltipData.count}</div>
+          {tooltipData.categories && tooltipData.categories.length > 0 && (
+            <div style={{ padding: '8px 12px' }}>
+              {tooltipData.categories
+                .sort((a, b) => b.amount - a.amount)
+                .slice(0, 5)
+                .map((cat, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '2px 0' }}>
+                    <span style={{ opacity: 0.8 }}>{cat.category}</span>
+                    <span style={{ fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+                      {formatAmount(cat.amount)}
+                      <span style={{ color: 'var(--muted-foreground)', marginLeft: 4, fontSize: 11 }}>
+                        ({cat.count})
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              {tooltipData.categories.length > 5 && (
+                <div style={{ color: 'var(--muted-foreground)', fontSize: 11, paddingTop: 4 }}>
+                  +{tooltipData.categories.length - 5} more
+                </div>
+              )}
+            </div>
+          )}
+          {tooltipData.value > 0 && onDayClick && (
+            <div style={{ padding: '6px 12px', borderTop: '1px solid var(--border)', color: 'var(--muted-foreground)', fontSize: 11 }}>
+              Click to view expenses
+            </div>
+          )}
         </TooltipWithBounds>
       )}
     </div>

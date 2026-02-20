@@ -440,12 +440,22 @@ export interface MetricsContextValue {
 // ============================================================================
 
 /**
+ * Per-category amount for heatmap tooltip breakdown
+ */
+export interface HeatmapCategoryAmount {
+  category: string;
+  amount: number;
+  count: number;
+}
+
+/**
  * Heatmap day data for calendar heatmap visualization
  */
 export interface HeatmapDay {
   date: string;
   value: number;
   count: number;
+  categories?: HeatmapCategoryAmount[];
 }
 
 /**

@@ -1,11 +1,21 @@
 'use client';
 
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useCallback } from 'react';
 import SmartExpenseEntry from '../../../components/SmartExpenseEntry';
 import ExpenseList from '../../../components/ExpenseList';
 import ExpenseVisualization from '../../../components/ExpenseVisualization';
 import TransactionImport from '../../../components/TransactionImport';
 
 export default function PersonalExpensesPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const filterDate = searchParams.get('date');
+
+  const handleClearFilter = useCallback(() => {
+    router.replace('/personal/expenses');
+  }, [router]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -20,7 +30,7 @@ export default function PersonalExpensesPage() {
         <ExpenseVisualization />
       </div>
 
-      <ExpenseList />
+      <ExpenseList filterDate={filterDate} onClearFilter={filterDate ? handleClearFilter : undefined} />
 
       <TransactionImport />
     </div>
