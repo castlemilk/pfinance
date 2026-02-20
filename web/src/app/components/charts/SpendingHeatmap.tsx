@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { scaleLinear } from '@visx/scale';
 import { Group } from '@visx/group';
-import { useTooltip, TooltipWithBounds, defaultStyles } from '@visx/tooltip';
 import { ParentSize } from '@visx/responsive';
+import { useRouter } from 'next/navigation';
 import type { HeatmapData, HeatmapDay, HeatmapCategoryAmount } from '@/app/metrics/types';
+import type { Expense, ExpenseCategory } from '@/app/types';
+import { getCategoryColor } from '@/app/constants/theme';
 
 // ============================================================================
 // Types
@@ -14,6 +16,7 @@ import type { HeatmapData, HeatmapDay, HeatmapCategoryAmount } from '@/app/metri
 interface SpendingHeatmapProps {
   data: HeatmapData;
   onDayClick?: (date: string) => void;
+  expenses?: Expense[];
 }
 
 interface HeatmapBin {
@@ -29,31 +32,22 @@ interface HeatmapBinData {
   bins: HeatmapBin[];
 }
 
-interface TooltipData {
+interface ActiveDay {
   date: string;
   value: number;
   count: number;
   categories?: HeatmapCategoryAmount[];
+  left: number;
+  top: number;
 }
 
 // ============================================================================
 // Helpers
 // ============================================================================
 
-const tooltipStyles: React.CSSProperties = {
-  ...defaultStyles,
-  backgroundColor: 'var(--popover)',
-  color: 'var(--popover-foreground)',
-  border: '1px solid var(--border)',
-  borderRadius: '8px',
-  fontSize: '12px',
-  padding: '0',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-  maxWidth: '280px',
-};
-
 const DAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const HIDE_DELAY = 200;
 
 function formatAmount(value: number): string {
   return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -62,6 +56,13 @@ function formatAmount(value: number): string {
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function toDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 /**
@@ -134,6 +135,172 @@ function getMonthLabels(binData: HeatmapBinData[], cellSize: number, gap: number
 }
 
 // ============================================================================
+// DayDetailCard — expense table shown inside the interactive tooltip
+// ============================================================================
+
+function DayDetailCard({
+  activeDay,
+  expenses,
+  categories,
+  onDayClick,
+}: {
+  activeDay: ActiveDay;
+  expenses: Expense[] | undefined;
+  categories: HeatmapCategoryAmount[] | undefined;
+  onDayClick?: (date: string) => void;
+}) {
+  const router = useRouter();
+
+  const dayExpenses = useMemo(() => {
+    if (!expenses) return [];
+    return expenses
+      .filter((e) => toDateKey(e.date) === activeDay.date)
+      .sort((a, b) => b.amount - a.amount);
+  }, [expenses, activeDay.date]);
+
+  const hasExpenses = dayExpenses.length > 0;
+
+  return (
+    <div style={{ minWidth: 260, maxWidth: 320 }}>
+      {/* Header */}
+      <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ fontWeight: 600, marginBottom: 2 }}>
+          {formatDate(activeDay.date)}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+          <span style={{ fontWeight: 700, fontSize: 14 }}>{formatAmount(activeDay.value)}</span>
+          <span style={{ color: 'var(--muted-foreground)' }}>
+            {activeDay.count} transaction{activeDay.count !== 1 ? 's' : ''}
+          </span>
+        </div>
+      </div>
+
+      {/* Expense rows */}
+      {hasExpenses ? (
+        <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+          {dayExpenses.map((expense) => (
+            <div
+              key={expense.id}
+              onClick={() => router.push(`/personal/expenses?date=${activeDay.date}`)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '6px 12px',
+                cursor: 'pointer',
+                transition: 'background-color 0.1s',
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLDivElement).style.backgroundColor = 'var(--accent)';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent';
+              }}
+            >
+              {/* Category color dot */}
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: getCategoryColor(expense.category),
+                  flexShrink: 0,
+                }}
+              />
+              {/* Description */}
+              <span
+                style={{
+                  flex: 1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  fontSize: 12,
+                }}
+              >
+                {expense.description}
+              </span>
+              {/* Category badge */}
+              <span
+                style={{
+                  fontSize: 10,
+                  padding: '1px 6px',
+                  borderRadius: 4,
+                  backgroundColor: getCategoryColor(expense.category) + '22',
+                  color: getCategoryColor(expense.category),
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                {expense.category}
+              </span>
+              {/* Amount */}
+              <span
+                style={{
+                  fontWeight: 500,
+                  fontVariantNumeric: 'tabular-nums',
+                  fontSize: 12,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                {formatAmount(expense.amount)}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : categories && categories.length > 0 ? (
+        /* Fallback: category summary when no individual expenses available */
+        <div style={{ padding: '8px 12px' }}>
+          {categories
+            .sort((a, b) => b.amount - a.amount)
+            .slice(0, 5)
+            .map((cat, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '2px 0' }}>
+                <span style={{ opacity: 0.8 }}>{cat.category}</span>
+                <span style={{ fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+                  {formatAmount(cat.amount)}
+                  <span style={{ color: 'var(--muted-foreground)', marginLeft: 4, fontSize: 11 }}>
+                    ({cat.count})
+                  </span>
+                </span>
+              </div>
+            ))}
+          {categories.length > 5 && (
+            <div style={{ color: 'var(--muted-foreground)', fontSize: 11, paddingTop: 4 }}>
+              +{categories.length - 5} more
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {/* Footer */}
+      {activeDay.value > 0 && onDayClick && (
+        <div
+          onClick={() => onDayClick(activeDay.date)}
+          style={{
+            padding: '8px 12px',
+            borderTop: '1px solid var(--border)',
+            color: 'var(--primary)',
+            fontSize: 12,
+            cursor: 'pointer',
+            textAlign: 'center',
+            fontWeight: 500,
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLDivElement).style.backgroundColor = 'var(--accent)';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent';
+          }}
+        >
+          View all expenses &rarr;
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
 // Inner Chart (receives explicit width/height)
 // ============================================================================
 
@@ -142,15 +309,32 @@ function HeatmapChart({
   width,
   height,
   onDayClick,
+  expenses,
 }: SpendingHeatmapProps & { width: number; height: number }) {
-  const {
-    tooltipData,
-    tooltipLeft,
-    tooltipTop,
-    tooltipOpen,
-    showTooltip,
-    hideTooltip,
-  } = useTooltip<TooltipData>();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [activeDay, setActiveDay] = useState<ActiveDay | null>(null);
+  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearHideTimeout = useCallback(() => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+  }, []);
+
+  const startHideTimeout = useCallback(() => {
+    clearHideTimeout();
+    hideTimeoutRef.current = setTimeout(() => {
+      setActiveDay(null);
+    }, HIDE_DELAY);
+  }, [clearHideTimeout]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+    };
+  }, []);
 
   const margin = { top: 24, right: 12, bottom: 8, left: 32 };
   const innerWidth = width - margin.left - margin.right;
@@ -199,18 +383,46 @@ function HeatmapChart({
     [binData, adjustedCellSize, gap]
   );
 
-  const handleMouseMove = useCallback(
+  const handleCellEnter = useCallback(
     (event: React.MouseEvent, bin: HeatmapBin) => {
-      const rect = (event.currentTarget as SVGElement).closest('svg')?.getBoundingClientRect();
-      if (!rect) return;
-      showTooltip({
-        tooltipData: { date: bin.date, value: bin.value, count: bin.count, categories: bin.categories },
-        tooltipLeft: event.clientX - rect.left,
-        tooltipTop: event.clientY - rect.top - 10,
+      clearHideTimeout();
+      const container = containerRef.current;
+      if (!container) return;
+      const containerRect = container.getBoundingClientRect();
+      const svgEl = (event.currentTarget as SVGElement).closest('svg');
+      if (!svgEl) return;
+      const svgRect = svgEl.getBoundingClientRect();
+
+      // Position relative to the container
+      let left = event.clientX - containerRect.left + 12;
+      let top = event.clientY - containerRect.top - 10;
+
+      // Clamp: keep tooltip within the container bounds
+      const tooltipWidth = 320;
+      const tooltipHeight = 200;
+      if (left + tooltipWidth > containerRect.width) {
+        left = event.clientX - containerRect.left - tooltipWidth - 12;
+      }
+      if (top + tooltipHeight > containerRect.height) {
+        top = containerRect.height - tooltipHeight - 8;
+      }
+      if (top < 0) top = 8;
+
+      setActiveDay({
+        date: bin.date,
+        value: bin.value,
+        count: bin.count,
+        categories: bin.categories,
+        left,
+        top,
       });
     },
-    [showTooltip]
+    [clearHideTimeout]
   );
+
+  const handleCellLeave = useCallback(() => {
+    startHideTimeout();
+  }, [startHideTimeout]);
 
   if (data.days.length === 0) {
     return (
@@ -221,7 +433,7 @@ function HeatmapChart({
   }
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div ref={containerRef} style={{ position: 'relative' }}>
       <svg width={width} height={height}>
         {/* Month labels along top */}
         <Group left={margin.left} top={margin.top - 8}>
@@ -274,8 +486,8 @@ function HeatmapChart({
                   fill={hasValue ? 'var(--chart-1)' : 'var(--muted)'}
                   opacity={hasValue ? opacityScale(bin.value) : 0.3}
                   style={{ cursor: hasValue && onDayClick ? 'pointer' : 'default' }}
-                  onMouseMove={(e) => handleMouseMove(e, bin)}
-                  onMouseLeave={hideTooltip}
+                  onMouseEnter={(e) => handleCellEnter(e, bin)}
+                  onMouseLeave={handleCellLeave}
                   onClick={() => {
                     if (hasValue && onDayClick) onDayClick(bin.date);
                   }}
@@ -286,52 +498,32 @@ function HeatmapChart({
         </Group>
       </svg>
 
-      {tooltipOpen && tooltipData && (
-        <TooltipWithBounds
-          left={tooltipLeft}
-          top={tooltipTop}
-          style={tooltipStyles}
+      {/* Interactive sticky tooltip */}
+      {activeDay && (
+        <div
+          onMouseEnter={clearHideTimeout}
+          onMouseLeave={startHideTimeout}
+          style={{
+            position: 'absolute',
+            left: activeDay.left,
+            top: activeDay.top,
+            zIndex: 50,
+            backgroundColor: 'var(--popover)',
+            color: 'var(--popover-foreground)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            fontSize: 12,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            pointerEvents: 'auto',
+          }}
         >
-          <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ fontWeight: 600, marginBottom: 2 }}>
-              {formatDate(tooltipData.date)}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-              <span style={{ fontWeight: 700, fontSize: 14 }}>{formatAmount(tooltipData.value)}</span>
-              <span style={{ color: 'var(--muted-foreground)' }}>
-                {tooltipData.count} transaction{tooltipData.count !== 1 ? 's' : ''}
-              </span>
-            </div>
-          </div>
-          {tooltipData.categories && tooltipData.categories.length > 0 && (
-            <div style={{ padding: '8px 12px' }}>
-              {tooltipData.categories
-                .sort((a, b) => b.amount - a.amount)
-                .slice(0, 5)
-                .map((cat, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '2px 0' }}>
-                    <span style={{ opacity: 0.8 }}>{cat.category}</span>
-                    <span style={{ fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
-                      {formatAmount(cat.amount)}
-                      <span style={{ color: 'var(--muted-foreground)', marginLeft: 4, fontSize: 11 }}>
-                        ({cat.count})
-                      </span>
-                    </span>
-                  </div>
-                ))}
-              {tooltipData.categories.length > 5 && (
-                <div style={{ color: 'var(--muted-foreground)', fontSize: 11, paddingTop: 4 }}>
-                  +{tooltipData.categories.length - 5} more
-                </div>
-              )}
-            </div>
-          )}
-          {tooltipData.value > 0 && onDayClick && (
-            <div style={{ padding: '6px 12px', borderTop: '1px solid var(--border)', color: 'var(--muted-foreground)', fontSize: 11 }}>
-              Click to view expenses
-            </div>
-          )}
-        </TooltipWithBounds>
+          <DayDetailCard
+            activeDay={activeDay}
+            expenses={expenses}
+            categories={activeDay.categories}
+            onDayClick={onDayClick}
+          />
+        </div>
       )}
     </div>
   );

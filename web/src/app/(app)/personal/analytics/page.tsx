@@ -28,6 +28,7 @@ import {
 import { useExtractionMetrics } from '../../../metrics/hooks/useExtractionMetrics';
 import { UpgradePrompt } from '../../../components/ProFeatureGate';
 import { AlertCircle, FileSearch } from 'lucide-react';
+import { useFinance } from '../../../context/FinanceContext';
 
 function isSubscriptionError(message: string): boolean {
   const lower = message.toLowerCase();
@@ -59,6 +60,7 @@ function LoadingSkeleton() {
 
 function HeatmapTab() {
   const router = useRouter();
+  const { expenses } = useFinance();
   const [range, setRange] = useState<'3m' | '6m' | '1y'>('6m');
 
   const handleDayClick = useCallback((date: string) => {
@@ -99,7 +101,7 @@ function HeatmapTab() {
         {loading && <LoadingSkeleton />}
         {data && (
           <div className="h-[500px]">
-            <LazySpendingHeatmap data={data} onDayClick={handleDayClick} />
+            <LazySpendingHeatmap data={data} onDayClick={handleDayClick} expenses={expenses} />
           </div>
         )}
         {!loading && !error && !data && (
