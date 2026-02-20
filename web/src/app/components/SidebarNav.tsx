@@ -138,7 +138,7 @@ const sharedNavItems: NavItem[] = [
 
 export default function SidebarNav() {
   const { user, logout, isImpersonating, loading } = useAuth();
-  const { isPro, isFree } = useSubscription();
+  const { isPro, isFree, loading: subscriptionLoading } = useSubscription();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -318,7 +318,7 @@ export default function SidebarNav() {
                 <p className="text-sm font-medium truncate">
                   {user.displayName || user.email}
                 </p>
-                {isPro && (
+                {!subscriptionLoading && isPro && (
                   <Badge variant="default" className="text-xs bg-amber-500/90 hover:bg-amber-500">
                     <Crown className="w-3 h-3 mr-0.5" />
                     Pro
@@ -331,7 +331,7 @@ export default function SidebarNav() {
                 )}
               </div>
             </div>
-            {isFree && user && (
+            {!subscriptionLoading && isFree && user && (
               <Link href="/personal/billing/">
                 <Button variant="default" size="sm" className="w-full gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white">
                   <Crown className="w-4 h-4" />

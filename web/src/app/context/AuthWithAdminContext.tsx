@@ -20,6 +20,7 @@ import { SubscriptionTier, SubscriptionStatus } from '@/gen/pfinance/v1/types_pb
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  subscriptionLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -40,6 +41,7 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
   const listenerFiredRef = useRef(false);
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>(SubscriptionTier.FREE);
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>(SubscriptionStatus.UNSPECIFIED);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
 
   // Determine the effective user (impersonated or actual)
   const effectiveUser = isAdminMode && impersonatedUser
@@ -114,6 +116,7 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
 
   const extractSubscriptionFromToken = useCallback(async (firebaseUser: User) => {
     try {
+      setSubscriptionLoading(true);
       const tokenResult = await firebaseUser.getIdTokenResult(true); // Force refresh to get latest custom claims
       const claims = tokenResult.claims;
       const tierStr = claims.subscription_tier as string | undefined;
@@ -130,14 +133,19 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
       setSubscriptionStatus(statusMap[statusStr || ''] || SubscriptionStatus.UNSPECIFIED);
     } catch (err) {
       console.error('[AuthContext] Failed to extract subscription from token:', err);
+    } finally {
+      setSubscriptionLoading(false);
     }
   }, []);
 
   useEffect(() => {
     if (effectiveUser && !isAdminMode) {
       extractSubscriptionFromToken(effectiveUser);
+    } else if (!loading) {
+      // No user or admin mode — no subscription to load
+      setSubscriptionLoading(false);
     }
-  }, [effectiveUser?.uid, isAdminMode, extractSubscriptionFromToken]);
+  }, [effectiveUser?.uid, isAdminMode, loading, extractSubscriptionFromToken]);
 
   const refreshSubscription = useCallback(async () => {
     if (!effectiveUser || isAdminMode) return;
@@ -214,6 +222,7 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
   const value = {
     user: effectiveUser,
     loading,
+    subscriptionLoading,
     signIn,
     signUp,
     signInWithGoogle,

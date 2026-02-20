@@ -146,6 +146,7 @@ describe('MultiUserFinanceContext', () => {
       actualUser: null,
       subscriptionTier: SubscriptionTier.FREE,
       subscriptionStatus: SubscriptionStatus.UNSPECIFIED,
+      subscriptionLoading: false,
       refreshSubscription: jest.fn(),
     });
 
@@ -178,6 +179,7 @@ describe('MultiUserFinanceContext', () => {
       actualUser: mockUser,
       subscriptionTier: SubscriptionTier.FREE,
       subscriptionStatus: SubscriptionStatus.UNSPECIFIED,
+      subscriptionLoading: false,
       refreshSubscription: jest.fn(),
     });
 
@@ -237,6 +239,7 @@ describe('MultiUserFinanceContext', () => {
       actualUser: mockUser,
       subscriptionTier: SubscriptionTier.FREE,
       subscriptionStatus: SubscriptionStatus.UNSPECIFIED,
+      subscriptionLoading: false,
       refreshSubscription: jest.fn(),
     });
 
@@ -296,6 +299,7 @@ describe('MultiUserFinanceContext', () => {
       actualUser: null,
       subscriptionTier: SubscriptionTier.FREE,
       subscriptionStatus: SubscriptionStatus.UNSPECIFIED,
+      subscriptionLoading: false,
       refreshSubscription: jest.fn(),
     });
 
@@ -335,6 +339,7 @@ describe('MultiUserFinanceContext', () => {
       actualUser: mockUser,
       subscriptionTier: SubscriptionTier.FREE,
       subscriptionStatus: SubscriptionStatus.UNSPECIFIED,
+      subscriptionLoading: false,
       refreshSubscription: jest.fn(),
     });
 
@@ -400,6 +405,7 @@ describe('MultiUserFinanceContext', () => {
       actualUser: mockUser,
       subscriptionTier: SubscriptionTier.FREE,
       subscriptionStatus: SubscriptionStatus.UNSPECIFIED,
+      subscriptionLoading: false,
       refreshSubscription: jest.fn(),
     });
 

@@ -338,7 +338,9 @@ function parseNaturalLanguage(input: string): ParsedExpense | null {
 export default function SmartExpenseEntry() {
   const { addExpense } = useFinance();
   const { user } = useAuth();
-  const { hasProAccess } = useSubscription();
+  const { hasProAccess, loading: subscriptionLoading } = useSubscription();
+  const proResolved = !subscriptionLoading;
+  const proLocked = proResolved && !hasProAccess;
   const [mode, setMode] = useState<EntryMode>('smart');
   const [step, setStep] = useState(1);
   const [smartInput, setSmartInput] = useState('');
@@ -943,43 +945,43 @@ export default function SmartExpenseEntry() {
         variant={mode === 'smart' ? 'default' : 'outline'}
         className="flex flex-col items-center gap-1 h-auto py-3"
         onClick={() => {
-          if (!hasProAccess) return;
+          if (proLocked) return;
           setMode('smart');
           resetForm();
         }}
-        disabled={!hasProAccess}
+        disabled={proLocked}
       >
         <Sparkles className="h-5 w-5" />
         <span className="text-xs">Quick Add</span>
-        {!hasProAccess && <Lock className="h-3 w-3 text-muted-foreground" />}
+        {proLocked && <Lock className="h-3 w-3 text-muted-foreground" />}
       </Button>
       <Button
         variant={mode === 'receipt' ? 'default' : 'outline'}
         className="flex flex-col items-center gap-1 h-auto py-3"
         onClick={() => {
-          if (!hasProAccess) return;
+          if (proLocked) return;
           setMode('receipt');
           resetForm();
         }}
-        disabled={!hasProAccess}
+        disabled={proLocked}
       >
         <Camera className="h-5 w-5" />
         <span className="text-xs">Receipt</span>
-        {!hasProAccess && <Lock className="h-3 w-3 text-muted-foreground" />}
+        {proLocked && <Lock className="h-3 w-3 text-muted-foreground" />}
       </Button>
       <Button
         variant={mode === 'statement' ? 'default' : 'outline'}
         className="flex flex-col items-center gap-1 h-auto py-3"
         onClick={() => {
-          if (!hasProAccess) return;
+          if (proLocked) return;
           setMode('statement');
           resetForm();
         }}
-        disabled={!hasProAccess}
+        disabled={proLocked}
       >
         <FileText className="h-5 w-5" />
         <span className="text-xs">Statement</span>
-        {!hasProAccess && <Lock className="h-3 w-3 text-muted-foreground" />}
+        {proLocked && <Lock className="h-3 w-3 text-muted-foreground" />}
       </Button>
       <Button
         variant={mode === 'manual' ? 'default' : 'outline'}

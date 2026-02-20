@@ -20,9 +20,10 @@ export function ProFeatureGate({
   fallback,
   mode = 'replace',
 }: ProFeatureGateProps) {
-  const { hasProAccess } = useSubscription();
+  const { hasProAccess, loading } = useSubscription();
 
-  if (hasProAccess) {
+  // Don't gate while subscription is still loading to avoid flicker
+  if (loading || hasProAccess) {
     return <>{children}</>;
   }
 

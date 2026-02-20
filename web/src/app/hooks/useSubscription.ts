@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthWithAdminContext';
 import { SubscriptionTier, SubscriptionStatus } from '@/gen/pfinance/v1/types_pb';
 
 export function useSubscription() {
-  const { subscriptionTier, subscriptionStatus, refreshSubscription } = useAuth();
+  const { subscriptionTier, subscriptionStatus, subscriptionLoading, refreshSubscription } = useAuth();
 
   const isPro = subscriptionTier === SubscriptionTier.PRO;
   const isFree = !isPro;
@@ -14,6 +14,7 @@ export function useSubscription() {
   return {
     tier: subscriptionTier,
     status: subscriptionStatus,
+    loading: subscriptionLoading,
     isPro,
     isFree,
     isActive,
