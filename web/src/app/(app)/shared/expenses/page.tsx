@@ -9,8 +9,12 @@ import { Users, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function SharedExpensesPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { activeGroup, getUserOwedAmount, getUserOwesAmount } = useMultiUserFinance();
+
+  if (loading) {
+    return null;
+  }
 
   if (!user) {
     return (

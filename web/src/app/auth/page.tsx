@@ -10,16 +10,16 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
 export default function AuthPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [showAuthModal, setShowAuthModal] = useState(true);
 
   useEffect(() => {
-    if (user) {
+    if (!loading && user) {
       // Redirect to shared finance if user is already logged in
       router.push('/shared');
     }
-  }, [user, router]);
+  }, [user, loading, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">

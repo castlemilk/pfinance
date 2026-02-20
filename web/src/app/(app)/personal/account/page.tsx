@@ -49,8 +49,8 @@ import {
 } from 'lucide-react';
 
 export default function AccountPage() {
-  const { user, logout } = useAuth();
-  const { isPro } = useSubscription();
+  const { user, logout, loading } = useAuth();
+  const { isPro, loading: subscriptionLoading } = useSubscription();
   const router = useRouter();
 
   // Profile state
@@ -230,6 +230,17 @@ export default function AccountPage() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Account</h1>
+          <p className="text-muted-foreground">Loading account settings...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="space-y-6">
@@ -296,19 +307,21 @@ export default function AccountPage() {
                 <p className="text-sm text-muted-foreground truncate">
                   {user.email}
                 </p>
-                <div className="mt-1">
-                  {isPro ? (
-                    <Badge
-                      variant="default"
-                      className="bg-amber-500/90 hover:bg-amber-500"
-                    >
-                      <Crown className="w-3 h-3 mr-1" />
-                      Pro
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary">Free</Badge>
-                  )}
-                </div>
+                {!subscriptionLoading && (
+                  <div className="mt-1">
+                    {isPro ? (
+                      <Badge
+                        variant="default"
+                        className="bg-amber-500/90 hover:bg-amber-500"
+                      >
+                        <Crown className="w-3 h-3 mr-1" />
+                        Pro
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">Free</Badge>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

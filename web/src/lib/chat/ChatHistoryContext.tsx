@@ -42,27 +42,31 @@ interface ChatHistoryProviderProps {
 const DEFAULT_TITLE = 'New conversation';
 
 export function ChatHistoryProvider({ children }: ChatHistoryProviderProps) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const userId = user?.uid ?? null;
 
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<ChatConversationMeta[]>([]);
-
   // Refresh the conversation list from storage
   const refreshConversations = useCallback(() => {
     if (!userId) {
-      setConversations([]);
+      // Only clear conversations if auth has finished loading (user is truly absent)
+      if (!loading) {
+        setConversations([]);
+      }
       return;
     }
     setConversations(chatStorage.listConversations(userId));
-  }, [userId]);
+  }, [userId, loading]);
 
   // Load conversations on mount and when userId changes
   useEffect(() => {
+    // Don't reset while auth is still loading
+    if (loading) return;
     refreshConversations();
-    // Reset active conversation when user changes
+    // Reset active conversation when user actually changes
     setActiveConversationId(null);
-  }, [refreshConversations]);
+  }, [refreshConversations, loading]);
 
   const createConversation = useCallback((): string => {
     if (!userId) return '';

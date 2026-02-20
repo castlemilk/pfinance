@@ -25,8 +25,13 @@ interface FinanceDashboardProps {
 }
 
 export default function FinanceDashboard({ mode }: FinanceDashboardProps) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { activeGroup } = useMultiUserFinance();
+
+  // Show nothing while auth is loading to avoid flicker
+  if (loading) {
+    return null;
+  }
 
   // Show auth prompt for shared mode
   if (mode === 'shared' && !user) {
