@@ -88,7 +88,7 @@ func ApiTokenInterceptor(store ApiTokenStore) connect.UnaryInterceptorFunc {
 			ctx = withUserClaims(ctx, claims)
 			ctx = WithSubscription(ctx, subInfo)
 
-			log.Printf("[API Token] Authenticated user %s via token %s (tier=%v)", user.Id, apiToken.TokenPrefix, subInfo.Tier)
+			log.Printf("[API Token] Authenticated user %s via token %s (tier=%v)", claims.UID, apiToken.TokenPrefix, subInfo.Tier)
 
 			// Fire-and-forget: update last_used_at
 			go func() {
