@@ -52,6 +52,11 @@ func ApiTokenInterceptor(store ApiTokenStore, firebaseAuth ...*FirebaseAuth) con
 
 	return func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+			// Skip for public endpoints
+			if isPublicEndpoint(req.Spec().Procedure) {
+				return next(ctx, req)
+			}
+
 			apiKey := req.Header().Get("X-API-Key")
 			if apiKey == "" {
 				// No API key — fall through to normal auth
