@@ -62,17 +62,17 @@ func TestParseFYDateRange(t *testing.T) {
 func TestCalculateBracketTax(t *testing.T) {
 	brackets := australianBrackets("2024-25")
 	tests := []struct {
-		name     string
-		income   float64
-		wantMin  float64
-		wantMax  float64
+		name    string
+		income  float64
+		wantMin float64
+		wantMax float64
 	}{
 		{"zero income", 0, 0, 0},
 		{"below tax-free threshold", 18200, 0, 0.01},
 		{"$50,000 income", 50000, 5700, 5900},     // ~$5,788
-		{"$90,000 income", 90000, 17700, 17900},    // ~$17,788
-		{"$120,000 income", 120000, 26700, 26900},  // ~$26,788
-		{"$200,000 income", 200000, 56000, 56300},  // ~$56,138
+		{"$90,000 income", 90000, 17700, 17900},   // ~$17,788
+		{"$120,000 income", 120000, 26700, 26900}, // ~$26,788
+		{"$200,000 income", 200000, 56000, 56300}, // ~$56,138
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -117,7 +117,7 @@ func TestCalculateMedicareLevy(t *testing.T) {
 	}{
 		{"exempt", 100000, true, 0},
 		{"below threshold", 20000, false, 0},
-		{"phase-in", 28000, false, 372.4},     // 10% of (28000-24276) = 372.4
+		{"phase-in", 28000, false, 372.4},       // 10% of (28000-24276) = 372.4
 		{"above phase-in", 100000, false, 2000}, // 2% of 100000
 	}
 	for _, tt := range tests {

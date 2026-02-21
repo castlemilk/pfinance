@@ -62,7 +62,7 @@ func (p *TaxClassificationPipeline) ClassifyExpenses(
 					DeductiblePct: expense.TaxDeductiblePercent,
 					Confidence:    1.0, // User already classified
 					Reasoning:     "Already classified by user",
-					Source:         "user",
+					Source:        "user",
 				},
 			}
 			continue
@@ -131,7 +131,7 @@ func (p *TaxClassificationPipeline) ClassifyExpenses(
 					IsDeductible: false,
 					Confidence:   0.30,
 					Reasoning:    "Could not determine deductibility",
-					Source:        "none",
+					Source:       "none",
 				},
 			}
 		}
@@ -152,7 +152,7 @@ func matchUserMapping(expense *pfinancev1.Expense, mappings []*pfinancev1.TaxDed
 				DeductiblePct: m.DeductiblePercent,
 				Confidence:    m.Confidence,
 				Reasoning:     "Matched user-learned pattern: " + m.MerchantPattern,
-				Source:         "user_mapping",
+				Source:        "user_mapping",
 			}
 		}
 	}

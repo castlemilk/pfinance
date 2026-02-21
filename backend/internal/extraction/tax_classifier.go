@@ -8,12 +8,12 @@ import (
 
 // TaxClassification represents the result of classifying an expense for tax deductibility
 type TaxClassification struct {
-	IsDeductible     bool
-	Category         pfinancev1.TaxDeductionCategory
-	DeductiblePct    float64 // 0.0-1.0
-	Confidence       float64 // 0.0-1.0
-	Reasoning        string
-	Source           string // "merchant_map", "category", "keyword", "tag", "not_deductible"
+	IsDeductible  bool
+	Category      pfinancev1.TaxDeductionCategory
+	DeductiblePct float64 // 0.0-1.0
+	Confidence    float64 // 0.0-1.0
+	Reasoning     string
+	Source        string // "merchant_map", "category", "keyword", "tag", "not_deductible"
 }
 
 // notDeductibleMerchants maps merchants that are almost certainly NOT tax deductible.
@@ -31,11 +31,11 @@ var notDeductibleMerchants = map[string]bool{
 // deductibleMerchants maps merchants to likely ATO deduction categories.
 var deductibleMerchants = map[string]TaxClassification{
 	// D10 - Tax affairs
-	"h&r block":    {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "Tax preparation service", Source: "merchant_map"},
-	"tax return":   {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.90, Reasoning: "Tax preparation service", Source: "merchant_map"},
-	"myob":         {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.85, Reasoning: "Accounting software", Source: "merchant_map"},
-	"xero":         {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.85, Reasoning: "Accounting software", Source: "merchant_map"},
-	"quickbooks":   {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.85, Reasoning: "Accounting software", Source: "merchant_map"},
+	"h&r block":  {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "Tax preparation service", Source: "merchant_map"},
+	"tax return": {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.90, Reasoning: "Tax preparation service", Source: "merchant_map"},
+	"myob":       {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.85, Reasoning: "Accounting software", Source: "merchant_map"},
+	"xero":       {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.85, Reasoning: "Accounting software", Source: "merchant_map"},
+	"quickbooks": {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.85, Reasoning: "Accounting software", Source: "merchant_map"},
 
 	// D15 - Donations
 	"red cross":      {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "DGR-registered charity", Source: "merchant_map"},
@@ -47,7 +47,7 @@ var deductibleMerchants = map[string]TaxClassification{
 	"wwf":            {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "DGR-registered charity", Source: "merchant_map"},
 
 	// Income protection insurance
-	"income protection":  {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_INCOME_PROTECTION, DeductiblePct: 1.0, Confidence: 0.85, Reasoning: "Income protection insurance premium", Source: "merchant_map"},
+	"income protection": {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_INCOME_PROTECTION, DeductiblePct: 1.0, Confidence: 0.85, Reasoning: "Income protection insurance premium", Source: "merchant_map"},
 
 	// D2 - Uniform
 	"workwear":    {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNIFORM, DeductiblePct: 1.0, Confidence: 0.70, Reasoning: "Possible work uniform expense", Source: "merchant_map"},
@@ -66,7 +66,7 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense) TaxClassification {
 				IsDeductible: false,
 				Confidence:   0.90,
 				Reasoning:    "Personal expense merchant - unlikely to be deductible",
-				Source:        "not_deductible",
+				Source:       "not_deductible",
 			}
 		}
 	}
@@ -87,7 +87,7 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense) TaxClassification {
 			DeductiblePct: 1.0,
 			Confidence:    0.55,
 			Reasoning:     "Education expense - may be deductible if work-related",
-			Source:         "category",
+			Source:        "category",
 		}
 	case pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_TRANSPORTATION:
 		return TaxClassification{
@@ -96,7 +96,7 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense) TaxClassification {
 			DeductiblePct: 0.5, // Assume 50% work use without more info
 			Confidence:    0.40,
 			Reasoning:     "Transport expense - may be deductible if for work travel (not commuting)",
-			Source:         "category",
+			Source:        "category",
 		}
 	}
 
@@ -110,7 +110,7 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense) TaxClassification {
 				DeductiblePct: 1.0,
 				Confidence:    0.60,
 				Reasoning:     "Tagged as work/business related by user",
-				Source:         "tag",
+				Source:        "tag",
 			}
 		}
 	}
@@ -148,7 +148,7 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense) TaxClassification {
 				DeductiblePct: 1.0,
 				Confidence:    0.55,
 				Reasoning:     "Description contains work-related keyword: " + keyword,
-				Source:         "keyword",
+				Source:        "keyword",
 			}
 		}
 	}
@@ -158,6 +158,6 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense) TaxClassification {
 		IsDeductible: false,
 		Confidence:   0.30, // Low confidence — needs human or AI review
 		Reasoning:    "No matching rules found",
-		Source:        "none",
+		Source:       "none",
 	}
 }

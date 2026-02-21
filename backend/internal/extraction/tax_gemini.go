@@ -144,7 +144,7 @@ Expenses:
 				IsDeductible: false,
 				Confidence:   0.30,
 				Reasoning:    "Not classified by AI",
-				Source:        "gemini_miss",
+				Source:       "gemini_miss",
 			})
 			continue
 		}
@@ -161,7 +161,7 @@ Expenses:
 			DeductiblePct: pct,
 			Confidence:    r.Confidence,
 			Reasoning:     r.Reasoning,
-			Source:         "gemini",
+			Source:        "gemini",
 		})
 	}
 
@@ -181,8 +181,8 @@ func (c *TaxGeminiClassifier) callGemini(ctx context.Context, prompt string) (*G
 			},
 		},
 		"generationConfig": map[string]interface{}{
-			"temperature":   0.1,
-			"maxOutputTokens": 4096,
+			"temperature":      0.1,
+			"maxOutputTokens":  4096,
 			"responseMimeType": "application/json",
 		},
 	}

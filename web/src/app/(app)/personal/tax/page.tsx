@@ -813,7 +813,7 @@ function ExportTab() {
       });
 
       // Download the file
-      const blob = new Blob([response.data], { type: response.contentType });
+      const blob = new Blob([response.data as BlobPart], { type: response.contentType });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
