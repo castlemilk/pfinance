@@ -16,6 +16,11 @@ func LocalDevInterceptor() connect.UnaryInterceptorFunc {
 				return next(ctx, req)
 			}
 
+			// Skip if already authenticated (e.g., by API token interceptor)
+			if _, ok := GetUserClaims(ctx); ok {
+				return next(ctx, req)
+			}
+
 			// Check for debug user ID header (sent by frontend in dev mode)
 			debugUserID := req.Header().Get("X-Debug-User-ID")
 			debugUserEmail := req.Header().Get("X-Debug-User-Email")

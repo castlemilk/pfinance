@@ -42,6 +42,50 @@ func (m *MockStore) EXPECT() *MockStoreMockRecorder {
 	return m.recorder
 }
 
+// AggregateDeductionsByCategory mocks base method.
+func (m *MockStore) AggregateDeductionsByCategory(ctx context.Context, userID, groupID string, startDate, endDate time.Time) ([]*pfinancev1.TaxDeductionSummary, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AggregateDeductionsByCategory", ctx, userID, groupID, startDate, endDate)
+	ret0, _ := ret[0].([]*pfinancev1.TaxDeductionSummary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AggregateDeductionsByCategory indicates an expected call of AggregateDeductionsByCategory.
+func (mr *MockStoreMockRecorder) AggregateDeductionsByCategory(ctx, userID, groupID, startDate, endDate any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AggregateDeductionsByCategory", reflect.TypeOf((*MockStore)(nil).AggregateDeductionsByCategory), ctx, userID, groupID, startDate, endDate)
+}
+
+// CountActiveApiTokens mocks base method.
+func (m *MockStore) CountActiveApiTokens(ctx context.Context, userID string) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CountActiveApiTokens", ctx, userID)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CountActiveApiTokens indicates an expected call of CountActiveApiTokens.
+func (mr *MockStoreMockRecorder) CountActiveApiTokens(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CountActiveApiTokens", reflect.TypeOf((*MockStore)(nil).CountActiveApiTokens), ctx, userID)
+}
+
+// CreateApiToken mocks base method.
+func (m *MockStore) CreateApiToken(ctx context.Context, token *pfinancev1.ApiToken) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateApiToken", ctx, token)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateApiToken indicates an expected call of CreateApiToken.
+func (mr *MockStoreMockRecorder) CreateApiToken(ctx, token any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateApiToken", reflect.TypeOf((*MockStore)(nil).CreateApiToken), ctx, token)
+}
+
 // CreateBudget mocks base method.
 func (m *MockStore) CreateBudget(ctx context.Context, budget *pfinancev1.Budget) error {
 	m.ctrl.T.Helper()
@@ -336,6 +380,21 @@ func (mr *MockStoreMockRecorder) DeleteUser(ctx, userID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUser", reflect.TypeOf((*MockStore)(nil).DeleteUser), ctx, userID)
 }
 
+// GetApiTokenByHash mocks base method.
+func (m *MockStore) GetApiTokenByHash(ctx context.Context, tokenHash string) (*pfinancev1.ApiToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApiTokenByHash", ctx, tokenHash)
+	ret0, _ := ret[0].(*pfinancev1.ApiToken)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApiTokenByHash indicates an expected call of GetApiTokenByHash.
+func (mr *MockStoreMockRecorder) GetApiTokenByHash(ctx, tokenHash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApiTokenByHash", reflect.TypeOf((*MockStore)(nil).GetApiTokenByHash), ctx, tokenHash)
+}
+
 // GetBudget mocks base method.
 func (m *MockStore) GetBudget(ctx context.Context, budgetID string) (*pfinancev1.Budget, error) {
 	m.ctrl.T.Helper()
@@ -591,6 +650,21 @@ func (mr *MockStoreMockRecorder) GetTaxConfig(ctx, userID, groupID any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaxConfig", reflect.TypeOf((*MockStore)(nil).GetTaxConfig), ctx, userID, groupID)
 }
 
+// GetTaxDeductibilityMappings mocks base method.
+func (m *MockStore) GetTaxDeductibilityMappings(ctx context.Context, userID string) ([]*pfinancev1.TaxDeductibilityMapping, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTaxDeductibilityMappings", ctx, userID)
+	ret0, _ := ret[0].([]*pfinancev1.TaxDeductibilityMapping)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTaxDeductibilityMappings indicates an expected call of GetTaxDeductibilityMappings.
+func (mr *MockStoreMockRecorder) GetTaxDeductibilityMappings(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaxDeductibilityMappings", reflect.TypeOf((*MockStore)(nil).GetTaxDeductibilityMappings), ctx, userID)
+}
+
 // GetUnreadNotificationCount mocks base method.
 func (m *MockStore) GetUnreadNotificationCount(ctx context.Context, userID string) (int32, error) {
 	m.ctrl.T.Helper()
@@ -634,6 +708,21 @@ func (m *MockStore) HasNotification(ctx context.Context, userID string, notifTyp
 func (mr *MockStoreMockRecorder) HasNotification(ctx, userID, notifType, referenceID, metadataKey, metadataValue, withinHours any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasNotification", reflect.TypeOf((*MockStore)(nil).HasNotification), ctx, userID, notifType, referenceID, metadataKey, metadataValue, withinHours)
+}
+
+// ListApiTokens mocks base method.
+func (m *MockStore) ListApiTokens(ctx context.Context, userID string) ([]*pfinancev1.ApiToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListApiTokens", ctx, userID)
+	ret0, _ := ret[0].([]*pfinancev1.ApiToken)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListApiTokens indicates an expected call of ListApiTokens.
+func (mr *MockStoreMockRecorder) ListApiTokens(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListApiTokens", reflect.TypeOf((*MockStore)(nil).ListApiTokens), ctx, userID)
 }
 
 // ListBudgets mocks base method.
@@ -681,6 +770,22 @@ func (m *MockStore) ListCorrectionRecords(ctx context.Context, userID string, li
 func (mr *MockStoreMockRecorder) ListCorrectionRecords(ctx, userID, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCorrectionRecords", reflect.TypeOf((*MockStore)(nil).ListCorrectionRecords), ctx, userID, limit)
+}
+
+// ListDeductibleExpenses mocks base method.
+func (m *MockStore) ListDeductibleExpenses(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, category pfinancev1.TaxDeductionCategory, pageSize int32, pageToken string) ([]*pfinancev1.Expense, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListDeductibleExpenses", ctx, userID, groupID, startDate, endDate, category, pageSize, pageToken)
+	ret0, _ := ret[0].([]*pfinancev1.Expense)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListDeductibleExpenses indicates an expected call of ListDeductibleExpenses.
+func (mr *MockStoreMockRecorder) ListDeductibleExpenses(ctx, userID, groupID, startDate, endDate, category, pageSize, pageToken any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListDeductibleExpenses", reflect.TypeOf((*MockStore)(nil).ListDeductibleExpenses), ctx, userID, groupID, startDate, endDate, category, pageSize, pageToken)
 }
 
 // ListExpenses mocks base method.
@@ -886,6 +991,20 @@ func (mr *MockStoreMockRecorder) MarkNotificationRead(ctx, notificationID any) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkNotificationRead", reflect.TypeOf((*MockStore)(nil).MarkNotificationRead), ctx, notificationID)
 }
 
+// RevokeApiToken mocks base method.
+func (m *MockStore) RevokeApiToken(ctx context.Context, tokenID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RevokeApiToken", ctx, tokenID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RevokeApiToken indicates an expected call of RevokeApiToken.
+func (mr *MockStoreMockRecorder) RevokeApiToken(ctx, tokenID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeApiToken", reflect.TypeOf((*MockStore)(nil).RevokeApiToken), ctx, tokenID)
+}
+
 // SearchTransactions mocks base method.
 func (m *MockStore) SearchTransactions(ctx context.Context, userID, groupID, query, category string, amountMin, amountMax float64, startDate, endDate *time.Time, txType pfinancev1.TransactionType, pageSize int32, pageToken string) ([]*pfinancev1.SearchResult, string, int, error) {
 	m.ctrl.T.Helper()
@@ -901,6 +1020,20 @@ func (m *MockStore) SearchTransactions(ctx context.Context, userID, groupID, que
 func (mr *MockStoreMockRecorder) SearchTransactions(ctx, userID, groupID, query, category, amountMin, amountMax, startDate, endDate, txType, pageSize, pageToken any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SearchTransactions", reflect.TypeOf((*MockStore)(nil).SearchTransactions), ctx, userID, groupID, query, category, amountMin, amountMax, startDate, endDate, txType, pageSize, pageToken)
+}
+
+// UpdateApiTokenLastUsed mocks base method.
+func (m *MockStore) UpdateApiTokenLastUsed(ctx context.Context, tokenID string, lastUsed time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateApiTokenLastUsed", ctx, tokenID, lastUsed)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateApiTokenLastUsed indicates an expected call of UpdateApiTokenLastUsed.
+func (mr *MockStoreMockRecorder) UpdateApiTokenLastUsed(ctx, tokenID, lastUsed any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApiTokenLastUsed", reflect.TypeOf((*MockStore)(nil).UpdateApiTokenLastUsed), ctx, tokenID, lastUsed)
 }
 
 // UpdateBudget mocks base method.
@@ -1069,4 +1202,18 @@ func (m *MockStore) UpsertMerchantMapping(ctx context.Context, mapping *pfinance
 func (mr *MockStoreMockRecorder) UpsertMerchantMapping(ctx, mapping any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertMerchantMapping", reflect.TypeOf((*MockStore)(nil).UpsertMerchantMapping), ctx, mapping)
+}
+
+// UpsertTaxDeductibilityMapping mocks base method.
+func (m *MockStore) UpsertTaxDeductibilityMapping(ctx context.Context, mapping *pfinancev1.TaxDeductibilityMapping) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpsertTaxDeductibilityMapping", ctx, mapping)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpsertTaxDeductibilityMapping indicates an expected call of UpsertTaxDeductibilityMapping.
+func (mr *MockStoreMockRecorder) UpsertTaxDeductibilityMapping(ctx, mapping any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertTaxDeductibilityMapping", reflect.TypeOf((*MockStore)(nil).UpsertTaxDeductibilityMapping), ctx, mapping)
 }

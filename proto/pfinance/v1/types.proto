@@ -55,6 +55,21 @@ enum TaxCountry {
   TAX_COUNTRY_SIMPLE = 3;
 }
 
+// TaxDeductionCategory represents ATO deduction categories
+enum TaxDeductionCategory {
+  TAX_DEDUCTION_CATEGORY_UNSPECIFIED = 0;
+  TAX_DEDUCTION_CATEGORY_WORK_TRAVEL = 1;      // D1 - Work-related travel
+  TAX_DEDUCTION_CATEGORY_UNIFORM = 2;           // D2 - Uniform, laundry, dry-cleaning
+  TAX_DEDUCTION_CATEGORY_SELF_EDUCATION = 3;    // D3 - Self-education expenses
+  TAX_DEDUCTION_CATEGORY_OTHER_WORK = 4;        // D4 - Other work-related (tools, phone, subscriptions)
+  TAX_DEDUCTION_CATEGORY_HOME_OFFICE = 5;       // D5 - Working from home (67c/hr or actual cost)
+  TAX_DEDUCTION_CATEGORY_VEHICLE = 6;           // D6 - Car expenses (85c/km or logbook)
+  TAX_DEDUCTION_CATEGORY_DONATIONS = 7;         // D15 - Gifts and donations to DGR charities
+  TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS = 8;       // D10 - Cost of managing tax affairs
+  TAX_DEDUCTION_CATEGORY_INCOME_PROTECTION = 9; // Income protection insurance
+  TAX_DEDUCTION_CATEGORY_OTHER = 10;
+}
+
 // SubscriptionTier represents the user's subscription plan
 enum SubscriptionTier {
   SUBSCRIPTION_TIER_UNSPECIFIED = 0;
@@ -83,6 +98,19 @@ message User {
   SubscriptionStatus subscription_status = 8;
   string stripe_customer_id = 9;
   string stripe_subscription_id = 10;
+}
+
+// ApiToken represents a personal API token for programmatic access
+message ApiToken {
+  string id = 1;
+  string user_id = 2;
+  string name = 3;                          // User-chosen label ("Claude Code", "Analysis Script")
+  string token_prefix = 4;                  // First 8 chars for identification ("pf_a1b2...")
+  string token_hash = 5;                    // SHA-256 hash (never return full token)
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp last_used_at = 7;
+  google.protobuf.Timestamp expires_at = 8; // Optional expiry
+  bool is_revoked = 9;
 }
 
 // SplitType represents how an expense is split among members
@@ -126,6 +154,12 @@ message Expense {
   repeated string tags = 15; // Optional tags for filtering/grouping
   int64 amount_cents = 16; // Amount in cents (preferred over amount)
   ExtractionMethod extraction_method = 17; // Which ML method extracted this expense (if any)
+
+  // Tax deduction fields
+  bool is_tax_deductible = 18;
+  TaxDeductionCategory tax_deduction_category = 19;
+  string tax_deduction_note = 20;     // e.g., "67c/hr x 200hrs"
+  double tax_deductible_percent = 21; // 0.0-1.0 for partial deductions (e.g., 50% work phone)
 }
 
 // Income represents a single income entry
@@ -898,4 +932,56 @@ message DuplicateCandidate {
   ExpenseCategory category = 6;
   double match_score = 7;             // 0.0-1.0 similarity
   string match_reason = 8;            // "Same amount + date", "Similar merchant"
+}
+
+// ============================================================================
+// Tax Returns
+// ============================================================================
+
+// TaxDeductionSummary represents aggregated deductions for a single category
+message TaxDeductionSummary {
+  TaxDeductionCategory category = 1;
+  int64 total_cents = 2;
+  double total_amount = 3;
+  int32 expense_count = 4;
+}
+
+// TaxCalculation represents a full Australian tax estimate
+message TaxCalculation {
+  string financial_year = 1;            // e.g., "2025-26"
+  int64 gross_income_cents = 2;
+  double gross_income = 3;
+  repeated TaxDeductionSummary deductions = 4;
+  int64 total_deductions_cents = 5;
+  double total_deductions = 6;
+  int64 taxable_income_cents = 7;
+  double taxable_income = 8;
+  int64 base_tax_cents = 9;
+  double base_tax = 10;
+  int64 medicare_levy_cents = 11;
+  double medicare_levy = 12;
+  int64 help_repayment_cents = 13;
+  double help_repayment = 14;
+  int64 lito_cents = 15;                // Low Income Tax Offset (negative = reduction)
+  double lito = 16;
+  int64 total_tax_cents = 17;
+  double total_tax = 18;
+  double effective_rate = 19;           // Total tax / gross income
+  int64 refund_or_owed_cents = 20;      // Positive = refund, negative = owed
+  double refund_or_owed = 21;
+  int64 tax_withheld_cents = 22;        // From income records
+  double tax_withheld = 23;
+}
+
+// TaxDeductibilityMapping stores learned merchant->deduction patterns
+message TaxDeductibilityMapping {
+  string id = 1;
+  string user_id = 2;
+  string merchant_pattern = 3;         // Merchant name pattern
+  TaxDeductionCategory deduction_category = 4;
+  double deductible_percent = 5;       // 0.0-1.0
+  int32 confirmation_count = 6;        // How many times user confirmed
+  double confidence = 7;               // Derived from confirmation_count
+  google.protobuf.Timestamp last_used = 8;
+  google.protobuf.Timestamp created_at = 9;
 }

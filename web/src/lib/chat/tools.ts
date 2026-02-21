@@ -1,7 +1,7 @@
 import { tool, type ToolSet } from 'ai';
 import { z } from 'zod';
 import { timestampFromDate, timestampDate } from '@bufbuild/protobuf/wkt';
-import { ExpenseCategory, ExpenseFrequency, GoalStatus } from '@/gen/pfinance/v1/types_pb';
+import { ExpenseCategory, ExpenseFrequency, GoalStatus, TaxDeductionCategory } from '@/gen/pfinance/v1/types_pb';
 import type { BackendClient } from './backend-client';
 
 // Helper to convert cents to dollars
@@ -286,6 +286,44 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
         };
 
         if (!args.confirmed) {
+          // Check for duplicates before showing confirmation
+          let duplicates: Array<{ description: string; amount: number; date: string; matchScore: number; matchReason: string }> = [];
+          let duplicateWarning: string | undefined;
+          try {
+            const res = await client.checkDuplicates({
+              userId,
+              transactions: [
+                {
+                  id: '',
+                  description: args.description,
+                  normalizedMerchant: args.description,
+                  amount: args.amount,
+                  amountCents: BigInt(Math.round(args.amount * 100)),
+                  date: args.date || new Date().toISOString().split('T')[0],
+                  isDebit: true,
+                  confidence: 1.0,
+                },
+              ],
+            });
+            for (const [, candidateList] of Object.entries(res.duplicates)) {
+              for (const c of candidateList.candidates) {
+                const amt = Number(c.amountCents) !== 0 ? centsToDollars(c.amountCents) : c.amount;
+                duplicates.push({
+                  description: c.description,
+                  amount: amt,
+                  date: c.date,
+                  matchScore: c.matchScore,
+                  matchReason: c.matchReason,
+                });
+              }
+            }
+            if (duplicates.length > 0) {
+              duplicateWarning = `Found ${duplicates.length} similar existing expense${duplicates.length > 1 ? 's' : ''}`;
+            }
+          } catch {
+            // Non-blocking — proceed without dedup info
+          }
+
           return {
             status: 'pending_confirmation' as const,
             action: 'create_expense',
@@ -297,6 +335,8 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
               date: args.date || new Date().toISOString().split('T')[0],
               tags: args.tags || [],
             },
+            duplicates: duplicates.length > 0 ? duplicates : undefined,
+            duplicateWarning,
             message: `Create expense: "${args.description}" for $${args.amount.toFixed(2)} (${args.category})?`,
           };
         }
@@ -548,6 +588,245 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
           return { comparisons };
         } catch (err: unknown) {
           return { error: String(err) };
+        }
+      },
+    });
+
+    tools.get_tax_summary = tool({
+      description: 'Get the tax return summary for a financial year, including gross income, deductions, taxable income, and estimated tax. Pro feature.',
+      inputSchema: z.object({
+        financialYear: z.string().optional().describe('Financial year e.g. "2025-26" (default: current FY)'),
+      }),
+      execute: async (args) => {
+        try {
+          const res = await client.getTaxSummary({
+            userId,
+            financialYear: args.financialYear || '',
+          });
+          const calc = res.calculation;
+          if (!calc) return { error: 'No tax data available' };
+          return {
+            financialYear: calc.financialYear,
+            grossIncome: calc.grossIncome,
+            totalDeductions: calc.totalDeductions,
+            taxableIncome: calc.taxableIncome,
+            baseTax: calc.baseTax,
+            medicareLevy: calc.medicareLevy,
+            helpRepayment: calc.helpRepayment,
+            lito: calc.lito,
+            totalTax: calc.totalTax,
+            effectiveRate: (calc.effectiveRate * 100).toFixed(1) + '%',
+            taxWithheld: calc.taxWithheld,
+            refundOrOwed: calc.refundOrOwed,
+            deductions: calc.deductions.map(d => ({
+              category: TaxDeductionCategory[d.category] || 'UNKNOWN',
+              amount: d.totalAmount,
+              expenseCount: d.expenseCount,
+            })),
+          };
+        } catch (err: unknown) {
+          return { error: String(err) };
+        }
+      },
+    });
+
+    tools.list_deductible_expenses = tool({
+      description: 'List tax-deductible expenses for a financial year, optionally filtered by ATO deduction category. Pro feature.',
+      inputSchema: z.object({
+        financialYear: z.string().optional().describe('Financial year e.g. "2025-26"'),
+        category: z.enum(['WORK_TRAVEL', 'UNIFORM', 'SELF_EDUCATION', 'OTHER_WORK', 'HOME_OFFICE', 'VEHICLE', 'DONATIONS', 'TAX_AFFAIRS', 'INCOME_PROTECTION', 'OTHER']).optional().describe('ATO deduction category filter'),
+      }),
+      execute: async (args) => {
+        try {
+          const catMap: Record<string, TaxDeductionCategory> = {
+            WORK_TRAVEL: TaxDeductionCategory.WORK_TRAVEL,
+            UNIFORM: TaxDeductionCategory.UNIFORM,
+            SELF_EDUCATION: TaxDeductionCategory.SELF_EDUCATION,
+            OTHER_WORK: TaxDeductionCategory.OTHER_WORK,
+            HOME_OFFICE: TaxDeductionCategory.HOME_OFFICE,
+            VEHICLE: TaxDeductionCategory.VEHICLE,
+            DONATIONS: TaxDeductionCategory.DONATIONS,
+            TAX_AFFAIRS: TaxDeductionCategory.TAX_AFFAIRS,
+            INCOME_PROTECTION: TaxDeductionCategory.INCOME_PROTECTION,
+            OTHER: TaxDeductionCategory.OTHER,
+          };
+          const res = await client.listDeductibleExpenses({
+            userId,
+            financialYear: args.financialYear || '',
+            category: args.category ? catMap[args.category] : TaxDeductionCategory.UNSPECIFIED,
+            pageSize: 50,
+          });
+          const expenses = res.expenses.map(e => {
+            const amount = Number(e.amountCents) !== 0 ? centsToDollars(e.amountCents) : e.amount;
+            return {
+              id: e.id,
+              description: e.description,
+              amount,
+              category: TaxDeductionCategory[e.taxDeductionCategory] || 'UNKNOWN',
+              deductiblePercent: e.taxDeductiblePercent,
+              note: e.taxDeductionNote,
+              date: e.date ? timestampDate(e.date as Parameters<typeof timestampDate>[0]).toISOString().split('T')[0] : 'no date',
+            };
+          });
+          return {
+            expenses,
+            count: expenses.length,
+            totalDeductible: res.totalDeductible,
+          };
+        } catch (err: unknown) {
+          return { error: String(err) };
+        }
+      },
+    });
+
+    tools.classify_tax_deductibility = tool({
+      description: 'Use AI to classify expenses as tax-deductible. Can classify a single expense or batch-classify all expenses in a financial year. This is a mutation - use confirmed=false/true pattern.',
+      inputSchema: z.object({
+        mode: z.enum(['single', 'batch']).describe('"single" for one expense, "batch" for all expenses in a FY'),
+        expenseId: z.string().optional().describe('Expense ID (required for single mode)'),
+        financialYear: z.string().optional().describe('Financial year for batch mode (default: current FY)'),
+        occupation: z.string().optional().describe('User occupation for better classification (e.g. "software engineer")'),
+        confirmed: z.boolean().describe('Set to false to preview, true to execute'),
+      }),
+      execute: async (args) => {
+        if (args.mode === 'single') {
+          if (!args.expenseId) return { status: 'error', error: 'expenseId required for single mode' };
+
+          if (!args.confirmed) {
+            return {
+              status: 'pending_confirmation' as const,
+              action: 'classify_tax_deductibility',
+              message: `AI-classify expense ${args.expenseId} for tax deductibility?`,
+              details: { expenseId: args.expenseId, occupation: args.occupation },
+            };
+          }
+
+          try {
+            const res = await client.classifyTaxDeductibility({
+              userId,
+              expenseId: args.expenseId,
+              occupation: args.occupation || '',
+            });
+            const r = res.result;
+            if (!r) return { status: 'error', error: 'No result returned' };
+            return {
+              status: 'success',
+              result: {
+                isDeductible: r.isDeductible,
+                category: TaxDeductionCategory[r.category] || 'UNKNOWN',
+                deductiblePercent: r.deductiblePercent,
+                confidence: r.confidence,
+                reasoning: r.reasoning,
+                autoApplied: r.autoApplied,
+                needsReview: r.needsReview,
+              },
+              message: r.isDeductible
+                ? `Classified as deductible (${TaxDeductionCategory[r.category]}, ${(r.confidence * 100).toFixed(0)}% confidence). ${r.autoApplied ? 'Auto-applied.' : 'Needs your review.'}`
+                : `Classified as NOT deductible (${(r.confidence * 100).toFixed(0)}% confidence): ${r.reasoning}`,
+            };
+          } catch (err: unknown) {
+            return { status: 'error', error: String(err) };
+          }
+        } else {
+          // Batch mode
+          if (!args.confirmed) {
+            return {
+              status: 'pending_confirmation' as const,
+              action: 'batch_classify_tax_deductibility',
+              message: `AI-classify all expenses in FY ${args.financialYear || 'current'} for tax deductibility? High-confidence results will be auto-applied.`,
+              details: { financialYear: args.financialYear, occupation: args.occupation },
+            };
+          }
+
+          try {
+            const res = await client.batchClassifyTaxDeductibility({
+              userId,
+              financialYear: args.financialYear || '',
+              occupation: args.occupation || '',
+              autoApply: true,
+            });
+            return {
+              status: 'success',
+              stats: {
+                totalProcessed: res.totalProcessed,
+                autoApplied: res.autoApplied,
+                needsReview: res.needsReview,
+                skipped: res.skipped,
+              },
+              message: `Classified ${res.totalProcessed} expenses: ${res.autoApplied} auto-applied, ${res.needsReview} need review, ${res.skipped} skipped.`,
+            };
+          } catch (err: unknown) {
+            return { status: 'error', error: String(err) };
+          }
+        }
+      },
+    });
+
+    tools.update_tax_deductibility = tool({
+      description: 'Mark one or more expenses as tax-deductible (or not). Use confirmed=false/true pattern. Search for the expense first.',
+      inputSchema: z.object({
+        updates: z.array(z.object({
+          expenseId: z.string().describe('Expense ID'),
+          isTaxDeductible: z.boolean().describe('Whether the expense is tax deductible'),
+          category: z.enum(['WORK_TRAVEL', 'UNIFORM', 'SELF_EDUCATION', 'OTHER_WORK', 'HOME_OFFICE', 'VEHICLE', 'DONATIONS', 'TAX_AFFAIRS', 'INCOME_PROTECTION', 'OTHER']).optional().describe('ATO deduction category'),
+          deductiblePercent: z.number().optional().describe('Percentage deductible (0.0-1.0, default 1.0)'),
+          note: z.string().optional().describe('Deduction note'),
+        })).describe('Array of tax status updates'),
+        confirmed: z.boolean().describe('Set to false to preview, true to execute'),
+      }),
+      execute: async (args) => {
+        if (!args.confirmed) {
+          const descriptions = [];
+          for (const u of args.updates) {
+            try {
+              const res = await client.getExpense({ expenseId: u.expenseId });
+              if (res.expense) {
+                const amount = Number(res.expense.amountCents) !== 0 ? centsToDollars(res.expense.amountCents) : res.expense.amount;
+                descriptions.push(`"${res.expense.description}" ($${amount.toFixed(2)}) → ${u.isTaxDeductible ? 'deductible' : 'not deductible'}${u.category ? ` (${u.category})` : ''}`);
+              }
+            } catch {
+              descriptions.push(`${u.expenseId} → ${u.isTaxDeductible ? 'deductible' : 'not deductible'}`);
+            }
+          }
+          return {
+            status: 'pending_confirmation' as const,
+            action: 'update_tax_deductibility',
+            count: args.updates.length,
+            changes: descriptions,
+            message: `Update tax status for ${args.updates.length} expense(s)?`,
+          };
+        }
+
+        try {
+          const catMap: Record<string, TaxDeductionCategory> = {
+            WORK_TRAVEL: TaxDeductionCategory.WORK_TRAVEL,
+            UNIFORM: TaxDeductionCategory.UNIFORM,
+            SELF_EDUCATION: TaxDeductionCategory.SELF_EDUCATION,
+            OTHER_WORK: TaxDeductionCategory.OTHER_WORK,
+            HOME_OFFICE: TaxDeductionCategory.HOME_OFFICE,
+            VEHICLE: TaxDeductionCategory.VEHICLE,
+            DONATIONS: TaxDeductionCategory.DONATIONS,
+            TAX_AFFAIRS: TaxDeductionCategory.TAX_AFFAIRS,
+            INCOME_PROTECTION: TaxDeductionCategory.INCOME_PROTECTION,
+            OTHER: TaxDeductionCategory.OTHER,
+          };
+          const res = await client.batchUpdateExpenseTaxStatus({
+            updates: args.updates.map(u => ({
+              expenseId: u.expenseId,
+              isTaxDeductible: u.isTaxDeductible,
+              taxDeductionCategory: u.category ? catMap[u.category] : TaxDeductionCategory.UNSPECIFIED,
+              taxDeductiblePercent: u.deductiblePercent ?? (u.isTaxDeductible ? 1.0 : 0),
+              taxDeductionNote: u.note || '',
+            })),
+          });
+          return {
+            status: 'success',
+            updatedCount: res.updatedCount,
+            failedIds: res.failedExpenseIds,
+            message: `Updated ${res.updatedCount} expense(s)${res.failedExpenseIds.length > 0 ? `, ${res.failedExpenseIds.length} failed` : ''}`,
+          };
+        } catch (err: unknown) {
+          return { status: 'error', error: String(err) };
         }
       },
     });

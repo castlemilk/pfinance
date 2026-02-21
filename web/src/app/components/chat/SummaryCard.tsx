@@ -51,7 +51,7 @@ export function SummaryCard({ type, budgets, insights, goals }: SummaryCardProps
                 </div>
                 <Progress
                   value={Math.min(b.percentage, 100)}
-                  className="h-2"
+                  className="h-2.5"
                 />
                 <div className="flex justify-between mt-0.5">
                   <span className="text-xs text-muted-foreground">
@@ -85,7 +85,7 @@ export function SummaryCard({ type, budgets, insights, goals }: SummaryCardProps
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">{i.description}</p>
                 {i.percentageChange !== undefined && i.percentageChange !== 0 && (
-                  <span className={`text-xs font-medium ${i.percentageChange > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                  <span className={`text-xs font-medium ${i.percentageChange > 0 ? 'text-destructive' : 'text-primary'}`}>
                     {i.percentageChange > 0 ? '+' : ''}{i.percentageChange.toFixed(1)}% vs last period
                   </span>
                 )}
@@ -113,10 +113,10 @@ export function SummaryCard({ type, budgets, insights, goals }: SummaryCardProps
                     ${g.current.toFixed(2)} / ${g.target.toFixed(2)}
                   </span>
                 </div>
-                <Progress value={Math.min(g.percentage, 100)} className="h-2" />
+                <Progress value={Math.min(g.percentage, 100)} className="h-2.5" />
                 <div className="flex justify-between mt-0.5">
                   <span className="text-xs text-muted-foreground">{g.percentage.toFixed(0)}%</span>
-                  <span className={`text-xs font-medium ${g.onTrack ? 'text-green-600' : 'text-amber-600'}`}>
+                  <span className={`text-xs font-medium ${g.onTrack ? 'text-primary' : 'text-destructive'}`}>
                     {g.onTrack ? 'On track' : 'Behind'}
                   </span>
                 </div>

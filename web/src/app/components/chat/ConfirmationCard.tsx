@@ -6,18 +6,28 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Check, X } from 'lucide-react';
 
+interface DuplicateInfo {
+  description: string;
+  amount: number;
+  date: string;
+  matchScore: number;
+  matchReason: string;
+}
+
 interface ConfirmationCardProps {
   action: string;
   message: string;
   details?: Record<string, unknown>;
   expenses?: Array<{ description: string; amount: number; date: string; category: string }>;
   changes?: Record<string, { from: unknown; to: unknown }>;
+  duplicates?: DuplicateInfo[];
+  duplicateWarning?: string;
   disabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-export function ConfirmationCard({ action, message, details, expenses, changes, disabled = false, onConfirm, onCancel }: ConfirmationCardProps) {
+export function ConfirmationCard({ action, message, details, expenses, changes, duplicates, duplicateWarning, disabled = false, onConfirm, onCancel }: ConfirmationCardProps) {
   const [responded, setResponded] = useState(disabled);
 
   const isDelete = action.includes('delete');
@@ -80,6 +90,24 @@ export function ConfirmationCard({ action, message, details, expenses, changes, 
                   <span className="font-medium">${e.amount.toFixed(2)}</span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Duplicate warning */}
+          {duplicates && duplicates.length > 0 && (
+            <div className="border border-amber-500/50 bg-amber-500/10 rounded p-2 space-y-1">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="w-3 h-3" />
+                {duplicateWarning || `${duplicates.length} similar expense${duplicates.length > 1 ? 's' : ''} found`}
+              </div>
+              <div className="text-xs space-y-0.5 text-muted-foreground">
+                {duplicates.map((d, i) => (
+                  <div key={i} className="flex justify-between">
+                    <span className="truncate">{d.description} ({d.date})</span>
+                    <span className="font-medium shrink-0 ml-2">${d.amount.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

@@ -143,6 +143,20 @@ service FinanceService {
   rpc CheckDuplicates(CheckDuplicatesRequest) returns (CheckDuplicatesResponse);
   rpc GetMerchantSuggestions(GetMerchantSuggestionsRequest) returns (GetMerchantSuggestionsResponse);
   rpc GetExtractionMetrics(GetExtractionMetricsRequest) returns (GetExtractionMetricsResponse);
+
+  // Tax returns operations (Pro tier)
+  rpc GetTaxSummary(GetTaxSummaryRequest) returns (GetTaxSummaryResponse);
+  rpc GetTaxEstimate(GetTaxEstimateRequest) returns (GetTaxEstimateResponse);
+  rpc BatchUpdateExpenseTaxStatus(BatchUpdateExpenseTaxStatusRequest) returns (BatchUpdateExpenseTaxStatusResponse);
+  rpc ListDeductibleExpenses(ListDeductibleExpensesRequest) returns (ListDeductibleExpensesResponse);
+  rpc ClassifyTaxDeductibility(ClassifyTaxDeductibilityRequest) returns (ClassifyTaxDeductibilityResponse);
+  rpc BatchClassifyTaxDeductibility(BatchClassifyTaxDeductibilityRequest) returns (BatchClassifyTaxDeductibilityResponse);
+  rpc ExportTaxReturn(ExportTaxReturnRequest) returns (ExportTaxReturnResponse);
+
+  // API token operations (Pro tier)
+  rpc CreateApiToken(CreateApiTokenRequest) returns (CreateApiTokenResponse);
+  rpc ListApiTokens(ListApiTokensRequest) returns (ListApiTokensResponse);
+  rpc RevokeApiToken(RevokeApiTokenRequest) returns (RevokeApiTokenResponse);
 }
 
 // User operations
@@ -198,6 +212,12 @@ message CreateExpenseRequest {
   repeated ExpenseAllocation allocations = 11; // Custom allocations (for percentage/amount splits)
   repeated string tags = 12; // Optional tags
   int64 amount_cents = 13; // Amount in cents (preferred over amount)
+
+  // Tax deduction fields
+  bool is_tax_deductible = 14;
+  TaxDeductionCategory tax_deduction_category = 15;
+  string tax_deduction_note = 16;
+  double tax_deductible_percent = 17; // 0.0-1.0
 }
 
 message CreateExpenseResponse {
@@ -226,6 +246,12 @@ message UpdateExpenseRequest {
   repeated ExpenseAllocation allocations = 9;
   repeated string tags = 10;
   int64 amount_cents = 11; // Amount in cents (preferred over amount)
+
+  // Tax deduction fields
+  bool is_tax_deductible = 12;
+  TaxDeductionCategory tax_deduction_category = 13;
+  string tax_deduction_note = 14;
+  double tax_deductible_percent = 15; // 0.0-1.0
 }
 
 message UpdateExpenseResponse {
@@ -1275,3 +1301,149 @@ message GetExtractionMetricsResponse {
   map<string, int32> corrections_by_category = 7;
   repeated ExtractionEvent recent_events = 8;
 }
+
+// ============================================================================
+// Tax returns operations (Pro tier)
+// ============================================================================
+
+message GetTaxSummaryRequest {
+  string user_id = 1;
+  string financial_year = 2;        // e.g., "2025-26"
+}
+
+message GetTaxSummaryResponse {
+  TaxCalculation calculation = 1;
+}
+
+message GetTaxEstimateRequest {
+  string user_id = 1;
+  string financial_year = 2;        // e.g., "2025-26"
+  // Optional overrides for what-if scenarios
+  int64 gross_income_override_cents = 3;
+  double gross_income_override = 4;
+  int64 additional_deductions_cents = 5;
+  double additional_deductions = 6;
+  bool include_help = 7;            // Include HELP/HECS repayment
+  bool medicare_exemption = 8;      // Medicare levy exemption
+}
+
+message GetTaxEstimateResponse {
+  TaxCalculation calculation = 1;
+}
+
+// ExpenseTaxUpdate represents a single expense tax status update
+message ExpenseTaxUpdate {
+  string expense_id = 1;
+  bool is_tax_deductible = 2;
+  TaxDeductionCategory tax_deduction_category = 3;
+  string tax_deduction_note = 4;
+  double tax_deductible_percent = 5; // 0.0-1.0
+}
+
+message BatchUpdateExpenseTaxStatusRequest {
+  string user_id = 1;
+  repeated ExpenseTaxUpdate updates = 2; // Max 100
+}
+
+message BatchUpdateExpenseTaxStatusResponse {
+  int32 updated_count = 1;
+  repeated string failed_expense_ids = 2;
+}
+
+message ListDeductibleExpensesRequest {
+  string user_id = 1;
+  string group_id = 2;              // Optional
+  string financial_year = 3;        // e.g., "2025-26"
+  TaxDeductionCategory category = 4; // Optional filter
+  int32 page_size = 5;
+  string page_token = 6;
+}
+
+message ListDeductibleExpensesResponse {
+  repeated Expense expenses = 1;
+  string next_page_token = 2;
+  int64 total_deductible_cents = 3;
+  double total_deductible = 4;
+}
+
+// TaxClassificationResult represents AI classification for a single expense
+message TaxClassificationResult {
+  string expense_id = 1;
+  bool is_deductible = 2;
+  TaxDeductionCategory category = 3;
+  double deductible_percent = 4;    // 0.0-1.0
+  double confidence = 5;            // 0.0-1.0
+  string reasoning = 6;             // Brief explanation
+  bool auto_applied = 7;            // Whether it was auto-applied (confidence >= 0.85)
+  bool needs_review = 8;            // Whether user should review (0.60-0.84)
+}
+
+message ClassifyTaxDeductibilityRequest {
+  string user_id = 1;
+  string expense_id = 2;
+  string occupation = 3;            // User's occupation for context
+}
+
+message ClassifyTaxDeductibilityResponse {
+  TaxClassificationResult result = 1;
+}
+
+message BatchClassifyTaxDeductibilityRequest {
+  string user_id = 1;
+  string financial_year = 2;        // e.g., "2025-26"
+  string occupation = 3;            // User's occupation for context
+  bool auto_apply = 4;             // Whether to auto-apply high-confidence results
+}
+
+message BatchClassifyTaxDeductibilityResponse {
+  int32 total_processed = 1;
+  int32 auto_applied = 2;           // Confidence >= 0.85, auto-applied
+  int32 needs_review = 3;           // Confidence 0.60-0.84, flagged for review
+  int32 skipped = 4;                // Confidence < 0.40 or already classified
+  repeated TaxClassificationResult results = 5;
+}
+
+// ExportFormat for tax return export
+enum TaxExportFormat {
+  TAX_EXPORT_FORMAT_UNSPECIFIED = 0;
+  TAX_EXPORT_FORMAT_CSV = 1;
+  TAX_EXPORT_FORMAT_JSON = 2;
+}
+
+message ExportTaxReturnRequest {
+  string user_id = 1;
+  string financial_year = 2;        // e.g., "2025-26"
+  TaxExportFormat format = 3;
+}
+
+message ExportTaxReturnResponse {
+  bytes data = 1;
+  string filename = 2;
+  string content_type = 3;
+  TaxCalculation calculation = 4;   // Also return the calculation summary
+}
+
+// ============================================================================
+// API Token operations (Pro tier)
+// ============================================================================
+
+message CreateApiTokenRequest {
+  string name = 1; // User-chosen label ("Claude Code", "Analysis Script")
+}
+
+message CreateApiTokenResponse {
+  string token = 1;        // Raw token (shown once only, never stored)
+  ApiToken api_token = 2;  // Token metadata
+}
+
+message ListApiTokensRequest {}
+
+message ListApiTokensResponse {
+  repeated ApiToken tokens = 1;
+}
+
+message RevokeApiTokenRequest {
+  string token_id = 1;
+}
+
+message RevokeApiTokenResponse {}

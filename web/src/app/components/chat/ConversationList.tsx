@@ -163,7 +163,7 @@ export function ConversationList({
 
       {/* Conversation list */}
       <ScrollArea className="flex-1">
-        <div className="px-2 py-2 space-y-0.5">
+        <div className="px-2 py-2 space-y-1">
           {sortedConversations.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
               <MessageSquare className="w-8 h-8 text-muted-foreground/40 mb-3" />

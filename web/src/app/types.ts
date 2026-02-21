@@ -26,6 +26,11 @@ export type ExpenseCategory = 'Food' | 'Housing' | 'Transportation' | 'Entertain
 
 export type ExpenseFrequency = 'once' | 'daily' | 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'annually';
 
+export type TaxDeductionCategoryLabel =
+  | 'Work Travel' | 'Uniform' | 'Self-Education' | 'Other Work'
+  | 'Home Office' | 'Vehicle' | 'Donations' | 'Tax Affairs'
+  | 'Income Protection' | 'Other' | 'Unspecified';
+
 export interface Expense {
   id: string;
   description: string;
@@ -33,6 +38,10 @@ export interface Expense {
   category: ExpenseCategory;
   date: Date;
   frequency: ExpenseFrequency;
+  isTaxDeductible?: boolean;
+  taxDeductionCategory?: TaxDeductionCategoryLabel;
+  taxDeductionNote?: string;
+  taxDeductiblePercent?: number;
 }
 
 export interface ExpenseSummary {

@@ -115,6 +115,20 @@ type Store interface {
 	GetMerchantMappings(ctx context.Context, userID string) ([]*pfinancev1.MerchantMapping, error)
 	CreateExtractionEvent(ctx context.Context, event *pfinancev1.ExtractionEvent) error
 	ListExtractionEvents(ctx context.Context, userID string, since time.Time) ([]*pfinancev1.ExtractionEvent, error)
+
+	// Tax deductibility operations
+	ListDeductibleExpenses(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, category pfinancev1.TaxDeductionCategory, pageSize int32, pageToken string) ([]*pfinancev1.Expense, string, error)
+	AggregateDeductionsByCategory(ctx context.Context, userID, groupID string, startDate, endDate time.Time) ([]*pfinancev1.TaxDeductionSummary, error)
+	UpsertTaxDeductibilityMapping(ctx context.Context, mapping *pfinancev1.TaxDeductibilityMapping) error
+	GetTaxDeductibilityMappings(ctx context.Context, userID string) ([]*pfinancev1.TaxDeductibilityMapping, error)
+
+	// API token operations
+	CreateApiToken(ctx context.Context, token *pfinancev1.ApiToken) error
+	GetApiTokenByHash(ctx context.Context, tokenHash string) (*pfinancev1.ApiToken, error)
+	ListApiTokens(ctx context.Context, userID string) ([]*pfinancev1.ApiToken, error)
+	RevokeApiToken(ctx context.Context, tokenID string) error
+	UpdateApiTokenLastUsed(ctx context.Context, tokenID string, lastUsed time.Time) error
+	CountActiveApiTokens(ctx context.Context, userID string) (int, error)
 }
 
 // EncodePageToken encodes a document ID into a page token.

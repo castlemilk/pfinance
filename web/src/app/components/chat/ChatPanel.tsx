@@ -1,11 +1,11 @@
 'use client';
 
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useCallback, useState, useLayoutEffect } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, RotateCcw, Loader2, History, Plus } from 'lucide-react';
+import { Send, RotateCcw, Loader2, History, Plus, Bot, AlertCircle } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
 import { ConversationList } from './ConversationList';
 import { useAuth } from '../../context/AuthWithAdminContext';
@@ -30,6 +30,7 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
   const { isPro } = useSubscription();
   // P0-1 fix: use a sentinel div at the bottom for scrollIntoView instead of ScrollArea ref
   const scrollEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [input, setInput] = useState('');
   const [showConversations, setShowConversations] = useState(showHistory);
   // P0-3 fix: use a ref to track conversation ID for immediate use (avoids state async lag)
@@ -100,6 +101,15 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
   useEffect(() => {
     scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
+
+  // Auto-grow textarea
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (el) {
+      el.style.height = 'auto';
+      el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+    }
+  }, [input]);
 
   const handleConfirm = useCallback((text: string) => {
     sendMessage({ text });
@@ -174,7 +184,7 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
   return (
     <div className={cn('flex flex-col', compact ? 'h-full' : 'h-[calc(100vh-8rem)]')}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b">
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
         <div>
           <h3 className="font-semibold text-sm">Finance Assistant</h3>
           <p className="text-xs text-muted-foreground">Ask about your expenses, budgets, and more</p>
@@ -187,7 +197,7 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
             className="h-8 w-8"
             title="Chat history"
           >
-            <History className="w-3.5 h-3.5" />
+            <History className="w-4 h-4" />
           </Button>
           <Button
             variant="ghost"
@@ -196,7 +206,7 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
             className="h-8 w-8"
             title="New chat"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-4 h-4" />
           </Button>
           {messages.length > 0 && (
             <Button
@@ -212,7 +222,7 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
               className="h-8 w-8"
               title="Clear current chat"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <RotateCcw className="w-4 h-4" />
             </Button>
           )}
         </div>
@@ -236,7 +246,7 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
                       Try asking about your finances:
                     </p>
                   </div>
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {SUGGESTED_PROMPTS.map((prompt) => (
                       <Button
                         key={prompt}
@@ -263,17 +273,22 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
 
               {isLoading && (
                 <div className="flex gap-2">
-                  <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 animate-pulse">
+                    <Bot className="w-4 h-4" />
                   </div>
-                  <div className="bg-muted rounded-lg px-3 py-2 text-sm text-muted-foreground">
-                    Thinking...
+                  <div className="bg-muted rounded-lg px-3 py-2 text-sm text-muted-foreground flex items-center gap-1.5">
+                    <span className="flex gap-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </span>
                   </div>
                 </div>
               )}
 
               {error && (
-                <div className="bg-destructive/10 text-destructive rounded-lg px-3 py-2 text-sm">
+                <div className="bg-destructive/10 text-destructive rounded-lg px-3 py-2 text-sm flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
                   Something went wrong. Please try again.
                 </div>
               )}
@@ -287,12 +302,13 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
           <div className="border-t p-3">
             <form onSubmit={handleSubmit} className="flex gap-2">
               <textarea
+                ref={textareaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Ask about your finances..."
                 rows={1}
-                className="flex-1 resize-none rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex-1 resize-none overflow-hidden max-h-[120px] rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 disabled={isLoading}
               />
               <Button
@@ -301,7 +317,7 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
                 disabled={!input.trim() || isLoading}
                 className="h-9 w-9 shrink-0"
               >
-                <Send className="w-3.5 h-3.5" />
+                <Send className="w-4 h-4" />
               </Button>
             </form>
           </div>

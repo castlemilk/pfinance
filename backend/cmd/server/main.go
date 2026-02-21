@@ -102,6 +102,16 @@ func main() {
 	service.SetExtractionService(extractionSvc)
 	log.Printf("✅ Document extraction enabled (ML service: %s)", mlServiceURL)
 
+	// Initialize tax classification pipeline
+	geminiAPIKey := os.Getenv("GEMINI_API_KEY")
+	taxPipeline := extraction.NewTaxClassificationPipeline(geminiAPIKey)
+	service.SetTaxClassificationPipeline(taxPipeline)
+	if geminiAPIKey != "" {
+		log.Println("✅ Tax classification pipeline enabled (rules + Gemini AI)")
+	} else {
+		log.Println("✅ Tax classification pipeline enabled (rules only, no Gemini API key)")
+	}
+
 	// Initialize Stripe if configured
 	var stripeClient *service.StripeClient
 	stripeSecretKey := os.Getenv("STRIPE_SECRET_KEY")
@@ -123,6 +133,9 @@ func main() {
 	// Add debug interceptor first (for impersonation support in dev mode)
 	// skipAuth is already defined at the top from env var
 	interceptors = append(interceptors, auth.DebugAuthInterceptor(skipAuth))
+
+	// API token interceptor — before Firebase/local auth so X-API-Key takes priority
+	interceptors = append(interceptors, auth.ApiTokenInterceptor(storeImpl))
 
 	if firebaseAuth != nil {
 		interceptors = append(interceptors, auth.AuthInterceptor(firebaseAuth))
@@ -191,6 +204,7 @@ func main() {
 			"X-Debug-User-Email",
 			"X-Debug-User-Name",
 			"X-Debug-Impersonate-User",
+			"X-API-Key",
 		},
 		ExposedHeaders: []string{
 			"Grpc-Status",

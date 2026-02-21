@@ -18,47 +18,51 @@ type MemoryStore struct {
 	mu sync.RWMutex
 
 	// Storage maps
-	expenses                map[string]*pfinancev1.Expense
-	incomes                 map[string]*pfinancev1.Income
-	groups                  map[string]*pfinancev1.FinanceGroup
-	invitations             map[string]*pfinancev1.GroupInvitation
-	inviteLinks             map[string]*pfinancev1.GroupInviteLink
-	contributions           map[string]*pfinancev1.ExpenseContribution
-	incomeContributions     map[string]*pfinancev1.IncomeContribution
-	taxConfigs              map[string]*pfinancev1.TaxConfig
-	budgets                 map[string]*pfinancev1.Budget
-	users                   map[string]*pfinancev1.User
-	goals                   map[string]*pfinancev1.FinancialGoal
-	goalContributions       map[string]*pfinancev1.GoalContribution
-	recurringTransactions   map[string]*pfinancev1.RecurringTransaction
-	notifications           map[string]*pfinancev1.Notification
-	notificationPreferences map[string]*pfinancev1.NotificationPreferences
-	correctionRecords       map[string]*pfinancev1.CorrectionRecord
-	merchantMappings        map[string]*pfinancev1.MerchantMapping
-	extractionEvents        map[string]*pfinancev1.ExtractionEvent
+	expenses                 map[string]*pfinancev1.Expense
+	incomes                  map[string]*pfinancev1.Income
+	groups                   map[string]*pfinancev1.FinanceGroup
+	invitations              map[string]*pfinancev1.GroupInvitation
+	inviteLinks              map[string]*pfinancev1.GroupInviteLink
+	contributions            map[string]*pfinancev1.ExpenseContribution
+	incomeContributions      map[string]*pfinancev1.IncomeContribution
+	taxConfigs               map[string]*pfinancev1.TaxConfig
+	budgets                  map[string]*pfinancev1.Budget
+	users                    map[string]*pfinancev1.User
+	goals                    map[string]*pfinancev1.FinancialGoal
+	goalContributions        map[string]*pfinancev1.GoalContribution
+	recurringTransactions    map[string]*pfinancev1.RecurringTransaction
+	notifications            map[string]*pfinancev1.Notification
+	notificationPreferences  map[string]*pfinancev1.NotificationPreferences
+	correctionRecords        map[string]*pfinancev1.CorrectionRecord
+	merchantMappings         map[string]*pfinancev1.MerchantMapping
+	extractionEvents         map[string]*pfinancev1.ExtractionEvent
+	taxDeductibilityMappings map[string]*pfinancev1.TaxDeductibilityMapping
+	apiTokens                map[string]*pfinancev1.ApiToken
 }
 
 // NewMemoryStore creates a new in-memory store
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
-		expenses:                make(map[string]*pfinancev1.Expense),
-		incomes:                 make(map[string]*pfinancev1.Income),
-		groups:                  make(map[string]*pfinancev1.FinanceGroup),
-		invitations:             make(map[string]*pfinancev1.GroupInvitation),
-		inviteLinks:             make(map[string]*pfinancev1.GroupInviteLink),
-		contributions:           make(map[string]*pfinancev1.ExpenseContribution),
-		incomeContributions:     make(map[string]*pfinancev1.IncomeContribution),
-		taxConfigs:              make(map[string]*pfinancev1.TaxConfig),
-		budgets:                 make(map[string]*pfinancev1.Budget),
-		users:                   make(map[string]*pfinancev1.User),
-		goals:                   make(map[string]*pfinancev1.FinancialGoal),
-		goalContributions:       make(map[string]*pfinancev1.GoalContribution),
-		recurringTransactions:   make(map[string]*pfinancev1.RecurringTransaction),
-		notifications:           make(map[string]*pfinancev1.Notification),
-		notificationPreferences: make(map[string]*pfinancev1.NotificationPreferences),
-		correctionRecords:       make(map[string]*pfinancev1.CorrectionRecord),
-		merchantMappings:        make(map[string]*pfinancev1.MerchantMapping),
-		extractionEvents:        make(map[string]*pfinancev1.ExtractionEvent),
+		expenses:                 make(map[string]*pfinancev1.Expense),
+		incomes:                  make(map[string]*pfinancev1.Income),
+		groups:                   make(map[string]*pfinancev1.FinanceGroup),
+		invitations:              make(map[string]*pfinancev1.GroupInvitation),
+		inviteLinks:              make(map[string]*pfinancev1.GroupInviteLink),
+		contributions:            make(map[string]*pfinancev1.ExpenseContribution),
+		incomeContributions:      make(map[string]*pfinancev1.IncomeContribution),
+		taxConfigs:               make(map[string]*pfinancev1.TaxConfig),
+		budgets:                  make(map[string]*pfinancev1.Budget),
+		users:                    make(map[string]*pfinancev1.User),
+		goals:                    make(map[string]*pfinancev1.FinancialGoal),
+		goalContributions:        make(map[string]*pfinancev1.GoalContribution),
+		recurringTransactions:    make(map[string]*pfinancev1.RecurringTransaction),
+		notifications:            make(map[string]*pfinancev1.Notification),
+		notificationPreferences:  make(map[string]*pfinancev1.NotificationPreferences),
+		correctionRecords:        make(map[string]*pfinancev1.CorrectionRecord),
+		merchantMappings:         make(map[string]*pfinancev1.MerchantMapping),
+		extractionEvents:         make(map[string]*pfinancev1.ExtractionEvent),
+		taxDeductibilityMappings: make(map[string]*pfinancev1.TaxDeductibilityMapping),
+		apiTokens:                make(map[string]*pfinancev1.ApiToken),
 	}
 }
 
@@ -1593,4 +1597,223 @@ func (m *MemoryStore) ListExtractionEvents(ctx context.Context, userID string, s
 		return events[i].CreatedAt.AsTime().After(events[j].CreatedAt.AsTime())
 	})
 	return events, nil
+}
+
+// ============================================================================
+// Tax Deductibility operations
+// ============================================================================
+
+// ListDeductibleExpenses returns tax-deductible expenses filtered by date range and optional category
+func (m *MemoryStore) ListDeductibleExpenses(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, category pfinancev1.TaxDeductionCategory, pageSize int32, pageToken string) ([]*pfinancev1.Expense, string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var matchingIDs []string
+	for id, expense := range m.expenses {
+		if !expense.IsTaxDeductible {
+			continue
+		}
+		if userID != "" && expense.UserId != userID {
+			continue
+		}
+		if groupID != "" && expense.GroupId != groupID {
+			continue
+		}
+		if category != pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNSPECIFIED && expense.TaxDeductionCategory != category {
+			continue
+		}
+		if startDate != nil || endDate != nil {
+			expenseTime := expense.Date.AsTime()
+			if startDate != nil && expenseTime.Before(*startDate) {
+				continue
+			}
+			if endDate != nil && expenseTime.After(*endDate) {
+				continue
+			}
+		}
+		matchingIDs = append(matchingIDs, id)
+	}
+
+	paginatedIDs, nextToken := paginateIDs(matchingIDs, pageSize, pageToken)
+	result := make([]*pfinancev1.Expense, 0, len(paginatedIDs))
+	for _, id := range paginatedIDs {
+		result = append(result, m.expenses[id])
+	}
+	return result, nextToken, nil
+}
+
+// AggregateDeductionsByCategory sums deductible expenses by TaxDeductionCategory for a date range
+func (m *MemoryStore) AggregateDeductionsByCategory(ctx context.Context, userID, groupID string, startDate, endDate time.Time) ([]*pfinancev1.TaxDeductionSummary, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	type agg struct {
+		totalCents   int64
+		expenseCount int32
+	}
+	byCategory := make(map[pfinancev1.TaxDeductionCategory]*agg)
+
+	for _, expense := range m.expenses {
+		if !expense.IsTaxDeductible {
+			continue
+		}
+		if userID != "" && expense.UserId != userID {
+			continue
+		}
+		if groupID != "" && expense.GroupId != groupID {
+			continue
+		}
+		if expense.Date != nil {
+			t := expense.Date.AsTime()
+			if t.Before(startDate) || t.After(endDate) {
+				continue
+			}
+		}
+
+		cat := expense.TaxDeductionCategory
+		pct := expense.TaxDeductiblePercent
+		if pct <= 0 {
+			pct = 1.0
+		}
+
+		cents := expense.AmountCents
+		if cents == 0 {
+			cents = int64(expense.Amount * 100)
+		}
+		deductibleCents := int64(float64(cents) * pct)
+
+		if _, ok := byCategory[cat]; !ok {
+			byCategory[cat] = &agg{}
+		}
+		byCategory[cat].totalCents += deductibleCents
+		byCategory[cat].expenseCount++
+	}
+
+	var summaries []*pfinancev1.TaxDeductionSummary
+	for cat, a := range byCategory {
+		summaries = append(summaries, &pfinancev1.TaxDeductionSummary{
+			Category:     cat,
+			TotalCents:   a.totalCents,
+			TotalAmount:  float64(a.totalCents) / 100.0,
+			ExpenseCount: a.expenseCount,
+		})
+	}
+	return summaries, nil
+}
+
+// UpsertTaxDeductibilityMapping upserts a tax deductibility mapping
+func (m *MemoryStore) UpsertTaxDeductibilityMapping(ctx context.Context, mapping *pfinancev1.TaxDeductibilityMapping) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for id, existing := range m.taxDeductibilityMappings {
+		if existing.UserId == mapping.UserId && strings.EqualFold(existing.MerchantPattern, mapping.MerchantPattern) {
+			existing.DeductionCategory = mapping.DeductionCategory
+			existing.DeductiblePercent = mapping.DeductiblePercent
+			existing.ConfirmationCount = mapping.ConfirmationCount
+			existing.Confidence = mapping.Confidence
+			existing.LastUsed = mapping.LastUsed
+			m.taxDeductibilityMappings[id] = existing
+			return nil
+		}
+	}
+	if mapping.Id == "" {
+		mapping.Id = uuid.New().String()
+	}
+	m.taxDeductibilityMappings[mapping.Id] = mapping
+	return nil
+}
+
+// GetTaxDeductibilityMappings returns all tax deductibility mappings for a user
+func (m *MemoryStore) GetTaxDeductibilityMappings(ctx context.Context, userID string) ([]*pfinancev1.TaxDeductibilityMapping, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var mappings []*pfinancev1.TaxDeductibilityMapping
+	for _, mm := range m.taxDeductibilityMappings {
+		if mm.UserId == userID {
+			mappings = append(mappings, mm)
+		}
+	}
+	return mappings, nil
+}
+
+// ============================================================================
+// API Token operations
+// ============================================================================
+
+// CreateApiToken stores a new API token
+func (m *MemoryStore) CreateApiToken(ctx context.Context, token *pfinancev1.ApiToken) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.apiTokens[token.Id] = token
+	return nil
+}
+
+// GetApiTokenByHash looks up an active (non-revoked) API token by its hash
+func (m *MemoryStore) GetApiTokenByHash(ctx context.Context, tokenHash string) (*pfinancev1.ApiToken, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	for _, t := range m.apiTokens {
+		if t.TokenHash == tokenHash && !t.IsRevoked {
+			return t, nil
+		}
+	}
+	return nil, fmt.Errorf("api token not found")
+}
+
+// ListApiTokens returns all API tokens for a user
+func (m *MemoryStore) ListApiTokens(ctx context.Context, userID string) ([]*pfinancev1.ApiToken, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var tokens []*pfinancev1.ApiToken
+	for _, t := range m.apiTokens {
+		if t.UserId == userID {
+			tokens = append(tokens, t)
+		}
+	}
+	return tokens, nil
+}
+
+// RevokeApiToken marks an API token as revoked
+func (m *MemoryStore) RevokeApiToken(ctx context.Context, tokenID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	t, ok := m.apiTokens[tokenID]
+	if !ok {
+		return fmt.Errorf("api token not found")
+	}
+	t.IsRevoked = true
+	return nil
+}
+
+// UpdateApiTokenLastUsed updates the last_used_at timestamp for a token
+func (m *MemoryStore) UpdateApiTokenLastUsed(ctx context.Context, tokenID string, lastUsed time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	t, ok := m.apiTokens[tokenID]
+	if !ok {
+		return fmt.Errorf("api token not found")
+	}
+	t.LastUsedAt = timestamppb.New(lastUsed)
+	return nil
+}
+
+// CountActiveApiTokens counts non-revoked tokens for a user
+func (m *MemoryStore) CountActiveApiTokens(ctx context.Context, userID string) (int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	count := 0
+	for _, t := range m.apiTokens {
+		if t.UserId == userID && !t.IsRevoked {
+			count++
+		}
+	}
+	return count, nil
 }

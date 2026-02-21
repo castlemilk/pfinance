@@ -35,14 +35,14 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
     <div className={cn('flex gap-2', isUser ? 'flex-row-reverse' : 'flex-row')}>
       {/* Avatar */}
       <div className={cn(
-        'flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center',
+        'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
         isUser ? 'bg-primary text-primary-foreground' : 'bg-muted'
       )}>
-        {isUser ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
+        {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
       </div>
 
       {/* Content */}
-      <div className={cn('flex flex-col gap-2 max-w-[85%]', isUser ? 'items-end' : 'items-start')}>
+      <div className={cn('flex flex-col gap-2 max-w-[92%] sm:max-w-[85%] lg:max-w-[75%]', isUser ? 'items-end' : 'items-start')}>
         {/* Text content — P1-7 fix: render markdown for assistant messages */}
         {textContent && (
           <div className={cn(
@@ -52,7 +52,7 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
             {isUser ? (
               <div className="whitespace-pre-wrap">{textContent}</div>
             ) : (
-              <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5">
+              <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded-md [&_pre]:overflow-x-auto">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {textContent}
                 </ReactMarkdown>
@@ -79,6 +79,8 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
                 details={result.details as Record<string, unknown> | undefined}
                 expenses={expensesList}
                 changes={result.changes as Record<string, { from: unknown; to: unknown }> | undefined}
+                duplicates={result.duplicates as Array<{ description: string; amount: number; date: string; matchScore: number; matchReason: string }> | undefined}
+                duplicateWarning={result.duplicateWarning as string | undefined}
                 // P1-1 fix: pass disabled prop for historical conversations
                 disabled={isHistorical}
                 onConfirm={() => onConfirm('Yes, proceed with the operation.')}

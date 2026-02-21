@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   updatePassword,
@@ -11,6 +11,7 @@ import {
 import { useAuth } from '../../../context/AuthWithAdminContext';
 import { useSubscription } from '../../../hooks/useSubscription';
 import { financeClient } from '@/lib/financeService';
+import type { ApiToken } from '@/gen/pfinance/v1/types_pb';
 import {
   Card,
   CardContent,
@@ -36,6 +37,21 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
   UserCog,
   Save,
   Lock,
@@ -46,6 +62,10 @@ import {
   Loader2,
   CheckCircle,
   XCircle,
+  Key,
+  Plus,
+  Copy,
+  Ban,
 } from 'lucide-react';
 
 export default function AccountPage() {
@@ -83,6 +103,22 @@ export default function AccountPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
+  // API Token state
+  const [apiTokens, setApiTokens] = useState<ApiToken[]>([]);
+  const [tokensLoading, setTokensLoading] = useState(false);
+  const [tokenName, setTokenName] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [newTokenRaw, setNewTokenRaw] = useState<string | null>(null);
+  const [tokenRevealOpen, setTokenRevealOpen] = useState(false);
+  const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
+  const [revokeTokenId, setRevokeTokenId] = useState<string | null>(null);
+  const [revoking, setRevoking] = useState(false);
+  const [tokenMessage, setTokenMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -91,6 +127,26 @@ export default function AccountPage() {
       .toUpperCase()
       .slice(0, 2);
   };
+
+  // --- Load API tokens ---
+  const loadApiTokens = useCallback(async () => {
+    if (!isPro) return;
+    setTokensLoading(true);
+    try {
+      const resp = await financeClient.listApiTokens({});
+      setApiTokens(resp.tokens);
+    } catch (err) {
+      console.error('Failed to load API tokens:', err);
+    } finally {
+      setTokensLoading(false);
+    }
+  }, [isPro]);
+
+  useEffect(() => {
+    if (isPro && !subscriptionLoading) {
+      loadApiTokens();
+    }
+  }, [isPro, subscriptionLoading, loadApiTokens]);
 
   // --- Profile Handlers ---
   const handleSaveProfile = async () => {
@@ -230,6 +286,64 @@ export default function AccountPage() {
     }
   };
 
+  // --- API Token Handlers ---
+  const handleCreateToken = async () => {
+    if (!tokenName.trim()) return;
+    setCreating(true);
+    setTokenMessage(null);
+
+    try {
+      const resp = await financeClient.createApiToken({ name: tokenName.trim() });
+      setNewTokenRaw(resp.token);
+      setTokenRevealOpen(true);
+      setTokenName('');
+      await loadApiTokens();
+    } catch (err) {
+      console.error('Failed to create API token:', err);
+      setTokenMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to create token.',
+      });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleRevokeToken = async () => {
+    if (!revokeTokenId) return;
+    setRevoking(true);
+
+    try {
+      await financeClient.revokeApiToken({ tokenId: revokeTokenId });
+      setTokenMessage({ type: 'success', text: 'Token revoked successfully.' });
+      await loadApiTokens();
+    } catch (err) {
+      console.error('Failed to revoke token:', err);
+      setTokenMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to revoke token.',
+      });
+    } finally {
+      setRevoking(false);
+      setRevokeDialogOpen(false);
+      setRevokeTokenId(null);
+    }
+  };
+
+  const handleCopyToken = async () => {
+    if (!newTokenRaw) return;
+    await navigator.clipboard.writeText(newTokenRaw);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const formatDate = (ts: { seconds: bigint } | undefined) => {
+    if (!ts) return 'Never';
+    const ms = Number(ts.seconds) * 1000;
+    if (ms === 0) return 'Never';
+    return new Date(ms).toLocaleDateString();
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -264,6 +378,8 @@ export default function AccountPage() {
   const isEmailProvider = user.providerData?.some(
     (p) => p.providerId === 'password'
   );
+
+  const activeTokens = apiTokens.filter((t) => !t.isRevoked);
 
   return (
     <div className="space-y-6">
@@ -534,6 +650,232 @@ export default function AccountPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* API Tokens Section */}
+      {!subscriptionLoading && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Key className="w-5 h-5" />
+              API Access
+            </CardTitle>
+            <CardDescription>
+              Generate personal API tokens for programmatic access to your data.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isPro ? (
+              <>
+                {/* Create token */}
+                <div className="flex items-end gap-3">
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="tokenName">Token Name</Label>
+                    <Input
+                      id="tokenName"
+                      value={tokenName}
+                      onChange={(e) => setTokenName(e.target.value)}
+                      placeholder='e.g., "Claude Code", "Analysis Script"'
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && tokenName.trim()) {
+                          handleCreateToken();
+                        }
+                      }}
+                    />
+                  </div>
+                  <Button
+                    onClick={handleCreateToken}
+                    disabled={creating || !tokenName.trim()}
+                  >
+                    {creating ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Plus className="w-4 h-4 mr-2" />
+                    )}
+                    Generate Token
+                  </Button>
+                </div>
+
+                {/* Token message */}
+                {tokenMessage && (
+                  <div
+                    className={`flex items-center gap-2 text-sm p-3 rounded-md ${
+                      tokenMessage.type === 'success'
+                        ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                        : 'bg-red-500/10 text-red-600 dark:text-red-400'
+                    }`}
+                  >
+                    {tokenMessage.type === 'success' ? (
+                      <CheckCircle className="w-4 h-4 shrink-0" />
+                    ) : (
+                      <XCircle className="w-4 h-4 shrink-0" />
+                    )}
+                    {tokenMessage.text}
+                  </div>
+                )}
+
+                {/* Token list */}
+                {tokensLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : activeTokens.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <Key className="w-10 h-10 mx-auto text-muted-foreground/50 mb-3" />
+                    <p className="text-sm text-muted-foreground">
+                      No API tokens yet. Create one to get started with programmatic access.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Prefix</TableHead>
+                          <TableHead>Created</TableHead>
+                          <TableHead>Last Used</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {activeTokens.map((token) => (
+                          <TableRow key={token.id}>
+                            <TableCell className="font-medium">
+                              {token.name}
+                            </TableCell>
+                            <TableCell>
+                              <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                                {token.tokenPrefix}...
+                              </code>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {formatDate(token.createdAt)}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {formatDate(token.lastUsedAt)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-500/10"
+                                onClick={() => {
+                                  setRevokeTokenId(token.id);
+                                  setRevokeDialogOpen(true);
+                                }}
+                              >
+                                <Ban className="w-4 h-4 mr-1" />
+                                Revoke
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+
+                <p className="text-xs text-muted-foreground">
+                  Use your token with the <code className="bg-muted px-1 py-0.5 rounded">X-API-Key</code> header
+                  for programmatic access. Max {5} active tokens.
+                </p>
+              </>
+            ) : (
+              <div className="py-8 text-center">
+                <Key className="w-10 h-10 mx-auto text-muted-foreground/50 mb-3" />
+                <p className="text-sm text-muted-foreground mb-3">
+                  API access is available on the Pro plan. Upgrade to generate tokens
+                  for programmatic access to your financial data.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/personal/billing')}
+                >
+                  <Crown className="w-4 h-4 mr-2" />
+                  Upgrade to Pro
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Token Reveal Dialog */}
+      <Dialog
+        open={tokenRevealOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setNewTokenRaw(null);
+            setCopied(false);
+          }
+          setTokenRevealOpen(open);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>API Token Created</DialogTitle>
+            <DialogDescription>
+              Copy your token now. It will not be shown again.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="relative">
+              <pre className="bg-muted p-3 rounded-md text-xs break-all whitespace-pre-wrap font-mono">
+                {newTokenRaw}
+              </pre>
+              <Button
+                variant="outline"
+                size="sm"
+                className="absolute top-2 right-2"
+                onClick={handleCopyToken}
+              >
+                {copied ? (
+                  <CheckCircle className="w-4 h-4 mr-1 text-green-500" />
+                ) : (
+                  <Copy className="w-4 h-4 mr-1" />
+                )}
+                {copied ? 'Copied' : 'Copy'}
+              </Button>
+            </div>
+            <div className="flex items-start gap-2 text-sm p-3 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                Store this token securely. You will not be able to see it again after closing this dialog.
+              </span>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Revoke Confirmation Dialog */}
+      <AlertDialog open={revokeDialogOpen} onOpenChange={setRevokeDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke API Token</AlertDialogTitle>
+            <AlertDialogDescription>
+              This token will immediately stop working. Any scripts or tools
+              using it will lose access. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRevokeTokenId(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRevokeToken}
+              disabled={revoking}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {revoking ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Ban className="w-4 h-4 mr-2" />
+              )}
+              Revoke Token
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Danger Zone */}
       <Card className="border-red-500/50">

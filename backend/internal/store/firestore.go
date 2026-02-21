@@ -2046,3 +2046,263 @@ func (s *FirestoreStore) ListExtractionEvents(ctx context.Context, userID string
 	}
 	return events, nil
 }
+
+// ============================================================================
+// Tax Deductibility operations
+// ============================================================================
+
+// ListDeductibleExpenses returns tax-deductible expenses filtered by date range and optional category
+func (s *FirestoreStore) ListDeductibleExpenses(ctx context.Context, userID, groupID string, startDate, endDate *time.Time, category pfinancev1.TaxDeductionCategory, pageSize int32, pageToken string) ([]*pfinancev1.Expense, string, error) {
+	collection := "expenses"
+	if groupID != "" {
+		collection = "groupExpenses"
+	}
+
+	query := s.client.Collection(collection).Query
+	query = query.Where("IsTaxDeductible", "==", true)
+
+	if groupID != "" {
+		query = query.Where("GroupId", "==", groupID)
+	} else if userID != "" {
+		query = query.Where("UserId", "==", userID)
+	}
+
+	if category != pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNSPECIFIED {
+		query = query.Where("TaxDeductionCategory", "==", int32(category))
+	}
+
+	hasDateFilter := startDate != nil || endDate != nil
+	if startDate != nil {
+		query = query.Where("Date", ">=", *startDate)
+	}
+	if endDate != nil {
+		query = query.Where("Date", "<=", *endDate)
+	}
+
+	if hasDateFilter {
+		query, err := s.applyDateAwarePagination(ctx, query, collection, pageSize, pageToken)
+		if err != nil {
+			return nil, "", err
+		}
+		docs, err := query.Documents(ctx).GetAll()
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to list deductible expenses: %w", err)
+		}
+		if pageSize <= 0 {
+			pageSize = 100
+		}
+		var nextPageToken string
+		if len(docs) > int(pageSize) {
+			docs = docs[:pageSize]
+			nextPageToken = EncodePageToken(docs[pageSize-1].Ref.ID)
+		}
+		expenses := make([]*pfinancev1.Expense, 0, len(docs))
+		for _, doc := range docs {
+			var expense pfinancev1.Expense
+			if err := doc.DataTo(&expense); err != nil {
+				continue
+			}
+			expenses = append(expenses, &expense)
+		}
+		return expenses, nextPageToken, nil
+	}
+
+	query, err := s.applyCursorPagination(query, pageSize, pageToken)
+	if err != nil {
+		return nil, "", err
+	}
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to list deductible expenses: %w", err)
+	}
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+	var nextPageToken string
+	if len(docs) > int(pageSize) {
+		docs = docs[:pageSize]
+		nextPageToken = EncodePageToken(docs[pageSize-1].Ref.ID)
+	}
+	expenses := make([]*pfinancev1.Expense, 0, len(docs))
+	for _, doc := range docs {
+		var expense pfinancev1.Expense
+		if err := doc.DataTo(&expense); err != nil {
+			continue
+		}
+		expenses = append(expenses, &expense)
+	}
+	return expenses, nextPageToken, nil
+}
+
+// AggregateDeductionsByCategory sums deductible expenses by TaxDeductionCategory for a date range.
+// It pages through all matching expenses and groups by category.
+func (s *FirestoreStore) AggregateDeductionsByCategory(ctx context.Context, userID, groupID string, startDate, endDate time.Time) ([]*pfinancev1.TaxDeductionSummary, error) {
+	collection := "expenses"
+	if groupID != "" {
+		collection = "groupExpenses"
+	}
+
+	query := s.client.Collection(collection).Query
+	query = query.Where("IsTaxDeductible", "==", true)
+
+	if groupID != "" {
+		query = query.Where("GroupId", "==", groupID)
+	} else if userID != "" {
+		query = query.Where("UserId", "==", userID)
+	}
+
+	query = query.Where("Date", ">=", startDate).Where("Date", "<=", endDate)
+	query = query.OrderBy("Date", firestore.Asc)
+
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("aggregate deductions: %w", err)
+	}
+
+	type agg struct {
+		totalCents   int64
+		expenseCount int32
+	}
+	byCategory := make(map[pfinancev1.TaxDeductionCategory]*agg)
+
+	for _, doc := range docs {
+		var expense pfinancev1.Expense
+		if err := doc.DataTo(&expense); err != nil {
+			continue
+		}
+
+		cat := expense.TaxDeductionCategory
+		pct := expense.TaxDeductiblePercent
+		if pct <= 0 {
+			pct = 1.0
+		}
+
+		cents := expense.AmountCents
+		if cents == 0 {
+			cents = int64(expense.Amount * 100)
+		}
+		deductibleCents := int64(float64(cents) * pct)
+
+		if _, ok := byCategory[cat]; !ok {
+			byCategory[cat] = &agg{}
+		}
+		byCategory[cat].totalCents += deductibleCents
+		byCategory[cat].expenseCount++
+	}
+
+	var summaries []*pfinancev1.TaxDeductionSummary
+	for cat, a := range byCategory {
+		summaries = append(summaries, &pfinancev1.TaxDeductionSummary{
+			Category:     cat,
+			TotalCents:   a.totalCents,
+			TotalAmount:  float64(a.totalCents) / 100.0,
+			ExpenseCount: a.expenseCount,
+		})
+	}
+
+	sort.Slice(summaries, func(i, j int) bool {
+		return summaries[i].TotalCents > summaries[j].TotalCents
+	})
+	return summaries, nil
+}
+
+// UpsertTaxDeductibilityMapping upserts a tax deductibility mapping
+func (s *FirestoreStore) UpsertTaxDeductibilityMapping(ctx context.Context, mapping *pfinancev1.TaxDeductibilityMapping) error {
+	docID := fmt.Sprintf("%s_%s", mapping.UserId, mapping.MerchantPattern)
+	_, err := s.client.Collection("tax_deductibility_mappings").Doc(docID).Set(ctx, mapping)
+	return err
+}
+
+// GetTaxDeductibilityMappings returns all tax deductibility mappings for a user
+func (s *FirestoreStore) GetTaxDeductibilityMappings(ctx context.Context, userID string) ([]*pfinancev1.TaxDeductibilityMapping, error) {
+	docs, err := s.client.Collection("tax_deductibility_mappings").Where("UserId", "==", userID).Documents(ctx).GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("get tax deductibility mappings: %w", err)
+	}
+	var mappings []*pfinancev1.TaxDeductibilityMapping
+	for _, doc := range docs {
+		var mm pfinancev1.TaxDeductibilityMapping
+		if err := doc.DataTo(&mm); err != nil {
+			continue
+		}
+		mappings = append(mappings, &mm)
+	}
+	return mappings, nil
+}
+
+// ============================================================================
+// API Token operations
+// ============================================================================
+
+// CreateApiToken stores a new API token
+func (s *FirestoreStore) CreateApiToken(ctx context.Context, token *pfinancev1.ApiToken) error {
+	_, err := s.client.Collection("api_tokens").Doc(token.Id).Set(ctx, token)
+	return err
+}
+
+// GetApiTokenByHash looks up an active (non-revoked) API token by its hash
+func (s *FirestoreStore) GetApiTokenByHash(ctx context.Context, tokenHash string) (*pfinancev1.ApiToken, error) {
+	docs, err := s.client.Collection("api_tokens").
+		Where("TokenHash", "==", tokenHash).
+		Where("IsRevoked", "==", false).
+		Limit(1).
+		Documents(ctx).GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("get api token by hash: %w", err)
+	}
+	if len(docs) == 0 {
+		return nil, fmt.Errorf("api token not found")
+	}
+	var token pfinancev1.ApiToken
+	if err := docs[0].DataTo(&token); err != nil {
+		return nil, fmt.Errorf("decode api token: %w", err)
+	}
+	return &token, nil
+}
+
+// ListApiTokens returns all API tokens for a user
+func (s *FirestoreStore) ListApiTokens(ctx context.Context, userID string) ([]*pfinancev1.ApiToken, error) {
+	docs, err := s.client.Collection("api_tokens").
+		Where("UserId", "==", userID).
+		Documents(ctx).GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("list api tokens: %w", err)
+	}
+	var tokens []*pfinancev1.ApiToken
+	for _, doc := range docs {
+		var t pfinancev1.ApiToken
+		if err := doc.DataTo(&t); err != nil {
+			continue
+		}
+		tokens = append(tokens, &t)
+	}
+	return tokens, nil
+}
+
+// RevokeApiToken marks an API token as revoked
+func (s *FirestoreStore) RevokeApiToken(ctx context.Context, tokenID string) error {
+	_, err := s.client.Collection("api_tokens").Doc(tokenID).Update(ctx, []firestore.Update{
+		{Path: "IsRevoked", Value: true},
+	})
+	return err
+}
+
+// UpdateApiTokenLastUsed updates the last_used_at timestamp for a token
+func (s *FirestoreStore) UpdateApiTokenLastUsed(ctx context.Context, tokenID string, lastUsed time.Time) error {
+	_, err := s.client.Collection("api_tokens").Doc(tokenID).Update(ctx, []firestore.Update{
+		{Path: "LastUsedAt", Value: timestamppb.New(lastUsed)},
+	})
+	return err
+}
+
+// CountActiveApiTokens counts non-revoked tokens for a user
+func (s *FirestoreStore) CountActiveApiTokens(ctx context.Context, userID string) (int, error) {
+	docs, err := s.client.Collection("api_tokens").
+		Where("UserId", "==", userID).
+		Where("IsRevoked", "==", false).
+		Documents(ctx).GetAll()
+	if err != nil {
+		return 0, fmt.Errorf("count active api tokens: %w", err)
+	}
+	return len(docs), nil
+}

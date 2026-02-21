@@ -176,18 +176,44 @@ func (s *FinanceService) ImportExtractedTransactions(ctx context.Context, req *c
 			fmt.Errorf("extraction service is not available"))
 	}
 
+	// Filter out duplicates before importing if skip_duplicates is set
+	transactions := req.Msg.Transactions
+	var dupSkippedCount int
+	var dupSkippedReasons []string
+	if req.Msg.SkipDuplicates && len(transactions) > 0 {
+		var filtered []*pfinancev1.ExtractedTransaction
+		for _, tx := range transactions {
+			candidates := s.findDuplicatesForTransaction(ctx, claims.UID, req.Msg.GroupId, tx)
+			if len(candidates) > 0 {
+				dupSkippedCount++
+				desc := tx.Description
+				if desc == "" {
+					desc = tx.NormalizedMerchant
+				}
+				dupSkippedReasons = append(dupSkippedReasons, fmt.Sprintf("Duplicate of existing expense: %s (score: %.0f%%)", desc, candidates[0].MatchScore*100))
+			} else {
+				filtered = append(filtered, tx)
+			}
+		}
+		transactions = filtered
+	}
+
 	// Convert transactions to expenses
 	expenses, skippedCount, skippedReasons, err := extractionService.ImportTransactions(
 		ctx,
 		req.Msg.UserId,
 		req.Msg.GroupId,
-		req.Msg.Transactions,
+		transactions,
 		req.Msg.SkipDuplicates,
 		req.Msg.DefaultFrequency,
 	)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("import failed: %w", err))
 	}
+
+	// Merge duplicate-skipped counts
+	skippedCount += dupSkippedCount
+	skippedReasons = append(dupSkippedReasons, skippedReasons...)
 
 	// Store the expenses
 	var createdExpenses []*pfinancev1.Expense

@@ -16,6 +16,11 @@ func AuthInterceptor(firebaseAuth *FirebaseAuth) connect.UnaryInterceptorFunc {
 				return next(ctx, req)
 			}
 
+			// Skip if already authenticated (e.g., by API token interceptor)
+			if _, ok := GetUserClaims(ctx); ok {
+				return next(ctx, req)
+			}
+
 			// Extract token from Authorization header
 			authHeader := req.Header().Get("Authorization")
 			if authHeader == "" {

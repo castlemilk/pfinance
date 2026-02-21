@@ -21,18 +21,20 @@ import {
   IncomeFrequency as ProtoIncomeFrequency,
   TaxStatus as ProtoTaxStatus,
   TaxCountry as ProtoTaxCountry,
+  TaxDeductionCategory as ProtoTaxDeductionCategory,
   Expense as ProtoExpense,
   Income as ProtoIncome,
 } from '@/gen/pfinance/v1/types_pb';
-import { 
-  Expense, 
-  ExpenseCategory, 
+import {
+  Expense,
+  ExpenseCategory,
   ExpenseSummary,
-  ExpenseFrequency, 
-  Income, 
-  IncomeFrequency, 
+  ExpenseFrequency,
+  Income,
+  IncomeFrequency,
   TaxConfig,
   TaxStatus,
+  TaxDeductionCategoryLabel,
   Deduction
 } from '../types';
 
@@ -121,6 +123,20 @@ const protoToTaxStatus: Record<ProtoTaxStatus, TaxStatus> = {
   [ProtoTaxStatus.POST_TAX]: 'postTax',
 };
 
+const protoToTaxDeductionCategory: Record<ProtoTaxDeductionCategory, TaxDeductionCategoryLabel> = {
+  [ProtoTaxDeductionCategory.UNSPECIFIED]: 'Unspecified',
+  [ProtoTaxDeductionCategory.WORK_TRAVEL]: 'Work Travel',
+  [ProtoTaxDeductionCategory.UNIFORM]: 'Uniform',
+  [ProtoTaxDeductionCategory.SELF_EDUCATION]: 'Self-Education',
+  [ProtoTaxDeductionCategory.OTHER_WORK]: 'Other Work',
+  [ProtoTaxDeductionCategory.HOME_OFFICE]: 'Home Office',
+  [ProtoTaxDeductionCategory.VEHICLE]: 'Vehicle',
+  [ProtoTaxDeductionCategory.DONATIONS]: 'Donations',
+  [ProtoTaxDeductionCategory.TAX_AFFAIRS]: 'Tax Affairs',
+  [ProtoTaxDeductionCategory.INCOME_PROTECTION]: 'Income Protection',
+  [ProtoTaxDeductionCategory.OTHER]: 'Other',
+};
+
 function centsToAmount(cents: bigint, fallbackAmount: number): number {
   if (cents !== BigInt(0)) return Number(cents) / 100;
   return fallbackAmount;
@@ -139,6 +155,10 @@ function mapProtoExpenseToLocal(proto: ProtoExpense): Expense {
     category: protoToCategory[proto.category],
     frequency: protoToExpenseFrequency[proto.frequency],
     date: proto.date ? timestampDate(proto.date) : new Date(),
+    isTaxDeductible: proto.isTaxDeductible || false,
+    taxDeductionCategory: protoToTaxDeductionCategory[proto.taxDeductionCategory],
+    taxDeductionNote: proto.taxDeductionNote || undefined,
+    taxDeductiblePercent: proto.taxDeductiblePercent || undefined,
   };
 }
 

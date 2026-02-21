@@ -28,7 +28,8 @@ import {
   Search,
   CreditCard,
   Crown,
-  Bot
+  Bot,
+  Landmark
 } from 'lucide-react';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -86,6 +87,11 @@ const personalNavItems: NavItem[] = [
     title: 'Analytics',
     href: '/personal/analytics',
     icon: <BarChart3 className="w-4 h-4" />
+  },
+  {
+    title: 'Tax Returns',
+    href: '/personal/tax',
+    icon: <Landmark className="w-4 h-4" />
   },
   {
     title: 'Reports',

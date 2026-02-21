@@ -392,7 +392,16 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
                         {formatFrequency(expense.frequency)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-medium">{formatCurrency(expense.amount)}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {expense.isTaxDeductible && (
+                          <Badge variant="outline" className="text-xs border-green-500 text-green-600">
+                            Tax
+                          </Badge>
+                        )}
+                        {formatCurrency(expense.amount)}
+                      </div>
+                    </TableCell>
                     <TableCell className="w-[140px] text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
                         {canShare && (

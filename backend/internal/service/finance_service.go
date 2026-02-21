@@ -66,21 +66,31 @@ func (s *FinanceService) CreateExpense(ctx context.Context, req *connect.Request
 		paidByUserId = req.Msg.UserId
 	}
 
+	// Default tax deductible percent to 1.0 if marked deductible but no percent set
+	taxDeductiblePercent := req.Msg.TaxDeductiblePercent
+	if req.Msg.IsTaxDeductible && taxDeductiblePercent <= 0 {
+		taxDeductiblePercent = 1.0
+	}
+
 	expense := &pfinancev1.Expense{
-		Id:           uuid.New().String(),
-		UserId:       req.Msg.UserId,
-		GroupId:      req.Msg.GroupId,
-		Description:  req.Msg.Description,
-		Amount:       req.Msg.Amount,
-		Category:     req.Msg.Category,
-		Frequency:    req.Msg.Frequency,
-		Date:         req.Msg.Date,
-		CreatedAt:    timestamppb.Now(),
-		UpdatedAt:    timestamppb.Now(),
-		PaidByUserId: paidByUserId,
-		SplitType:    req.Msg.SplitType,
-		Tags:         req.Msg.Tags,
-		IsSettled:    false,
+		Id:                   uuid.New().String(),
+		UserId:               req.Msg.UserId,
+		GroupId:              req.Msg.GroupId,
+		Description:          req.Msg.Description,
+		Amount:               req.Msg.Amount,
+		Category:             req.Msg.Category,
+		Frequency:            req.Msg.Frequency,
+		Date:                 req.Msg.Date,
+		CreatedAt:            timestamppb.Now(),
+		UpdatedAt:            timestamppb.Now(),
+		PaidByUserId:         paidByUserId,
+		SplitType:            req.Msg.SplitType,
+		Tags:                 req.Msg.Tags,
+		IsSettled:            false,
+		IsTaxDeductible:      req.Msg.IsTaxDeductible,
+		TaxDeductionCategory: req.Msg.TaxDeductionCategory,
+		TaxDeductionNote:     req.Msg.TaxDeductionNote,
+		TaxDeductiblePercent: taxDeductiblePercent,
 	}
 
 	// Calculate allocations based on split type
@@ -844,6 +854,18 @@ func (s *FinanceService) UpdateExpense(ctx context.Context, req *connect.Request
 	}
 	if len(req.Msg.Tags) > 0 {
 		expense.Tags = req.Msg.Tags
+	}
+
+	// Update tax deduction fields (always apply — false/0 are valid values for clearing)
+	expense.IsTaxDeductible = req.Msg.IsTaxDeductible
+	expense.TaxDeductionCategory = req.Msg.TaxDeductionCategory
+	expense.TaxDeductionNote = req.Msg.TaxDeductionNote
+	if req.Msg.TaxDeductiblePercent > 0 {
+		expense.TaxDeductiblePercent = req.Msg.TaxDeductiblePercent
+	} else if req.Msg.IsTaxDeductible {
+		expense.TaxDeductiblePercent = 1.0
+	} else {
+		expense.TaxDeductiblePercent = 0
 	}
 
 	// Recalculate allocations if split type or amount changed
