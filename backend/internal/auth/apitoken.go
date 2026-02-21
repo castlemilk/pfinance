@@ -42,7 +42,14 @@ func HashApiToken(raw string) string {
 // ApiTokenInterceptor checks the X-API-Key header, validates against the store,
 // and sets UserClaims + SubscriptionInfo in context.
 // If no X-API-Key header is present, the request falls through to the next interceptor.
-func ApiTokenInterceptor(store ApiTokenStore) connect.UnaryInterceptorFunc {
+// firebaseAuth is optional — when provided, it's used to look up subscription claims
+// from Firebase custom claims if no user doc exists in the store.
+func ApiTokenInterceptor(store ApiTokenStore, firebaseAuth ...*FirebaseAuth) connect.UnaryInterceptorFunc {
+	var fbAuth *FirebaseAuth
+	if len(firebaseAuth) > 0 {
+		fbAuth = firebaseAuth[0]
+	}
+
 	return func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 			apiKey := req.Header().Get("X-API-Key")
@@ -68,7 +75,7 @@ func ApiTokenInterceptor(store ApiTokenStore) connect.UnaryInterceptorFunc {
 			}
 
 			// Look up user for current subscription status and profile info
-			user, err := store.GetUser(ctx, apiToken.UserId)
+			user, userErr := store.GetUser(ctx, apiToken.UserId)
 
 			// Set UserClaims in context — even if user doc doesn't exist, we know the UID from the token
 			claims := &UserClaims{
@@ -76,15 +83,31 @@ func ApiTokenInterceptor(store ApiTokenStore) connect.UnaryInterceptorFunc {
 				Verified: true,
 			}
 			subInfo := &SubscriptionInfo{}
-			if err == nil && user != nil {
+
+			if userErr == nil && user != nil {
+				// User doc found — use it for profile and subscription info
 				claims.Email = user.Email
 				claims.DisplayName = user.DisplayName
 				subInfo.Tier = user.SubscriptionTier
 				subInfo.Status = user.SubscriptionStatus
+			} else if fbAuth != nil {
+				// User doc not found — fall back to Firebase custom claims
+				log.Printf("[API Token] User doc not found for %s, checking Firebase custom claims", apiToken.UserId)
+				fbUser, fbErr := fbAuth.client.GetUser(ctx, apiToken.UserId)
+				if fbErr == nil && fbUser != nil {
+					claims.Email = fbUser.Email
+					claims.DisplayName = fbUser.DisplayName
+					if fbUser.CustomClaims != nil {
+						subInfo = GetSubscriptionClaimsFromToken(fbUser.CustomClaims)
+					}
+					log.Printf("[API Token] Got Firebase claims for %s: tier=%v status=%v", apiToken.UserId, subInfo.Tier, subInfo.Status)
+				} else {
+					log.Printf("[API Token] Firebase lookup also failed for %s: %v", apiToken.UserId, fbErr)
+				}
 			} else {
-				// User doc not found — use token's user ID with default subscription
-				log.Printf("[API Token] User doc not found for %s, using token-only auth: %v", apiToken.UserId, err)
+				log.Printf("[API Token] User doc not found for %s, no Firebase Auth available: %v", apiToken.UserId, userErr)
 			}
+
 			ctx = withUserClaims(ctx, claims)
 			ctx = WithSubscription(ctx, subInfo)
 

@@ -135,7 +135,7 @@ func main() {
 	interceptors = append(interceptors, auth.DebugAuthInterceptor(skipAuth))
 
 	// API token interceptor — before Firebase/local auth so X-API-Key takes priority
-	interceptors = append(interceptors, auth.ApiTokenInterceptor(storeImpl))
+	interceptors = append(interceptors, auth.ApiTokenInterceptor(storeImpl, firebaseAuth))
 
 	if firebaseAuth != nil {
 		interceptors = append(interceptors, auth.AuthInterceptor(firebaseAuth))
