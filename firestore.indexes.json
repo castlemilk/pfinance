@@ -115,6 +115,31 @@
         { "fieldPath": "ReferenceId", "order": "ASCENDING" },
         { "fieldPath": "CreatedAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "expenses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "IsTaxDeductible", "order": "ASCENDING" },
+        { "fieldPath": "UserId", "order": "ASCENDING" },
+        { "fieldPath": "Date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "api_tokens",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "TokenHash", "order": "ASCENDING" },
+        { "fieldPath": "IsRevoked", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "api_tokens",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "UserId", "order": "ASCENDING" },
+        { "fieldPath": "IsRevoked", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -67,26 +67,25 @@ func ApiTokenInterceptor(store ApiTokenStore) connect.UnaryInterceptorFunc {
 				}
 			}
 
-			// Look up user for current subscription status
+			// Look up user for current subscription status and profile info
 			user, err := store.GetUser(ctx, apiToken.UserId)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("user not found for API token"))
-			}
 
-			// Set UserClaims in context
+			// Set UserClaims in context — even if user doc doesn't exist, we know the UID from the token
 			claims := &UserClaims{
-				UID:         user.Id,
-				Email:       user.Email,
-				DisplayName: user.DisplayName,
-				Verified:    true,
+				UID:      apiToken.UserId,
+				Verified: true,
+			}
+			subInfo := &SubscriptionInfo{}
+			if err == nil && user != nil {
+				claims.Email = user.Email
+				claims.DisplayName = user.DisplayName
+				subInfo.Tier = user.SubscriptionTier
+				subInfo.Status = user.SubscriptionStatus
+			} else {
+				// User doc not found — use token's user ID with default subscription
+				log.Printf("[API Token] User doc not found for %s, using token-only auth: %v", apiToken.UserId, err)
 			}
 			ctx = withUserClaims(ctx, claims)
-
-			// Set SubscriptionInfo from user's current subscription state
-			subInfo := &SubscriptionInfo{
-				Tier:   user.SubscriptionTier,
-				Status: user.SubscriptionStatus,
-			}
 			ctx = WithSubscription(ctx, subInfo)
 
 			log.Printf("[API Token] Authenticated user %s via token %s (tier=%v)", user.Id, apiToken.TokenPrefix, subInfo.Tier)
