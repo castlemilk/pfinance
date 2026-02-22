@@ -79,6 +79,13 @@ export default function IncomeList() {
     }).format(date);
   };
 
+  const formatShortDate = (date: Date) => {
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+    }).format(date);
+  };
+
   // Format amount to currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -130,7 +137,7 @@ export default function IncomeList() {
   // Handler for submitting the edit form
   const onSubmit = (data: EditIncomeFormData) => {
     if (!selectedIncome) return;
-    
+
     updateIncome(
       selectedIncome.id,
       data.source,
@@ -139,7 +146,7 @@ export default function IncomeList() {
       data.taxStatus,
       selectedIncome.deductions
     );
-    
+
     setIsEditDialogOpen(false);
     setSelectedIncome(null);
   };
@@ -148,151 +155,235 @@ export default function IncomeList() {
     <>
       <Card className="w-full">
         <CardHeader className="pb-3">
-          <CardTitle className="text-xl font-bold">Income Sources</CardTitle>
+          <CardTitle className="text-lg sm:text-xl font-bold">Income Sources</CardTitle>
         </CardHeader>
         <CardContent>
           {incomes.length === 0 ? (
             <p className="text-center text-muted-foreground py-4">No income sources recorded yet.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[30px]"></TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead className="hidden md:table-cell">Frequency</TableHead>
-                    <TableHead className="hidden lg:table-cell">Tax Status</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="w-[100px] text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {incomes.map((income) => (
-                    <React.Fragment key={income.id}>
-                      <TableRow
-                        className="cursor-pointer"
-                        onClick={() => router.push(`/personal/income/${income.id}/`)}
-                      >
-                        <TableCell className="w-[30px] pr-0" onClick={(e) => e.stopPropagation()}>
-                          {income.deductions && income.deductions.length > 0 ? (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-6 w-6 p-0"
-                              onClick={() => toggleExpandIncome(income.id)}
-                            >
-                              <ChevronRight className={cn(
-                                "h-4 w-4 transition-transform",
-                                expandedIncomeId === income.id && "transform rotate-90"
-                              )} />
-                            </Button>
-                          ) : (
-                            <div className="w-6" />
-                          )}
-                        </TableCell>
-                        <TableCell>{formatDate(income.date)}</TableCell>
-                        <TableCell>
-                          <Badge 
-                            style={{ 
+            <>
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-2">
+                {incomes.map((income) => (
+                  <div
+                    key={income.id}
+                    className="flex items-start gap-3 p-3 rounded-lg border bg-background active:bg-accent/50 transition-colors cursor-pointer"
+                    onClick={() => router.push(`/personal/income/${income.id}/`)}
+                  >
+                    {/* Expand button */}
+                    <div
+                      className="pt-0.5 shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {income.deductions && income.deductions.length > 0 ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={() => toggleExpandIncome(income.id)}
+                        >
+                          <ChevronRight className={cn(
+                            "h-4 w-4 transition-transform",
+                            expandedIncomeId === income.id && "transform rotate-90"
+                          )} />
+                        </Button>
+                      ) : (
+                        <div className="w-6" />
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <Badge
+                            className="text-xs"
+                            style={{
                               backgroundColor: getSourceColor(income.source),
                               color: income.source === 'Investment' ? 'black' : 'white'
                             }}
                           >
                             {income.source}
                           </Badge>
-                          
-                          {/* Show frequency and tax status as smaller badges on mobile */}
-                          <div className="md:hidden mt-1 flex flex-wrap gap-1">
-                            <Badge 
-                              variant="outline" 
-                              className="text-xs"
-                              style={{ 
+                          <p className="text-xs text-muted-foreground mt-1">{formatShortDate(income.date)}</p>
+                        </div>
+                        <p className="font-semibold text-sm shrink-0">{formatCurrency(income.amount)}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                        <Badge
+                          className="text-[10px] px-1.5 py-0"
+                          style={{
+                            backgroundColor: getFrequencyColor(income.frequency),
+                            color: 'black'
+                          }}
+                        >
+                          {formatFrequency(income.frequency)}
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          {income.taxStatus === 'preTax' ? 'Pre-Tax' : 'Post-Tax'}
+                        </Badge>
+                      </div>
+
+                      {/* Expanded deductions */}
+                      {expandedIncomeId === income.id && income.deductions && income.deductions.length > 0 && (
+                        <div className="mt-2 pt-2 border-t space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground">Deductions</p>
+                          {income.deductions.map((deduction) => (
+                            <div key={deduction.id} className="flex justify-between items-center text-xs">
+                              <span>{deduction.name}</span>
+                              <span className="font-medium">{formatCurrency(-deduction.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div
+                      className="flex flex-col gap-2 shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-10 w-10 p-0"
+                        onClick={() => handleEdit(income)}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="h-10 w-10 p-0"
+                        onClick={() => handleDeleteClick(income.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[30px]"></TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Source</TableHead>
+                      <TableHead className="hidden md:table-cell">Frequency</TableHead>
+                      <TableHead className="hidden md:table-cell">Tax Status</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="w-[100px] text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {incomes.map((income) => (
+                      <React.Fragment key={income.id}>
+                        <TableRow
+                          className="cursor-pointer"
+                          onClick={() => router.push(`/personal/income/${income.id}/`)}
+                        >
+                          <TableCell className="w-[30px] pr-0" onClick={(e) => e.stopPropagation()}>
+                            {income.deductions && income.deductions.length > 0 ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0"
+                                onClick={() => toggleExpandIncome(income.id)}
+                              >
+                                <ChevronRight className={cn(
+                                  "h-4 w-4 transition-transform",
+                                  expandedIncomeId === income.id && "transform rotate-90"
+                                )} />
+                              </Button>
+                            ) : (
+                              <div className="w-6" />
+                            )}
+                          </TableCell>
+                          <TableCell>{formatDate(income.date)}</TableCell>
+                          <TableCell>
+                            <Badge
+                              style={{
+                                backgroundColor: getSourceColor(income.source),
+                                color: income.source === 'Investment' ? 'black' : 'white'
+                              }}
+                            >
+                              {income.source}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            <Badge
+                              style={{
                                 backgroundColor: getFrequencyColor(income.frequency),
                                 color: 'black'
                               }}
                             >
                               {formatFrequency(income.frequency)}
                             </Badge>
-                            
-                            <Badge 
-                              variant="outline" 
-                              className="text-xs"
-                            >
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            <Badge variant={income.taxStatus === 'preTax' ? 'default' : 'secondary'}>
                               {income.taxStatus === 'preTax' ? 'Pre-Tax' : 'Post-Tax'}
                             </Badge>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          <Badge 
-                            style={{ 
-                              backgroundColor: getFrequencyColor(income.frequency),
-                              color: 'black'
-                            }}
-                          >
-                            {formatFrequency(income.frequency)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          <Badge variant={income.taxStatus === 'preTax' ? 'default' : 'secondary'}>
-                            {income.taxStatus === 'preTax' ? 'Pre-Tax' : 'Post-Tax'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">{formatCurrency(income.amount)}</TableCell>
-                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 w-8 p-0 bg-zinc-900 hover:bg-zinc-800 text-white"
-                              onClick={() => handleEdit(income)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => handleDeleteClick(income.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                      
-                      {/* Expandable Row for Deductions */}
-                      {expandedIncomeId === income.id && income.deductions && income.deductions.length > 0 && (
-                        <TableRow className="bg-muted/50">
-                          <TableCell colSpan={7} className="px-4 py-2">
-                            <div className="text-sm font-medium mb-2">Deductions</div>
-                            <div className="space-y-2">
-                              {income.deductions.map((deduction) => (
-                                <div key={deduction.id} className="flex justify-between items-center">
-                                  <div>{deduction.name}</div>
-                                  <div className="font-medium">{formatCurrency(-deduction.amount)}</div>
-                                </div>
-                              ))}
+                          </TableCell>
+                          <TableCell className="text-right font-medium">{formatCurrency(income.amount)}</TableCell>
+                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 p-0 bg-zinc-900 hover:bg-zinc-800 text-white"
+                                onClick={() => handleEdit(income)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => handleDeleteClick(income.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+
+                        {/* Expandable Row for Deductions */}
+                        {expandedIncomeId === income.id && income.deductions && income.deductions.length > 0 && (
+                          <TableRow className="bg-muted/50">
+                            <TableCell colSpan={7} className="px-4 py-2">
+                              <div className="text-sm font-medium mb-2">Deductions</div>
+                              <div className="space-y-2">
+                                {income.deductions.map((deduction) => (
+                                  <div key={deduction.id} className="flex justify-between items-center">
+                                    <div>{deduction.name}</div>
+                                    <div className="font-medium">{formatCurrency(-deduction.amount)}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
 
       {/* Edit Income Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Edit Income</DialogTitle>
           </DialogHeader>
-          
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
@@ -308,7 +399,7 @@ export default function IncomeList() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="amount"
@@ -328,8 +419,8 @@ export default function IncomeList() {
                   </FormItem>
                 )}
               />
-              
-              <div className="grid grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="frequency"
@@ -357,7 +448,7 @@ export default function IncomeList() {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="taxStatus"
@@ -384,9 +475,9 @@ export default function IncomeList() {
                   )}
                 />
               </div>
-              
+
               <DialogFooter>
-                <Button type="submit">Save Changes</Button>
+                <Button type="submit" className="w-full sm:w-auto">Save Changes</Button>
               </DialogFooter>
             </form>
           </Form>
@@ -395,7 +486,7 @@ export default function IncomeList() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Confirm Deletion</DialogTitle>
             <DialogDescription>
@@ -404,14 +495,14 @@ export default function IncomeList() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex gap-2 justify-end mt-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setIsDeleteDialogOpen(false)}
             >
               Cancel
             </Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={handleConfirmDelete}
             >
               Delete
@@ -421,4 +512,4 @@ export default function IncomeList() {
       </Dialog>
     </>
   );
-} 
+}

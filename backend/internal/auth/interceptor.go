@@ -84,6 +84,8 @@ func isPublicEndpoint(procedure string) bool {
 		"/ping",
 		// ProcessRecurringTransactions is called by Cloud Scheduler without user auth
 		"/pfinance.v1.FinanceService/ProcessRecurringTransactions",
+		// GenerateWeeklyDigest requires either user auth or a valid scheduler secret
+		// (validated in the handler itself), so it is NOT listed here.
 	}
 
 	for _, endpoint := range publicEndpoints {
