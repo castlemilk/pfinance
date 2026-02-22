@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -151,6 +151,27 @@ export default function SidebarNav() {
   const isPersonal = pathname.startsWith('/personal');
   const isShared = pathname.startsWith('/shared');
 
+  // Auto-close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobileMenuOpen]);
+
+  const closeMobileMenu = useCallback(() => {
+    setIsMobileMenuOpen(false);
+  }, []);
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -163,7 +184,7 @@ export default function SidebarNav() {
   const NavContent = ({ showCloseButton = false }: { showCloseButton?: boolean }) => (
     <>
       {/* Logo/Brand - Links to landing page */}
-      <div className="p-6 border-b">
+      <div className="p-4 sm:p-6 border-b">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 group">
             <Image
@@ -181,29 +202,32 @@ export default function SidebarNav() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setIsMobileMenuOpen(false)}
+                onClick={closeMobileMenu}
                 className="lg:hidden"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </Button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Search Button */}
-      <div className="px-4 pt-2">
+      {/* Search Button - Prominent retro-styled */}
+      <div className="px-4 pt-3 pb-1">
         <Button
           variant="outline"
-          className="w-full justify-start text-muted-foreground"
+          className="w-full justify-start text-muted-foreground border-primary/30 hover:border-primary/60 hover:bg-primary/5 transition-all duration-200 group"
           size="sm"
           onClick={() => {
+            closeMobileMenu();
+            // NOTE: This synthetic KeyboardEvent is coupled to the CommandPalette's keydown listener.
+            // If the CommandPalette's shortcut detection changes, this dispatch must be updated too.
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
           }}
         >
-          <Search className="w-4 h-4 mr-2" />
-          <span>Search...</span>
-          <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+          <Search className="w-4 h-4 mr-2 text-primary/70 group-hover:text-primary transition-colors" />
+          <span className="group-hover:text-foreground transition-colors">Search...</span>
+          <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-primary/20 bg-primary/5 px-1.5 font-mono text-[10px] font-medium text-primary/60">
             <span className="text-xs">&#8984;</span>K
           </kbd>
         </Button>
@@ -236,8 +260,8 @@ export default function SidebarNav() {
         </div>
       </div>
 
-      {/* Navigation Items */}
-      <nav className="p-4 space-y-1">
+      {/* Navigation Items - scrollable on mobile */}
+      <nav className="p-4 space-y-1 overflow-y-auto overscroll-contain flex-1">
         {isPersonal && personalNavItems.map((item) => (
           <Link key={item.href} href={item.href}>
             <Button
@@ -369,36 +393,64 @@ export default function SidebarNav() {
 
   return (
     <>
-      {/* Mobile Menu Button - only visible when sidebar is closed */}
-      {!isMobileMenuOpen && (
-        <div className="lg:hidden fixed top-4 left-4 z-50">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setIsMobileMenuOpen(true)}
-          >
-            <Menu className="w-4 h-4" />
-          </Button>
-        </div>
-      )}
-
-      {/* Mobile Sidebar */}
-      <div className={cn(
-        "fixed inset-y-0 left-0 z-40 w-64 bg-background border-r transform transition-transform duration-200 ease-in-out lg:hidden",
-        isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-      )}>
-        <div className="h-full flex flex-col">
-          <NavContent showCloseButton={true} />
+      {/* Mobile Header Bar - fixed top bar with hamburger menu */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b flex items-center px-4 gap-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="shrink-0"
+        >
+          <Menu className="w-5 h-5" />
+        </Button>
+        <Link href="/" className="flex items-center gap-2">
+          <Image
+            src="/logo.png"
+            alt="PFinance Logo"
+            width={28}
+            height={28}
+            className="rounded-md"
+          />
+          <span className="font-semibold text-lg">PFinance</span>
+        </Link>
+        {/* Mobile Search shortcut in header */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="ml-auto text-muted-foreground hover:text-primary"
+          onClick={() => {
+            // NOTE: This synthetic KeyboardEvent is coupled to the CommandPalette's keydown listener.
+            // If the CommandPalette's shortcut detection changes, this dispatch must be updated too.
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
+          }}
+        >
+          <Search className="w-4 h-4" />
+        </Button>
+        <div>
+          <NotificationCenter />
         </div>
       </div>
 
-      {/* Mobile Backdrop */}
-      {isMobileMenuOpen && (
+      {/* Mobile Sidebar Overlay */}
+      <div
+        className={cn(
+          "fixed inset-0 z-[60] lg:hidden transition-opacity duration-200",
+          isMobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        )}
+      >
+        {/* Backdrop */}
         <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-          onClick={() => setIsMobileMenuOpen(false)}
+          className="absolute inset-0 bg-black/50"
+          onClick={closeMobileMenu}
         />
-      )}
+        {/* Sidebar Panel */}
+        <div className={cn(
+          "absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-background border-r shadow-xl transform transition-transform duration-200 ease-in-out flex flex-col overscroll-contain",
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+        )}>
+          <NavContent showCloseButton={true} />
+        </div>
+      </div>
 
       {/* Desktop Sidebar */}
       <div className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 lg:bg-background lg:border-r">

@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"connectrpc.com/connect"
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
+	"github.com/castlemilk/pfinance/backend/internal/auth"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -17,10 +19,38 @@ import (
 // who have opted in via their notification preferences.
 // If user_id is provided, it generates a digest for that single user.
 // Otherwise, it's designed to be called by Cloud Scheduler to process all opted-in users.
+//
+// Authentication: requires either a valid user auth token (Firebase/API key) or
+// a valid X-Scheduler-Secret header matching the SCHEDULER_SECRET env var.
 func (s *FinanceService) GenerateWeeklyDigest(
 	ctx context.Context,
 	req *connect.Request[pfinancev1.GenerateWeeklyDigestRequest],
 ) (*connect.Response[pfinancev1.GenerateWeeklyDigestResponse], error) {
+
+	// Check authentication: either user auth or scheduler secret must be present.
+	claims, hasAuth := auth.GetUserClaims(ctx)
+	if !hasAuth {
+		// No user auth -- validate scheduler secret
+		schedulerSecret := os.Getenv("SCHEDULER_SECRET")
+		providedSecret := req.Header().Get("X-Scheduler-Secret")
+		if schedulerSecret == "" || providedSecret != schedulerSecret {
+			return nil, connect.NewError(connect.CodeUnauthenticated,
+				fmt.Errorf("missing or invalid authentication: provide a valid auth token or X-Scheduler-Secret header"))
+		}
+		log.Printf("[WeeklyDigest] Authenticated via scheduler secret")
+	}
+
+	// If an authenticated user is calling this, enforce they can only generate for themselves.
+	if hasAuth && req.Msg.UserId != "" && req.Msg.UserId != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied,
+			fmt.Errorf("cannot generate digest for another user"))
+	}
+
+	// Default user_id to the authenticated user if present and not specified
+	userID := req.Msg.UserId
+	if userID == "" && hasAuth {
+		userID = claims.UID
+	}
 
 	now := time.Now()
 	periodEnd := now
@@ -28,17 +58,20 @@ func (s *FinanceService) GenerateWeeklyDigest(
 
 	var usersProcessed, digestsSent int32
 
-	if req.Msg.UserId != "" {
+	if userID != "" {
 		// Single user mode
-		sent, err := s.generateDigestForUser(ctx, req.Msg.UserId, periodStart, periodEnd)
+		sent, err := s.generateDigestForUser(ctx, userID, periodStart, periodEnd)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal,
-				fmt.Errorf("failed to generate digest for user %s: %w", req.Msg.UserId, err))
+				fmt.Errorf("failed to generate digest for user %s: %w", userID, err))
 		}
 		usersProcessed = 1
 		if sent {
 			digestsSent = 1
 		}
+	} else {
+		// Scheduler mode with no user_id: no users to enumerate yet.
+		log.Printf("[WeeklyDigest] WARNING: scheduler invocation completed with 0 users processed — user enumeration not yet implemented")
 	}
 	// Note: full user enumeration for Cloud Scheduler would iterate through all users
 	// with weekly_digest=true. For now we only support single-user mode.
@@ -194,6 +227,9 @@ func (s *FinanceService) generateDigestForUser(ctx context.Context, userID strin
 		return false, fmt.Errorf("failed to serialize digest data: %w", err)
 	}
 
+	// TODO: The notification message is currently formatted in the backend. Ideally,
+	// the backend should only store structured digest data (already in metadata) and
+	// let the frontend format the user-facing message for better i18n and presentation control.
 	notification := &pfinancev1.Notification{
 		Id:            uuid.New().String(),
 		UserId:        userID,

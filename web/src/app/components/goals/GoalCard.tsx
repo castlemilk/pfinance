@@ -29,8 +29,15 @@ import {
   Edit,
   Trophy,
   Clock,
+  Star,
 } from 'lucide-react';
 import { FinancialGoal, GoalProgress, GoalType, GoalStatus } from '../../context/GoalContext';
+import {
+  MILESTONE_THRESHOLDS,
+  getAchievedMilestones,
+  MILESTONE_INFO,
+  type MilestoneThreshold,
+} from '../../utils/goalCelebrations';
 
 interface GoalCardProps {
   goal: FinancialGoal;
@@ -69,6 +76,12 @@ export default function GoalCard({
 
   const config = goalTypeConfig[goal.goalType];
   const GoalIcon = config.icon;
+
+  // Calculate achieved milestones from the percentage
+  const achievedMilestoneThresholds = useMemo(
+    () => getAchievedMilestones(percentageComplete),
+    [percentageComplete]
+  );
 
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('en-US', {
@@ -130,7 +143,11 @@ export default function GoalCard({
               <GoalIcon className={`h-4 w-4 ${config.color}`} />
               <span className="font-medium text-sm">{goal.name}</span>
             </div>
-            {getStatusBadge()}
+            <div className="flex items-center gap-1.5">
+              {/* Compact milestone stars */}
+              <MilestoneStars achieved={achievedMilestoneThresholds} size="sm" />
+              {getStatusBadge()}
+            </div>
           </div>
           <div className="space-y-1">
             <Progress value={Math.min(percentageComplete, 100)} className="h-2" />
@@ -145,7 +162,7 @@ export default function GoalCard({
   }
 
   return (
-    <Card className={`${isPaused || isCancelled ? 'opacity-60' : ''} transition-all hover:shadow-md`}>
+    <Card className={`${isPaused || isCancelled ? 'opacity-60' : ''} ${isCompleted ? 'goal-card-completed' : ''} transition-all hover:shadow-md`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
@@ -239,6 +256,18 @@ export default function GoalCard({
           </div>
         </div>
 
+        {/* Milestone Badges */}
+        {achievedMilestoneThresholds.length > 0 && (
+          <div className="flex items-center gap-2 pt-2 border-t">
+            <MilestoneStars achieved={achievedMilestoneThresholds} size="md" />
+            <span className="text-sm text-muted-foreground ml-1">
+              {achievedMilestoneThresholds.length === 4
+                ? 'All milestones unlocked!'
+                : `${achievedMilestoneThresholds.length} of 4 milestones`}
+            </span>
+          </div>
+        )}
+
         {/* Stats row */}
         <div className="grid grid-cols-2 gap-4 pt-2">
           <div className="flex items-center gap-2">
@@ -259,16 +288,6 @@ export default function GoalCard({
             </div>
           )}
         </div>
-
-        {/* Milestones */}
-        {achievedCount > 0 && (
-          <div className="flex items-center gap-2 pt-2 border-t">
-            <Trophy className="h-4 w-4 text-yellow-500" />
-            <span className="text-sm text-muted-foreground">
-              {achievedCount} of {goal.milestones.length} milestones achieved
-            </span>
-          </div>
-        )}
 
         {/* Next milestone */}
         {nextMilestone && !isCompleted && (
@@ -314,5 +333,43 @@ export default function GoalCard({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// ============================================================================
+// Milestone Stars Sub-component
+// ============================================================================
+
+interface MilestoneStarsProps {
+  achieved: MilestoneThreshold[];
+  size?: 'sm' | 'md';
+}
+
+function MilestoneStars({ achieved, size = 'md' }: MilestoneStarsProps) {
+  const starSize = size === 'sm' ? 'h-3 w-3' : 'h-4 w-4';
+
+  return (
+    <div className="flex items-center gap-0.5">
+      {MILESTONE_THRESHOLDS.map((threshold) => {
+        const isAchieved = achieved.includes(threshold);
+        const info = MILESTONE_INFO[threshold];
+
+        return (
+          <div
+            key={threshold}
+            className={`milestone-star ${isAchieved ? 'milestone-star-achieved' : ''}`}
+            title={`${info.label} (${threshold}%) ${isAchieved ? '- Achieved!' : ''}`}
+          >
+            <Star
+              className={`${starSize} transition-all duration-300 ${
+                isAchieved
+                  ? 'text-primary fill-primary drop-shadow-[0_0_3px_var(--glow-color)]'
+                  : 'text-muted-foreground/30'
+              }`}
+            />
+          </div>
+        );
+      })}
+    </div>
   );
 }

@@ -579,6 +579,103 @@
 }
 
 /* ============================================
+   GOAL MILESTONE CELEBRATION ANIMATIONS
+   Retro-themed star glow and card effects
+   ============================================ */
+
+/* Milestone star glow animation */
+@keyframes milestoneStarGlow {
+  0% {
+    filter: drop-shadow(0 0 2px var(--glow-color)) brightness(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 6px var(--glow-color)) brightness(1.3);
+  }
+  100% {
+    filter: drop-shadow(0 0 2px var(--glow-color)) brightness(1);
+  }
+}
+
+/* Milestone star pop-in animation */
+@keyframes milestoneStarPop {
+  0% {
+    transform: scale(0) rotate(-180deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.3) rotate(10deg);
+    opacity: 1;
+  }
+  80% {
+    transform: scale(0.9) rotate(-5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+/* Milestone badge preview pulse in ContributeModal */
+@keyframes milestoneBadgePulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--primary);
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 8px 2px var(--primary);
+    opacity: 0.9;
+  }
+}
+
+/* Completed goal card border glow */
+@keyframes goalCompletedGlow {
+  0%, 100% {
+    box-shadow: 0 0 8px color-mix(in oklch, var(--glow-color) 20%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 16px color-mix(in oklch, var(--glow-color) 35%, transparent);
+  }
+}
+
+/* Applied classes */
+.milestone-star {
+  display: inline-flex;
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+.milestone-star-achieved {
+  animation: milestoneStarPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.milestone-star-achieved:hover {
+  animation: milestoneStarGlow 1.5s ease-in-out infinite;
+}
+
+.milestone-badge-preview {
+  animation: milestoneBadgePulse 2s ease-in-out infinite;
+}
+
+.goal-card-completed {
+  animation: goalCompletedGlow 3s ease-in-out infinite;
+}
+
+/* Stagger milestone star animations */
+.milestone-star:nth-child(1) { animation-delay: 0ms; }
+.milestone-star:nth-child(2) { animation-delay: 100ms; }
+.milestone-star:nth-child(3) { animation-delay: 200ms; }
+.milestone-star:nth-child(4) { animation-delay: 300ms; }
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .milestone-star-achieved,
+  .milestone-star-achieved:hover,
+  .milestone-badge-preview,
+  .goal-card-completed {
+    animation: none !important;
+  }
+}
+
+/* ============================================
    ENHANCED CARD STYLES
    ============================================ */
 
