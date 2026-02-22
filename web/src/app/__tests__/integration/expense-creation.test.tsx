@@ -17,7 +17,7 @@ jest.mock('firebase/auth', () => ({
   signOut: jest.fn().mockResolvedValue(undefined),
   updateProfile: jest.fn().mockResolvedValue(undefined),
   GoogleAuthProvider: jest.fn(),
-  signInWithPopup: jest.fn().mockResolvedValue({ user: { uid: 'test' } }),
+  signInWithRedirect: jest.fn().mockResolvedValue({ user: { uid: 'test' } }),
   setPersistence: jest.fn().mockResolvedValue(undefined),
   browserLocalPersistence: 'local',
 }));

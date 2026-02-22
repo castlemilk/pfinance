@@ -9,7 +9,7 @@ import {
   signOut,
   updateProfile,
   GoogleAuthProvider,
-  signInWithPopup,
+  signInWithRedirect,
   setPersistence,
   browserLocalPersistence
 } from 'firebase/auth';
@@ -196,17 +196,8 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
     provider.addScope('profile');
     provider.addScope('email');
 
-    // Use popup for better UX (no redirects)
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (error: unknown) {
-      // Handle specific errors
-      const firebaseError = error as { code?: string };
-      if (firebaseError.code === 'auth/popup-blocked') {
-        console.error('Popup was blocked. Please allow popups for this site.');
-      }
-      throw error;
-    }
+    // Use redirect to avoid popup blockers
+    await signInWithRedirect(auth, provider);
   };
 
   const logout = async () => {

@@ -10,7 +10,7 @@ jest.mock('@/lib/firebase', () => ({
     createUserWithEmailAndPassword: jest.fn(),
     signOut: jest.fn(),
     updateProfile: jest.fn(),
-    signInWithPopup: jest.fn(),
+    signInWithRedirect: jest.fn(),
     setPersistence: jest.fn(),
   },
 }));
@@ -24,7 +24,7 @@ jest.mock('firebase/auth', () => ({
   GoogleAuthProvider: jest.fn().mockImplementation(() => ({
     addScope: jest.fn(),
   })),
-  signInWithPopup: jest.fn(),
+  signInWithRedirect: jest.fn(),
   setPersistence: jest.fn(),
   browserLocalPersistence: 'local',
 }));
