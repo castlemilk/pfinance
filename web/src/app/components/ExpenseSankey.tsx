@@ -146,18 +146,18 @@ export default function ExpenseSankey({ displayPeriod }: ExpenseSankeyProps) {
               nodePadding={10}
               extent={[[1, 1], [width - 1, height - 6]]}
             >
-              {({ graph }) => (
+              {({ graph, createPath }) => (
                 <svg width={width} height={height}>
                   <defs>
                    {/* Gradients could go here */}
                   </defs>
-                  
+
                   {/* Links */}
                   <g>
                     {graph.links.map((link: any, i: number) => (
                       <path
                         key={`link-${i}`}
-                        d={link.path || ''}
+                        d={createPath(link) || ''}
                         stroke={link.source.name === 'Total Income' || link.source.name === 'Total Funding (Deficit)' 
                           ? colorScale(link.target.name ?? '') 
                           : colorScale(link.target.name ?? '')}
