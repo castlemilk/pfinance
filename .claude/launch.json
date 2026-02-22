@@ -1,0 +1,24 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 1234,
+      "cwd": "web"
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["run", "cmd/server/main.go"],
+      "port": 8111,
+      "cwd": "backend",
+      "env": {
+        "PORT": "8111",
+        "USE_MEMORY_STORE": "true",
+        "GOOGLE_CLOUD_PROJECT": "pfinance-app-1748773335"
+      }
+    }
+  ]
+}
