@@ -38,6 +38,7 @@ type MemoryStore struct {
 	extractionEvents         map[string]*pfinancev1.ExtractionEvent
 	taxDeductibilityMappings map[string]*pfinancev1.TaxDeductibilityMapping
 	apiTokens                map[string]*pfinancev1.ApiToken
+	processedStatements      []*pfinancev1.ProcessedStatement
 }
 
 // NewMemoryStore creates a new in-memory store
@@ -1816,4 +1817,63 @@ func (m *MemoryStore) CountActiveApiTokens(ctx context.Context, userID string) (
 		}
 	}
 	return count, nil
+}
+
+// ============================================================================
+// Processed Statement operations (dedup)
+// ============================================================================
+
+// CreateProcessedStatement stores a processed statement record
+func (m *MemoryStore) CreateProcessedStatement(ctx context.Context, stmt *pfinancev1.ProcessedStatement) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if stmt.Id == "" {
+		stmt.Id = uuid.New().String()
+	}
+
+	m.processedStatements = append(m.processedStatements, stmt)
+	return nil
+}
+
+// FindProcessedStatement finds a processed statement by userID and fingerprint
+func (m *MemoryStore) FindProcessedStatement(ctx context.Context, userID, fingerprint string) (*pfinancev1.ProcessedStatement, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	for _, stmt := range m.processedStatements {
+		if stmt.UserId == userID && stmt.Fingerprint == fingerprint {
+			return stmt, nil
+		}
+	}
+	return nil, fmt.Errorf("processed statement not found for fingerprint: %s", fingerprint)
+}
+
+// FindOverlappingStatements finds statements that overlap with the given period
+func (m *MemoryStore) FindOverlappingStatements(ctx context.Context, userID, bankName, accountID string, periodStart, periodEnd time.Time) ([]*pfinancev1.ProcessedStatement, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var results []*pfinancev1.ProcessedStatement
+	for _, stmt := range m.processedStatements {
+		if stmt.UserId != userID || stmt.BankName != bankName || stmt.AccountIdentifier != accountID {
+			continue
+		}
+
+		// Parse stored period dates
+		existingStart, err := time.Parse("2006-01-02", stmt.PeriodStart)
+		if err != nil {
+			continue
+		}
+		existingEnd, err := time.Parse("2006-01-02", stmt.PeriodEnd)
+		if err != nil {
+			continue
+		}
+
+		// Check overlap: periodStart <= existingEnd AND periodEnd >= existingStart
+		if !periodStart.After(existingEnd) && !periodEnd.Before(existingStart) {
+			results = append(results, stmt)
+		}
+	}
+	return results, nil
 }

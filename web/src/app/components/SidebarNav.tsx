@@ -29,7 +29,8 @@ import {
   CreditCard,
   Crown,
   Bot,
-  Landmark
+  Landmark,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -92,6 +93,11 @@ const personalNavItems: NavItem[] = [
     title: 'Tax Returns',
     href: '/personal/tax',
     icon: <Landmark className="w-4 h-4" />
+  },
+  {
+    title: 'Tax Review',
+    href: '/personal/tax/review',
+    icon: <ClipboardCheck className="w-4 h-4" />
   },
   {
     title: 'Reports',

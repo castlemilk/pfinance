@@ -91,6 +91,17 @@ func (s *FinanceService) ExtractDocument(ctx context.Context, req *connect.Reque
 		return nil, mapExtractionError(err)
 	}
 
+	// Check for statement duplicates if metadata was extracted
+	var duplicateWarnings []string
+	if result.StatementMetadata != nil {
+		isDup, warnings, _ := extractionService.CheckStatementDuplicate(ctx, userID.UID, result.StatementMetadata)
+		duplicateWarnings = warnings
+		if isDup {
+			// Still return the result but mark with warnings
+			result.Warnings = append(result.Warnings, warnings...)
+		}
+	}
+
 	// Record extraction event for metrics tracking
 	if s.store != nil {
 		event := &pfinancev1.ExtractionEvent{
@@ -109,8 +120,10 @@ func (s *FinanceService) ExtractDocument(ctx context.Context, req *connect.Reque
 	}
 
 	return connect.NewResponse(&pfinancev1.ExtractDocumentResponse{
-		Result: result,
-		Status: pfinancev1.ExtractionStatus_EXTRACTION_STATUS_COMPLETED,
+		Result:            result,
+		Status:            pfinancev1.ExtractionStatus_EXTRACTION_STATUS_COMPLETED,
+		StatementMetadata: result.StatementMetadata,
+		DuplicateWarnings: duplicateWarnings,
 	}), nil
 }
 
@@ -228,6 +241,14 @@ func (s *FinanceService) ImportExtractedTransactions(ctx context.Context, req *c
 	}
 
 	importedCount := int32(len(createdExpenses))
+
+	// Record processed statement for future dedup
+	if req.Msg.StatementMetadata != nil && extractionService != nil {
+		_ = extractionService.RecordProcessedStatement(
+			ctx, claims.UID, req.Msg.StatementMetadata,
+			req.Msg.OriginalFilename, importedCount,
+		)
+	}
 
 	// Fire-and-forget: send extraction complete notification
 	func() {
