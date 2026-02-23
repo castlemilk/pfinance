@@ -6,9 +6,12 @@ import { SubscriptionTier, SubscriptionStatus } from '@/gen/pfinance/v1/types_pb
 export function useSubscription() {
   const { subscriptionTier, subscriptionStatus, subscriptionLoading, refreshSubscription } = useAuth();
 
-  const isPro = subscriptionTier === SubscriptionTier.PRO;
+  // In dev mode, grant Pro access so all features are testable
+  const isDevMode = process.env.NEXT_PUBLIC_DEV_MODE === 'true';
+
+  const isPro = isDevMode || subscriptionTier === SubscriptionTier.PRO;
   const isFree = !isPro;
-  const isActive = subscriptionStatus === SubscriptionStatus.ACTIVE || subscriptionStatus === SubscriptionStatus.TRIALING;
+  const isActive = isDevMode || subscriptionStatus === SubscriptionStatus.ACTIVE || subscriptionStatus === SubscriptionStatus.TRIALING;
   const hasProAccess = isPro && isActive;
 
   return {

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"connectrpc.com/connect"
+	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 )
 
 // LocalDevInterceptor provides a mock user context for local development
@@ -54,6 +55,12 @@ func LocalDevInterceptor() connect.UnaryInterceptorFunc {
 			}
 
 			ctx = withUserClaims(ctx, userClaims)
+
+			// In local dev, grant Pro subscription so all features are testable
+			ctx = WithSubscription(ctx, &SubscriptionInfo{
+				Tier:   pfinancev1.SubscriptionTier_SUBSCRIPTION_TIER_PRO,
+				Status: pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE,
+			})
 
 			return next(ctx, req)
 		}

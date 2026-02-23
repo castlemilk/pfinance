@@ -331,9 +331,19 @@ test.describe('Tax Processing Workflow', () => {
     await expect(page.getByText('Private Health Insurance', { exact: true })).toBeVisible();
 
     // Verify step indicator shows all 6 steps
-    const stepLabels = ['Configure', 'Classify', 'Review', 'Deductions', 'Calculate', 'Export'];
-    for (const label of stepLabels) {
-      await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
+    // On mobile viewports, step labels are hidden (hidden sm:block) — only step numbers show.
+    // Check for step numbers which are always visible across all viewports.
+    const viewportWidth = page.viewportSize()?.width ?? 1280;
+    if (viewportWidth >= 640) {
+      const stepLabels = ['Configure', 'Classify', 'Review', 'Deductions', 'Calculate', 'Export'];
+      for (const label of stepLabels) {
+        await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
+      }
+    } else {
+      // On mobile, verify step numbers 1-6 are present in the step indicator
+      for (let i = 1; i <= 6; i++) {
+        await expect(page.getByText(String(i), { exact: true }).first()).toBeVisible();
+      }
     }
 
     // Verify navigation buttons
