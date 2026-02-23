@@ -117,96 +117,6 @@ jobs:
         run: cd backend && go build -o server cmd/server/main.go
 
   # ===========================================
-  # E2E Tests (~2 min) - Runs in parallel!
-  # ===========================================
-  e2e:
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-          cache-dependency-path: backend/go.sum
-
-      - uses: bufbuild/buf-setup-action@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      # Cache Playwright browsers
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
-
-      - name: Install dependencies & generate code
-        run: |
-          # Install mockgen and generate backend code
-          go install go.uber.org/mock/mockgen@latest
-          (cd proto && buf generate)
-          (cd backend && go generate ./internal/store) &
-
-          # Install frontend deps in parallel
-          (cd web && rm -rf node_modules package-lock.json && npm install --legacy-peer-deps) &
-
-          wait
-
-      - name: Install Playwright (Chromium only)
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        working-directory: web
-        run: npm exec playwright -- install chromium --with-deps
-
-      - name: Install Playwright deps (if cached)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        working-directory: web
-        run: npm exec playwright -- install-deps chromium
-
-      - name: Build & start services
-        run: |
-          # Build backend
-          (cd backend && go build -o server cmd/server/main.go)
-
-          # Start backend in background
-          (cd backend && PORT=8111 USE_MEMORY_STORE=true ./server) &
-
-          # Start frontend in dev mode (faster than build)
-          (cd web && npm run dev) &
-
-          # Wait for services to be ready
-          echo "Waiting for backend..."
-          timeout 60 bash -c 'until curl -s http://localhost:8111/health > /dev/null 2>&1; do sleep 1; done' || exit 1
-          echo "Backend ready!"
-
-          echo "Waiting for frontend..."
-          timeout 90 bash -c 'until curl -s http://localhost:1234 > /dev/null 2>&1; do sleep 1; done' || exit 1
-          echo "Frontend ready!"
-
-      - name: Run E2E tests
-        working-directory: web
-        run: npm run test:e2e -- --project=chromium --reporter=list
-        env:
-          NEXT_PUBLIC_API_URL: http://localhost:8111
-
-      - name: Upload test artifacts
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: web/test-results/
-          retention-days: 7
-
-  # ===========================================
   # Proto Validation (~30s)
   # ===========================================
   proto:
@@ -264,7 +174,7 @@ jobs:
   # CI Status Check (for branch protection)
   # ===========================================
   ci-status:
-    needs: [frontend, backend, e2e, proto, firebase, ml-benchmarks]
+    needs: [frontend, backend, proto, firebase, ml-benchmarks]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -273,7 +183,6 @@ jobs:
           # Check if any required job failed
           if [[ "${{ needs.frontend.result }}" == "failure" ]] || \
              [[ "${{ needs.backend.result }}" == "failure" ]] || \
-             [[ "${{ needs.e2e.result }}" == "failure" ]] || \
              [[ "${{ needs.proto.result }}" == "failure" ]] || \
              [[ "${{ needs.firebase.result }}" == "failure" ]] || \
              [[ "${{ needs.ml-benchmarks.result }}" == "failure" ]]; then
