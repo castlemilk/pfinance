@@ -431,7 +431,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
           {step === 'select' && renderSelectStep()}
           {step === 'processing' && renderProcessingStep()}
           {step === 'review' && renderReviewStep()}
@@ -446,9 +446,9 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
 
   function renderSelectStep() {
     return (
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4 min-h-0 h-full">
         {/* Extraction method toggle */}
-        <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+        <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 flex-shrink-0">
           <div className="flex items-center gap-2">
             {useGemini ? <Cloud className="h-4 w-4 text-blue-500" /> : <Cpu className="h-4 w-4 text-green-500" />}
             <Label className="text-sm">{useGemini ? 'Gemini AI' : 'Self-hosted ML'}</Label>
@@ -462,7 +462,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+          className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors flex-shrink-0 ${
             isDragging
               ? 'border-primary bg-primary/5'
               : 'border-muted-foreground/25 hover:border-primary/50'
@@ -485,7 +485,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
 
         {/* File list */}
         {files.length > 0 && (
-          <ScrollArea className="max-h-[200px]">
+          <ScrollArea className="min-h-0 flex-1">
             <div className="space-y-2">
               {files.map((bf) => (
                 <div
@@ -521,14 +521,15 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
         )}
 
         {/* Actions */}
-        <div className="flex justify-between items-center pt-2">
+        <div className="flex justify-between items-center pt-2 flex-shrink-0">
           <span className="text-sm text-muted-foreground">
             {files.length} file{files.length !== 1 ? 's' : ''} selected
+            {files.length > 0 && ` (${(files.reduce((sum, f) => sum + f.file.size, 0) / (1024 * 1024)).toFixed(1)} MB total)`}
           </span>
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleClose}>Cancel</Button>
             <Button onClick={processAllFiles} disabled={files.length === 0}>
-              Process All
+              Process {files.length} File{files.length !== 1 ? 's' : ''}
             </Button>
           </div>
         </div>
