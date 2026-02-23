@@ -8,7 +8,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Receipt, Loader2, AlertCircle, ChevronDown, ChevronRight, Landmark } from 'lucide-react';
 import { financeClient } from '@/lib/financeService';
-import { useAuth } from '../../../context/AuthWithAdminContext';
 import { useFinance } from '../../../context/FinanceContext';
 import { TaxDeductionCategory } from '@/gen/pfinance/v1/types_pb';
 import {
@@ -49,19 +48,18 @@ function formatCurrency(amount: number): string {
 }
 
 export function DeductionsStep({ state, dispatch }: DeductionsStepProps) {
-  const { user } = useAuth();
   const { expenses } = useFinance();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadTaxSummary = useCallback(async () => {
-    if (!user) return;
+    if (!state.effectiveUserId) return;
     setLoading(true);
     setError(null);
 
     try {
       const response = await financeClient.getTaxSummary({
-        userId: user.uid,
+        userId: state.effectiveUserId,
         financialYear: state.financialYear,
       });
 
@@ -77,7 +75,7 @@ export function DeductionsStep({ state, dispatch }: DeductionsStepProps) {
     } finally {
       setLoading(false);
     }
-  }, [user, state.financialYear, dispatch]);
+  }, [state.effectiveUserId, state.financialYear, dispatch]);
 
   // Load on mount
   useEffect(() => {

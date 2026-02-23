@@ -18,7 +18,6 @@ import {
 import Link from 'next/link';
 import { financeClient } from '@/lib/financeService';
 import { TaxExportFormat } from '@/gen/pfinance/v1/finance_service_pb';
-import { useAuth } from '../../../context/AuthWithAdminContext';
 import type { WizardState, WizardAction } from '../TaxReviewWizard';
 
 interface ExportStepProps {
@@ -36,20 +35,19 @@ function formatCurrency(amount: number): string {
 }
 
 export function ExportStep({ state, dispatch }: ExportStepProps) {
-  const { user } = useAuth();
   const [exporting, setExporting] = useState<'csv' | 'json' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [exportedFiles, setExportedFiles] = useState<string[]>([]);
 
   const handleExport = useCallback(
     async (format: 'csv' | 'json') => {
-      if (!user) return;
+      if (!state.effectiveUserId) return;
       setExporting(format);
       setError(null);
 
       try {
         const response = await financeClient.exportTaxReturn({
-          userId: user.uid,
+          userId: state.effectiveUserId,
           financialYear: state.financialYear,
           format: format === 'csv' ? TaxExportFormat.CSV : TaxExportFormat.JSON,
         });
@@ -72,7 +70,7 @@ export function ExportStep({ state, dispatch }: ExportStepProps) {
         setExporting(null);
       }
     },
-    [user, state.financialYear]
+    [state.effectiveUserId, state.financialYear]
   );
 
   const calc = state.taxSummary;

@@ -1,9 +1,10 @@
 'use client';
 
-import { useReducer, useCallback } from 'react';
+import { useReducer, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '../../context/AuthWithAdminContext';
 import {
   getCurrentAustralianFY,
 } from '../../constants/taxDeductions';
@@ -46,6 +47,7 @@ export interface WizardState {
   medicareExemption: boolean;
   privateHealth: boolean;
   taxWithheld: number;
+  effectiveUserId: string;
   classifyResult: ClassifyResult | null;
   classifyResults: TaxClassificationResult[];
   reviewedCount: number;
@@ -65,6 +67,7 @@ export type WizardAction =
   | { type: 'SET_MEDICARE_EXEMPTION'; value: boolean }
   | { type: 'SET_PRIVATE_HEALTH'; value: boolean }
   | { type: 'SET_TAX_WITHHELD'; value: number }
+  | { type: 'SET_EFFECTIVE_USER_ID'; value: string }
   | { type: 'SET_CLASSIFY_RESULT'; result: ClassifyResult; results: TaxClassificationResult[] }
   | { type: 'SET_REVIEWED_COUNT'; count: number }
   | { type: 'SET_TAX_SUMMARY'; summary: TaxCalculation; deductions: TaxDeductionSummary[] }
@@ -91,6 +94,8 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return { ...state, privateHealth: action.value };
     case 'SET_TAX_WITHHELD':
       return { ...state, taxWithheld: action.value };
+    case 'SET_EFFECTIVE_USER_ID':
+      return { ...state, effectiveUserId: action.value };
     case 'SET_CLASSIFY_RESULT':
       return { ...state, classifyResult: action.result, classifyResults: action.results };
     case 'SET_REVIEWED_COUNT':
@@ -178,6 +183,12 @@ function StepIndicator({ currentStep }: { currentStep: Step }) {
 
 export function TaxReviewWizard() {
   const router = useRouter();
+  const { user } = useAuth();
+  const isDevMode = process.env.NEXT_PUBLIC_DEV_MODE === 'true';
+  const effectiveUserId = useMemo(
+    () => user?.uid || (isDevMode ? 'local-dev-user' : ''),
+    [user, isDevMode],
+  );
 
   const [state, dispatch] = useReducer(wizardReducer, {
     step: 'configure',
@@ -187,12 +198,18 @@ export function TaxReviewWizard() {
     medicareExemption: false,
     privateHealth: false,
     taxWithheld: 0,
+    effectiveUserId: '',
     classifyResult: null,
     classifyResults: [],
     reviewedCount: 0,
     taxSummary: null,
     deductionSummaries: [],
   });
+
+  // Keep effectiveUserId in sync with auth state
+  if (state.effectiveUserId !== effectiveUserId && effectiveUserId) {
+    dispatch({ type: 'SET_EFFECTIVE_USER_ID', value: effectiveUserId });
+  }
 
   const currentIndex = getStepIndex(state.step);
   const isFirstStep = currentIndex === 0;

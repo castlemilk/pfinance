@@ -15,7 +15,6 @@ import {
   Landmark,
 } from 'lucide-react';
 import { financeClient } from '@/lib/financeService';
-import { useAuth } from '../../../context/AuthWithAdminContext';
 import type { WizardState, WizardAction } from '../TaxReviewWizard';
 
 interface CalculateStepProps {
@@ -33,19 +32,18 @@ function formatCurrency(amount: number): string {
 }
 
 export function CalculateStep({ state, dispatch }: CalculateStepProps) {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Re-fetch tax summary if not already loaded
   const loadTaxSummary = useCallback(async () => {
-    if (!user || state.taxSummary) return;
+    if (!state.effectiveUserId || state.taxSummary) return;
     setLoading(true);
     setError(null);
 
     try {
       const response = await financeClient.getTaxSummary({
-        userId: user.uid,
+        userId: state.effectiveUserId,
         financialYear: state.financialYear,
       });
 
@@ -61,7 +59,7 @@ export function CalculateStep({ state, dispatch }: CalculateStepProps) {
     } finally {
       setLoading(false);
     }
-  }, [user, state.financialYear, state.taxSummary, dispatch]);
+  }, [state.effectiveUserId, state.financialYear, state.taxSummary, dispatch]);
 
   useEffect(() => {
     loadTaxSummary();

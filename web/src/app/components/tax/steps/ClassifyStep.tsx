@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Sparkles, Loader2, CheckCircle2, AlertCircle, FileSearch, SkipForward } from 'lucide-react';
 import { financeClient } from '@/lib/financeService';
-import { useAuth } from '../../../context/AuthWithAdminContext';
 import type { WizardState, WizardAction } from '../TaxReviewWizard';
 
 interface ClassifyStepProps {
@@ -15,18 +14,17 @@ interface ClassifyStepProps {
 }
 
 export function ClassifyStep({ state, dispatch }: ClassifyStepProps) {
-  const { user } = useAuth();
   const [classifying, setClassifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleClassify = useCallback(async () => {
-    if (!user) return;
+    if (!state.effectiveUserId) return;
     setClassifying(true);
     setError(null);
 
     try {
       const response = await financeClient.batchClassifyTaxDeductibility({
-        userId: user.uid,
+        userId: state.effectiveUserId,
         financialYear: state.financialYear,
         occupation: state.occupation,
         autoApply: true,
@@ -47,7 +45,7 @@ export function ClassifyStep({ state, dispatch }: ClassifyStepProps) {
     } finally {
       setClassifying(false);
     }
-  }, [user, state.financialYear, state.occupation, dispatch]);
+  }, [state.effectiveUserId, state.financialYear, state.occupation, dispatch]);
 
   const hasResult = state.classifyResult !== null;
 

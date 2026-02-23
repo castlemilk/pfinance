@@ -24,7 +24,6 @@ import {
   PartyPopper,
 } from 'lucide-react';
 import { financeClient } from '@/lib/financeService';
-import { useAuth } from '../../../context/AuthWithAdminContext';
 import { useFinance } from '../../../context/FinanceContext';
 import { TaxClassificationResult } from '@/gen/pfinance/v1/finance_service_pb';
 import { TaxDeductionCategory } from '@/gen/pfinance/v1/types_pb';
@@ -61,7 +60,6 @@ function formatCurrency(amount: number): string {
 }
 
 export function ReviewStep({ state, dispatch }: ReviewStepProps) {
-  const { user } = useAuth();
   const { expenses } = useFinance();
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
   const [saving, setSaving] = useState(false);
@@ -130,7 +128,7 @@ export function ReviewStep({ state, dispatch }: ReviewStepProps) {
   }, []);
 
   const handleSaveDecisions = useCallback(async () => {
-    if (!user) return;
+    if (!state.effectiveUserId) return;
     setSaving(true);
     setError(null);
 
@@ -170,7 +168,7 @@ export function ReviewStep({ state, dispatch }: ReviewStepProps) {
 
       if (updates.length > 0) {
         await financeClient.batchUpdateExpenseTaxStatus({
-          userId: user.uid,
+          userId: state.effectiveUserId,
           updates: updates as any[],
         });
       }
@@ -181,7 +179,7 @@ export function ReviewStep({ state, dispatch }: ReviewStepProps) {
     } finally {
       setSaving(false);
     }
-  }, [user, reviewItems]);
+  }, [state.effectiveUserId, reviewItems]);
 
   // No items to review
   if (totalCount === 0) {
