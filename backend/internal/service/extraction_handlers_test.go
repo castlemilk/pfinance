@@ -59,6 +59,21 @@ func (m *mockExtractor) StartAsyncExtraction(ctx context.Context, userID string,
 	return m.asyncJobID, m.asyncErr
 }
 
+func (m *mockExtractor) ExtractMetadataOnly(ctx context.Context, data []byte) (*pfinancev1.StatementMetadata, error) {
+	return nil, nil
+}
+
+func (m *mockExtractor) CheckStatementDuplicate(ctx context.Context, userID string, metadata *pfinancev1.StatementMetadata) (bool, []string, error) {
+	return false, nil, nil
+}
+
+func (m *mockExtractor) RecordProcessedStatement(ctx context.Context, userID string, metadata *pfinancev1.StatementMetadata, filename string, importedCount int32) error {
+	return nil
+}
+
+func (m *mockExtractor) SetStatementStore(store extraction.StatementStore) {
+}
+
 // helper to create an authenticated context
 func authedCtx(uid string) context.Context {
 	return auth.WithUserClaims(context.Background(), &auth.UserClaims{

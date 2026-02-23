@@ -14,16 +14,16 @@ export default function GoalsPage() {
   const [contributeGoal, setContributeGoal] = useState<FinancialGoal | null>(null);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Financial Goals</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Financial Goals</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Track your savings goals, debt payoff, and spending limits
           </p>
         </div>
-        <Button onClick={() => setCreatorOpen(true)}>
+        <Button onClick={() => setCreatorOpen(true)} size="sm" className="sm:size-default">
           <Plus className="w-4 h-4 mr-2" />
           New Goal
         </Button>

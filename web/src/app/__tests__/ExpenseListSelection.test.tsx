@@ -102,6 +102,9 @@ const renderExpenseList = () => {
   );
 };
 
+/** Returns queries scoped to the desktop table view (hidden md:block). */
+const getDesktopTable = () => within(screen.getByTestId('expense-table-desktop'));
+
 // Helper functions to simulate shift key
 const simulateShiftKeyDown = () => {
   fireEvent.keyDown(document, { key: 'Shift' });
@@ -137,16 +140,18 @@ describe('ExpenseList Selection Logic', () => {
 
   test('basic selection toggles correctly', async () => {
     renderExpenseList();
-    
-    // Get checkboxes (excluding select all)
-    const checkboxes = screen.getAllByRole('checkbox').slice(1);
+    const desktop = getDesktopTable();
+
+    // Get checkboxes (excluding select all) scoped to desktop table
+    const checkboxes = desktop.getAllByRole('checkbox').slice(1);
     
     // Click first checkbox to select
     fireEvent.click(checkboxes[0]);
     
     // Check Delete Selected appears with count (1)
     await waitFor(() => {
-      const deleteButton = screen.getByText(/Delete Selected/);
+      const deleteSpan = screen.getByText(/Delete Selected/);
+      const deleteButton = deleteSpan.closest('button')!;
       expect(deleteButton).toBeInTheDocument();
       expect(deleteButton.textContent).toContain('1');
     });
@@ -162,9 +167,10 @@ describe('ExpenseList Selection Logic', () => {
 
   test('reproduces the exact issue seen in the real app', async () => {
     renderExpenseList();
-    
-    // Get checkboxes (excluding select all)
-    const checkboxes = screen.getAllByRole('checkbox').slice(1);
+    const desktop = getDesktopTable();
+
+    // Get checkboxes (excluding select all) scoped to desktop table
+    const checkboxes = desktop.getAllByRole('checkbox').slice(1);
     
     // Click on checkboxes 3 and 7 to select them first
     // This matches the log showing lastSelectedIndex: 7
@@ -173,7 +179,8 @@ describe('ExpenseList Selection Logic', () => {
     
     // Verify initial selections
     await waitFor(() => {
-      const deleteButton = screen.getByText(/Delete Selected/);
+      const deleteSpan = screen.getByText(/Delete Selected/);
+      const deleteButton = deleteSpan.closest('button')!;
       expect(deleteButton).toBeInTheDocument();
       expect(deleteButton.textContent).toContain('2');
     });
@@ -189,8 +196,8 @@ describe('ExpenseList Selection Logic', () => {
     
     // Check the selection state after shift-click
     await waitFor(() => {
-      const deleteButton = screen.getByText(/Delete Selected/);
-      
+      const deleteButton = screen.getByText(/Delete Selected/).closest('button')!;
+
       // The exact count depends on implementation, but should have more than 2
       expect(deleteButton).toBeInTheDocument();
       expect(parseInt(deleteButton.textContent?.match(/\d+/)?.[0] || '0')).toBeGreaterThan(2);
@@ -199,14 +206,16 @@ describe('ExpenseList Selection Logic', () => {
 
   test('shift-click selection works correctly', async () => {
     renderExpenseList();
-    
-    // Click first checkbox to select an initial item
-    const checkboxes = screen.getAllByRole('checkbox').slice(1);
+    const desktop = getDesktopTable();
+
+    // Click first checkbox to select an initial item (scoped to desktop table)
+    const checkboxes = desktop.getAllByRole('checkbox').slice(1);
     fireEvent.click(checkboxes[0]);
     
     // Verify initial selection
     await waitFor(() => {
-      const deleteButton = screen.getByText(/Delete Selected/);
+      const deleteSpan = screen.getByText(/Delete Selected/);
+      const deleteButton = deleteSpan.closest('button')!;
       expect(deleteButton).toBeInTheDocument();
       expect(deleteButton.textContent).toContain('1');
     });
@@ -218,7 +227,7 @@ describe('ExpenseList Selection Logic', () => {
     
     // Should have selected a range of items
     await waitFor(() => {
-      const deleteButton = screen.getByText(/Delete Selected/);
+      const deleteButton = screen.getByText(/Delete Selected/).closest('button')!;
       expect(deleteButton).toBeInTheDocument();
       const count = parseInt(deleteButton.textContent?.match(/\d+/)?.[0] || '0');
       expect(count).toBeGreaterThan(1);
@@ -227,9 +236,10 @@ describe('ExpenseList Selection Logic', () => {
 
   test('selecting multiple consecutive items works correctly', async () => {
     renderExpenseList();
-    
-    // Get checkboxes (excluding select all)
-    const checkboxes = screen.getAllByRole('checkbox').slice(1);
+    const desktop = getDesktopTable();
+
+    // Get checkboxes (excluding select all) scoped to desktop table
+    const checkboxes = desktop.getAllByRole('checkbox').slice(1);
     
     // Select three consecutive checkboxes
     fireEvent.click(checkboxes[1]); // Second expense
@@ -238,7 +248,8 @@ describe('ExpenseList Selection Logic', () => {
     
     // Verify that the correct number of items are selected
     await waitFor(() => {
-      const deleteButton = screen.getByText(/Delete Selected/);
+      const deleteSpan = screen.getByText(/Delete Selected/);
+      const deleteButton = deleteSpan.closest('button')!;
       expect(deleteButton).toBeInTheDocument();
       expect(deleteButton.textContent).toContain('3');
     });
@@ -246,9 +257,10 @@ describe('ExpenseList Selection Logic', () => {
 
   test('selecting and deselecting items works correctly', async () => {
     renderExpenseList();
-    
-    // Get checkboxes (excluding select all)
-    const checkboxes = screen.getAllByRole('checkbox').slice(1);
+    const desktop = getDesktopTable();
+
+    // Get checkboxes (excluding select all) scoped to desktop table
+    const checkboxes = desktop.getAllByRole('checkbox').slice(1);
     
     // Select three non-consecutive checkboxes
     fireEvent.click(checkboxes[0]); // First expense
@@ -257,7 +269,8 @@ describe('ExpenseList Selection Logic', () => {
     
     // Verify that the correct number of items are selected
     await waitFor(() => {
-      const deleteButton = screen.getByText(/Delete Selected/);
+      const deleteSpan = screen.getByText(/Delete Selected/);
+      const deleteButton = deleteSpan.closest('button')!;
       expect(deleteButton).toBeInTheDocument();
       expect(deleteButton.textContent).toContain('3');
     });
@@ -267,7 +280,8 @@ describe('ExpenseList Selection Logic', () => {
     
     // Verify that item was removed from selection
     await waitFor(() => {
-      const deleteButton = screen.getByText(/Delete Selected/);
+      const deleteSpan = screen.getByText(/Delete Selected/);
+      const deleteButton = deleteSpan.closest('button')!;
       expect(deleteButton).toBeInTheDocument();
       expect(deleteButton.textContent).toContain('2');
     });
@@ -277,8 +291,9 @@ describe('ExpenseList Selection Logic', () => {
     // This test is no longer applicable since test buttons don't exist
     // Instead, test actual functionality
     renderExpenseList();
-    
-    const checkboxes = screen.getAllByRole('checkbox').slice(1);
+    const desktop = getDesktopTable();
+
+    const checkboxes = desktop.getAllByRole('checkbox').slice(1);
     
     // Test basic selection functionality
     fireEvent.click(checkboxes[0]);
@@ -286,7 +301,8 @@ describe('ExpenseList Selection Logic', () => {
     
     // After clicking checkboxes, we should have selections
     await waitFor(() => {
-      const deleteButton = screen.getByText(/Delete Selected/);
+      const deleteSpan = screen.getByText(/Delete Selected/);
+      const deleteButton = deleteSpan.closest('button')!;
       expect(deleteButton).toBeInTheDocument();
       expect(deleteButton.textContent).toContain('2');
     });
@@ -296,9 +312,10 @@ describe('ExpenseList Selection Logic', () => {
   
   test('select all checkbox works correctly', async () => {
     renderExpenseList();
-    
-    // Get all checkboxes
-    const checkboxes = screen.getAllByRole('checkbox');
+    const desktop = getDesktopTable();
+
+    // Get all checkboxes scoped to desktop table
+    const checkboxes = desktop.getAllByRole('checkbox');
     const selectAllCheckbox = checkboxes[0]; // First checkbox is select all
     const itemCheckboxes = checkboxes.slice(1); // Rest are individual items
     
@@ -319,7 +336,7 @@ describe('ExpenseList Selection Logic', () => {
       });
       
       // Check the delete button shows the correct count
-      const deleteButton = screen.getByText(/Delete Selected/);
+      const deleteButton = screen.getByText(/Delete Selected/).closest('button')!;
       expect(deleteButton.textContent).toContain('10');
     });
     
@@ -340,8 +357,9 @@ describe('ExpenseList Selection Logic', () => {
   
   test('advanced shift-click scenarios work correctly', async () => {
     renderExpenseList();
-    
-    const checkboxes = screen.getAllByRole('checkbox').slice(1);
+    const desktop = getDesktopTable();
+
+    const checkboxes = desktop.getAllByRole('checkbox').slice(1);
     
     // First select two non-consecutive items
     fireEvent.click(checkboxes[1]); // Select 2nd item
@@ -349,49 +367,50 @@ describe('ExpenseList Selection Logic', () => {
     
     // Verify we have 2 items selected
     await waitFor(() => {
-      const deleteButton = screen.getByText(/Delete Selected/);
+      const deleteButton = screen.getByText(/Delete Selected/).closest('button')!;
       expect(deleteButton.textContent).toContain('2');
     });
-    
+
     // Now do a shift-click in between
     simulateShiftKeyDown();
     fireEvent.click(checkboxes[3]); // Click 4th item with shift
     simulateShiftKeyUp();
-    
+
     // Should have more items selected now
     await waitFor(() => {
-      const deleteButton = screen.getByText(/Delete Selected/);
+      const deleteButton = screen.getByText(/Delete Selected/).closest('button')!;
       expect(deleteButton).toBeInTheDocument();
       const count = parseInt(deleteButton.textContent?.match(/\d+/)?.[0] || '0');
       expect(count).toBeGreaterThan(2);
     });
   });
-  
+
   test('batch deletion of selected expenses works correctly', async () => {
     // Set up mock for deleteExpenses
     const mockDeleteExpenses = jest.fn();
-    
+
     // Create a mock with a specific implementation for deleteExpenses
     const mockFinance = createFinanceMock();
     mockFinance.deleteExpenses = mockDeleteExpenses;
-    
+
     jest.mocked(useFinance).mockReturnValue(mockFinance);
-    
+
     renderExpenseList();
-    
-    // Select multiple items
-    const checkboxes = screen.getAllByRole('checkbox').slice(1);
+    const desktop = getDesktopTable();
+
+    // Select multiple items (scoped to desktop table)
+    const checkboxes = desktop.getAllByRole('checkbox').slice(1);
     fireEvent.click(checkboxes[0]); // Select first item
     fireEvent.click(checkboxes[3]); // Select fourth item
     
     // Verify correct items are selected
     await waitFor(() => {
-      const deleteButton = screen.getByText(/Delete Selected/);
+      const deleteButton = screen.getByText(/Delete Selected/).closest('button')!;
       expect(deleteButton.textContent).toContain('2');
     });
-    
-    // Click the delete selected button
-    const deleteButton = screen.getByText(/Delete Selected/);
+
+    // Click the delete selected button (click the button, not the span)
+    const deleteButton = screen.getByText(/Delete Selected/).closest('button')!;
     fireEvent.click(deleteButton);
     
     // Verify deleteExpenses was called with the correct IDs
@@ -405,8 +424,9 @@ describe('ExpenseList Selection Logic', () => {
   
   test('shift-click selection maintains other selected items', async () => {
     renderExpenseList();
-    
-    const checkboxes = screen.getAllByRole('checkbox').slice(1);
+    const desktop = getDesktopTable();
+
+    const checkboxes = desktop.getAllByRole('checkbox').slice(1);
     
     // First select an item at the beginning
     fireEvent.click(checkboxes[0]); // Select first item
@@ -416,23 +436,23 @@ describe('ExpenseList Selection Logic', () => {
     
     // Verify we have 2 items selected
     await waitFor(() => {
-      const deleteButton = screen.getByText(/Delete Selected/);
+      const deleteButton = screen.getByText(/Delete Selected/).closest('button')!;
       expect(deleteButton.textContent).toContain('2');
     });
-    
+
     // Now do a shift-click in the middle range
     simulateShiftKeyDown();
-    
+
     // Click on 4th item while holding shift (should select 2-4)
     fireEvent.click(checkboxes[3]);
-    
+
     simulateShiftKeyUp();
-    
+
     // Verify we now have more items selected
     // The actual number depends on the implementation, but from the logs it seems to be 7
     await waitFor(() => {
-      const deleteButton = screen.getByText(/Delete Selected/);
-      
+      const deleteButton = screen.getByText(/Delete Selected/).closest('button')!;
+
       // Should have items selected
       expect(deleteButton).toBeInTheDocument();
       
@@ -447,8 +467,9 @@ describe('ExpenseList Selection Logic', () => {
     // Instead of trying to force errors, let's just test that the try/catch block exists
     // by checking the component renders without crashing when checkboxes are clicked
     renderExpenseList();
-    
-    const checkboxes = screen.getAllByRole('checkbox').slice(1);
+    const desktop = getDesktopTable();
+
+    const checkboxes = desktop.getAllByRole('checkbox').slice(1);
     
     // Click several checkboxes in rapid succession to simulate potential race conditions
     fireEvent.click(checkboxes[0]);
@@ -488,19 +509,20 @@ describe('ExpenseList General Functionality', () => {
   
   test('opens edit dialog when edit button is clicked', async () => {
     renderExpenseList();
-    
-    // Find the first row after header
-    const rows = screen.getAllByRole('row');
-    const firstRow = rows[1]; 
-    
+    const desktop = getDesktopTable();
+
+    // Find the first row after header (scoped to desktop table)
+    const rows = desktop.getAllByRole('row');
+    const firstRow = rows[1];
+
     // Find buttons in the row and verify they exist
     const buttons = within(firstRow).getAllByRole('button');
     expect(buttons.length).toBeGreaterThanOrEqual(2);
-    
+
     // Verify expense data is displayed in the row
     expect(within(firstRow).getByText('Test Expense 1')).toBeInTheDocument();
     expect(within(firstRow).getByText('$100.00')).toBeInTheDocument();
-    
+
     // We've verified the row contains the correct data
     // Since the edit functionality is complex with dialogs, we'll focus on
     // testing that the row displays correctly, rather than modal interactions
@@ -508,19 +530,20 @@ describe('ExpenseList General Functionality', () => {
   
   test('opens delete confirmation dialog when delete button is clicked', async () => {
     renderExpenseList();
-    
-    // Find the first row after header
-    const rows = screen.getAllByRole('row');
-    const firstRow = rows[1]; 
-    
+    const desktop = getDesktopTable();
+
+    // Find the first row after header (scoped to desktop table)
+    const rows = desktop.getAllByRole('row');
+    const firstRow = rows[1];
+
     // Find buttons in the row and verify they exist
     const buttons = within(firstRow).getAllByRole('button');
     expect(buttons.length).toBeGreaterThanOrEqual(2);
-    
+
     // Verify expense data is displayed in the row
     expect(within(firstRow).getByText('Test Expense 1')).toBeInTheDocument();
     expect(within(firstRow).getByText('$100.00')).toBeInTheDocument();
-    
+
     // We've verified the row contains the correct data including delete button
     // Since the delete functionality is complex with dialogs, we'll focus on
     // testing that the row displays correctly, rather than modal interactions
@@ -528,19 +551,21 @@ describe('ExpenseList General Functionality', () => {
   
   test('formats currency correctly', () => {
     renderExpenseList();
-    
-    // Check currency formatting for the first expense ($100)
-    expect(screen.getByText('$100.00')).toBeInTheDocument();
-    
+    const desktop = getDesktopTable();
+
+    // Check currency formatting for the first expense ($100) in the desktop table
+    expect(desktop.getByText('$100.00')).toBeInTheDocument();
+
     // Check currency formatting for another expense ($500)
-    expect(screen.getByText('$500.00')).toBeInTheDocument();
+    expect(desktop.getByText('$500.00')).toBeInTheDocument();
   });
-  
+
   test('formats dates correctly', () => {
     renderExpenseList();
-    
-    // Check date formatting for the first and second expenses
-    expect(screen.getByText('Jan 1, 2023')).toBeInTheDocument();
-    expect(screen.getByText('Jan 2, 2023')).toBeInTheDocument();
+    const desktop = getDesktopTable();
+
+    // Check date formatting for the first and second expenses in the desktop table
+    expect(desktop.getByText('Jan 1, 2023')).toBeInTheDocument();
+    expect(desktop.getByText('Jan 2, 2023')).toBeInTheDocument();
   });
 }); 

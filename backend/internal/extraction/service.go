@@ -32,11 +32,22 @@ type Extractor interface {
 	ImportTransactions(ctx context.Context, userID string, groupID string, transactions []*pfinancev1.ExtractedTransaction, skipDuplicates bool, defaultFrequency pfinancev1.ExpenseFrequency) ([]*pfinancev1.Expense, int, []string, error)
 	GetJob(id string) (*pfinancev1.ExtractionJob, error)
 	StartAsyncExtraction(ctx context.Context, userID string, data []byte, filename string, docType pfinancev1.DocumentType, method pfinancev1.ExtractionMethod) (string, error)
+	ExtractMetadataOnly(ctx context.Context, data []byte) (*pfinancev1.StatementMetadata, error)
+	CheckStatementDuplicate(ctx context.Context, userID string, metadata *pfinancev1.StatementMetadata) (bool, []string, error)
+	RecordProcessedStatement(ctx context.Context, userID string, metadata *pfinancev1.StatementMetadata, filename string, importedCount int32) error
+	SetStatementStore(store StatementStore)
 }
 
 // MerchantLookup provides user-specific merchant lookups.
 type MerchantLookup interface {
 	LookupMerchant(ctx context.Context, userID string, rawMerchant string) (*MerchantInfo, error)
+}
+
+// StatementStore provides processed statement tracking for dedup.
+type StatementStore interface {
+	FindProcessedStatement(ctx context.Context, userID, fingerprint string) (*pfinancev1.ProcessedStatement, error)
+	FindOverlappingStatements(ctx context.Context, userID, bankName, accountID string, periodStart, periodEnd time.Time) ([]*pfinancev1.ProcessedStatement, error)
+	CreateProcessedStatement(ctx context.Context, stmt *pfinancev1.ProcessedStatement) error
 }
 
 // ExtractionService provides document extraction functionality.
@@ -46,6 +57,7 @@ type ExtractionService struct {
 	mlEnabled      bool
 	jobStore       *JobStore
 	merchantLookup MerchantLookup
+	statementStore StatementStore
 }
 
 // Config holds configuration for the extraction service.
@@ -80,6 +92,80 @@ func NewExtractionService(cfg Config) *ExtractionService {
 // SetMerchantLookup sets the merchant lookup for user-specific merchant resolution.
 func (s *ExtractionService) SetMerchantLookup(lookup MerchantLookup) {
 	s.merchantLookup = lookup
+}
+
+// SetStatementStore sets the statement store for dedup tracking.
+func (s *ExtractionService) SetStatementStore(store StatementStore) {
+	s.statementStore = store
+}
+
+// ExtractMetadataOnly extracts only statement metadata using a lightweight Gemini prompt.
+// This is the fast first phase of the two-phase extraction flow.
+func (s *ExtractionService) ExtractMetadataOnly(ctx context.Context, data []byte) (*pfinancev1.StatementMetadata, error) {
+	if s.validator == nil || !s.validator.IsGeminiAvailable() {
+		return nil, fmt.Errorf("Gemini is required for metadata extraction")
+	}
+	return s.validator.ExtractStatementMetadata(ctx, data)
+}
+
+// CheckStatementDuplicate checks if a statement has already been processed or overlaps with existing statements.
+func (s *ExtractionService) CheckStatementDuplicate(ctx context.Context, userID string, metadata *pfinancev1.StatementMetadata) (isDuplicate bool, warnings []string, err error) {
+	if s.statementStore == nil || metadata == nil {
+		return false, nil, nil
+	}
+
+	// Check exact fingerprint match
+	existing, err := s.statementStore.FindProcessedStatement(ctx, userID, metadata.Fingerprint)
+	if err == nil && existing != nil {
+		warnings = append(warnings, fmt.Sprintf(
+			"Statement already imported on %s (%d transactions from %s)",
+			existing.ProcessedAt.AsTime().Format("2006-01-02"),
+			existing.ImportedCount,
+			existing.OriginalFilename,
+		))
+		return true, warnings, nil
+	}
+
+	// Check overlapping periods
+	periodStart, _ := time.Parse("2006-01-02", metadata.PeriodStart)
+	periodEnd, _ := time.Parse("2006-01-02", metadata.PeriodEnd)
+	if !periodStart.IsZero() && !periodEnd.IsZero() {
+		overlapping, err := s.statementStore.FindOverlappingStatements(
+			ctx, userID, metadata.BankName, metadata.AccountIdentifier,
+			periodStart, periodEnd,
+		)
+		if err == nil && len(overlapping) > 0 {
+			for _, stmt := range overlapping {
+				warnings = append(warnings, fmt.Sprintf(
+					"Overlapping period with %s statement (%s to %s) imported on %s",
+					stmt.BankName, stmt.PeriodStart, stmt.PeriodEnd,
+					stmt.ProcessedAt.AsTime().Format("2006-01-02"),
+				))
+			}
+		}
+	}
+
+	return false, warnings, nil
+}
+
+// RecordProcessedStatement records a processed statement for future dedup checks.
+func (s *ExtractionService) RecordProcessedStatement(ctx context.Context, userID string, metadata *pfinancev1.StatementMetadata, filename string, importedCount int32) error {
+	if s.statementStore == nil || metadata == nil {
+		return nil
+	}
+	stmt := &pfinancev1.ProcessedStatement{
+		Id:                uuid.New().String(),
+		UserId:            userID,
+		Fingerprint:       metadata.Fingerprint,
+		BankName:          metadata.BankName,
+		AccountIdentifier: metadata.AccountIdentifier,
+		PeriodStart:       metadata.PeriodStart,
+		PeriodEnd:         metadata.PeriodEnd,
+		ImportedCount:     importedCount,
+		ProcessedAt:       timestamppb.Now(),
+		OriginalFilename:  filename,
+	}
+	return s.statementStore.CreateProcessedStatement(ctx, stmt)
 }
 
 // ExtractDocument extracts transactions from a document.

@@ -35,9 +35,9 @@ interface FinanceSummaryProps {
 // Loading skeleton for the summary cards
 function SummarySkeleton() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="p-4 border rounded-lg bg-background">
+        <div key={i} className="p-3 sm:p-4 border rounded-lg bg-background">
           <Skeleton className="h-4 w-16 mb-2" />
           <Skeleton className="h-8 w-24 mb-1" />
           <Skeleton className="h-3 w-12" />
@@ -48,15 +48,15 @@ function SummarySkeleton() {
 }
 
 export default function FinanceSummary({ mode = 'personal', groupId }: FinanceSummaryProps) {
-  const { 
-    incomes, 
-    expenses, 
+  const {
+    incomes,
+    expenses,
     taxConfig,
-    loading 
+    loading
   } = useFinance();
-  
+
   const { groupExpenses, groupIncomes } = useMultiUserFinance();
-  
+
   const [displayPeriod, setDisplayPeriod] = useState<IncomeFrequency>('monthly');
 
   // Use the new metrics hook for personal mode
@@ -69,20 +69,20 @@ export default function FinanceSummary({ mode = 'personal', groupId }: FinanceSu
 
   // For shared mode, we still use the old calculation (can be migrated later)
   const isSharedMode = mode === 'shared' && groupId;
-  
+
   // Get values from metrics (personal) or calculate for shared
   const totalIncome = isSharedMode
     ? groupIncomes.filter(i => i.groupId === groupId).reduce((sum, i) => sum + i.amount, 0)
     : metrics.income.gross.value;
-  
+
   const netIncome = isSharedMode
     ? totalIncome // No tax calc for groups yet
     : metrics.income.net.value;
-    
+
   const adjustedExpenses = isSharedMode
     ? groupExpenses.filter(e => e.groupId === groupId).reduce((sum, e) => sum + e.amount, 0)
     : metrics.expenses.total.value;
-  
+
   const savingsAmount = isSharedMode
     ? netIncome - adjustedExpenses
     : metrics.savings.amount.value;
@@ -90,13 +90,13 @@ export default function FinanceSummary({ mode = 'personal', groupId }: FinanceSu
   const savingsRate = isSharedMode
     ? (totalIncome > 0 ? (savingsAmount / totalIncome) * 100 : 0)
     : metrics.savings.rate;
-  
+
   const displaySavingsRate = isNaN(savingsRate) ? 0 : savingsRate;
-  
+
   const taxAmount = isSharedMode
     ? 0
     : metrics.tax.amount.value;
-  
+
   const effectiveTaxRate = isSharedMode
     ? 0
     : metrics.tax.effectiveRate;
@@ -123,13 +123,13 @@ export default function FinanceSummary({ mode = 'personal', groupId }: FinanceSu
 
   return (
     <Card className="w-full">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Financial Summary</CardTitle>
+      <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+        <CardTitle className="text-lg sm:text-xl">Financial Summary</CardTitle>
         <Select
           value={displayPeriod}
           onValueChange={(value) => setDisplayPeriod(value as IncomeFrequency)}
         >
-          <SelectTrigger className="w-[150px]">
+          <SelectTrigger className="w-full sm:w-[150px]">
             <SelectValue placeholder="Select period" />
           </SelectTrigger>
           <SelectContent>
@@ -143,18 +143,18 @@ export default function FinanceSummary({ mode = 'personal', groupId }: FinanceSu
       <CardContent>
         <Tabs defaultValue="summary" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="summary">Summary</TabsTrigger>
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="flow">Flow</TabsTrigger>
+            <TabsTrigger value="summary" className="text-xs sm:text-sm">Summary</TabsTrigger>
+            <TabsTrigger value="details" className="text-xs sm:text-sm">Details</TabsTrigger>
+            <TabsTrigger value="flow" className="text-xs sm:text-sm">Flow</TabsTrigger>
           </TabsList>
           <TabsContent value="summary" className="space-y-4 mt-4">
             {loading ? (
               <SummarySkeleton />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 border rounded-lg bg-background">
-                  <h3 className="text-sm font-medium text-muted-foreground">Income</h3>
-                  <p className="text-2xl font-bold">{formatCurrency(totalIncome)}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3 sm:p-4 border rounded-lg bg-background">
+                  <h3 className="text-xs sm:text-sm font-medium text-muted-foreground">Income</h3>
+                  <p className="text-xl sm:text-2xl font-bold">{formatCurrency(totalIncome)}</p>
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     {displayPeriod}
                     {taxConfig.country !== 'simple' && (
@@ -164,14 +164,14 @@ export default function FinanceSummary({ mode = 'personal', groupId }: FinanceSu
                     )}
                   </p>
                 </div>
-                <div className="p-4 border rounded-lg bg-background">
-                  <h3 className="text-sm font-medium text-muted-foreground">Expenses</h3>
-                  <p className="text-2xl font-bold">{formatCurrency(adjustedExpenses)}</p>
+                <div className="p-3 sm:p-4 border rounded-lg bg-background">
+                  <h3 className="text-xs sm:text-sm font-medium text-muted-foreground">Expenses</h3>
+                  <p className="text-xl sm:text-2xl font-bold">{formatCurrency(adjustedExpenses)}</p>
                   <p className="text-xs text-muted-foreground">{displayPeriod}</p>
                 </div>
-                <div className="p-4 border rounded-lg bg-background">
-                  <h3 className="text-sm font-medium text-muted-foreground">Savings</h3>
-                  <p className={`text-2xl font-bold ${savingsStatusColors[savingsStatus]}`}>
+                <div className="p-3 sm:p-4 border rounded-lg bg-background">
+                  <h3 className="text-xs sm:text-sm font-medium text-muted-foreground">Savings</h3>
+                  <p className={`text-xl sm:text-2xl font-bold ${savingsStatusColors[savingsStatus]}`}>
                     {formatCurrency(savingsAmount)}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -182,24 +182,26 @@ export default function FinanceSummary({ mode = 'personal', groupId }: FinanceSu
             )}
           </TabsContent>
           <TabsContent value="details" className="space-y-4 mt-4">
-            <div className="space-y-2">
+            <div className="space-y-2 text-sm sm:text-base">
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Total Income:</span>
                 <span className="font-medium">{formatCurrency(totalIncome)}</span>
               </div>
               {taxConfig.enabled && totalIncome > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground flex items-center gap-1">
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-muted-foreground flex items-center gap-1 min-w-0 text-xs sm:text-sm">
                     {taxConfig.country !== 'simple' && (
-                      <span role="img" aria-label={taxConfig.country} className="text-sm">
+                      <span role="img" aria-label={taxConfig.country} className="text-sm shrink-0">
                         {countryFlags[taxConfig.country as keyof typeof countryFlags]}
                       </span>
                     )}
-                    {taxConfig.country === 'simple' 
-                      ? `Tax (${taxConfig.taxRate}%):`
-                      : `${getTaxSystem(taxConfig.country).name} Tax (${effectiveTaxRate.toFixed(1)}% effective):`}
+                    <span className="truncate">
+                      {taxConfig.country === 'simple'
+                        ? `Tax (${taxConfig.taxRate}%):`
+                        : `${getTaxSystem(taxConfig.country).name} Tax (${effectiveTaxRate.toFixed(1)}%):`}
+                    </span>
                   </span>
-                  <span className="font-medium text-red-500">-{formatCurrency(taxAmount)}</span>
+                  <span className="font-medium text-red-500 shrink-0">-{formatCurrency(taxAmount)}</span>
                 </div>
               )}
               {deductionsInfo.totalAmount > 0 && (
@@ -235,8 +237,8 @@ export default function FinanceSummary({ mode = 'personal', groupId }: FinanceSu
             </div>
           </TabsContent>
           <TabsContent value="flow" className="mt-4">
-            <div className="p-2">
-              <h3 className="text-sm font-medium mb-4 flex items-center gap-2">
+            <div className="p-1 sm:p-2">
+              <h3 className="text-sm font-medium mb-4 flex flex-wrap items-center gap-2">
                 Income Flow Visualization
                 {taxConfig.enabled && taxConfig.country !== 'simple' && (
                   <span className="flex items-center text-xs text-muted-foreground gap-1">
@@ -248,7 +250,11 @@ export default function FinanceSummary({ mode = 'personal', groupId }: FinanceSu
                   </span>
                 )}
               </h3>
-              <FinanceFlowDiagram displayPeriod={displayPeriod} />
+              <div className="overflow-x-auto -mx-1 sm:-mx-2">
+                <div className="min-w-[320px]">
+                  <FinanceFlowDiagram displayPeriod={displayPeriod} />
+                </div>
+              </div>
               <p className="text-xs text-muted-foreground mt-2">
                 The flow diagram shows how income is distributed across expenses, taxes, and savings.
                 {taxConfig.enabled && taxConfig.country !== 'simple' && (

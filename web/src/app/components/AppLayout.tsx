@@ -34,11 +34,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
           "lg:pl-64", // Account for sidebar width on desktop
           "min-h-screen"
         )}>
-          {/* Mobile Header Spacer */}
-          <div className="h-16 lg:hidden" />
+          {/* Mobile Header Spacer - matches h-14 mobile header bar */}
+          <div className="h-14 lg:hidden" />
 
           {/* Page Content */}
-          <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
             <Breadcrumbs />
             {children}
           </main>
@@ -49,12 +49,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
           <SheetTrigger asChild>
             <Button
               size="icon"
-              className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-shadow"
+              className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 h-12 w-12 sm:h-14 sm:w-14 rounded-full shadow-lg hover:shadow-xl transition-shadow"
             >
-              <Bot className="h-6 w-6" />
+              <Bot className="h-5 w-5 sm:h-6 sm:w-6" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-[400px] sm:w-[540px] p-0">
+          <SheetContent side="right" className="w-full sm:w-[400px] md:w-[540px] p-0">
             <SheetTitle className="sr-only">Finance Assistant</SheetTitle>
             <SheetDescription className="sr-only">Chat with your financial data</SheetDescription>
             <ChatPanel compact />

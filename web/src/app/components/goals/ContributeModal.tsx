@@ -16,7 +16,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Plus, Sparkles, TrendingUp, Trophy } from 'lucide-react';
+import { Plus, Sparkles, TrendingUp, Trophy, Star } from 'lucide-react';
+import { toast } from '@/components/ui/use-toast';
+import {
+  celebrateGoalProgress,
+  detectCrossedMilestones,
+  MILESTONE_INFO,
+  type MilestoneThreshold,
+} from '../../utils/goalCelebrations';
 
 interface ContributeModalProps {
   goal: FinancialGoal | null;
@@ -57,6 +64,11 @@ export default function ContributeModal({
   const willAchieveMilestone = nextMilestone && newPercentage >= nextMilestone.targetPercentage;
   const willComplete = newAmount >= goal.targetAmount;
 
+  // Detect all milestones that will be crossed
+  const crossedMilestones = contributionAmount > 0
+    ? detectCrossedMilestones(currentPercentage, newPercentage)
+    : [];
+
   const handleClose = () => {
     setAmount('');
     setNote('');
@@ -66,6 +78,10 @@ export default function ContributeModal({
   const handleSubmit = async () => {
     if (contributionAmount <= 0) return;
 
+    // Capture percentages before contribution for celebration
+    const prevPercentage = currentPercentage;
+    const projectedNewPercentage = newPercentage;
+
     setIsSubmitting(true);
 
     try {
@@ -74,6 +90,24 @@ export default function ContributeModal({
       if (success) {
         handleClose();
         onContributed?.();
+
+        // Trigger celebration after modal closes
+        const milestoneInfo = celebrateGoalProgress(prevPercentage, projectedNewPercentage);
+
+        if (milestoneInfo) {
+          // Show a toast notification for the milestone
+          setTimeout(() => {
+            toast({
+              title: milestoneInfo.threshold === 100
+                ? `${milestoneInfo.emoji} Goal Complete!`
+                : `${milestoneInfo.emoji} Milestone Reached!`,
+              description: milestoneInfo.threshold === 100
+                ? `Congratulations! You've completed "${goal.name}"!`
+                : `${milestoneInfo.description} You've reached ${milestoneInfo.threshold}% of "${goal.name}".`,
+              duration: 5000,
+            });
+          }, 400);
+        }
       }
     } finally {
       setIsSubmitting(false);
@@ -94,7 +128,7 @@ export default function ContributeModal({
       <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span className="text-xl">{goal.icon || '🎯'}</span>
+            <span className="text-xl">{goal.icon || '\uD83C\uDFAF'}</span>
             Contribute to {goal.name}
           </DialogTitle>
           <DialogDescription>
@@ -169,7 +203,7 @@ export default function ContributeModal({
                 {willComplete && (
                   <div className="flex items-center gap-2 text-green-600">
                     <Trophy className="h-5 w-5" />
-                    <span className="font-semibold">You'll reach your goal!</span>
+                    <span className="font-semibold">You&apos;ll reach your goal!</span>
                   </div>
                 )}
 
@@ -177,6 +211,21 @@ export default function ContributeModal({
                   <div className="flex items-center gap-2 text-yellow-600">
                     <Sparkles className="h-5 w-5" />
                     <span className="font-semibold">New milestone: {nextMilestone.name}</span>
+                  </div>
+                )}
+
+                {/* Milestone preview badges */}
+                {crossedMilestones.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {crossedMilestones.map((threshold) => (
+                      <span
+                        key={threshold}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/30 milestone-badge-preview"
+                      >
+                        <Star className="h-3 w-3 fill-current" />
+                        {threshold}%
+                      </span>
+                    ))}
                   </div>
                 )}
 
@@ -212,7 +261,7 @@ export default function ContributeModal({
             disabled={contributionAmount <= 0 || isSubmitting}
           >
             {isSubmitting ? (
-              <span className="animate-spin mr-2">⏳</span>
+              <span className="animate-spin mr-2">{'\u23F3'}</span>
             ) : (
               <Plus className="h-4 w-4 mr-2" />
             )}
