@@ -1,7 +1,7 @@
 # PFinance Makefile
 # ==================
 
-.PHONY: help dev dev-memory dev-firebase dev-backend dev-backend-memory dev-backend-firebase dev-backend-seed dev-backend-firebase-seed dev-frontend stop restart status test test-unit test-e2e test-e2e-ui test-e2e-headed test-e2e-report test-integration test-watch test-all proto generate build lint format type-check logs clean setup install health ports check-ports check-port-backend check-port-frontend kill-port-backend kill-port-frontend seed-data seed-data-auth check-firebase-creds deploy-indexes
+.PHONY: help dev dev-memory dev-firebase dev-backend dev-backend-memory dev-backend-firebase dev-backend-seed dev-backend-firebase-seed dev-frontend stop restart status test test-unit test-e2e test-e2e-ui test-e2e-headed test-e2e-report test-integration test-watch test-all proto generate build lint format type-check logs clean setup install health ports check-ports check-port-backend check-port-frontend kill-port-backend kill-port-frontend seed-data seed-data-auth check-firebase-creds deploy-indexes ko-build
 
 define kill_pids_in_project_by_port
 for pid in $$(lsof -ti:$(1) 2>/dev/null); do \
@@ -478,11 +478,15 @@ dev-logs:
 	@echo "Press Ctrl+C to stop"
 
 # ===================
-# Docker Helpers (Optional)
+# Container Build (ko)
 # ===================
 
+ko-build:
+	@echo "📦 Building container image with ko..."
+	KO_DOCKER_REPO=ko.local ko build ./backend/cmd/server --bare --tags=latest
+
 docker-build:
-	@echo "🐳 Building Docker images..."
+	@echo "🐳 Building Docker image..."
 	@cd backend && docker build -t pfinance-backend .
 
 docker-run:
@@ -518,23 +522,21 @@ deploy-indexes:
 ci-local: generate
 	@echo "🔄 Running CI checks locally..."
 	@echo ""
-	@echo "Step 1/4: Backend tests..."
+	@echo "Step 1/3: Backend tests..."
 	@cd backend && go test -race -timeout=60s ./... || exit 1
 	@echo "✅ Backend tests passed"
 	@echo ""
-	@echo "Step 2/4: Frontend lint & type-check..."
+	@echo "Step 2/3: Frontend lint & type-check..."
 	@cd web && npm run lint && npm run type-check || exit 1
 	@echo "✅ Lint & type-check passed"
 	@echo ""
-	@echo "Step 3/4: Frontend unit tests..."
+	@echo "Step 3/3: Frontend unit tests..."
 	@cd web && npm test -- --passWithNoTests --maxWorkers=2 || exit 1
 	@echo "✅ Frontend unit tests passed"
 	@echo ""
-	@echo "Step 4/4: E2E tests (Chromium only)..."
-	@cd web && npx playwright test --project=chromium || exit 1
-	@echo "✅ E2E tests passed"
-	@echo ""
 	@echo "🎉 All CI checks passed!"
+	@echo ""
+	@echo "💡 To run E2E tests locally: make test-e2e"
 
 ci-fast: generate
 	@echo "⚡ Running fast CI checks (no E2E)..."

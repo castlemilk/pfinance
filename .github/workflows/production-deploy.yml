@@ -20,7 +20,7 @@ env:
 
 jobs:
   # ===========================================
-  # 1. Build Backend (Docker)
+  # 1. Build Backend (ko)
   # ===========================================
   build-backend:
     runs-on: ubuntu-latest
@@ -28,7 +28,7 @@ jobs:
       contents: read
       id-token: write
     outputs:
-      image: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+      image: ${{ steps.build.outputs.image }}
     steps:
       - uses: actions/checkout@v4
 
@@ -48,19 +48,24 @@ jobs:
           go-version: '1.25'
           cache-dependency-path: backend/go.sum
 
+      - uses: ko-build/setup-ko@v0.9
+
       - uses: bufbuild/buf-setup-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build & Push
+        id: build
+        env:
+          KO_DOCKER_REPO: ${{ env.IMAGE_NAME }}
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
           export PATH=$PATH:$(go env GOPATH)/bin
           cd proto && buf generate --template buf.gen.go.yaml
-          cd ../backend
-          docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} .
-          docker push ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cd ..
+          IMAGE=$(ko build ./backend/cmd/server --bare --tags=${{ github.sha }})
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
 
   # ===========================================
   # 2. Deploy Backend (Cloud Run)
