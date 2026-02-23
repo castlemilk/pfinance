@@ -14,8 +14,25 @@ import { TaxDeductionCategory } from '@/gen/pfinance/v1/types_pb';
 import {
   TAX_DEDUCTION_CATEGORIES,
   getFYDateRange,
+  getCategoryInfo,
 } from '../../../constants/taxDeductions';
 import type { WizardState, WizardAction } from '../TaxReviewWizard';
+
+// Build a reverse map from expense label strings to enum values for matching
+// This handles the FinanceContext mapping (e.g. "Other Work" -> OTHER_WORK enum)
+const LABEL_TO_ENUM: Record<string, TaxDeductionCategory> = {
+  'Unspecified': TaxDeductionCategory.UNSPECIFIED,
+  'Work Travel': TaxDeductionCategory.WORK_TRAVEL,
+  'Uniform': TaxDeductionCategory.UNIFORM,
+  'Self-Education': TaxDeductionCategory.SELF_EDUCATION,
+  'Other Work': TaxDeductionCategory.OTHER_WORK,
+  'Home Office': TaxDeductionCategory.HOME_OFFICE,
+  'Vehicle': TaxDeductionCategory.VEHICLE,
+  'Donations': TaxDeductionCategory.DONATIONS,
+  'Tax Affairs': TaxDeductionCategory.TAX_AFFAIRS,
+  'Income Protection': TaxDeductionCategory.INCOME_PROTECTION,
+  'Other': TaxDeductionCategory.OTHER,
+};
 
 interface DeductionsStepProps {
   state: WizardState;
@@ -69,9 +86,9 @@ export function DeductionsStep({ state, dispatch }: DeductionsStepProps) {
 
   const { start, end } = useMemo(() => getFYDateRange(state.financialYear), [state.financialYear]);
 
-  // Group deductible expenses by category for expandable sections
+  // Group deductible expenses by category enum value for expandable sections
   const expensesByCategory = useMemo(() => {
-    const map = new Map<string, typeof expenses>();
+    const map = new Map<TaxDeductionCategory, typeof expenses>();
     const fyExpenses = expenses.filter((e) => {
       if (!e.isTaxDeductible) return false;
       const d = new Date(e.date);
@@ -79,11 +96,12 @@ export function DeductionsStep({ state, dispatch }: DeductionsStepProps) {
     });
 
     for (const exp of fyExpenses) {
-      const catLabel = exp.taxDeductionCategory || 'Unspecified';
-      if (!map.has(catLabel)) {
-        map.set(catLabel, []);
+      // exp.taxDeductionCategory is a label string from FinanceContext mapping
+      const catEnum = LABEL_TO_ENUM[exp.taxDeductionCategory as string] ?? TaxDeductionCategory.UNSPECIFIED;
+      if (!map.has(catEnum)) {
+        map.set(catEnum, []);
       }
-      map.get(catLabel)!.push(exp);
+      map.get(catEnum)!.push(exp);
     }
 
     return map;
@@ -161,9 +179,9 @@ export function DeductionsStep({ state, dispatch }: DeductionsStepProps) {
               const catInfo = TAX_DEDUCTION_CATEGORIES.find((c) => c.id === summary.category);
               const pct = totalDeductions > 0 ? (summary.totalAmount / totalDeductions) * 100 : 0;
 
-              // Find matching expenses for this category
+              // Find matching expenses for this category by enum value
               const catLabel = catInfo?.label || 'Unknown';
-              const categoryExpenses = expensesByCategory.get(catLabel) || [];
+              const categoryExpenses = expensesByCategory.get(summary.category) || [];
 
               return (
                 <DeductionCategoryCard

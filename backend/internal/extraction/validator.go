@@ -309,7 +309,8 @@ func (v *ValidationService) compareResults(
 		for _, val := range validated.Transactions {
 			// Consider a match if amounts are within 1% or $0.10
 			amountDiff := math.Abs(ext.Amount - val.Amount)
-			if amountDiff < 0.10 || amountDiff/ext.Amount < 0.01 {
+			ratioMatch := ext.Amount != 0 && amountDiff/ext.Amount < 0.01
+			if amountDiff < 0.10 || ratioMatch {
 				amountMatches++
 				break
 			} else {

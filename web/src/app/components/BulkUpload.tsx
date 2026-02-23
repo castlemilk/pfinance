@@ -310,12 +310,17 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
     });
 
     let resultTransactions: ExtractedTransaction[] = [];
+    let effectiveMetadata = response.statementMetadata;
 
     if (response.status === ExtractionStatus.PROCESSING && response.jobId) {
       updateFileStatus(bf.id, 'polling');
-      const result = await pollExtractionJob(response.jobId);
-      if (result) {
-        resultTransactions = result;
+      const pollResult = await pollExtractionJob(response.jobId);
+      if (pollResult) {
+        resultTransactions = pollResult.transactions;
+        // Prefer metadata from polled result if available (async path)
+        if (pollResult.statementMetadata) {
+          effectiveMetadata = pollResult.statementMetadata;
+        }
       }
     } else if (response.result) {
       resultTransactions = response.result.transactions;
@@ -345,7 +350,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
 
     return {
       transactions: mapped,
-      statementMetadata: response.statementMetadata,
+      statementMetadata: effectiveMetadata,
       duplicateWarnings: response.duplicateWarnings.length > 0 ? [...response.duplicateWarnings] : undefined,
     };
   };
@@ -407,7 +412,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
     }
   };
 
-  async function pollExtractionJob(jobId: string): Promise<ExtractedTransaction[] | null> {
+  async function pollExtractionJob(jobId: string): Promise<{ transactions: ExtractedTransaction[]; statementMetadata?: StatementMetadata } | null> {
     const maxPolls = 60;
     for (let i = 0; i < maxPolls; i++) {
       if (cancelledRef.current) return null;
@@ -415,7 +420,10 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
       try {
         const jobResp = await financeClient.getExtractionJob({ jobId });
         if (jobResp.job?.status === ExtractionStatus.COMPLETED && jobResp.job.result) {
-          return jobResp.job.result.transactions;
+          return {
+            transactions: jobResp.job.result.transactions,
+            statementMetadata: jobResp.job.result.statementMetadata,
+          };
         }
         if (jobResp.job?.status === ExtractionStatus.FAILED) {
           throw new Error(jobResp.job.errorMessage || 'Extraction failed');
@@ -614,6 +622,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
         setClassifyingTax(true);
         try {
           const taxResp = await financeClient.batchClassifyTaxDeductibility({
+            userId: user.uid,
             financialYear: getCurrentAustralianFY(),
             autoApply: true,
           });
