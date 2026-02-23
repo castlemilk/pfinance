@@ -707,6 +707,32 @@ message ExtractionResult {
   repeated ExtractedTransaction rejected_transactions = 8;
   ExtractionMethod method_used = 9;
   ExtractionMethod fallback_from = 10;
+  StatementMetadata statement_metadata = 11;  // Populated for bank statements
+}
+
+// StatementMetadata contains identifying information extracted from a bank statement
+message StatementMetadata {
+  string bank_name = 1;          // e.g. "ANZ", "Commonwealth Bank"
+  string account_identifier = 2; // Last 4 digits or masked account number
+  string period_start = 3;       // YYYY-MM-DD
+  string period_end = 4;         // YYYY-MM-DD
+  int32 transaction_count = 5;   // Number of transactions detected
+  string currency = 6;           // e.g. "AUD"
+  string fingerprint = 7;        // SHA256 of bank+account+period_start+period_end
+}
+
+// ProcessedStatement tracks which statements have been imported to prevent duplicates
+message ProcessedStatement {
+  string id = 1;
+  string user_id = 2;
+  string fingerprint = 3;
+  string bank_name = 4;
+  string account_identifier = 5;
+  string period_start = 6;
+  string period_end = 7;
+  int32 imported_count = 8;
+  google.protobuf.Timestamp processed_at = 9;
+  string original_filename = 10;
 }
 
 // ExtractionJob represents an async extraction job

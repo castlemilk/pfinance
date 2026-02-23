@@ -40,10 +40,12 @@ import { useFinance } from '../context/FinanceContext';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { financeClient, DocumentType } from '@/lib/financeService';
 import { ExtractionMethod, ExtractionStatus } from '@/gen/pfinance/v1/types_pb';
-import type { ExtractedTransaction } from '@/gen/pfinance/v1/types_pb';
+import type { ExtractedTransaction, StatementMetadata } from '@/gen/pfinance/v1/types_pb';
 import { ExpenseCategory } from '../types';
 import { ExpenseFrequency as ProtoExpenseFrequency } from '@/gen/pfinance/v1/types_pb';
 import { compressImage, readFileAsDataUrl, base64ToUint8Array } from '../utils/imageCompression';
+import { getCurrentAustralianFY } from '@/app/constants/taxDeductions';
+import { useRouter } from 'next/navigation';
 import {
   Upload,
   X,
@@ -61,9 +63,12 @@ import {
   Filter,
   Download,
   Trash2,
+  Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -76,6 +81,8 @@ interface BulkFile {
   error?: string;
   transactions: BulkTransaction[];
   retryCount: number;
+  statementMetadata?: StatementMetadata;
+  duplicateWarnings?: string[];
 }
 
 interface BulkTransaction {
@@ -178,12 +185,23 @@ interface BulkUploadDialogProps {
 function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkUploadDialogProps) {
   const { refreshData } = useFinance();
   const { user } = useAuth();
+  const router = useRouter();
 
   const [step, setStep] = useState<BulkStep>('select');
   const [files, setFiles] = useState<BulkFile[]>([]);
   const [transactions, setTransactions] = useState<BulkTransaction[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number; reasons: string[] } | null>(null);
+
+  // Tax classification state
+  const [classifyForTax, setClassifyForTax] = useState(true);
+  const [classifyingTax, setClassifyingTax] = useState(false);
+  const [taxClassifyResult, setTaxClassifyResult] = useState<{
+    totalProcessed: number;
+    autoApplied: number;
+    needsReview: number;
+    skipped: number;
+  } | null>(null);
 
   // Sort & filter state
   const [sortField, setSortField] = useState<SortField>('date');
@@ -264,7 +282,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
 
   // ── Processing ───────────────────────────────────────
 
-  const processSingleFile = async (bf: BulkFile): Promise<BulkTransaction[]> => {
+  const processSingleFile = async (bf: BulkFile): Promise<{ transactions: BulkTransaction[]; statementMetadata?: StatementMetadata; duplicateWarnings?: string[] }> => {
     let dataUrl: string;
     const isPdf = isPdfFile(bf.file);
 
@@ -292,12 +310,17 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
     });
 
     let resultTransactions: ExtractedTransaction[] = [];
+    let effectiveMetadata = response.statementMetadata;
 
     if (response.status === ExtractionStatus.PROCESSING && response.jobId) {
       updateFileStatus(bf.id, 'polling');
-      const result = await pollExtractionJob(response.jobId);
-      if (result) {
-        resultTransactions = result;
+      const pollResult = await pollExtractionJob(response.jobId);
+      if (pollResult) {
+        resultTransactions = pollResult.transactions;
+        // Prefer metadata from polled result if available (async path)
+        if (pollResult.statementMetadata) {
+          effectiveMetadata = pollResult.statementMetadata;
+        }
       }
     } else if (response.result) {
       resultTransactions = response.result.transactions;
@@ -325,7 +348,11 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
         };
       });
 
-    return mapped;
+    return {
+      transactions: mapped,
+      statementMetadata: effectiveMetadata,
+      duplicateWarnings: response.duplicateWarnings.length > 0 ? [...response.duplicateWarnings] : undefined,
+    };
   };
 
   const processAllFiles = async () => {
@@ -345,9 +372,9 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
       }
 
       try {
-        const mapped = await processSingleFile(bf);
-        allTransactions.push(...mapped);
-        updateFileWithTransactions(bf.id, 'done', mapped);
+        const result = await processSingleFile(bf);
+        allTransactions.push(...result.transactions);
+        updateFileWithTransactions(bf.id, 'done', result.transactions, result.statementMetadata, result.duplicateWarnings);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Processing failed';
         updateFileStatus(bf.id, 'error', message);
@@ -371,21 +398,21 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
 
     try {
       const updatedBf = { ...bf, status: 'pending' as const, retryCount: bf.retryCount + 1 };
-      const mapped = await processSingleFile(updatedBf);
+      const result = await processSingleFile(updatedBf);
 
       // Remove old transactions from this file and add new ones
       setTransactions((prev) => [
         ...prev.filter((t) => t.sourceFileId !== fileId),
-        ...mapped,
+        ...result.transactions,
       ]);
-      updateFileWithTransactions(fileId, 'done', mapped);
+      updateFileWithTransactions(fileId, 'done', result.transactions, result.statementMetadata, result.duplicateWarnings);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Processing failed';
       updateFileStatus(fileId, 'error', message);
     }
   };
 
-  async function pollExtractionJob(jobId: string): Promise<ExtractedTransaction[] | null> {
+  async function pollExtractionJob(jobId: string): Promise<{ transactions: ExtractedTransaction[]; statementMetadata?: StatementMetadata } | null> {
     const maxPolls = 60;
     for (let i = 0; i < maxPolls; i++) {
       if (cancelledRef.current) return null;
@@ -393,7 +420,10 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
       try {
         const jobResp = await financeClient.getExtractionJob({ jobId });
         if (jobResp.job?.status === ExtractionStatus.COMPLETED && jobResp.job.result) {
-          return jobResp.job.result.transactions;
+          return {
+            transactions: jobResp.job.result.transactions,
+            statementMetadata: jobResp.job.result.statementMetadata,
+          };
         }
         if (jobResp.job?.status === ExtractionStatus.FAILED) {
           throw new Error(jobResp.job.errorMessage || 'Extraction failed');
@@ -411,9 +441,9 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
     );
   }
 
-  function updateFileWithTransactions(id: string, status: BulkFile['status'], txs: BulkTransaction[]) {
+  function updateFileWithTransactions(id: string, status: BulkFile['status'], txs: BulkTransaction[], metadata?: StatementMetadata, dupWarnings?: string[]) {
     setFiles((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, status, transactions: txs } : f)),
+      prev.map((f) => (f.id === id ? { ...f, status, transactions: txs, statementMetadata: metadata, duplicateWarnings: dupWarnings } : f)),
     );
   }
 
@@ -568,18 +598,48 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
     setStep('importing');
 
     try {
+      // Find statement metadata from the first file that has it
+      const fileWithMetadata = files.find((f) => f.statementMetadata);
+      const firstFileName = files[0]?.name || '';
+
       const resp = await financeClient.importExtractedTransactions({
         userId: user.uid,
         groupId: '',
         transactions: selectedTransactions.map((t) => t.rawTransaction),
         skipDuplicates: true,
         defaultFrequency: ProtoExpenseFrequency.ONCE,
+        statementMetadata: fileWithMetadata?.statementMetadata,
+        originalFilename: firstFileName,
       });
       setImportResult({
         imported: resp.importedCount,
         skipped: resp.skippedCount,
         reasons: [...resp.skippedReasons],
       });
+
+      // Run tax classification if enabled
+      if (classifyForTax && resp.importedCount > 0) {
+        setClassifyingTax(true);
+        try {
+          const taxResp = await financeClient.batchClassifyTaxDeductibility({
+            userId: user.uid,
+            financialYear: getCurrentAustralianFY(),
+            autoApply: true,
+          });
+          setTaxClassifyResult({
+            totalProcessed: taxResp.totalProcessed,
+            autoApplied: taxResp.autoApplied,
+            needsReview: taxResp.needsReview,
+            skipped: taxResp.skipped,
+          });
+        } catch (taxErr) {
+          console.error('Tax classification failed:', taxErr);
+          // Non-fatal: import still succeeded
+        } finally {
+          setClassifyingTax(false);
+        }
+      }
+
       setStep('done');
     } catch (err) {
       console.error('Import failed:', err);
@@ -608,6 +668,9 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
     setSortDirection('desc');
     setConfidenceFilter('all');
     setSearchQuery('');
+    setClassifyForTax(true);
+    setClassifyingTax(false);
+    setTaxClassifyResult(null);
     cancelledRef.current = false;
   };
 
@@ -915,6 +978,23 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
           </div>
         )}
 
+        {/* Duplicate warnings */}
+        {files.some((f) => f.duplicateWarnings && f.duplicateWarnings.length > 0) && (
+          <Alert className="border-amber-500/30 bg-amber-500/5">
+            <AlertCircle className="h-4 w-4 text-amber-500" />
+            <AlertTitle className="text-amber-600 dark:text-amber-400">Duplicate Warnings</AlertTitle>
+            <AlertDescription>
+              <ul className="text-xs text-muted-foreground list-disc list-inside space-y-0.5 mt-1">
+                {files
+                  .filter((f) => f.duplicateWarnings && f.duplicateWarnings.length > 0)
+                  .flatMap((f) => f.duplicateWarnings!.map((w, i) => (
+                    <li key={`${f.id}-${i}`}>{w}</li>
+                  )))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Filter / search bar */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex-1 min-w-[200px]">
@@ -1152,6 +1232,18 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
           </Table>
         </ScrollArea>
 
+        {/* Tax classification toggle */}
+        <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-amber-500" />
+            <div>
+              <Label className="text-sm font-medium">Classify for Tax Deductibility</Label>
+              <p className="text-xs text-muted-foreground">Automatically classify imported expenses for tax</p>
+            </div>
+          </div>
+          <Switch checked={classifyForTax} onCheckedChange={setClassifyForTax} />
+        </div>
+
         {/* Footer */}
         <div className="flex justify-between items-center pt-2 border-t">
           <div className="flex items-center gap-3">
@@ -1180,9 +1272,14 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
       <div className="text-center py-16 space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
         <div>
-          <h3 className="font-semibold text-lg">Importing Transactions</h3>
+          <h3 className="font-semibold text-lg">
+            {classifyingTax ? 'Classifying for Tax Deductibility...' : 'Importing Transactions'}
+          </h3>
           <p className="text-muted-foreground text-sm mt-1">
-            Creating {selectedTransactions.length} expense{selectedTransactions.length !== 1 ? 's' : ''}...
+            {classifyingTax
+              ? 'Running AI tax classification on imported expenses...'
+              : `Creating ${selectedTransactions.length} expense${selectedTransactions.length !== 1 ? 's' : ''}...`
+            }
           </p>
         </div>
       </div>
@@ -1219,6 +1316,45 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
             </div>
           )}
         </div>
+
+        {/* Tax classification results */}
+        {taxClassifyResult && (
+          <div className="space-y-3 mx-auto max-w-md">
+            <div className="flex items-center justify-center gap-2 text-sm font-medium">
+              <Sparkles className="h-4 w-4 text-amber-500" />
+              Tax Classification Results
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="p-2.5 rounded-md border border-green-500/20 bg-green-500/5 text-center">
+                <div className="text-lg font-bold text-green-600">{taxClassifyResult.autoApplied}</div>
+                <div className="text-xs text-muted-foreground">Auto-classified</div>
+              </div>
+              <div className="p-2.5 rounded-md border border-amber-500/20 bg-amber-500/5 text-center">
+                <div className="text-lg font-bold text-amber-600">{taxClassifyResult.needsReview}</div>
+                <div className="text-xs text-muted-foreground">Need Review</div>
+              </div>
+              <div className="p-2.5 rounded-md border bg-muted/30 text-center">
+                <div className="text-lg font-bold text-muted-foreground">{taxClassifyResult.skipped}</div>
+                <div className="text-xs text-muted-foreground">Skipped</div>
+              </div>
+            </div>
+            {taxClassifyResult.needsReview > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => {
+                  handleClose();
+                  router.push('/personal/tax/review');
+                }}
+              >
+                Start Tax Review
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        )}
+
         <Button onClick={handleClose} size="lg" className="glow-hover">
           Done
         </Button>

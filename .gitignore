@@ -54,6 +54,9 @@ __pycache__/
 playwright-report/
 test-results/
 
+# Test data - real financial statements (sensitive)
+web/testdata/statements/
+
 # Claude Code artifacts
 .settings.json
 PLAN.md

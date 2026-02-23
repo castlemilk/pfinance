@@ -268,6 +268,20 @@ func (mr *MockStoreMockRecorder) CreateNotification(ctx, notification any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateNotification", reflect.TypeOf((*MockStore)(nil).CreateNotification), ctx, notification)
 }
 
+// CreateProcessedStatement mocks base method.
+func (m *MockStore) CreateProcessedStatement(ctx context.Context, stmt *pfinancev1.ProcessedStatement) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateProcessedStatement", ctx, stmt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateProcessedStatement indicates an expected call of CreateProcessedStatement.
+func (mr *MockStoreMockRecorder) CreateProcessedStatement(ctx, stmt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateProcessedStatement", reflect.TypeOf((*MockStore)(nil).CreateProcessedStatement), ctx, stmt)
+}
+
 // CreateRecurringTransaction mocks base method.
 func (m *MockStore) CreateRecurringTransaction(ctx context.Context, rt *pfinancev1.RecurringTransaction) error {
 	m.ctrl.T.Helper()
@@ -378,6 +392,36 @@ func (m *MockStore) DeleteUser(ctx context.Context, userID string) error {
 func (mr *MockStoreMockRecorder) DeleteUser(ctx, userID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUser", reflect.TypeOf((*MockStore)(nil).DeleteUser), ctx, userID)
+}
+
+// FindOverlappingStatements mocks base method.
+func (m *MockStore) FindOverlappingStatements(ctx context.Context, userID, bankName, accountID string, periodStart, periodEnd time.Time) ([]*pfinancev1.ProcessedStatement, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindOverlappingStatements", ctx, userID, bankName, accountID, periodStart, periodEnd)
+	ret0, _ := ret[0].([]*pfinancev1.ProcessedStatement)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindOverlappingStatements indicates an expected call of FindOverlappingStatements.
+func (mr *MockStoreMockRecorder) FindOverlappingStatements(ctx, userID, bankName, accountID, periodStart, periodEnd any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindOverlappingStatements", reflect.TypeOf((*MockStore)(nil).FindOverlappingStatements), ctx, userID, bankName, accountID, periodStart, periodEnd)
+}
+
+// FindProcessedStatement mocks base method.
+func (m *MockStore) FindProcessedStatement(ctx context.Context, userID, fingerprint string) (*pfinancev1.ProcessedStatement, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindProcessedStatement", ctx, userID, fingerprint)
+	ret0, _ := ret[0].(*pfinancev1.ProcessedStatement)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindProcessedStatement indicates an expected call of FindProcessedStatement.
+func (mr *MockStoreMockRecorder) FindProcessedStatement(ctx, userID, fingerprint any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindProcessedStatement", reflect.TypeOf((*MockStore)(nil).FindProcessedStatement), ctx, userID, fingerprint)
 }
 
 // GetApiTokenByHash mocks base method.

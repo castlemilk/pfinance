@@ -4,6 +4,7 @@ package extraction
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -84,9 +85,20 @@ type GeminiTransaction struct {
 	Reference   string  `json:"reference,omitempty"`
 }
 
+// GeminiMetadata represents metadata extracted from a bank statement.
+type GeminiMetadata struct {
+	BankName          string `json:"bank_name"`
+	AccountIdentifier string `json:"account_identifier"`
+	PeriodStart       string `json:"period_start"`
+	PeriodEnd         string `json:"period_end"`
+	Currency          string `json:"currency"`
+	TransactionCount  int    `json:"transaction_count"`
+}
+
 // GeminiResponse represents the response from Gemini API.
 type GeminiResponse struct {
 	Transactions []GeminiTransaction `json:"transactions"`
+	Metadata     *GeminiMetadata     `json:"metadata,omitempty"`
 }
 
 // extractWithGeminiRetry wraps extractWithGemini with retry logic.
@@ -149,9 +161,10 @@ func (v *ValidationService) extractWithGemini(ctx context.Context, documentData 
 	mimeType := detectMimeType(documentData)
 
 	// Build request for Gemini API
-	prompt := `Extract all expense/debit transactions from this document.
+	prompt := `Extract all expense/debit transactions AND metadata from this document.
 Return ONLY a valid JSON object with this structure:
 {
+  "metadata": {"bank_name": "...", "account_identifier": "XXXX", "period_start": "YYYY-MM-DD", "period_end": "YYYY-MM-DD", "currency": "AUD"},
   "transactions": [
     {"date": "YYYY-MM-DD", "description": "merchant name", "amount": 0.00, "category": "Food"}
   ]
@@ -160,7 +173,9 @@ Rules:
 - Only include debit transactions (money going out)
 - Express amounts as positive numbers
 - Assign each transaction a category from: Food, Housing, Transportation, Entertainment, Healthcare, Utilities, Shopping, Education, Travel, Other
-- Use the merchant name and transaction context to determine the most appropriate category`
+- Use the merchant name and transaction context to determine the most appropriate category
+- metadata: bank name, last 4 digits of account, statement period dates, currency code
+- If this is not a bank statement (e.g. receipt), omit the metadata field`
 
 	requestBody := map[string]interface{}{
 		"contents": []map[string]interface{}{
@@ -294,7 +309,8 @@ func (v *ValidationService) compareResults(
 		for _, val := range validated.Transactions {
 			// Consider a match if amounts are within 1% or $0.10
 			amountDiff := math.Abs(ext.Amount - val.Amount)
-			if amountDiff < 0.10 || amountDiff/ext.Amount < 0.01 {
+			ratioMatch := ext.Amount != 0 && amountDiff/ext.Amount < 0.01
+			if amountDiff < 0.10 || ratioMatch {
 				amountMatches++
 				break
 			} else {
@@ -417,7 +433,7 @@ func (v *ValidationService) ExtractWithGemini(
 		})
 	}
 
-	return &pfinancev1.ExtractionResult{
+	result := &pfinancev1.ExtractionResult{
 		Transactions:      transactions,
 		OverallConfidence: 0.9,
 		ModelUsed:         "gemini-1.5-flash",
@@ -425,6 +441,132 @@ func (v *ValidationService) ExtractWithGemini(
 		DocumentType:      docType,
 		PageCount:         pageCount,
 		MethodUsed:        pfinancev1.ExtractionMethod_EXTRACTION_METHOD_GEMINI,
+	}
+
+	// Attach statement metadata if present (for bank statements)
+	if geminiResult.Metadata != nil {
+		result.StatementMetadata = &pfinancev1.StatementMetadata{
+			BankName:          geminiResult.Metadata.BankName,
+			AccountIdentifier: geminiResult.Metadata.AccountIdentifier,
+			PeriodStart:       geminiResult.Metadata.PeriodStart,
+			PeriodEnd:         geminiResult.Metadata.PeriodEnd,
+			TransactionCount:  int32(len(transactions)),
+			Currency:          geminiResult.Metadata.Currency,
+			Fingerprint:       computeFingerprint(geminiResult.Metadata),
+		}
+	}
+
+	return result, nil
+}
+
+// computeFingerprint generates a SHA256 fingerprint from statement metadata.
+func computeFingerprint(m *GeminiMetadata) string {
+	data := fmt.Sprintf("%s|%s|%s|%s",
+		strings.ToLower(m.BankName),
+		m.AccountIdentifier,
+		m.PeriodStart,
+		m.PeriodEnd,
+	)
+	hash := sha256.Sum256([]byte(data))
+	return fmt.Sprintf("%x", hash)
+}
+
+// ExtractStatementMetadata extracts only metadata from a bank statement using a lightweight Gemini prompt.
+// This is used for the fast first phase of the two-phase extraction flow.
+func (v *ValidationService) ExtractStatementMetadata(ctx context.Context, documentData []byte) (*pfinancev1.StatementMetadata, error) {
+	if v.geminiAPIKey == "" {
+		return nil, fmt.Errorf("Gemini API key not configured")
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(documentData)
+	mimeType := detectMimeType(documentData)
+
+	prompt := `Extract ONLY the metadata from this bank statement document. Do NOT extract individual transactions.
+Return ONLY a valid JSON object:
+{"bank_name": "...", "account_identifier": "XXXX", "period_start": "YYYY-MM-DD", "period_end": "YYYY-MM-DD", "transaction_count": 0, "currency": "AUD"}
+Rules:
+- bank_name: The bank or financial institution name
+- account_identifier: Last 4 digits of account/card number, or masked identifier
+- period_start/period_end: Statement period start and end dates
+- transaction_count: Approximate number of transactions visible
+- currency: 3-letter currency code`
+
+	requestBody := map[string]interface{}{
+		"contents": []map[string]interface{}{
+			{
+				"parts": []map[string]interface{}{
+					{"text": prompt},
+					{
+						"inline_data": map[string]string{
+							"mime_type": mimeType,
+							"data":      encoded,
+						},
+					},
+				},
+			},
+		},
+		"generationConfig": map[string]interface{}{
+			"temperature":     0.1,
+			"maxOutputTokens": 512,
+		},
+	}
+
+	jsonBody, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/models/gemini-1.5-flash:generateContent?key=%s", v.geminiBaseURL, v.geminiAPIKey)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonBody))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := v.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("Gemini API error: status %d, body: %s", resp.StatusCode, string(body))
+	}
+
+	var geminiResp struct {
+		Candidates []struct {
+			Content struct {
+				Parts []struct {
+					Text string `json:"text"`
+				} `json:"parts"`
+			} `json:"content"`
+		} `json:"candidates"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&geminiResp); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	if len(geminiResp.Candidates) == 0 || len(geminiResp.Candidates[0].Content.Parts) == 0 {
+		return nil, fmt.Errorf("no response from Gemini")
+	}
+
+	text := geminiResp.Candidates[0].Content.Parts[0].Text
+
+	var metadata GeminiMetadata
+	if err := extractJSON(text, &metadata); err != nil {
+		return nil, fmt.Errorf("parse metadata result: %w", err)
+	}
+
+	return &pfinancev1.StatementMetadata{
+		BankName:          metadata.BankName,
+		AccountIdentifier: metadata.AccountIdentifier,
+		PeriodStart:       metadata.PeriodStart,
+		PeriodEnd:         metadata.PeriodEnd,
+		TransactionCount:  int32(metadata.TransactionCount),
+		Currency:          metadata.Currency,
+		Fingerprint:       computeFingerprint(&metadata),
 	}, nil
 }
 
