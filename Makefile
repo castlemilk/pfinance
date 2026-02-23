@@ -1,7 +1,7 @@
 # PFinance Makefile
 # ==================
 
-.PHONY: help dev dev-memory dev-firebase dev-backend dev-backend-memory dev-backend-firebase dev-backend-seed dev-backend-firebase-seed dev-frontend stop restart status test test-unit test-e2e test-e2e-ui test-e2e-headed test-e2e-report test-integration test-watch test-all proto generate build lint format type-check logs clean setup install health ports check-ports check-port-backend check-port-frontend kill-port-backend kill-port-frontend seed-data seed-data-auth check-firebase-creds deploy-indexes ko-build
+.PHONY: help dev dev-memory dev-firebase dev-backend dev-backend-memory dev-backend-firebase dev-backend-seed dev-backend-firebase-seed dev-frontend stop restart status test test-unit test-e2e test-e2e-ui test-e2e-headed test-e2e-report test-integration test-watch test-all proto generate build lint format type-check logs clean setup install health ports check-ports check-port-backend check-port-frontend kill-port-backend kill-port-frontend seed-data seed-data-auth check-firebase-creds deploy-indexes ko-build ko-run pre-push install-hooks ci-local ci-fast ci-backend ci-frontend
 
 define kill_pids_in_project_by_port
 for pid in $$(lsof -ti:$(1) 2>/dev/null); do \
@@ -25,7 +25,7 @@ help:
 	@echo "  make dev-backend      - Start only backend (Firestore - default)"
 	@echo "  make dev-backend-memory - Start only backend (memory store)"
 	@echo "  make dev-frontend     - Start only frontend (requires backend running)"
-	@echo "  make stop             - Stop all services"  
+	@echo "  make stop             - Stop all services"
 	@echo "  make restart          - Restart all services"
 	@echo "  make status           - Show status of all services"
 	@echo ""
@@ -85,7 +85,7 @@ BACKEND_PORT := 8111
 FRONTEND_PORT := 1234
 
 # ===================
-# Development Environment  
+# Development Environment
 # ===================
 
 dev: clean-ports generate
@@ -260,7 +260,7 @@ ports:
 	@echo "   Port $(BACKEND_PORT): $$(lsof -Pi :$(BACKEND_PORT) -sTCP:LISTEN -t 2>/dev/null && echo 'IN USE' || echo 'FREE')"
 	@echo "   Port $(FRONTEND_PORT): $$(lsof -Pi :$(FRONTEND_PORT) -sTCP:LISTEN -t 2>/dev/null && echo 'IN USE' || echo 'FREE')"
 
-# ===================  
+# ===================
 # Testing
 # ===================
 
@@ -320,10 +320,12 @@ install-hooks:
 	@mkdir -p .git/hooks
 	@cp scripts/pre-commit .git/hooks/pre-commit
 	@chmod +x .git/hooks/pre-commit
-	@echo "✅ Git hooks installed"
+	@cp scripts/pre-push .git/hooks/pre-push
+	@chmod +x .git/hooks/pre-push
+	@echo "✅ Git hooks installed (pre-commit + pre-push)"
 
 # ===================
-# Code Generation  
+# Code Generation
 # ===================
 
 proto:
@@ -344,7 +346,7 @@ build-backend: generate
 	@echo "🏗️  Building backend..."
 	@cd backend && go build -o server cmd/server/main.go
 
-build-frontend: generate  
+build-frontend: generate
 	@echo "🏗️  Building frontend..."
 	@cd web && npm run build
 
@@ -382,7 +384,7 @@ logs:
 	@echo "Backend logs:"
 	@echo "No centralized logging - check terminal output"
 	@echo ""
-	@echo "Frontend logs:"  
+	@echo "Frontend logs:"
 	@echo "No centralized logging - check terminal output"
 
 clean:
@@ -483,15 +485,12 @@ dev-logs:
 
 ko-build:
 	@echo "📦 Building container image with ko..."
-	KO_DOCKER_REPO=ko.local ko build ./backend/cmd/server --bare --tags=latest
+	@cd backend && ko build ./cmd/server --local --bare --tags dev
+	@echo "✅ Image built: ko.local/server:dev"
 
-docker-build:
-	@echo "🐳 Building Docker image..."
-	@cd backend && docker build -t pfinance-backend .
-
-docker-run:
-	@echo "🐳 Running backend in Docker..."
-	@docker run -p $(BACKEND_PORT):$(BACKEND_PORT) -e PORT=$(BACKEND_PORT) -e GOOGLE_CLOUD_PROJECT=pfinance-app-1748773335 pfinance-backend
+ko-run:
+	@echo "🐳 Running backend container (ko)..."
+	@docker run -p $(BACKEND_PORT):$(BACKEND_PORT) -e PORT=$(BACKEND_PORT) -e GOOGLE_CLOUD_PROJECT=pfinance-app-1748773335 -e USE_MEMORY_STORE=true ko.local/server:dev
 
 # ===================
 # Firebase/Cloud Deployment Helpers
@@ -516,31 +515,55 @@ deploy-indexes:
 	@echo "✅ Indexes deployed (may take 1-3 minutes to build)"
 
 # ===================
+# Pre-push Validation (run by git pre-push hook)
+# ===================
+
+pre-push:
+	@echo "🚀 Running pre-push validation (backend + frontend in parallel)..."
+	@FAIL=0; \
+	( \
+		echo "=== Backend ===" && \
+		cd backend && \
+		go vet ./... && \
+		test -z "$$(gofmt -l .)" && \
+		go test -race -timeout=60s ./... \
+	) & BACKEND_PID=$$!; \
+	( \
+		echo "=== Frontend ===" && \
+		cd web && \
+		npm run type-check && \
+		npm run lint && \
+		npm test -- --passWithNoTests --maxWorkers=2 \
+	) & FRONTEND_PID=$$!; \
+	wait $$BACKEND_PID || FAIL=1; \
+	wait $$FRONTEND_PID || FAIL=1; \
+	if [ "$$FAIL" = "1" ]; then echo "❌ Pre-push checks failed"; exit 1; fi
+	@echo ""
+	@echo "🔍 Running lightweight validations..."
+	@cd proto && buf lint 2>/dev/null || true
+	@jq empty firebase.json 2>/dev/null || true
+	@jq empty firestore.indexes.json 2>/dev/null || true
+	@echo "✅ All pre-push checks passed!"
+
+# ===================
 # CI Simulation
 # ===================
 
 ci-local: generate
 	@echo "🔄 Running CI checks locally..."
 	@echo ""
-	@echo "Step 1/3: Backend tests..."
-	@cd backend && go test -race -timeout=60s ./... || exit 1
-	@echo "✅ Backend tests passed"
+	@echo "Step 1/2: Backend + Frontend tests (parallel)..."
+	@make pre-push
 	@echo ""
-	@echo "Step 2/3: Frontend lint & type-check..."
-	@cd web && npm run lint && npm run type-check || exit 1
-	@echo "✅ Lint & type-check passed"
-	@echo ""
-	@echo "Step 3/3: Frontend unit tests..."
-	@cd web && npm test -- --passWithNoTests --maxWorkers=2 || exit 1
-	@echo "✅ Frontend unit tests passed"
+	@echo "Step 2/2: E2E tests (Chromium only)..."
+	@cd web && npx playwright test --project=chromium || exit 1
+	@echo "✅ E2E tests passed"
 	@echo ""
 	@echo "🎉 All CI checks passed!"
-	@echo ""
-	@echo "💡 To run E2E tests locally: make test-e2e"
 
 ci-fast: generate
 	@echo "⚡ Running fast CI checks (no E2E)..."
-	@make -j2 ci-backend ci-frontend
+	@make pre-push
 	@echo "🎉 Fast CI checks passed!"
 
 ci-backend:
@@ -549,7 +572,7 @@ ci-backend:
 
 ci-frontend:
 	@echo "🧪 Frontend CI..."
-	@cd web && npm run lint && npm run type-check && npm test -- --passWithNoTests --maxWorkers=2
+	@cd web && npm run type-check && npm run lint && npm test -- --passWithNoTests --maxWorkers=2
 
 # ===================
 # Health Checks
@@ -559,7 +582,7 @@ health:
 	@echo "🏥 Health check:"
 	@echo "================"
 	@echo "Backend (port $(BACKEND_PORT)):"
-	@curl -s http://localhost:$(BACKEND_PORT)/health || echo "  Not available"  
+	@curl -s http://localhost:$(BACKEND_PORT)/health || echo "  Not available"
 	@echo ""
 	@echo "Frontend (port $(FRONTEND_PORT)):"
 	@curl -s -o /dev/null -w "  Status: %{http_code}\n" http://localhost:$(FRONTEND_PORT) 2>/dev/null || echo "  Not available"
