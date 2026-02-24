@@ -683,3 +683,296 @@ select:focus {
     height: auto !important;
   }
 }
+
+/* ============================================
+   SKEUOMORPHIC DESIGN UTILITIES
+   Tactile, realistic surface treatments
+   ============================================ */
+
+/* Textured surface with subtle noise grain */
+.skeu-surface {
+  position: relative;
+}
+.skeu-surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  pointer-events: none;
+  z-index: 0;
+  border-radius: inherit;
+}
+.dark .skeu-surface::before {
+  opacity: 0.06;
+}
+
+/* Raised 3D card with realistic depth */
+.skeu-card {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--card) 100%, white 8%) 0%,
+    var(--card) 100%
+  );
+  border: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 1px 0 0 color-mix(in oklch, white 12%, transparent) inset,
+    0 4px 8px -2px rgba(0, 0, 0, 0.08),
+    0 8px 16px -4px rgba(0, 0, 0, 0.06),
+    0 16px 32px -8px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+.dark .skeu-card {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--card) 100%, white 4%) 0%,
+    var(--card) 100%
+  );
+  box-shadow:
+    0 1px 0 0 color-mix(in oklch, white 5%, transparent) inset,
+    0 4px 8px -2px rgba(0, 0, 0, 0.25),
+    0 8px 16px -4px rgba(0, 0, 0, 0.2),
+    0 16px 32px -8px rgba(0, 0, 0, 0.15),
+    0 0 0 1px color-mix(in oklch, var(--glow-color) 8%, transparent);
+}
+.skeu-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 1px 0 0 color-mix(in oklch, white 15%, transparent) inset,
+    0 8px 16px -4px rgba(0, 0, 0, 0.12),
+    0 16px 32px -8px rgba(0, 0, 0, 0.08),
+    0 24px 48px -12px rgba(0, 0, 0, 0.06);
+}
+.dark .skeu-card:hover {
+  box-shadow:
+    0 1px 0 0 color-mix(in oklch, white 8%, transparent) inset,
+    0 8px 16px -4px rgba(0, 0, 0, 0.35),
+    0 16px 32px -8px rgba(0, 0, 0, 0.25),
+    0 24px 48px -12px rgba(0, 0, 0, 0.2),
+    0 0 20px color-mix(in oklch, var(--glow-color) 12%, transparent);
+}
+
+/* Recessed/inset panel effect */
+.skeu-inset {
+  background: color-mix(in oklch, var(--muted) 60%, var(--background));
+  border-radius: var(--radius-md);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.08),
+    inset 0 1px 2px rgba(0, 0, 0, 0.06),
+    0 1px 0 color-mix(in oklch, white 10%, transparent);
+}
+.dark .skeu-inset {
+  background: color-mix(in oklch, var(--background) 80%, black);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.3),
+    inset 0 1px 2px rgba(0, 0, 0, 0.2),
+    0 1px 0 color-mix(in oklch, white 3%, transparent);
+}
+
+/* 3D pressable button */
+.skeu-button {
+  position: relative;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--primary) 100%, white 15%) 0%,
+    var(--primary) 50%,
+    color-mix(in oklch, var(--primary) 100%, black 10%) 100%
+  );
+  color: var(--primary-foreground);
+  border: 1px solid color-mix(in oklch, var(--primary) 80%, black 20%);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 1px 0 0 color-mix(in oklch, white 25%, transparent) inset,
+    0 -1px 0 0 color-mix(in oklch, black 10%, transparent) inset,
+    0 3px 6px -1px rgba(0, 0, 0, 0.15),
+    0 6px 12px -2px rgba(0, 0, 0, 0.1);
+  transition: all 0.15s ease;
+}
+.skeu-button:hover {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--primary) 100%, white 20%) 0%,
+    color-mix(in oklch, var(--primary) 100%, white 5%) 50%,
+    color-mix(in oklch, var(--primary) 100%, black 5%) 100%
+  );
+  box-shadow:
+    0 1px 0 0 color-mix(in oklch, white 30%, transparent) inset,
+    0 -1px 0 0 color-mix(in oklch, black 8%, transparent) inset,
+    0 4px 8px -1px rgba(0, 0, 0, 0.18),
+    0 8px 16px -2px rgba(0, 0, 0, 0.12),
+    0 0 20px color-mix(in oklch, var(--glow-color) 20%, transparent);
+}
+.skeu-button:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.15),
+    0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.dark .skeu-button {
+  box-shadow:
+    0 1px 0 0 color-mix(in oklch, white 15%, transparent) inset,
+    0 -1px 0 0 color-mix(in oklch, black 15%, transparent) inset,
+    0 3px 8px -1px rgba(0, 0, 0, 0.3),
+    0 6px 16px -2px rgba(0, 0, 0, 0.25),
+    0 0 12px color-mix(in oklch, var(--glow-color) 15%, transparent);
+}
+
+/* Frosted glass with shine reflection */
+.skeu-glass {
+  background: color-mix(in oklch, var(--card) 70%, transparent);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  border: 1px solid color-mix(in oklch, white 12%, transparent);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 color-mix(in oklch, white 15%, transparent);
+}
+.dark .skeu-glass {
+  background: color-mix(in oklch, var(--card) 50%, transparent);
+  border: 1px solid color-mix(in oklch, white 6%, transparent);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 color-mix(in oklch, white 5%, transparent);
+}
+
+/* Glossy shine overlay */
+.skeu-shine {
+  position: relative;
+  overflow: hidden;
+}
+.skeu-shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, white 10%, transparent) 0%,
+    transparent 100%
+  );
+  pointer-events: none;
+  border-radius: inherit;
+}
+.dark .skeu-shine::after {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, white 5%, transparent) 0%,
+    transparent 100%
+  );
+}
+
+/* Embossed text effect */
+.skeu-emboss {
+  text-shadow:
+    0 1px 0 color-mix(in oklch, white 30%, transparent),
+    0 -1px 0 color-mix(in oklch, black 10%, transparent);
+}
+.dark .skeu-emboss {
+  text-shadow:
+    0 1px 0 color-mix(in oklch, white 8%, transparent),
+    0 -1px 0 color-mix(in oklch, black 30%, transparent);
+}
+
+/* Debossed / engraved text */
+.skeu-deboss {
+  text-shadow:
+    0 -1px 0 color-mix(in oklch, black 15%, transparent),
+    0 1px 0 color-mix(in oklch, white 40%, transparent);
+}
+.dark .skeu-deboss {
+  text-shadow:
+    0 -1px 0 color-mix(in oklch, black 40%, transparent),
+    0 1px 0 color-mix(in oklch, white 6%, transparent);
+}
+
+/* Recessed divider line */
+.skeu-divider {
+  height: 2px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, black 8%, transparent) 0%,
+    color-mix(in oklch, white 10%, transparent) 100%
+  );
+  border: none;
+}
+.dark .skeu-divider {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, black 25%, transparent) 0%,
+    color-mix(in oklch, white 4%, transparent) 100%
+  );
+}
+
+/* Metal bezel frame */
+.skeu-bezel {
+  border: 3px solid;
+  border-color:
+    color-mix(in oklch, var(--border) 100%, white 20%)
+    color-mix(in oklch, var(--border) 100%, black 10%)
+    color-mix(in oklch, var(--border) 100%, black 15%)
+    color-mix(in oklch, var(--border) 100%, white 15%);
+  border-radius: var(--radius-xl);
+  box-shadow:
+    0 2px 0 color-mix(in oklch, black 5%, transparent),
+    inset 0 0 20px rgba(0, 0, 0, 0.05);
+}
+.dark .skeu-bezel {
+  border-color:
+    color-mix(in oklch, var(--foreground) 15%, transparent)
+    color-mix(in oklch, var(--foreground) 8%, transparent)
+    color-mix(in oklch, var(--foreground) 5%, transparent)
+    color-mix(in oklch, var(--foreground) 12%, transparent);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    inset 0 0 30px rgba(0, 0, 0, 0.15),
+    0 0 15px color-mix(in oklch, var(--glow-color) 8%, transparent);
+}
+
+/* ============================================
+   SKEUOMORPHIC KEYFRAME ANIMATIONS
+   ============================================ */
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(1deg); }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes gentlePulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.animate-float-slow {
+  animation: floatSlow 6s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+.animate-gentle-pulse {
+  animation: gentlePulse 3s ease-in-out infinite;
+}

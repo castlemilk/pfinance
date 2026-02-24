@@ -16,42 +16,42 @@ const features = [
     title: 'Expense Tracking',
     description: 'Log expenses quickly with smart categorization. Track recurring payments and one-time purchases effortlessly.',
     color: 'text-primary',
-    bgColor: 'bg-primary/10',
+    glowVar: 'var(--primary)',
   },
   {
     icon: PieChart,
     title: 'Beautiful Insights',
     description: 'Visualize your spending patterns with stunning charts. Understand where your money goes at a glance.',
     color: 'text-chart-2',
-    bgColor: 'bg-chart-2/10',
+    glowVar: 'var(--chart-2)',
   },
   {
     icon: Users,
     title: 'Multi-User Groups',
     description: 'Collaborate with family or roommates. Share expenses, split costs, and manage household finances together.',
     color: 'text-chart-3',
-    bgColor: 'bg-chart-3/10',
+    glowVar: 'var(--chart-3)',
   },
   {
     icon: Brain,
     title: 'AI-Powered',
     description: 'Smart categorization learns your habits. Import bank statements with AI that understands your transactions.',
     color: 'text-chart-4',
-    bgColor: 'bg-chart-4/10',
+    glowVar: 'var(--chart-4)',
   },
   {
     icon: Bell,
     title: 'Budget Alerts',
     description: 'Set spending limits and get notified before you overspend. Stay on track with personalized alerts.',
     color: 'text-chart-5',
-    bgColor: 'bg-chart-5/10',
+    glowVar: 'var(--chart-5)',
   },
   {
     icon: Shield,
     title: 'Privacy First',
     description: 'Your financial data stays secure. Bank-level encryption with optional local-only storage.',
     color: 'text-secondary',
-    bgColor: 'bg-secondary/10',
+    glowVar: 'var(--secondary)',
   },
 ];
 
@@ -66,12 +66,12 @@ const containerVariants = {
 } as const;
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 30 },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
-      duration: 0.5,
+      duration: 0.6,
       ease: 'easeOut' as const,
     },
   },
@@ -79,15 +79,18 @@ const itemVariants = {
 
 export default function Features() {
   return (
-    <section id="features" className="py-20 sm:py-32 bg-muted/30">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="features" className="py-20 sm:py-32 skeu-surface relative">
+      {/* Subtle textured background */}
+      <div className="absolute inset-0 bg-muted/30" />
+
+      <div className="container relative mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto mb-16">
           <motion.span
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="inline-block text-sm font-medium text-primary mb-4"
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium text-primary mb-4 skeu-inset"
           >
             Features
           </motion.span>
@@ -96,7 +99,7 @@ export default function Features() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="text-3xl sm:text-4xl font-bold tracking-tight mb-4"
+            className="text-3xl sm:text-4xl font-bold tracking-tight mb-4 skeu-emboss"
           >
             Everything You Need to{' '}
             <span className="text-primary">Master Your Money</span>
@@ -112,7 +115,7 @@ export default function Features() {
           </motion.p>
         </div>
 
-        {/* Features Grid */}
+        {/* Features Grid - Skeuomorphic Cards */}
         <motion.div
           variants={containerVariants}
           initial="hidden"
@@ -124,23 +127,46 @@ export default function Features() {
             <motion.div
               key={feature.title}
               variants={itemVariants}
-              className="group relative bg-card border border-border/50 rounded-xl p-6 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300"
+              whileHover={{ y: -4, transition: { duration: 0.2 } }}
+              className="group relative skeu-card p-6 overflow-hidden"
             >
-              {/* Icon */}
-              <div className={`${feature.bgColor} w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
+              {/* Glossy shine overlay */}
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                <div
+                  className="absolute -top-1/2 -left-1/2 w-full h-full rotate-12"
+                  style={{
+                    background: 'linear-gradient(180deg, color-mix(in oklch, white 6%, transparent) 0%, transparent 60%)',
+                  }}
+                />
+              </div>
+
+              {/* Icon in embossed circular well */}
+              <div
+                className="w-14 h-14 rounded-xl flex items-center justify-center mb-4 group-hover:scale-105 transition-transform duration-300"
+                style={{
+                  background: `linear-gradient(135deg, color-mix(in oklch, ${feature.glowVar} 15%, transparent), color-mix(in oklch, ${feature.glowVar} 8%, transparent))`,
+                  boxShadow: `inset 0 2px 4px rgba(0,0,0,0.08), inset 0 -1px 0 color-mix(in oklch, white 15%, transparent), 0 1px 2px rgba(0,0,0,0.05)`,
+                }}
+              >
                 <feature.icon className={`w-6 h-6 ${feature.color}`} />
               </div>
 
               {/* Content */}
-              <h3 className="text-lg font-semibold mb-2 group-hover:text-primary transition-colors">
+              <h3 className="text-lg font-semibold mb-2 group-hover:text-primary transition-colors skeu-emboss">
                 {feature.title}
               </h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">
+              <p className="text-muted-foreground text-sm leading-relaxed relative z-10">
                 {feature.description}
               </p>
 
-              {/* Hover Accent */}
-              <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              {/* Bottom glow accent on hover */}
+              <div
+                className="absolute inset-x-0 bottom-0 h-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-b-lg"
+                style={{
+                  background: `linear-gradient(90deg, transparent, ${feature.glowVar}, transparent)`,
+                  filter: 'blur(1px)',
+                }}
+              />
             </motion.div>
           ))}
         </motion.div>

@@ -26,15 +26,15 @@ const testimonials = [
 
 export default function Testimonials() {
   return (
-    <section className="py-20 sm:py-32">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="py-20 sm:py-32 relative skeu-surface">
+      <div className="container relative mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto mb-16">
           <motion.span
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="inline-block text-sm font-medium text-primary mb-4"
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium text-primary mb-4 skeu-inset"
           >
             Testimonials
           </motion.span>
@@ -43,7 +43,7 @@ export default function Testimonials() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="text-3xl sm:text-4xl font-bold tracking-tight mb-4"
+            className="text-3xl sm:text-4xl font-bold tracking-tight mb-4 skeu-emboss"
           >
             Loved by <span className="text-primary">Thousands</span>
           </motion.h2>
@@ -58,7 +58,7 @@ export default function Testimonials() {
           </motion.p>
         </div>
 
-        {/* Testimonials Grid */}
+        {/* Testimonials Grid - Embossed note cards */}
         <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
           {testimonials.map((testimonial, index) => (
             <motion.div
@@ -67,25 +67,47 @@ export default function Testimonials() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="relative bg-card border border-border/50 rounded-xl p-6 hover:shadow-lg transition-shadow duration-300"
+              whileHover={{ y: -3, rotateY: 2, transition: { duration: 0.3 } }}
+              className="relative skeu-card p-6 overflow-hidden"
+              style={{ perspective: '1000px' }}
             >
-              {/* Quote Icon */}
-              <div className="absolute -top-3 -left-3 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              {/* Paper texture corner fold */}
+              <div
+                className="absolute top-0 right-0 w-8 h-8"
+                style={{
+                  background: 'linear-gradient(225deg, var(--background) 50%, color-mix(in oklch, var(--border) 50%, transparent) 50%)',
+                }}
+              />
+
+              {/* Quote Icon - embossed stamp */}
+              <div
+                className="absolute -top-2 -left-2 w-10 h-10 rounded-full flex items-center justify-center"
+                style={{
+                  background: 'linear-gradient(135deg, color-mix(in oklch, var(--primary) 20%, var(--card)), color-mix(in oklch, var(--primary) 10%, var(--card)))',
+                  boxShadow: 'inset 0 -2px 4px rgba(0,0,0,0.1), inset 0 1px 1px rgba(255,255,255,0.2), 0 2px 4px rgba(0,0,0,0.08)',
+                }}
+              >
                 <Quote className="w-5 h-5 text-primary" />
               </div>
 
               {/* Quote Text */}
-              <p className="text-muted-foreground mb-6 leading-relaxed pt-2">
+              <p className="text-muted-foreground mb-6 leading-relaxed pt-4">
                 &ldquo;{testimonial.quote}&rdquo;
               </p>
 
-              {/* Author */}
+              {/* Author with 3D avatar */}
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-chart-2 flex items-center justify-center text-sm font-semibold text-primary-foreground">
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold text-primary-foreground"
+                  style={{
+                    background: 'linear-gradient(135deg, var(--primary), var(--chart-2))',
+                    boxShadow: 'inset 0 -2px 3px rgba(0,0,0,0.15), inset 0 1px 1px rgba(255,255,255,0.3), 0 2px 6px rgba(0,0,0,0.12)',
+                  }}
+                >
                   {testimonial.avatar}
                 </div>
                 <div>
-                  <div className="font-semibold">{testimonial.name}</div>
+                  <div className="font-semibold skeu-emboss">{testimonial.name}</div>
                   <div className="text-sm text-muted-foreground">{testimonial.role}</div>
                 </div>
               </div>

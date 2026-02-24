@@ -28,16 +28,32 @@ export default function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer role="contentinfo" className="border-t border-border/50 bg-background/50 backdrop-blur-sm">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
+    <footer role="contentinfo" className="relative skeu-surface">
+      {/* Recessed divider at top */}
+      <div className="skeu-divider" />
+
+      <div
+        className="absolute inset-0"
+        style={{
+          background: 'linear-gradient(180deg, color-mix(in oklch, var(--background) 95%, var(--muted)) 0%, var(--background) 100%)',
+        }}
+      />
+
+      <div className="container relative mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
           {/* Brand Column */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-chart-2 flex items-center justify-center">
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{
+                  background: 'linear-gradient(135deg, var(--primary), var(--chart-2))',
+                  boxShadow: 'inset 0 -2px 3px rgba(0,0,0,0.15), inset 0 1px 1px rgba(255,255,255,0.3), 0 2px 6px rgba(0,0,0,0.12)',
+                }}
+              >
                 <Wallet className="w-4 h-4 text-primary-foreground" />
               </div>
-              <span className="text-lg font-bold">
+              <span className="text-lg font-bold skeu-emboss">
                 <span className="text-foreground">P</span>
                 <span className="text-primary">Finance</span>
               </span>
@@ -45,7 +61,7 @@ export default function Footer() {
             <p className="text-sm text-muted-foreground leading-relaxed mb-4">
               Take control of your finances with intelligent tracking, beautiful insights, and collaborative tools.
             </p>
-            {/* Social Links */}
+            {/* Social Links - embossed circular buttons */}
             <div className="flex items-center gap-3">
               {socialLinks.map((social) => (
                 <a
@@ -53,7 +69,11 @@ export default function Footer() {
                   href={social.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-9 h-9 rounded-lg bg-muted/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-200"
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-all duration-200"
+                  style={{
+                    background: 'linear-gradient(180deg, color-mix(in oklch, var(--muted) 100%, white 8%) 0%, var(--muted) 100%)',
+                    boxShadow: 'inset 0 1px 0 color-mix(in oklch, white 10%, transparent), 0 2px 4px rgba(0,0,0,0.06)',
+                  }}
                   aria-label={social.label}
                 >
                   <social.icon className="w-4 h-4" />
@@ -64,7 +84,7 @@ export default function Footer() {
 
           {/* Product Links */}
           <div>
-            <h3 className="text-sm font-semibold text-foreground mb-4">Product</h3>
+            <h3 className="text-sm font-semibold text-foreground mb-4 skeu-emboss">Product</h3>
             <ul className="space-y-3">
               {footerLinks.product.map((link) => (
                 <li key={link.label}>
@@ -81,7 +101,7 @@ export default function Footer() {
 
           {/* Resources Links */}
           <div>
-            <h3 className="text-sm font-semibold text-foreground mb-4">Resources</h3>
+            <h3 className="text-sm font-semibold text-foreground mb-4 skeu-emboss">Resources</h3>
             <ul className="space-y-3">
               {footerLinks.resources.map((link) => (
                 <li key={link.label}>
@@ -98,7 +118,7 @@ export default function Footer() {
 
           {/* Legal Links */}
           <div>
-            <h3 className="text-sm font-semibold text-foreground mb-4">Legal</h3>
+            <h3 className="text-sm font-semibold text-foreground mb-4 skeu-emboss">Legal</h3>
             <ul className="space-y-3">
               {footerLinks.legal.map((link) => (
                 <li key={link.label}>
@@ -114,8 +134,9 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="mt-12 pt-8 border-t border-border/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+        {/* Bottom Bar with recessed divider */}
+        <div className="mt-12 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="skeu-divider absolute left-0 right-0" style={{ top: 'auto', marginTop: '-2rem' }} />
           <p className="text-sm text-muted-foreground">
             &copy; {currentYear} PFinance. All rights reserved.
           </p>

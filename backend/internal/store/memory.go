@@ -858,6 +858,103 @@ func (m *MemoryStore) DeleteUser(ctx context.Context, userID string) error {
 	return nil
 }
 
+// ClearUserData deletes all financial data for a user but keeps the account, notification preferences, and API tokens
+func (m *MemoryStore) ClearUserData(ctx context.Context, userID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Delete all user's expenses
+	for id, expense := range m.expenses {
+		if expense.UserId == userID {
+			delete(m.expenses, id)
+		}
+	}
+
+	// Delete all user's incomes
+	for id, income := range m.incomes {
+		if income.UserId == userID {
+			delete(m.incomes, id)
+		}
+	}
+
+	// Delete all user's budgets
+	for id, budget := range m.budgets {
+		if budget.UserId == userID {
+			delete(m.budgets, id)
+		}
+	}
+
+	// Delete all user's goals
+	for id, goal := range m.goals {
+		if goal.UserId == userID {
+			delete(m.goals, id)
+		}
+	}
+
+	// Delete all user's goal contributions
+	for id, gc := range m.goalContributions {
+		if gc.UserId == userID {
+			delete(m.goalContributions, id)
+		}
+	}
+
+	// Delete all user's recurring transactions
+	for id, rt := range m.recurringTransactions {
+		if rt.UserId == userID {
+			delete(m.recurringTransactions, id)
+		}
+	}
+
+	// Delete all user's notifications
+	for id, n := range m.notifications {
+		if n.UserId == userID {
+			delete(m.notifications, id)
+		}
+	}
+
+	// Delete user's tax config
+	delete(m.taxConfigs, userID)
+
+	// Delete all user's contributions
+	for id, c := range m.contributions {
+		if c.ContributedBy == userID {
+			delete(m.contributions, id)
+		}
+	}
+
+	// Delete all user's income contributions
+	for id, ic := range m.incomeContributions {
+		if ic.ContributedBy == userID {
+			delete(m.incomeContributions, id)
+		}
+	}
+
+	// Delete all user's correction records
+	for id, cr := range m.correctionRecords {
+		if cr.UserId == userID {
+			delete(m.correctionRecords, id)
+		}
+	}
+
+	// Delete all user's merchant mappings
+	for id, mm := range m.merchantMappings {
+		if mm.UserId == userID {
+			delete(m.merchantMappings, id)
+		}
+	}
+
+	// Delete all user's extraction events
+	for id, ee := range m.extractionEvents {
+		if ee.UserId == userID {
+			delete(m.extractionEvents, id)
+		}
+	}
+
+	// NOTE: Keeps user doc, notification preferences, and API tokens
+
+	return nil
+}
+
 // Goal operations
 
 func (m *MemoryStore) CreateGoal(ctx context.Context, goal *pfinancev1.FinancialGoal) error {

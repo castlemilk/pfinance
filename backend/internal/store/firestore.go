@@ -1192,6 +1192,98 @@ func (s *FirestoreStore) DeleteUser(ctx context.Context, userID string) error {
 	return nil
 }
 
+// ClearUserData deletes all financial data for a user but keeps the account, notification preferences, and API tokens
+func (s *FirestoreStore) ClearUserData(ctx context.Context, userID string) error {
+	// Helper to delete all documents in a collection matching a query
+	deleteMatching := func(collection, field, value string) error {
+		docs, err := s.client.Collection(collection).Where(field, "==", value).Documents(ctx).GetAll()
+		if err != nil {
+			return fmt.Errorf("failed to query %s: %w", collection, err)
+		}
+		for i := 0; i < len(docs); i += 500 {
+			batch := s.client.Batch()
+			end := i + 500
+			if end > len(docs) {
+				end = len(docs)
+			}
+			for _, doc := range docs[i:end] {
+				batch.Delete(doc.Ref)
+			}
+			if _, err := batch.Commit(ctx); err != nil {
+				return fmt.Errorf("failed to batch delete %s: %w", collection, err)
+			}
+		}
+		return nil
+	}
+
+	// Delete user's personal expenses
+	if err := deleteMatching("expenses", "UserId", userID); err != nil {
+		return err
+	}
+
+	// Delete user's personal incomes
+	if err := deleteMatching("incomes", "UserId", userID); err != nil {
+		return err
+	}
+
+	// Delete user's budgets
+	if err := deleteMatching("budgets", "UserId", userID); err != nil {
+		return err
+	}
+
+	// Delete user's goals
+	if err := deleteMatching("goals", "UserId", userID); err != nil {
+		return err
+	}
+
+	// Delete user's recurring transactions
+	if err := deleteMatching("recurringTransactions", "UserId", userID); err != nil {
+		return err
+	}
+
+	// Delete user's notifications
+	if err := deleteMatching("notifications", "UserId", userID); err != nil {
+		return err
+	}
+
+	// Delete user's tax config (subcollection under users)
+	_, _ = s.client.Doc(fmt.Sprintf("users/%s/taxConfig", userID)).Delete(ctx)
+
+	// Delete user's expense contributions
+	if err := deleteMatching("expenseContributions", "ContributedBy", userID); err != nil {
+		return err
+	}
+
+	// Delete user's income contributions
+	if err := deleteMatching("incomeContributions", "ContributedBy", userID); err != nil {
+		return err
+	}
+
+	// Delete user's goal contributions
+	if err := deleteMatching("goalContributions", "UserId", userID); err != nil {
+		return err
+	}
+
+	// Delete user's correction records
+	if err := deleteMatching("correction_records", "UserId", userID); err != nil {
+		return err
+	}
+
+	// Delete user's merchant mappings
+	if err := deleteMatching("merchant_mappings", "UserId", userID); err != nil {
+		return err
+	}
+
+	// Delete user's extraction events
+	if err := deleteMatching("extraction_events", "UserId", userID); err != nil {
+		return err
+	}
+
+	// NOTE: Keeps user doc, notification preferences, and API tokens
+
+	return nil
+}
+
 // Goal operations
 
 // CreateGoal creates a new goal in Firestore

@@ -99,11 +99,6 @@ const personalNavItems: NavItem[] = [
     icon: <FileText className="w-4 h-4" />
   },
   {
-    title: 'Account',
-    href: '/personal/account',
-    icon: <UserCog className="w-4 h-4" />
-  },
-  {
     title: 'Settings',
     href: '/personal/settings',
     icon: <Settings className="w-4 h-4" />
@@ -308,7 +303,13 @@ export default function SidebarNav() {
           </div>
         ) : user ? (
           <div className="space-y-3">
-            <div className="flex items-center gap-3 p-2 rounded-lg bg-muted">
+            <Link
+              href="/personal/account"
+              className={cn(
+                "flex items-center gap-3 p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors",
+                pathname === '/personal/account' && "ring-2 ring-primary ring-offset-1 ring-offset-background"
+              )}
+            >
               <Avatar className={cn(
                 "w-8 h-8",
                 isImpersonating && "ring-2 ring-amber-500 ring-offset-2 ring-offset-background"
@@ -336,7 +337,19 @@ export default function SidebarNav() {
                   </Badge>
                 )}
               </div>
-            </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  logout();
+                }}
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </Link>
             {!subscriptionLoading && isFree && user && (
               <Link href="/personal/billing/">
                 <Button variant="default" size="sm" className="w-full gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white">
@@ -345,15 +358,6 @@ export default function SidebarNav() {
                 </Button>
               </Link>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={logout}
-              className="w-full"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign Out
-            </Button>
           </div>
         ) : (
           <Link href="/auth">

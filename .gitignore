@@ -57,3 +57,5 @@ test-results/
 # Claude Code artifacts
 .settings.json
 PLAN.md
+web/testdata/
+.claude/worktrees/

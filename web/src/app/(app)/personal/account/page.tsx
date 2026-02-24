@@ -66,6 +66,7 @@ import {
   Plus,
   Copy,
   Ban,
+  Eraser,
 } from 'lucide-react';
 
 export default function AccountPage() {
@@ -94,6 +95,15 @@ export default function AccountPage() {
   // Export state
   const [exporting, setExporting] = useState(false);
   const [exportMessage, setExportMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+
+  // Clear data state
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const [clearConfirmEmail, setClearConfirmEmail] = useState('');
+  const [clearing, setClearing] = useState(false);
+  const [clearMessage, setClearMessage] = useState<{
     type: 'success' | 'error';
     text: string;
   } | null>(null);
@@ -283,6 +293,35 @@ export default function AccountPage() {
       setDeleting(false);
       setDeleteDialogOpen(false);
       setDeleteConfirmEmail('');
+    }
+  };
+
+  // --- Clear Data Handler ---
+  const handleClearData = async () => {
+    if (!user || clearConfirmEmail !== user.email) return;
+    setClearing(true);
+    setClearMessage(null);
+
+    try {
+      await financeClient.clearUserData({
+        userId: user.uid,
+        confirm: true,
+      });
+
+      setClearMessage({
+        type: 'success',
+        text: 'All financial data has been cleared. Your account and subscription remain active.',
+      });
+    } catch (err) {
+      console.error('Failed to clear data:', err);
+      setClearMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to clear account data.',
+      });
+    } finally {
+      setClearing(false);
+      setClearDialogOpen(false);
+      setClearConfirmEmail('');
     }
   };
 
@@ -889,6 +928,95 @@ export default function AccountPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Clear Data Message */}
+          {clearMessage && (
+            <div
+              className={`flex items-center gap-2 text-sm p-3 rounded-md ${
+                clearMessage.type === 'success'
+                  ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                  : 'bg-red-500/10 text-red-600 dark:text-red-400'
+              }`}
+            >
+              {clearMessage.type === 'success' ? (
+                <CheckCircle className="w-4 h-4 shrink-0" />
+              ) : (
+                <XCircle className="w-4 h-4 shrink-0" />
+              )}
+              {clearMessage.text}
+            </div>
+          )}
+
+          {/* Clear Account Data */}
+          <div className="flex items-center justify-between p-4 border border-amber-500/30 rounded-lg bg-amber-500/5">
+            <div>
+              <p className="font-medium text-sm">Clear Account Data</p>
+              <p className="text-sm text-muted-foreground">
+                Delete all expenses, income, budgets, goals, and other financial
+                data. Your account, subscription, and API tokens remain.
+              </p>
+            </div>
+            <AlertDialog
+              open={clearDialogOpen}
+              onOpenChange={setClearDialogOpen}
+            >
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-amber-500/50 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300"
+                >
+                  <Eraser className="w-4 h-4 mr-2" />
+                  Clear Data
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Clear all account data?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all your financial data including
+                    expenses, income, budgets, goals, recurring transactions, and
+                    notifications. Your account, subscription, and API tokens will
+                    remain intact.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-2 py-2">
+                  <Label htmlFor="clearConfirmEmail">
+                    Type <span className="font-mono font-bold">{user.email}</span>{' '}
+                    to confirm:
+                  </Label>
+                  <Input
+                    id="clearConfirmEmail"
+                    value={clearConfirmEmail}
+                    onChange={(e) => setClearConfirmEmail(e.target.value)}
+                    placeholder="Enter your email to confirm"
+                  />
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel
+                    onClick={() => setClearConfirmEmail('')}
+                  >
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleClearData}
+                    disabled={
+                      clearing || clearConfirmEmail !== user.email
+                    }
+                    className="bg-amber-600 hover:bg-amber-700 text-white"
+                  >
+                    {clearing ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Eraser className="w-4 h-4 mr-2" />
+                    )}
+                    Clear All Data
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+
+          {/* Delete Account */}
           <div className="flex items-center justify-between p-4 border border-red-500/30 rounded-lg bg-red-500/5">
             <div>
               <p className="font-medium text-sm">Delete Account</p>

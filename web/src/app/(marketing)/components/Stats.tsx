@@ -81,8 +81,9 @@ export default function Stats() {
   const inView = useInView(ref, { once: true, margin: '-100px' });
 
   return (
-    <section ref={ref} className="py-20 sm:py-24 bg-card/50">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+    <section ref={ref} className="py-20 sm:py-24 relative skeu-surface">
+      <div className="absolute inset-0 bg-card/50" />
+      <div className="container relative mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
           {stats.map((stat, index) => (
             <motion.div
@@ -92,15 +93,28 @@ export default function Stats() {
               transition={{ duration: 0.5, delay: index * 0.1 }}
               className="text-center"
             >
-              <div className="text-3xl sm:text-4xl lg:text-5xl font-bold text-primary mb-2">
-                <AnimatedCounter
-                  value={stat.value}
-                  suffix={stat.suffix}
-                  decimals={stat.decimals}
-                  inView={inView}
-                />
+              {/* Inset display panel */}
+              <div className="skeu-inset rounded-xl p-5 mb-3 mx-auto max-w-[200px]">
+                {/* Scanline effect overlay */}
+                <div className="relative overflow-hidden rounded-lg">
+                  <div className="text-3xl sm:text-4xl lg:text-5xl font-bold text-primary font-mono tracking-tight">
+                    <AnimatedCounter
+                      value={stat.value}
+                      suffix={stat.suffix}
+                      decimals={stat.decimals}
+                      inView={inView}
+                    />
+                  </div>
+                  {/* Subtle scanline */}
+                  <div
+                    className="absolute inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.06]"
+                    style={{
+                      backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, currentColor 2px, currentColor 3px)',
+                    }}
+                  />
+                </div>
               </div>
-              <div className="text-lg font-semibold mb-1">{stat.label}</div>
+              <div className="text-lg font-semibold mb-1 skeu-emboss">{stat.label}</div>
               <div className="text-sm text-muted-foreground">{stat.description}</div>
             </motion.div>
           ))}

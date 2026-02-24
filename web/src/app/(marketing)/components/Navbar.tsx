@@ -19,21 +19,36 @@ export default function Navbar() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50">
-      {/* Glassmorphism background */}
-      <div className="absolute inset-0 bg-background/80 backdrop-blur-md border-b border-border/50" />
+      {/* Glassmorphic background with depth shadow */}
+      <div
+        className="absolute inset-0 skeu-glass"
+        style={{
+          borderTop: 'none',
+          borderLeft: 'none',
+          borderRight: 'none',
+          borderRadius: 0,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04), inset 0 -1px 0 color-mix(in oklch, var(--border) 40%, transparent)',
+        }}
+      />
 
       <nav role="navigation" aria-label="Main navigation" className="relative container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
+          {/* Logo - embossed */}
           <Link href="/" className="flex items-center gap-2 group">
             <div className="relative">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-chart-2 flex items-center justify-center shadow-lg group-hover:shadow-primary/25 transition-shadow duration-300">
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300"
+                style={{
+                  background: 'linear-gradient(135deg, var(--primary), var(--chart-2))',
+                  boxShadow: 'inset 0 -2px 3px rgba(0,0,0,0.15), inset 0 1px 1px rgba(255,255,255,0.3), 0 2px 6px rgba(0,0,0,0.15)',
+                }}
+              >
                 <Wallet className="w-4 h-4 text-primary-foreground" />
               </div>
               {/* Glow effect on hover */}
               <div className="absolute inset-0 rounded-lg bg-primary/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </div>
-            <span className="text-xl font-bold tracking-tight">
+            <span className="text-xl font-bold tracking-tight skeu-emboss">
               <span className="text-foreground">P</span>
               <span className="text-primary">Finance</span>
             </span>
@@ -45,7 +60,10 @@ export default function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 rounded-md hover:bg-accent/50"
+                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 rounded-md hover:bg-muted/50"
+                style={{
+                  /* subtle inset hover implied by bg */
+                }}
               >
                 {link.label}
               </Link>
@@ -61,10 +79,10 @@ export default function Navbar() {
               </Button>
             </Link>
             <Link href="/personal/">
-              <Button variant="terminal" size="sm" className="group">
+              <button className="skeu-button px-4 py-2 text-sm font-semibold rounded-lg flex items-center gap-1 group">
                 Get Started
                 <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-              </Button>
+              </button>
             </Link>
           </div>
 
@@ -125,7 +143,7 @@ export default function Navbar() {
                     <Link
                       href={link.href}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block px-4 py-3 text-base font-medium text-muted-foreground hover:text-foreground hover:bg-accent/50 rounded-lg transition-colors"
+                      className="block px-4 py-3 text-base font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors"
                     >
                       {link.label}
                     </Link>
@@ -143,9 +161,9 @@ export default function Navbar() {
                     </Button>
                   </Link>
                   <Link href="/personal/" className="block">
-                    <Button variant="terminal" className="w-full">
+                    <button className="w-full skeu-button px-4 py-2.5 rounded-lg font-semibold text-sm">
                       Get Started Free
-                    </Button>
+                    </button>
                   </Link>
                 </motion.div>
               </div>

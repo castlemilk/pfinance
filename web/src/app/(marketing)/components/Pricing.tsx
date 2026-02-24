@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Check, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const plans = [
@@ -46,15 +45,16 @@ export default function Pricing() {
   const [isAnnual, setIsAnnual] = useState(true);
 
   return (
-    <section id="pricing" className="py-20 sm:py-32 bg-muted/30">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="pricing" className="py-20 sm:py-32 relative skeu-surface">
+      <div className="absolute inset-0 bg-muted/30" />
+      <div className="container relative mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto mb-12">
           <motion.span
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="inline-block text-sm font-medium text-primary mb-4"
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium text-primary mb-4 skeu-inset"
           >
             Pricing
           </motion.span>
@@ -63,7 +63,7 @@ export default function Pricing() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="text-3xl sm:text-4xl font-bold tracking-tight mb-4"
+            className="text-3xl sm:text-4xl font-bold tracking-tight mb-4 skeu-emboss"
           >
             Simple, <span className="text-primary">Transparent</span> Pricing
           </motion.h2>
@@ -78,7 +78,7 @@ export default function Pricing() {
           </motion.p>
         </div>
 
-        {/* Billing Toggle */}
+        {/* Skeuomorphic Billing Toggle */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -89,17 +89,25 @@ export default function Pricing() {
           <span className={cn('text-sm font-medium', !isAnnual ? 'text-foreground' : 'text-muted-foreground')}>
             Monthly
           </span>
+          {/* Rocker switch */}
           <button
             onClick={() => setIsAnnual(!isAnnual)}
-            className={cn(
-              'relative w-14 h-7 rounded-full transition-colors duration-300',
-              isAnnual ? 'bg-primary' : 'bg-muted'
-            )}
+            className="relative w-16 h-8 rounded-full transition-colors duration-300"
+            style={{
+              background: isAnnual
+                ? 'linear-gradient(180deg, color-mix(in oklch, var(--primary) 100%, black 15%) 0%, var(--primary) 100%)'
+                : 'linear-gradient(180deg, color-mix(in oklch, var(--muted) 100%, black 10%) 0%, var(--muted) 100%)',
+              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.15), inset 0 -1px 0 color-mix(in oklch, white 10%, transparent), 0 1px 0 color-mix(in oklch, white 8%, transparent)',
+            }}
           >
             <motion.div
-              animate={{ x: isAnnual ? 28 : 4 }}
+              animate={{ x: isAnnual ? 32 : 4 }}
               transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              className="absolute top-1 w-5 h-5 rounded-full bg-white shadow-sm"
+              className="absolute top-1 w-6 h-6 rounded-full"
+              style={{
+                background: 'linear-gradient(180deg, #ffffff 0%, #e8e8e8 100%)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.8)',
+              }}
             />
           </button>
           <span className={cn('text-sm font-medium', isAnnual ? 'text-foreground' : 'text-muted-foreground')}>
@@ -116,18 +124,34 @@ export default function Pricing() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
+              transition={{ duration: 0.5, delay: index * 0.15 }}
+              whileHover={{ y: -4, transition: { duration: 0.2 } }}
               className={cn(
-                'relative bg-card border rounded-2xl p-8',
-                plan.popular
-                  ? 'border-primary shadow-xl shadow-primary/10'
-                  : 'border-border/50'
+                'relative skeu-card p-8 overflow-hidden',
+                plan.popular && 'ring-2 ring-primary/50'
               )}
             >
-              {/* Popular Badge */}
+              {/* Pro card glow */}
               {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
+                <div className="absolute -inset-[1px] rounded-[inherit] -z-10"
+                  style={{
+                    background: 'linear-gradient(135deg, var(--primary), var(--chart-2), var(--primary))',
+                    filter: 'blur(8px)',
+                    opacity: 0.15,
+                  }}
+                />
+              )}
+
+              {/* Popular Badge - glossy ribbon */}
+              {plan.popular && (
+                <div className="absolute -top-1 left-1/2 -translate-x-1/2 z-10">
+                  <span
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold text-primary-foreground"
+                    style={{
+                      background: 'linear-gradient(180deg, color-mix(in oklch, var(--primary) 100%, white 15%) 0%, var(--primary) 60%, color-mix(in oklch, var(--primary) 100%, black 10%) 100%)',
+                      boxShadow: '0 2px 8px color-mix(in oklch, var(--primary) 40%, transparent), inset 0 1px 0 color-mix(in oklch, white 25%, transparent)',
+                    }}
+                  >
                     <Sparkles className="w-3 h-3" />
                     Most Popular
                   </span>
@@ -135,15 +159,15 @@ export default function Pricing() {
               )}
 
               {/* Plan Header */}
-              <div className="mb-6">
-                <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
+              <div className="mb-6 pt-2">
+                <h3 className="text-xl font-bold mb-2 skeu-emboss">{plan.name}</h3>
                 <p className="text-sm text-muted-foreground">{plan.description}</p>
               </div>
 
-              {/* Price */}
+              {/* Price in inset display */}
               <div className="mb-6">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold">
+                <div className="skeu-inset rounded-lg px-4 py-3 inline-block">
+                  <span className="text-4xl font-bold font-mono">
                     ${isAnnual ? plan.price.annual : plan.price.monthly}
                   </span>
                   {plan.price.monthly > 0 && (
@@ -151,27 +175,41 @@ export default function Pricing() {
                   )}
                 </div>
                 {isAnnual && plan.price.annual > 0 && (
-                  <p className="text-sm text-muted-foreground mt-1">
+                  <p className="text-sm text-muted-foreground mt-2">
                     Billed annually (${plan.price.annual * 12}/year)
                   </p>
                 )}
               </div>
 
-              {/* CTA */}
+              {/* CTA - Skeuomorphic button */}
               <Link href={plan.popular ? '/personal/billing/' : '/personal/'} className="block mb-8">
-                <Button
-                  variant={plan.popular ? 'terminal' : 'outline'}
-                  className="w-full"
-                >
-                  {plan.cta}
-                </Button>
+                {plan.popular ? (
+                  <button className="w-full skeu-button px-6 py-3 rounded-xl font-semibold text-sm">
+                    {plan.cta}
+                  </button>
+                ) : (
+                  <button
+                    className="w-full px-6 py-3 rounded-xl font-semibold text-sm border-2 border-border hover:bg-muted transition-all"
+                    style={{
+                      boxShadow: 'inset 0 1px 0 color-mix(in oklch, white 12%, transparent), 0 2px 4px rgba(0,0,0,0.06)',
+                    }}
+                  >
+                    {plan.cta}
+                  </button>
+                )}
               </Link>
 
-              {/* Features */}
+              {/* Features - embossed checkmarks */}
               <ul className="space-y-3">
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
+                    <div
+                      className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center mt-0.5"
+                      style={{
+                        background: 'linear-gradient(135deg, color-mix(in oklch, var(--primary) 20%, transparent), color-mix(in oklch, var(--primary) 10%, transparent))',
+                        boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.08), 0 1px 0 color-mix(in oklch, white 15%, transparent)',
+                      }}
+                    >
                       <Check className="w-3 h-3 text-primary" />
                     </div>
                     <span className="text-sm text-muted-foreground">{feature}</span>

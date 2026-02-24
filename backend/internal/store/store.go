@@ -72,6 +72,7 @@ type Store interface {
 	GetUser(ctx context.Context, userID string) (*pfinancev1.User, error)
 	UpdateUser(ctx context.Context, user *pfinancev1.User) error
 	DeleteUser(ctx context.Context, userID string) error
+	ClearUserData(ctx context.Context, userID string) error
 
 	// Goal operations
 	CreateGoal(ctx context.Context, goal *pfinancev1.FinancialGoal) error

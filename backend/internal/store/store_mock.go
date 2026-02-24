@@ -57,6 +57,20 @@ func (mr *MockStoreMockRecorder) AggregateDeductionsByCategory(ctx, userID, grou
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AggregateDeductionsByCategory", reflect.TypeOf((*MockStore)(nil).AggregateDeductionsByCategory), ctx, userID, groupID, startDate, endDate)
 }
 
+// ClearUserData mocks base method.
+func (m *MockStore) ClearUserData(ctx context.Context, userID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClearUserData", ctx, userID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClearUserData indicates an expected call of ClearUserData.
+func (mr *MockStoreMockRecorder) ClearUserData(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearUserData", reflect.TypeOf((*MockStore)(nil).ClearUserData), ctx, userID)
+}
+
 // CountActiveApiTokens mocks base method.
 func (m *MockStore) CountActiveApiTokens(ctx context.Context, userID string) (int, error) {
 	m.ctrl.T.Helper()

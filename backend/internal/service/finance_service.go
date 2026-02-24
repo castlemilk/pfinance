@@ -457,6 +457,28 @@ func (s *FinanceService) DeleteUser(ctx context.Context, req *connect.Request[pf
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
+// ClearUserData deletes all financial data for a user but keeps the account
+func (s *FinanceService) ClearUserData(ctx context.Context, req *connect.Request[pfinancev1.ClearUserDataRequest]) (*connect.Response[emptypb.Empty], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Msg.UserId != claims.UID {
+		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("cannot clear another user's data"))
+	}
+
+	if !req.Msg.Confirm {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("must confirm data clearing"))
+	}
+
+	if err := s.store.ClearUserData(ctx, req.Msg.UserId); err != nil {
+		return nil, auth.WrapStoreError("clear user data", err)
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
 // ExportUserData exports all user data as JSON
 func (s *FinanceService) ExportUserData(ctx context.Context, req *connect.Request[pfinancev1.ExportUserDataRequest]) (*connect.Response[pfinancev1.ExportUserDataResponse], error) {
 	claims, err := auth.RequireAuth(ctx)
