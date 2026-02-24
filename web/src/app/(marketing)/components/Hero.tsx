@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Sparkles, TrendingUp, PiggyBank, CreditCard } from 'lucide-react';
+import { RoughNotation } from 'react-rough-notation';
 import dynamic from 'next/dynamic';
 
 const WebGLStars = dynamic(() => import('./WebGLStars'), { ssr: false });
@@ -21,8 +22,13 @@ const chartData = [
 
 export default function Hero() {
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
+  const [showUnderline, setShowUnderline] = useState(false);
 
-  return (
+  // Delay underline until after framer-motion h1 animation settles
+  useEffect(() => {
+    const timer = setTimeout(() => setShowUnderline(true), 900);
+    return () => clearTimeout(timer);
+  }, []);  return (
     <section className="relative overflow-hidden py-20 sm:py-32 lg:py-40">
       {/* WebGL Animated Stars Background */}
       <WebGLStars opacity={0.5} />
@@ -56,15 +62,19 @@ export default function Hero() {
               className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6 skeu-emboss"
             >
               Take Control of{' '}
-              <span className="relative">
-                <span className="relative z-10 text-primary crt-text-glow">Your Finances</span>
-                <motion.span
-                  initial={{ width: 0 }}
-                  animate={{ width: '100%' }}
-                  transition={{ duration: 0.8, delay: 0.6 }}
-                  className="absolute bottom-2 left-0 h-3 bg-primary/20 -z-0 rounded-sm"
-                />
-              </span>
+              <RoughNotation
+                type="underline"
+                show={showUnderline}
+                color="var(--primary)"
+                animationDelay={600}
+                animationDuration={800}
+                multiline={true}
+                padding={0}
+                strokeWidth={3}
+                iterations={2}
+              >
+                <span className="text-primary crt-text-glow">Your Finances</span>
+              </RoughNotation>
             </motion.h1>
 
             {/* Subheadline */}
