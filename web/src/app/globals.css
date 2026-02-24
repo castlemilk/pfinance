@@ -1073,3 +1073,188 @@ select:focus {
 .animate-gentle-pulse {
   animation: gentlePulse 3s ease-in-out infinite;
 }
+
+/* ============================================
+   CRT MONITOR CARD STYLES
+   Retro terminal aesthetic with extreme detail
+   ============================================ */
+
+/* CRT Monitor Card */
+.crt-card {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  /* Outer casing gradient — plastic/metal bezel */
+  background: linear-gradient(
+    160deg,
+    color-mix(in oklch, var(--card) 100%, white 6%) 0%,
+    var(--card) 30%,
+    color-mix(in oklch, var(--card) 100%, black 4%) 100%
+  );
+  border: 2px solid;
+  border-color:
+    color-mix(in oklch, var(--border) 100%, white 15%)
+    color-mix(in oklch, var(--border) 100%, black 5%)
+    color-mix(in oklch, var(--border) 100%, black 10%)
+    color-mix(in oklch, var(--border) 100%, white 10%);
+  box-shadow:
+    /* Outer shadow — sits on desk */
+    0 8px 24px -4px rgba(0, 0, 0, 0.15),
+    0 16px 40px -8px rgba(0, 0, 0, 0.1),
+    /* Inner top highlight */
+    inset 0 1px 0 color-mix(in oklch, white 10%, transparent),
+    /* Bottom shadow */
+    inset 0 -1px 0 color-mix(in oklch, black 5%, transparent);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.dark .crt-card {
+  border-color:
+    color-mix(in oklch, var(--glow-color) 15%, color-mix(in oklch, white 8%, transparent))
+    color-mix(in oklch, var(--glow-color) 8%, transparent)
+    color-mix(in oklch, black 20%, transparent)
+    color-mix(in oklch, var(--glow-color) 12%, transparent);
+  box-shadow:
+    0 8px 24px -4px rgba(0, 0, 0, 0.4),
+    0 16px 40px -8px rgba(0, 0, 0, 0.3),
+    /* Phosphor glow bleed */
+    0 0 30px color-mix(in oklch, var(--glow-color) 8%, transparent),
+    inset 0 1px 0 color-mix(in oklch, white 5%, transparent),
+    inset 0 -1px 0 color-mix(in oklch, black 15%, transparent);
+}
+.crt-card:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow:
+    0 12px 32px -4px rgba(0, 0, 0, 0.2),
+    0 20px 48px -8px rgba(0, 0, 0, 0.12);
+}
+.dark .crt-card:hover {
+  box-shadow:
+    0 12px 32px -4px rgba(0, 0, 0, 0.5),
+    0 20px 48px -8px rgba(0, 0, 0, 0.35),
+    0 0 40px color-mix(in oklch, var(--glow-color) 15%, transparent);
+}
+
+/* CRT Screen (inner display area) */
+.crt-screen {
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+  background: color-mix(in oklch, var(--background) 90%, black);
+}
+.dark .crt-screen {
+  background: linear-gradient(
+    180deg,
+    oklch(0.08 0.005 55) 0%,
+    oklch(0.06 0.003 55) 100%
+  );
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.5),
+    inset 0 0 20px rgba(0, 0, 0, 0.3);
+}
+
+/* CRT Scanlines overlay */
+.crt-scanlines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+}
+.dark .crt-scanlines::after {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.08) 2px,
+    rgba(0, 0, 0, 0.08) 4px
+  );
+}
+
+/* CRT Screen curvature — subtle vignette */
+.crt-curvature::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 11;
+  border-radius: inherit;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 60%,
+    rgba(0, 0, 0, 0.1) 100%
+  );
+}
+.dark .crt-curvature::before {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 50%,
+    rgba(0, 0, 0, 0.25) 100%
+  );
+}
+
+/* Power LED indicator */
+.crt-led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #4ade80, #22c55e);
+  box-shadow:
+    0 0 4px #22c55e,
+    0 0 8px rgba(34, 197, 94, 0.4),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.3);
+  animation: ledBlink 3s ease-in-out infinite;
+}
+
+/* CRT screen flicker */
+@keyframes crtFlicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.95; }
+  94% { opacity: 1; }
+}
+
+@keyframes ledBlink {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px #22c55e, 0 0 8px rgba(34, 197, 94, 0.4); }
+  50% { opacity: 0.7; box-shadow: 0 0 2px #22c55e, 0 0 4px rgba(34, 197, 94, 0.2); }
+}
+
+@keyframes marqueeScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Phosphor text glow for CRT screens */
+.crt-text-glow {
+  color: var(--primary);
+  text-shadow:
+    0 0 2px var(--glow-color),
+    0 0 6px color-mix(in oklch, var(--glow-color) 40%, transparent);
+}
+.dark .crt-text-glow {
+  text-shadow:
+    0 0 3px var(--glow-color),
+    0 0 10px color-mix(in oklch, var(--glow-color) 50%, transparent),
+    0 0 20px color-mix(in oklch, var(--glow-color) 20%, transparent);
+}
+
+/* Animated dot grid pattern */
+.dot-grid {
+  background-image: radial-gradient(
+    color-mix(in oklch, var(--primary) 10%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+}
+.dark .dot-grid {
+  background-image: radial-gradient(
+    color-mix(in oklch, var(--glow-color) 12%, transparent) 1px,
+    transparent 1px
+  );
+}
