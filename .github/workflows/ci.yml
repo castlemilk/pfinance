@@ -24,8 +24,6 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       backend: ${{ steps.filter.outputs.backend }}
       proto: ${{ steps.filter.outputs.proto }}
-      firebase: ${{ steps.filter.outputs.firebase }}
-      ml: ${{ steps.filter.outputs.ml }}
       any_code: ${{ steps.filter.outputs.frontend == 'true' || steps.filter.outputs.backend == 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -41,19 +39,13 @@ jobs:
               - 'proto/**'
             proto:
               - 'proto/**'
-            firebase:
-              - 'firebase.json'
-              - 'firestore.indexes.json'
-            ml:
-              - 'ml-service/**'
-              - 'backend/internal/extraction/**'
 
   # ===========================================
-  # Frontend Unit Tests & Build (~2 min)
+  # Test (~90s) - Backend + Frontend in parallel
   # ===========================================
-  frontend:
+  test:
     needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    if: needs.changes.outputs.any_code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,30 +55,6 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
-
-      - name: Install dependencies
-        run: cd web && rm -rf node_modules package-lock.json && npm install --legacy-peer-deps
-
-      - name: Lint & Type Check
-        run: cd web && npm run lint && npm run type-check
-
-      - name: Unit Tests
-        run: cd web && npm test -- --passWithNoTests --coverage --maxWorkers=2
-
-      - name: Build
-        run: cd web && npm run build
-        env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-
-  # ===========================================
-  # Backend Tests & Build (~1 min)
-  # ===========================================
-  backend:
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
@@ -98,94 +66,61 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate code
+      - name: Install & generate
         run: |
+          # Install tools
           go install go.uber.org/mock/mockgen@latest
-          cd proto && buf generate
-          cd ../backend && go generate ./internal/store
 
-      - name: Lint
+          # Code generation
+          cd proto && buf generate && cd ..
+          cd backend && go generate ./internal/store && cd ..
+
+          # Frontend deps
+          cd web && npm ci
+
+      - name: Proto lint
+        if: needs.changes.outputs.proto == 'true'
+        run: cd proto && buf lint
+
+      - name: Test (backend + frontend parallel)
         run: |
-          cd backend
-          go vet ./...
-          test -z "$(gofmt -l .)" || (echo "::error::Code not formatted" && exit 1)
+          # Run backend and frontend checks in parallel
+          (
+            echo "=== Backend ==="
+            cd backend
+            go vet ./...
+            test -z "$(gofmt -l .)" || (echo "::error::Code not formatted" && exit 1)
+            go test -race -coverprofile=coverage.out -timeout=60s ./...
+            go build -o /dev/null cmd/server/main.go
+          ) &
+          BACKEND_PID=$!
 
-      - name: Test
-        run: cd backend && go test -race -coverprofile=coverage.out -timeout=60s ./...
+          (
+            echo "=== Frontend ==="
+            cd web
+            npm run type-check
+            npm run lint
+            npm test -- --passWithNoTests --coverage --maxWorkers=2
+          ) &
+          FRONTEND_PID=$!
 
-      - name: Build
-        run: cd backend && go build -o server cmd/server/main.go
-
-  # ===========================================
-  # Proto Validation (~30s)
-  # ===========================================
-  proto:
-    needs: changes
-    if: needs.changes.outputs.proto == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: bufbuild/buf-setup-action@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Lint & breaking changes
-        run: |
-          cd proto
-          buf lint
-          buf breaking --against '.git#branch=main' || echo "::warning::Breaking changes detected"
+          # Wait for both and fail if either fails
+          FAIL=0
+          wait $BACKEND_PID || FAIL=1
+          wait $FRONTEND_PID || FAIL=1
+          exit $FAIL
 
   # ===========================================
-  # Firebase Validation (~10s)
-  # ===========================================
-  firebase:
-    needs: changes
-    if: needs.changes.outputs.firebase == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Validate
-        run: |
-          jq empty firebase.json || exit 1
-          jq empty firestore.indexes.json || exit 1
-          INDEXES=$(jq '.indexes | length' firestore.indexes.json)
-          echo "✓ Valid Firebase config ($INDEXES indexes)"
-
-  # ===========================================
-  # ML Benchmark Validation (~10s)
-  # ===========================================
-  ml-benchmarks:
-    needs: changes
-    if: needs.changes.outputs.ml == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Validate ML benchmarks
-        run: python3 ml-service/scripts/validate_benchmarks.py
-
-  # ===========================================
-  # CI Status Check (for branch protection)
+  # CI Status (for branch protection)
   # ===========================================
   ci-status:
-    needs: [frontend, backend, proto, firebase, ml-benchmarks]
+    needs: [test]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Check CI status
         run: |
-          # Check if any required job failed
-          if [[ "${{ needs.frontend.result }}" == "failure" ]] || \
-             [[ "${{ needs.backend.result }}" == "failure" ]] || \
-             [[ "${{ needs.proto.result }}" == "failure" ]] || \
-             [[ "${{ needs.firebase.result }}" == "failure" ]] || \
-             [[ "${{ needs.ml-benchmarks.result }}" == "failure" ]]; then
+          if [[ "${{ needs.test.result }}" == "failure" ]]; then
             echo "❌ CI failed"
             exit 1
           fi

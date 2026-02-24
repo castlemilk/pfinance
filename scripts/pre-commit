@@ -1,23 +1,26 @@
 #!/bin/bash
 
 # Pre-commit hook for PFinance
-# Runs all checks before allowing a commit
+# Fast lint/format check only (~3s)
 
 echo "🔍 Running pre-commit checks..."
-echo "-------------------------------"
 
-# Run linting and unit tests
-# We use the Makefile targets to ensure consistency
-make test
-
-RESULT=$?
-
-echo "-------------------------------"
-if [ $RESULT -ne 0 ]; then
-  echo "❌ Pre-commit checks failed!"
-  echo "Please fix the issues above or commit with --no-verify if absolutely necessary."
+# Check Go formatting
+GOFMT_OUTPUT=$(cd backend && gofmt -l . 2>/dev/null)
+if [ -n "$GOFMT_OUTPUT" ]; then
+  echo "❌ Go files not formatted:"
+  echo "$GOFMT_OUTPUT"
+  echo "Run 'cd backend && go fmt ./...' to fix"
   exit 1
 fi
+
+# Check Go vet
+cd backend && go vet ./... 2>&1
+if [ $? -ne 0 ]; then
+  echo "❌ go vet failed"
+  exit 1
+fi
+cd ..
 
 echo "✅ Pre-commit checks passed!"
 exit 0

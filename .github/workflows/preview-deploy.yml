@@ -12,7 +12,7 @@ concurrency:
 env:
   PROJECT_ID: pfinance-app-1748773335
   REGION: us-central1
-  IMAGE_NAME: gcr.io/pfinance-app-1748773335/pfinance-backend-preview
+  KO_DOCKER_REPO: gcr.io/pfinance-app-1748773335/pfinance-backend-preview
   WORKLOAD_IDENTITY_PROVIDER: projects/859800863588/locations/global/workloadIdentityPools/github-pool/providers/github-provider
   SERVICE_ACCOUNT: github-actions@pfinance-app-1748773335.iam.gserviceaccount.com
   # Preview domain - configure *.preview.pfinance.dev in Vercel
@@ -92,20 +92,17 @@ jobs:
 
       - name: Build & Deploy
         if: needs.changes.outputs.backend == 'true'
-        env:
-          KO_DOCKER_REPO: ${{ env.IMAGE_NAME }}
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
-          go install go.uber.org/mock/mockgen@latest
           export PATH=$PATH:$(go env GOPATH)/bin
           cd proto && buf generate --template buf.gen.go.yaml
-          cd ..
+          cd ../backend
 
           TAG="pr-${{ github.event.pull_request.number }}"
           SERVICE="pfinance-backend-preview-$TAG"
 
-          IMAGE=$(ko build ./backend/cmd/server --bare --tags=$TAG)
+          IMAGE=$(ko build ./cmd/server --bare --tags=$TAG)
 
           gcloud run deploy $SERVICE \
             --image $IMAGE \

@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Pre-push hook for PFinance
+# Runs full validation before allowing a push
+
+echo "🚀 Running pre-push checks..."
+echo "-------------------------------"
+
+make pre-push
+
+RESULT=$?
+
+echo "-------------------------------"
+if [ $RESULT -ne 0 ]; then
+  echo "❌ Pre-push checks failed!"
+  echo "Please fix the issues above or push with --no-verify if absolutely necessary."
+  exit 1
+fi
+
+echo "✅ Pre-push checks passed!"
+exit 0
