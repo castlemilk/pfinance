@@ -123,6 +123,11 @@ type Store interface {
 	UpsertTaxDeductibilityMapping(ctx context.Context, mapping *pfinancev1.TaxDeductibilityMapping) error
 	GetTaxDeductibilityMappings(ctx context.Context, userID string) ([]*pfinancev1.TaxDeductibilityMapping, error)
 
+	// Processed statement tracking (for dedup)
+	CreateProcessedStatement(ctx context.Context, stmt *pfinancev1.ProcessedStatement) error
+	FindProcessedStatement(ctx context.Context, userID, fingerprint string) (*pfinancev1.ProcessedStatement, error)
+	FindOverlappingStatements(ctx context.Context, userID, bankName, accountID string, periodStart, periodEnd time.Time) ([]*pfinancev1.ProcessedStatement, error)
+
 	// API token operations
 	CreateApiToken(ctx context.Context, token *pfinancev1.ApiToken) error
 	GetApiTokenByHash(ctx context.Context, tokenHash string) (*pfinancev1.ApiToken, error)

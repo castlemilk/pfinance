@@ -30,6 +30,7 @@ import {
   getFYDateRange,
 } from '../../../constants/taxDeductions';
 import { TaxDeductionCategory } from '@/gen/pfinance/v1/types_pb';
+import Link from 'next/link';
 import {
   AlertCircle,
   Download,
@@ -42,6 +43,8 @@ import {
   FileSpreadsheet,
   Landmark,
   Loader2,
+  ArrowRight,
+  ClipboardCheck,
 } from 'lucide-react';
 
 // ============================================================================
@@ -899,6 +902,29 @@ export default function TaxReturnsPage() {
           Track deductions, estimate your Australian tax return, and export for your accountant.
         </p>
       </div>
+
+      {/* Tax Review CTA */}
+      <Card className="border-primary/30 bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5">
+        <CardContent className="flex items-center justify-between p-5">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
+              <ClipboardCheck className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-base">Tax Deduction Review</h3>
+              <p className="text-sm text-muted-foreground">
+                Review AI-classified expenses and confirm tax deductions for your return.
+              </p>
+            </div>
+          </div>
+          <Link href="/personal/tax/review">
+            <Button className="glow-hover gap-2">
+              Start Review
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
 
       <ProFeatureGate feature="Tax Returns" mode="blur">
         <Tabs defaultValue="summary" className="space-y-4">

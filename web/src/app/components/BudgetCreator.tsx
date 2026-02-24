@@ -116,7 +116,7 @@ export default function BudgetCreator({ onSuccess, financeGroupId }: BudgetCreat
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
             {/* Budget Name */}
             <FormField
               control={form.control}
@@ -141,10 +141,10 @@ export default function BudgetCreator({ onSuccess, financeGroupId }: BudgetCreat
                 <FormItem>
                   <FormLabel>Description (Optional)</FormLabel>
                   <FormControl>
-                    <Textarea 
+                    <Textarea
                       placeholder="Brief description of this budget"
                       className="resize-none"
-                      {...field} 
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
@@ -156,7 +156,7 @@ export default function BudgetCreator({ onSuccess, financeGroupId }: BudgetCreat
             <FormField
               control={form.control}
               name="amount"
-              rules={{ 
+              rules={{
                 required: 'Budget amount is required',
                 pattern: {
                   value: /^\d+(\.\d{1,2})?$/,
@@ -167,14 +167,14 @@ export default function BudgetCreator({ onSuccess, financeGroupId }: BudgetCreat
                 <FormItem>
                   <FormLabel>Budget Amount</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="number" 
+                    <Input
+                      type="number"
                       step="0.01"
-                      placeholder="0.00" 
-                      {...field} 
+                      placeholder="0.00"
+                      {...field}
                     />
                   </FormControl>
-                  <FormDescription>
+                  <FormDescription className="text-xs sm:text-sm">
                     Total amount allocated for this budget period
                   </FormDescription>
                   <FormMessage />
@@ -203,7 +203,7 @@ export default function BudgetCreator({ onSuccess, financeGroupId }: BudgetCreat
                       ))}
                     </SelectContent>
                   </Select>
-                  <FormDescription>
+                  <FormDescription className="text-xs sm:text-sm">
                     How often this budget resets
                   </FormDescription>
                   <FormMessage />
@@ -214,22 +214,22 @@ export default function BudgetCreator({ onSuccess, financeGroupId }: BudgetCreat
             {/* Categories */}
             <div className="space-y-3">
               <FormLabel>Categories</FormLabel>
-              <FormDescription>
+              <FormDescription className="text-xs sm:text-sm">
                 Select which expense categories this budget applies to. Leave empty to include all categories.
               </FormDescription>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 {expenseCategories.map((category) => (
                   <div key={category.value} className="flex items-center space-x-2">
                     <Checkbox
                       id={`category-${category.value}`}
                       checked={selectedCategories.includes(category.value)}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked) =>
                         handleCategoryToggle(category.value, checked === true)
                       }
                     />
                     <label
                       htmlFor={`category-${category.value}`}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      className="text-xs sm:text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                     >
                       {category.label}
                     </label>
@@ -249,7 +249,7 @@ export default function BudgetCreator({ onSuccess, financeGroupId }: BudgetCreat
                   <FormControl>
                     <Input type="date" {...field} />
                   </FormControl>
-                  <FormDescription>
+                  <FormDescription className="text-xs sm:text-sm">
                     When this budget becomes active
                   </FormDescription>
                   <FormMessage />
@@ -270,10 +270,10 @@ export default function BudgetCreator({ onSuccess, financeGroupId }: BudgetCreat
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
-                    <FormLabel>
+                    <FormLabel className="text-sm">
                       Set an end date for this budget
                     </FormLabel>
-                    <FormDescription>
+                    <FormDescription className="text-xs sm:text-sm">
                       Leave unchecked for ongoing budgets that reset each period
                     </FormDescription>
                   </div>
@@ -286,8 +286,8 @@ export default function BudgetCreator({ onSuccess, financeGroupId }: BudgetCreat
               <FormField
                 control={form.control}
                 name="endDate"
-                rules={{ 
-                  required: hasEndDate ? 'End date is required when enabled' : false 
+                rules={{
+                  required: hasEndDate ? 'End date is required when enabled' : false
                 }}
                 render={({ field }) => (
                   <FormItem>
@@ -295,7 +295,7 @@ export default function BudgetCreator({ onSuccess, financeGroupId }: BudgetCreat
                     <FormControl>
                       <Input type="date" {...field} />
                     </FormControl>
-                    <FormDescription>
+                    <FormDescription className="text-xs sm:text-sm">
                       When this budget expires
                     </FormDescription>
                     <FormMessage />

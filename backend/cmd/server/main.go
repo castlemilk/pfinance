@@ -99,6 +99,9 @@ func main() {
 	merchantLookup := extraction.NewStoreMerchantLookup(storeImpl)
 	extractionSvc.SetMerchantLookup(merchantLookup)
 
+	// Wire statement store for two-phase extraction dedup
+	extractionSvc.SetStatementStore(storeImpl)
+
 	service.SetExtractionService(extractionSvc)
 	log.Printf("✅ Document extraction enabled (ML service: %s)", mlServiceURL)
 

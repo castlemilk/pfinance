@@ -817,6 +817,8 @@ message ExtractDocumentResponse {
   ExtractionResult result = 1;          // Extraction result (if sync)
   string job_id = 2;                    // Job ID (if async)
   ExtractionStatus status = 3;
+  StatementMetadata statement_metadata = 4;  // Statement metadata if bank statement
+  repeated string duplicate_warnings = 5;     // Warnings about duplicate/overlapping statements
 }
 
 message GetExtractionJobRequest {
@@ -833,6 +835,8 @@ message ImportExtractedTransactionsRequest {
   repeated ExtractedTransaction transactions = 3;
   bool skip_duplicates = 4;             // Skip transactions that appear to be duplicates
   ExpenseFrequency default_frequency = 5; // Default frequency for imported expenses
+  StatementMetadata statement_metadata = 6; // Statement metadata for dedup tracking
+  string original_filename = 7;           // Original filename for dedup tracking
 }
 
 message ImportExtractedTransactionsResponse {

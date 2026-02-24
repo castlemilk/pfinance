@@ -2398,3 +2398,70 @@ func (s *FirestoreStore) CountActiveApiTokens(ctx context.Context, userID string
 	}
 	return len(docs), nil
 }
+
+// ============================================================================
+// Processed Statement operations (dedup)
+// ============================================================================
+
+// CreateProcessedStatement stores a processed statement record
+func (s *FirestoreStore) CreateProcessedStatement(ctx context.Context, stmt *pfinancev1.ProcessedStatement) error {
+	_, err := s.client.Collection("processed_statements").Doc(stmt.Id).Set(ctx, stmt)
+	return err
+}
+
+// FindProcessedStatement finds a processed statement by userID and fingerprint
+func (s *FirestoreStore) FindProcessedStatement(ctx context.Context, userID, fingerprint string) (*pfinancev1.ProcessedStatement, error) {
+	docs, err := s.client.Collection("processed_statements").
+		Where("UserId", "==", userID).
+		Where("Fingerprint", "==", fingerprint).
+		Limit(1).
+		Documents(ctx).GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("find processed statement: %w", err)
+	}
+	if len(docs) == 0 {
+		return nil, fmt.Errorf("processed statement not found for fingerprint: %s", fingerprint)
+	}
+	var stmt pfinancev1.ProcessedStatement
+	if err := docs[0].DataTo(&stmt); err != nil {
+		return nil, fmt.Errorf("decode processed statement: %w", err)
+	}
+	return &stmt, nil
+}
+
+// FindOverlappingStatements finds statements that overlap with the given period.
+// Queries by userID, bankName, and accountIdentifier, then filters overlaps in Go.
+func (s *FirestoreStore) FindOverlappingStatements(ctx context.Context, userID, bankName, accountID string, periodStart, periodEnd time.Time) ([]*pfinancev1.ProcessedStatement, error) {
+	docs, err := s.client.Collection("processed_statements").
+		Where("UserId", "==", userID).
+		Where("BankName", "==", bankName).
+		Where("AccountIdentifier", "==", accountID).
+		Documents(ctx).GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("find overlapping statements: %w", err)
+	}
+
+	var results []*pfinancev1.ProcessedStatement
+	for _, doc := range docs {
+		var stmt pfinancev1.ProcessedStatement
+		if err := doc.DataTo(&stmt); err != nil {
+			continue
+		}
+
+		// Parse stored period dates
+		existingStart, err := time.Parse("2006-01-02", stmt.PeriodStart)
+		if err != nil {
+			continue
+		}
+		existingEnd, err := time.Parse("2006-01-02", stmt.PeriodEnd)
+		if err != nil {
+			continue
+		}
+
+		// Check overlap: periodStart <= existingEnd AND periodEnd >= existingStart
+		if !periodStart.After(existingEnd) && !periodEnd.Before(existingStart) {
+			results = append(results, &stmt)
+		}
+	}
+	return results, nil
+}

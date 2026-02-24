@@ -13,14 +13,13 @@ env:
   PROJECT_ID: pfinance-app-1748773335
   REGION: us-central1
   SERVICE_NAME: pfinance-backend
-  IMAGE_NAME: gcr.io/pfinance-app-1748773335/pfinance-backend
+  KO_DOCKER_REPO: gcr.io/pfinance-app-1748773335/pfinance-backend
   WORKLOAD_IDENTITY_PROVIDER: projects/859800863588/locations/global/workloadIdentityPools/github-pool/providers/github-provider
   SERVICE_ACCOUNT: github-actions@pfinance-app-1748773335.iam.gserviceaccount.com
-  TF_STATE_BUCKET: pfinance-terraform-state
 
 jobs:
   # ===========================================
-  # 1. Build Backend (Docker)
+  # 1. Build & Push Backend (ko)
   # ===========================================
   build-backend:
     runs-on: ubuntu-latest
@@ -28,7 +27,7 @@ jobs:
       contents: read
       id-token: write
     outputs:
-      image: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+      image: ${{ steps.build.outputs.image }}
     steps:
       - uses: actions/checkout@v4
 
@@ -46,21 +45,29 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
+          cache: true
           cache-dependency-path: backend/go.sum
+
+      - uses: ko-build/setup-ko@v0.9
 
       - uses: bufbuild/buf-setup-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & Push
+      - name: Generate proto
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
           export PATH=$PATH:$(go env GOPATH)/bin
           cd proto && buf generate --template buf.gen.go.yaml
-          cd ../backend
-          docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} .
-          docker push ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Build & Push with ko
+        id: build
+        run: |
+          cd backend
+          IMAGE=$(ko build ./cmd/server --bare --tags=${{ github.sha }})
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+          echo "Built and pushed: $IMAGE"
 
   # ===========================================
   # 2. Deploy Backend (Cloud Run)
@@ -99,7 +106,7 @@ jobs:
             --memory 512Mi \
             --set-env-vars "GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }},STRIPE_PRICE_ID=${{ secrets.STRIPE_PRICE_ID }},STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}" \
             --quiet
-          
+
           URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} --region ${{ env.REGION }} --format 'value(status.url)')
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "Backend deployed to: $URL"
