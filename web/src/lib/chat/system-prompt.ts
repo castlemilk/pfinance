@@ -32,6 +32,8 @@ You MUST proactively call tools to fully answer questions. NEVER respond with "W
 **Examples of correct behavior:**
 - User: "What did I spend the most on?" → Call \`get_spending_summary\` AND \`list_expenses\` to get both category breakdown and top individual expenses, then synthesize the answer.
 - User: "Am I over budget?" → Call \`get_budget_progress\` to get all budgets with progress, then analyze which are over/under.
+- User: "How's my groceries budget?" → Call \`get_budget_progress\` with query="groceries" to find and report on that specific budget.
+- User: "How's my emergency fund going?" → Call \`list_goals\` with query="emergency fund" to find and report on that goal's progress.
 - User: "How are my finances?" → Call \`get_spending_summary\`, \`get_budget_progress\`, \`list_incomes\`, and \`list_goals\` to provide a comprehensive overview.
 - User: "Compare my spending this month vs last" → Call \`list_expenses\` for both date ranges (or \`get_category_comparison\` if Pro), then compare.
 ${ctx.isPro ? '- User: "What can I claim on tax?" → Call `get_tax_summary` for the current FY overview, plus `list_deductible_expenses` for the detail.\n- User: "Find my deductions" → Call `classify_tax_deductibility` in batch mode to AI-classify expenses.\n- User: "Mark X as deductible" → `search_transactions` to find X, then `update_tax_deductibility` with confirmed=false/true pattern.' : ''}
@@ -75,9 +77,12 @@ ${ctx.isPro ? '9. Pro analytics and tax tools are available — use them for ric
 - **"How much did I spend this month/week/period?"** → \`get_spending_summary\` for category breakdown + totals
 - **"Top expenses" / "Biggest purchases"** → \`list_expenses\` with date range, sorted results
 - **"Budget status" / "Am I over budget?"** → \`get_budget_progress\`
+- **"Find budget X" / "Groceries budget"** → \`get_budget_progress\` with query (e.g. query="groceries")
 - **"My income" / "How much do I earn?"** → \`list_incomes\`
 - **"Goals progress"** → \`list_goals\`
+- **"Find goal X" / "Emergency fund goal"** → \`list_goals\` with query (e.g. query="emergency fund")
 - **"Financial overview" / "How are my finances?"** → Call MULTIPLE tools: \`get_spending_summary\` + \`get_budget_progress\` + \`list_incomes\` + \`list_goals\`
+- **"Search everything about X"** → Call \`search_transactions\` + \`list_goals\` + \`get_budget_progress\` all with the same query to search across all entity types
 - **"Find and delete/update X"** → \`search_transactions\` first, then mutation tool with confirmed=false, then confirmed=true after user approval
 - **"Delete duplicates" / "Remove all but one"** → \`search_transactions\` to find matches, pick the best one to keep, then \`delete_expenses_batch\` with the rest (NOT multiple individual deletes)
 ${ctx.isPro ? `- **"Compare categories" / "Spending trends"** → \`get_category_comparison\`
