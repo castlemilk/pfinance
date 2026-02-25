@@ -34,6 +34,9 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
   const [showConversations, setShowConversations] = useState(showHistory);
   // P0-3 fix: use a ref to track conversation ID for immediate use (avoids state async lag)
   const conversationIdRef = useRef<string | null>(null);
+  // Fix: skip the loadMessages effect when we just created a fresh (empty) conversation
+  // to prevent it from wiping the message that sendMessage() just added
+  const skipNextLoadRef = useRef(false);
 
   const {
     activeConversationId,
@@ -80,6 +83,12 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
 
   // P0-2 fix: always call setMessages when conversation changes (even for empty convos)
   useEffect(() => {
+    // Skip loading when we just created a fresh conversation — prevents wiping
+    // the message that sendMessage() added in the same event loop tick
+    if (skipNextLoadRef.current) {
+      skipNextLoadRef.current = false;
+      return;
+    }
     if (activeConversationId) {
       const loaded = loadMessages(activeConversationId);
       setMessages(loaded);
@@ -121,6 +130,7 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
   // P0-3 fix: create conversation synchronously and return the ID via ref
   const ensureConversation = useCallback(() => {
     if (!conversationIdRef.current) {
+      skipNextLoadRef.current = true;
       const newId = createConversation();
       conversationIdRef.current = newId;
       return newId;
