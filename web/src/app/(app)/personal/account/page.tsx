@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   updatePassword,
@@ -11,6 +11,7 @@ import {
 import { useAuth } from '../../../context/AuthWithAdminContext';
 import { useSubscription } from '../../../hooks/useSubscription';
 import { financeClient } from '@/lib/financeService';
+import { uploadAvatar, deleteAvatar } from '../../../utils/avatarUpload';
 import type { ApiToken } from '@/gen/pfinance/v1/types_pb';
 import {
   Card,
@@ -68,6 +69,10 @@ import {
   Copy,
   Ban,
   Eraser,
+  Camera,
+  Upload,
+  Eye,
+  X,
 } from 'lucide-react';
 
 export default function AccountPage() {
@@ -130,6 +135,15 @@ export default function AccountPage() {
   } | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Avatar state
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [showGenerativePreview, setShowGenerativePreview] = useState(false);
+  const [avatarMessage, setAvatarMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -137,6 +151,86 @@ export default function AccountPage() {
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  // --- Avatar Handlers ---
+  const handleAvatarFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    // Reset file input so same file can be re-selected
+    e.target.value = '';
+
+    // Validate type
+    if (!file.type.startsWith('image/')) {
+      setAvatarMessage({ type: 'error', text: 'Please select an image file.' });
+      return;
+    }
+
+    // Validate size (5MB max before compression)
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarMessage({ type: 'error', text: 'Image must be under 5MB.' });
+      return;
+    }
+
+    setAvatarUploading(true);
+    setAvatarMessage(null);
+    setShowGenerativePreview(false);
+
+    try {
+      const downloadURL = await uploadAvatar(file, user.uid);
+      await updateProfile(user, { photoURL: downloadURL });
+      await user.reload();
+
+      // Sync to backend
+      await financeClient.updateUser({
+        userId: user.uid,
+        displayName: user.displayName || '',
+        photoUrl: downloadURL,
+        email: user.email || '',
+      });
+
+      setAvatarMessage({ type: 'success', text: 'Avatar updated.' });
+    } catch (err) {
+      console.error('Failed to upload avatar:', err);
+      setAvatarMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to upload avatar.',
+      });
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!user) return;
+    setAvatarUploading(true);
+    setAvatarMessage(null);
+    setShowGenerativePreview(false);
+
+    try {
+      await deleteAvatar(user.uid);
+      await updateProfile(user, { photoURL: '' });
+      await user.reload();
+
+      // Sync to backend
+      await financeClient.updateUser({
+        userId: user.uid,
+        displayName: user.displayName || '',
+        photoUrl: '',
+        email: user.email || '',
+      });
+
+      setAvatarMessage({ type: 'success', text: 'Avatar removed. Using generative avatar.' });
+    } catch (err) {
+      console.error('Failed to remove avatar:', err);
+      setAvatarMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to remove avatar.',
+      });
+    } finally {
+      setAvatarUploading(false);
+    }
   };
 
   // --- Load API tokens ---
@@ -443,42 +537,135 @@ export default function AccountPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Avatar */}
-            <div className="flex items-center gap-4">
-              <Avatar className="w-16 h-16">
-                {user.photoURL && (
-                  <AvatarImage
-                    src={user.photoURL}
-                    alt={user.displayName || 'User'}
-                  />
+            {/* Avatar Management */}
+            <div className="flex flex-col items-center gap-3">
+              {/* Avatar display with hover overlay */}
+              <div
+                className="relative group cursor-pointer"
+                onClick={() => !avatarUploading && fileInputRef.current?.click()}
+              >
+                <Avatar className="w-24 h-24">
+                  {user.photoURL && !showGenerativePreview ? (
+                    <AvatarImage
+                      src={user.photoURL}
+                      alt={user.displayName || 'User'}
+                    />
+                  ) : null}
+                  <AvatarFallback className="p-0 bg-transparent">
+                    <GenerativeAvatar name={user.displayName || user.email || 'User'} size={96} />
+                  </AvatarFallback>
+                </Avatar>
+                {/* Hover overlay */}
+                {!avatarUploading && (
+                  <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Camera className="w-6 h-6 text-white" />
+                  </div>
                 )}
-                <AvatarFallback className="p-0 bg-transparent">
-                  <GenerativeAvatar name={user.displayName || user.email || 'User'} size={64} />
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="text-lg font-medium truncate">
-                  {user.displayName || 'No name set'}
-                </p>
-                <p className="text-sm text-muted-foreground truncate">
-                  {user.email}
-                </p>
-                {!subscriptionLoading && (
-                  <div className="mt-1">
-                    {isPro ? (
-                      <Badge
-                        variant="default"
-                        className="bg-amber-500/90 hover:bg-amber-500"
-                      >
-                        <Crown className="w-3 h-3 mr-1" />
-                        Pro
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">Free</Badge>
-                    )}
+                {/* Loading overlay */}
+                {avatarUploading && (
+                  <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 text-white animate-spin" />
                   </div>
                 )}
               </div>
+
+              {/* Label */}
+              <p className="text-xs text-muted-foreground">
+                {showGenerativePreview
+                  ? 'Previewing generative avatar'
+                  : user.photoURL
+                    ? 'Custom photo'
+                    : 'Generative avatar'}
+              </p>
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-2 flex-wrap justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={avatarUploading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="w-3.5 h-3.5 mr-1.5" />
+                  Upload Photo
+                </Button>
+                {user.photoURL && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={avatarUploading}
+                    onClick={() => setShowGenerativePreview((p) => !p)}
+                  >
+                    {showGenerativePreview ? (
+                      <>
+                        <X className="w-3.5 h-3.5 mr-1.5" />
+                        Back to Photo
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-3.5 h-3.5 mr-1.5" />
+                        Preview Generative
+                      </>
+                    )}
+                  </Button>
+                )}
+                {user.photoURL && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={avatarUploading}
+                    onClick={handleRemoveAvatar}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-500/10"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    Remove
+                  </Button>
+                )}
+              </div>
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarFileSelect}
+              />
+
+              {/* Avatar message */}
+              {avatarMessage && (
+                <div
+                  className={`flex items-center gap-2 text-xs p-2 rounded-md w-full ${
+                    avatarMessage.type === 'success'
+                      ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                      : 'bg-red-500/10 text-red-600 dark:text-red-400'
+                  }`}
+                >
+                  {avatarMessage.type === 'success' ? (
+                    <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                  ) : (
+                    <XCircle className="w-3.5 h-3.5 shrink-0" />
+                  )}
+                  {avatarMessage.text}
+                </div>
+              )}
+
+              {/* Subscription badge */}
+              {!subscriptionLoading && (
+                <div>
+                  {isPro ? (
+                    <Badge
+                      variant="default"
+                      className="bg-amber-500/90 hover:bg-amber-500"
+                    >
+                      <Crown className="w-3 h-3 mr-1" />
+                      Pro
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">Free</Badge>
+                  )}
+                </div>
+              )}
             </div>
 
             <Separator />

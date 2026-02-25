@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 // Firebase configuration - use environment variables directly
 const firebaseConfig = {
@@ -24,6 +25,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 let app: ReturnType<typeof initializeApp> | null;
 let auth: ReturnType<typeof getAuth> | null;
 let db: ReturnType<typeof getFirestore> | null;
+let storage: ReturnType<typeof getStorage> | null;
 export let firebaseInitError: string | null = null;
 
 if (typeof window !== 'undefined') {
@@ -37,11 +39,13 @@ if (typeof window !== 'undefined') {
     app = null;
     auth = null;
     db = null;
+    storage = null;
   } else {
     try {
       app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
       auth = getAuth(app);
       db = getFirestore(app);
+      storage = getStorage(app);
     } catch (error) {
       const msg = `Firebase initialization failed: ${error instanceof Error ? error.message : String(error)}`;
       console.error('Firebase initialization error:', error);
@@ -49,6 +53,7 @@ if (typeof window !== 'undefined') {
       app = null;
       auth = null;
       db = null;
+      storage = null;
     }
   }
 } else {
@@ -56,7 +61,8 @@ if (typeof window !== 'undefined') {
   app = null;
   auth = null;
   db = null;
+  storage = null;
 }
 
-export { auth, db };
+export { auth, db, storage };
 export default app;
