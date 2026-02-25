@@ -6,20 +6,29 @@ import { buildSystemPrompt } from '@/lib/chat/system-prompt';
 import { getAuth } from 'firebase-admin/auth';
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
 
-// Initialize Firebase Admin SDK (once)
+// Initialize Firebase Admin SDK (once).
+// Prefers a full service account credential when available.
+// Falls back to project-ID-only initialization — sufficient for verifyIdToken
+// which uses Google's public keys and only needs the project ID for claim validation.
 function getFirebaseAdmin() {
   if (getApps().length > 0) return;
+
+  // Option 1: full service account JSON (most capable)
   const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
   if (serviceAccount) {
     try {
       const parsed = JSON.parse(serviceAccount);
       initializeApp({ credential: cert(parsed) });
+      return;
     } catch {
-      initializeApp();
+      // Invalid JSON — fall through
     }
-  } else {
-    initializeApp();
   }
+
+  // Option 2: project ID only (works on Vercel without a service account)
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    || process.env.GOOGLE_CLOUD_PROJECT;
+  initializeApp(projectId ? { projectId } : undefined);
 }
 
 // Truncate message history to avoid sending excessive context to the model.
@@ -47,19 +56,20 @@ export async function POST(request: Request) {
     });
   }
 
-  // Verify token: use verified uid when possible, fall back to header userId
+  // Verify token and extract verified userId + subscription claims
   let isPro = false;
   if (authToken) {
     try {
       getFirebaseAdmin();
       const decodedToken = await getAuth().verifyIdToken(authToken);
-      // Override client-provided userId with the verified token uid
       userId = decodedToken.uid;
       isPro = decodedToken.subscription_tier === 'PRO' && decodedToken.subscription_status === 'ACTIVE';
     } catch (err) {
-      console.error('[Chat API] Token verification failed, falling back to header userId:', err);
-      // Fall through with header userId and isPro=false — backend RPC calls
-      // independently verify the token via their own auth interceptor
+      console.error('[Chat API] Token verification failed:', err);
+      return new Response(JSON.stringify({ error: 'Invalid authentication token' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
   }
 
