@@ -7,7 +7,6 @@ import DebugPanel from './DebugPanel';
 import { FirebaseInitBanner } from './FirebaseInitBanner';
 import { cn } from '@/lib/utils';
 import { Bot } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import {
   Sheet,
   SheetContent,
@@ -47,12 +46,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
         {/* Floating Chat Button + Sheet */}
         <Sheet>
           <SheetTrigger asChild>
-            <Button
-              size="icon"
-              className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 h-12 w-12 sm:h-14 sm:w-14 rounded-full shadow-lg hover:shadow-xl transition-shadow"
+            <button
+              className="chat-send-btn fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 !w-12 !h-12 sm:!w-14 sm:!h-14 shadow-lg hover:shadow-xl transition-all"
             >
               <Bot className="h-5 w-5 sm:h-6 sm:w-6" />
-            </Button>
+            </button>
           </SheetTrigger>
           <SheetContent side="right" className="w-full sm:w-[400px] md:w-[540px] p-0">
             <SheetTitle className="sr-only">Finance Assistant</SheetTitle>

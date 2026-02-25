@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useChatHistory } from '@/lib/chat/ChatHistoryContext';
+import { SkeuButton } from '@/components/ui/skeu-button';
 
 // ---------------------------------------------------------------------------
 // Relative time formatter
@@ -148,15 +149,13 @@ export function ConversationList({
     <div className={cn('flex flex-col h-full', className)}>
       {/* Header + New Chat */}
       <div className="px-3 py-3 space-y-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full justify-start gap-2"
+        <button
+          className="chat-action-pill w-full justify-center gap-2 py-2"
           onClick={handleNewChat}
         >
           <Plus className="w-4 h-4" />
           New Chat
-        </Button>
+        </button>
       </div>
 
       <Separator />
@@ -183,10 +182,10 @@ export function ConversationList({
                 <div
                   key={conversation.id}
                   className={cn(
-                    'group relative flex items-center gap-2 rounded-md px-2 py-2 cursor-pointer transition-colors',
+                    'group relative flex items-center gap-2 rounded-lg px-2.5 py-2 cursor-pointer transition-all',
                     isActive
-                      ? 'bg-muted'
-                      : 'hover:bg-muted/50',
+                      ? 'skeu-inset'
+                      : 'hover:bg-primary/5',
                   )}
                   onClick={() => {
                     if (!isRenaming) {
@@ -195,7 +194,10 @@ export function ConversationList({
                   }}
                 >
                   {/* Conversation icon */}
-                  <MessageSquare className="w-4 h-4 shrink-0 text-muted-foreground" />
+                  <MessageSquare className={cn(
+                    'w-4 h-4 shrink-0',
+                    isActive ? 'text-primary' : 'text-muted-foreground'
+                  )} />
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
@@ -220,13 +222,13 @@ export function ConversationList({
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[10px] text-muted-foreground/70">
+                          <span className="font-mono text-[10px] text-muted-foreground/70">
                             {formatRelativeTime(new Date(conversation.updatedAt))}
                           </span>
                           <span className="text-[10px] text-muted-foreground/50">
                             &middot;
                           </span>
-                          <span className="text-[10px] text-muted-foreground/70">
+                          <span className="font-mono text-[10px] text-muted-foreground/70">
                             {conversation.messageCount}{' '}
                             {conversation.messageCount === 1 ? 'msg' : 'msgs'}
                           </span>
@@ -288,14 +290,14 @@ export function ConversationList({
           <div className="px-3 py-3">
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button
-                  variant="ghost"
+                <SkeuButton
+                  variant="destructive"
                   size="sm"
-                  className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive"
+                  className="w-full gap-2"
+                  icon={<Trash2 className="w-3.5 h-3.5" />}
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
                   Clear All Conversations
-                </Button>
+                </SkeuButton>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>

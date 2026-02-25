@@ -3,7 +3,6 @@
 import { useRef, useEffect, useCallback, useState, useLayoutEffect } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, RotateCcw, Loader2, History, Plus, Bot, AlertCircle } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
@@ -184,34 +183,31 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
   return (
     <div className={cn('flex flex-col', compact ? 'h-full' : 'h-[calc(100vh-8rem)]')}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-        <div>
-          <h3 className="font-semibold text-sm">Finance Assistant</h3>
-          <p className="text-xs text-muted-foreground">Ask about your expenses, budgets, and more</p>
+      <div className="skeu-card skeu-scanlines flex items-center justify-between px-4 py-3 rounded-none border-x-0 border-t-0">
+        <div className="flex items-center gap-2">
+          <span className="chat-led text-green-500" />
+          <div>
+            <h3 className="font-semibold text-sm">Finance Assistant</h3>
+            <p className="text-xs text-muted-foreground">Ask about your expenses, budgets, and more</p>
+          </div>
         </div>
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
             onClick={() => setShowConversations(!showConversations)}
-            className="h-8 w-8"
+            className="chat-action-pill h-7 px-2"
             title="Chat history"
           >
-            <History className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
+            <History className="w-3.5 h-3.5" />
+          </button>
+          <button
             onClick={handleNewChat}
-            className="h-8 w-8"
+            className="chat-action-pill h-7 px-2"
             title="New chat"
           >
-            <Plus className="w-4 h-4" />
-          </Button>
+            <Plus className="w-3.5 h-3.5" />
+          </button>
           {messages.length > 0 && (
-            <Button
-              variant="ghost"
-              size="icon"
+            <button
               onClick={() => {
                 setMessages([]);
                 const convId = conversationIdRef.current;
@@ -219,11 +215,11 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
                   saveMessages(convId, []);
                 }
               }}
-              className="h-8 w-8"
+              className="chat-action-pill h-7 px-2"
               title="Clear current chat"
             >
-              <RotateCcw className="w-4 h-4" />
-            </Button>
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
           )}
         </div>
       </div>
@@ -242,21 +238,20 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
               {messages.length === 0 ? (
                 <div className="space-y-4 pt-8">
                   <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Try asking about your finances:
-                    </p>
+                    <div className="inline-flex items-center gap-2 mb-3">
+                      <Bot className="w-5 h-5 text-primary" />
+                      <span className="text-sm font-medium text-primary">Try asking:</span>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {SUGGESTED_PROMPTS.map((prompt) => (
-                      <Button
+                      <button
                         key={prompt}
-                        variant="outline"
-                        size="sm"
-                        className="justify-start text-left h-auto py-2 px-3 text-xs"
+                        className="chat-action-pill justify-start text-left h-auto py-2.5 px-3.5 text-xs"
                         onClick={() => handleSuggestedPrompt(prompt)}
                       >
                         {prompt}
-                      </Button>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -272,22 +267,22 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
               )}
 
               {isLoading && (
-                <div className="flex gap-2">
-                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 animate-pulse">
+                <div className="flex gap-2.5">
+                  <div className="chat-avatar w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 text-muted-foreground">
                     <Bot className="w-4 h-4" />
                   </div>
-                  <div className="bg-muted rounded-lg px-3 py-2 text-sm text-muted-foreground flex items-center gap-1.5">
-                    <span className="flex gap-0.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <div className="chat-bubble-assistant rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-2">
+                    <span className="flex gap-1.5">
+                      <span className="chat-typing-dot" />
+                      <span className="chat-typing-dot" />
+                      <span className="chat-typing-dot" />
                     </span>
                   </div>
                 </div>
               )}
 
               {error && (
-                <div className="bg-destructive/10 text-destructive rounded-lg px-3 py-2 text-sm flex items-center gap-2">
+                <div className="skeu-card border-destructive/30 bg-destructive/5 rounded-lg px-3 py-2 text-sm flex items-center gap-2 text-destructive">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   Something went wrong. Please try again.
                 </div>
@@ -299,8 +294,8 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
           </ScrollArea>
 
           {/* Input */}
-          <div className="border-t p-3">
-            <form onSubmit={handleSubmit} className="flex gap-2">
+          <div className="chat-input-well">
+            <form onSubmit={handleSubmit} className="flex gap-2 items-end">
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -308,17 +303,16 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
                 onKeyDown={handleKeyDown}
                 placeholder="Ask about your finances..."
                 rows={1}
-                className="flex-1 resize-none overflow-hidden max-h-[120px] rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex-1 resize-none overflow-hidden max-h-[120px] rounded-lg bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/50 border border-primary/10"
                 disabled={isLoading}
               />
-              <Button
+              <button
                 type="submit"
-                size="icon"
                 disabled={!input.trim() || isLoading}
-                className="h-9 w-9 shrink-0"
+                className="chat-send-btn"
               >
                 <Send className="w-4 h-4" />
-              </Button>
+              </button>
             </form>
           </div>
         </>

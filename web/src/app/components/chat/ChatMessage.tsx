@@ -32,11 +32,13 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
     .filter(p => p.state === 'output-available' && p.output);
 
   return (
-    <div className={cn('flex gap-2', isUser ? 'flex-row-reverse' : 'flex-row')}>
+    <div className={cn('flex gap-2.5', isUser ? 'flex-row-reverse' : 'flex-row')}>
       {/* Avatar */}
       <div className={cn(
-        'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
-        isUser ? 'bg-primary text-primary-foreground' : 'bg-muted'
+        'chat-avatar flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
+        isUser
+          ? 'bg-primary/20 text-primary'
+          : 'bg-muted text-muted-foreground'
       )}>
         {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
       </div>
@@ -46,13 +48,15 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
         {/* Text content — P1-7 fix: render markdown for assistant messages */}
         {textContent && (
           <div className={cn(
-            'rounded-lg px-3 py-2 text-sm',
-            isUser ? 'bg-primary text-primary-foreground' : 'bg-muted'
+            'px-3.5 py-2.5 text-sm',
+            isUser
+              ? 'chat-bubble-user rounded-2xl rounded-br-sm'
+              : 'chat-bubble-assistant rounded-2xl rounded-bl-sm'
           )}>
             {isUser ? (
               <div className="whitespace-pre-wrap">{textContent}</div>
             ) : (
-              <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded-md [&_pre]:overflow-x-auto">
+              <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_code]:bg-muted/50 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono [&_pre]:bg-muted/30 [&_pre]:p-3 [&_pre]:rounded-md [&_pre]:overflow-x-auto">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {textContent}
                 </ReactMarkdown>
@@ -72,20 +76,21 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
               || (result.expense ? [result.expense as { description: string; amount: number; date: string; category: string }] : undefined);
 
             return (
-              <ConfirmationCard
-                key={idx}
-                action={result.action as string}
-                message={result.message as string}
-                details={result.details as Record<string, unknown> | undefined}
-                expenses={expensesList}
-                changes={result.changes as Record<string, { from: unknown; to: unknown }> | undefined}
-                duplicates={result.duplicates as Array<{ description: string; amount: number; date: string; matchScore: number; matchReason: string }> | undefined}
-                duplicateWarning={result.duplicateWarning as string | undefined}
-                // P1-1 fix: pass disabled prop for historical conversations
-                disabled={isHistorical}
-                onConfirm={() => onConfirm('Yes, proceed with the operation.')}
-                onCancel={() => onCancel('Cancel, do not proceed.')}
-              />
+              <div key={idx} className="chat-tool-card">
+                <ConfirmationCard
+                  action={result.action as string}
+                  message={result.message as string}
+                  details={result.details as Record<string, unknown> | undefined}
+                  expenses={expensesList}
+                  changes={result.changes as Record<string, { from: unknown; to: unknown }> | undefined}
+                  duplicates={result.duplicates as Array<{ description: string; amount: number; date: string; matchScore: number; matchReason: string }> | undefined}
+                  duplicateWarning={result.duplicateWarning as string | undefined}
+                  // P1-1 fix: pass disabled prop for historical conversations
+                  disabled={isHistorical}
+                  onConfirm={() => onConfirm('Yes, proceed with the operation.')}
+                  onCancel={() => onCancel('Cancel, do not proceed.')}
+                />
+              </div>
             );
           }
 
@@ -97,12 +102,13 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
           // Handle expense list results
           if (result.expenses && Array.isArray(result.expenses)) {
             return (
-              <ExpenseCard
-                key={idx}
-                expenses={result.expenses as Array<{ id: string; description: string; amount: number; category: string; date: string; tags?: string[] }>}
-                count={(result.count as number) || (result.expenses as unknown[]).length}
-                hasMore={result.hasMore as boolean | undefined}
-              />
+              <div key={idx} className="chat-tool-card">
+                <ExpenseCard
+                  expenses={result.expenses as Array<{ id: string; description: string; amount: number; category: string; date: string; tags?: string[] }>}
+                  count={(result.count as number) || (result.expenses as unknown[]).length}
+                  hasMore={result.hasMore as boolean | undefined}
+                />
+              </div>
             );
           }
 
@@ -117,27 +123,40 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
               tags: [] as string[],
             }));
             return (
-              <ExpenseCard
-                key={idx}
-                expenses={expenseLike}
-                count={(result.count as number) || (result.results as unknown[]).length}
-              />
+              <div key={idx} className="chat-tool-card">
+                <ExpenseCard
+                  expenses={expenseLike}
+                  count={(result.count as number) || (result.results as unknown[]).length}
+                />
+              </div>
             );
           }
 
           // Handle budget progress
           if (result.budgets && Array.isArray(result.budgets)) {
-            return <SummaryCard key={idx} type="budgets" budgets={result.budgets as Array<{ name: string; limit: number; spent: number; percentage: number; isActive: boolean }>} />;
+            return (
+              <div key={idx} className="chat-tool-card">
+                <SummaryCard type="budgets" budgets={result.budgets as Array<{ name: string; limit: number; spent: number; percentage: number; isActive: boolean }>} />
+              </div>
+            );
           }
 
           // Handle spending insights
           if (result.insights && Array.isArray(result.insights)) {
-            return <SummaryCard key={idx} type="insights" insights={result.insights as Array<{ title: string; description: string; amount: number; percentageChange?: number; category?: string }>} />;
+            return (
+              <div key={idx} className="chat-tool-card">
+                <SummaryCard type="insights" insights={result.insights as Array<{ title: string; description: string; amount: number; percentageChange?: number; category?: string }>} />
+              </div>
+            );
           }
 
           // Handle goals
           if (result.goals && Array.isArray(result.goals)) {
-            return <SummaryCard key={idx} type="goals" goals={result.goals as Array<{ name: string; target: number; current: number; percentage: number; onTrack: boolean }>} />;
+            return (
+              <div key={idx} className="chat-tool-card">
+                <SummaryCard type="goals" goals={result.goals as Array<{ name: string; target: number; current: number; percentage: number; onTrack: boolean }>} />
+              </div>
+            );
           }
 
           // Handle income list
@@ -151,11 +170,12 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
               tags: [] as string[],
             }));
             return (
-              <ExpenseCard
-                key={idx}
-                expenses={incomeLike}
-                count={(result.count as number) || (result.incomes as unknown[]).length}
-              />
+              <div key={idx} className="chat-tool-card">
+                <ExpenseCard
+                  expenses={incomeLike}
+                  count={(result.count as number) || (result.incomes as unknown[]).length}
+                />
+              </div>
             );
           }
 
@@ -168,7 +188,11 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
               percentageChange: undefined,
               category: undefined,
             }));
-            return <SummaryCard key={idx} type="insights" insights={anomalyInsights} />;
+            return (
+              <div key={idx} className="chat-tool-card">
+                <SummaryCard type="insights" insights={anomalyInsights} />
+              </div>
+            );
           }
 
           // Handle category comparison (Pro tool)
@@ -180,7 +204,11 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
               percentageChange: c.changePercent as number,
               category: c.category as string,
             }));
-            return <SummaryCard key={idx} type="insights" insights={comparisonInsights} />;
+            return (
+              <div key={idx} className="chat-tool-card">
+                <SummaryCard type="insights" insights={comparisonInsights} />
+              </div>
+            );
           }
 
           return null;

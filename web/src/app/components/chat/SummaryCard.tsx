@@ -1,7 +1,7 @@
 'use client';
 
-import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { getInstrumentBadgeStyle } from '../../constants/theme';
 
 interface BudgetItem {
   name: string;
@@ -35,96 +35,100 @@ interface SummaryCardProps {
 export function SummaryCard({ type, budgets, insights, goals }: SummaryCardProps) {
   if (type === 'budgets' && budgets) {
     return (
-      <Card className="bg-muted/50 overflow-hidden">
-        <CardContent className="p-0">
-          <div className="px-3 py-2 border-b bg-muted/80">
-            <span className="text-xs font-medium">Budget Progress</span>
-          </div>
-          <div className="divide-y">
-            {budgets.map((b) => (
-              <div key={b.name} className="px-3 py-2">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="font-medium">{b.name}</span>
-                  <span className="text-muted-foreground">
-                    ${b.spent.toFixed(2)} / ${b.limit.toFixed(2)}
-                  </span>
-                </div>
+      <div className="overflow-hidden rounded-lg">
+        <div className="px-3 py-2 border-b border-primary/10 bg-muted/20">
+          <span className="font-mono text-xs font-medium text-primary">Budget Progress</span>
+        </div>
+        <div className="divide-y divide-primary/5">
+          {budgets.map((b) => (
+            <div key={b.name} className="px-3 py-2.5">
+              <div className="flex justify-between text-sm mb-1.5">
+                <span className="font-medium">{b.name}</span>
+                <span className="text-muted-foreground font-mono text-xs">
+                  ${b.spent.toFixed(2)} / ${b.limit.toFixed(2)}
+                </span>
+              </div>
+              <div className="skeu-inset rounded-full p-0.5">
                 <Progress
                   value={Math.min(b.percentage, 100)}
-                  className="h-2.5"
+                  className="h-2"
                 />
-                <div className="flex justify-between mt-0.5">
-                  <span className="text-xs text-muted-foreground">
-                    {b.percentage.toFixed(0)}% used
-                  </span>
-                  {b.percentage > 90 && (
-                    <span className="text-xs text-destructive font-medium">Near limit</span>
-                  )}
-                </div>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              <div className="flex justify-between mt-1">
+                <span className="text-xs text-muted-foreground font-mono">
+                  {b.percentage.toFixed(0)}% used
+                </span>
+                {b.percentage > 90 && (
+                  <span className="text-xs font-medium" style={{ color: '#D16A47' }}>Near limit</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     );
   }
 
   if (type === 'insights' && insights) {
     return (
-      <Card className="bg-muted/50 overflow-hidden">
-        <CardContent className="p-0">
-          <div className="px-3 py-2 border-b bg-muted/80">
-            <span className="text-xs font-medium">Spending Insights</span>
-          </div>
-          <div className="divide-y">
-            {insights.map((i, idx) => (
-              <div key={idx} className="px-3 py-2">
-                <div className="flex justify-between text-sm">
-                  <span className="font-medium">{i.title}</span>
-                  {i.amount > 0 && <span className="font-semibold">${i.amount.toFixed(2)}</span>}
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">{i.description}</p>
-                {i.percentageChange !== undefined && i.percentageChange !== 0 && (
-                  <span className={`text-xs font-medium ${i.percentageChange > 0 ? 'text-destructive' : 'text-primary'}`}>
-                    {i.percentageChange > 0 ? '+' : ''}{i.percentageChange.toFixed(1)}% vs last period
-                  </span>
-                )}
+      <div className="overflow-hidden rounded-lg">
+        <div className="px-3 py-2 border-b border-primary/10 bg-muted/20">
+          <span className="font-mono text-xs font-medium text-primary">Spending Insights</span>
+        </div>
+        <div className="divide-y divide-primary/5">
+          {insights.map((i, idx) => (
+            <div key={idx} className="px-3 py-2.5">
+              <div className="flex justify-between text-sm">
+                <span className="font-medium">{i.title}</span>
+                {i.amount > 0 && <span className="font-mono font-semibold text-primary">${i.amount.toFixed(2)}</span>}
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              <p className="text-xs text-muted-foreground mt-0.5">{i.description}</p>
+              {i.percentageChange !== undefined && i.percentageChange !== 0 && (
+                <span
+                  className="text-xs font-medium font-mono"
+                  style={{ color: i.percentageChange > 0 ? '#D16A47' : '#87A96B' }}
+                >
+                  {i.percentageChange > 0 ? '+' : ''}{i.percentageChange.toFixed(1)}% vs last period
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     );
   }
 
   if (type === 'goals' && goals) {
     return (
-      <Card className="bg-muted/50 overflow-hidden">
-        <CardContent className="p-0">
-          <div className="px-3 py-2 border-b bg-muted/80">
-            <span className="text-xs font-medium">Financial Goals</span>
-          </div>
-          <div className="divide-y">
-            {goals.map((g) => (
-              <div key={g.name} className="px-3 py-2">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="font-medium">{g.name}</span>
-                  <span className="text-muted-foreground">
-                    ${g.current.toFixed(2)} / ${g.target.toFixed(2)}
-                  </span>
-                </div>
-                <Progress value={Math.min(g.percentage, 100)} className="h-2.5" />
-                <div className="flex justify-between mt-0.5">
-                  <span className="text-xs text-muted-foreground">{g.percentage.toFixed(0)}%</span>
-                  <span className={`text-xs font-medium ${g.onTrack ? 'text-primary' : 'text-destructive'}`}>
-                    {g.onTrack ? 'On track' : 'Behind'}
-                  </span>
-                </div>
+      <div className="overflow-hidden rounded-lg">
+        <div className="px-3 py-2 border-b border-primary/10 bg-muted/20">
+          <span className="font-mono text-xs font-medium text-primary">Financial Goals</span>
+        </div>
+        <div className="divide-y divide-primary/5">
+          {goals.map((g) => (
+            <div key={g.name} className="px-3 py-2.5">
+              <div className="flex justify-between text-sm mb-1.5">
+                <span className="font-medium">{g.name}</span>
+                <span className="text-muted-foreground font-mono text-xs">
+                  ${g.current.toFixed(2)} / ${g.target.toFixed(2)}
+                </span>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              <div className="skeu-inset rounded-full p-0.5">
+                <Progress value={Math.min(g.percentage, 100)} className="h-2" />
+              </div>
+              <div className="flex justify-between mt-1">
+                <span className="text-xs text-muted-foreground font-mono">{g.percentage.toFixed(0)}%</span>
+                <span
+                  className="text-[10px] px-1.5 py-0 rounded-full font-medium"
+                  style={getInstrumentBadgeStyle(g.onTrack ? '#87A96B' : '#D16A47')}
+                >
+                  {g.onTrack ? 'On track' : 'Behind'}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     );
   }
 
