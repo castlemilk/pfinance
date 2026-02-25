@@ -864,47 +864,43 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
 
         {/* File list */}
         {files.length > 0 && (
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="space-y-2">
-                {files.map((bf) => (
-                  <div
-                    key={bf.id}
-                    className="flex items-center justify-between p-2.5 rounded-md border bg-card transition-colors hover:bg-muted/30"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {bf.type === 'statement' ? (
-                        <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                      ) : (
-                        <ImageIcon className="h-4 w-4 text-green-500 flex-shrink-0" />
-                      )}
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="text-sm truncate max-w-[250px]">{bf.name}</span>
-                          </TooltipTrigger>
-                          <TooltipContent><p>{bf.name}</p></TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      <Badge variant="secondary" className="text-xs flex-shrink-0">
-                        {bf.type === 'statement' ? 'Statement' : 'Receipt'}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground flex-shrink-0">
-                        {formatFileSize(bf.file.size)}
-                      </span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 flex-shrink-0 hover:text-destructive"
-                      onClick={(e) => { e.stopPropagation(); removeFile(bf.id); }}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+          <div className="min-h-0 flex-1 overflow-y-auto space-y-2">
+            {files.map((bf) => (
+              <div
+                key={bf.id}
+                className="flex items-center justify-between p-2.5 rounded-md border bg-card transition-colors hover:bg-muted/30"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {bf.type === 'statement' ? (
+                    <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                  ) : (
+                    <ImageIcon className="h-4 w-4 text-green-500 flex-shrink-0" />
+                  )}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-sm truncate max-w-[250px]">{bf.name}</span>
+                      </TooltipTrigger>
+                      <TooltipContent><p>{bf.name}</p></TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <Badge variant="secondary" className="text-xs flex-shrink-0">
+                    {bf.type === 'statement' ? 'Statement' : 'Receipt'}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground flex-shrink-0">
+                    {formatFileSize(bf.file.size)}
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 flex-shrink-0 hover:text-destructive"
+                  onClick={(e) => { e.stopPropagation(); removeFile(bf.id); }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-            </ScrollArea>
+            ))}
           </div>
         )}
 
@@ -964,64 +960,60 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <ScrollArea className="h-full">
-            <div className="space-y-2">
-              {files.map((bf) => (
-                <div
-                  key={bf.id}
-                  className={`flex items-center justify-between p-3 rounded-md border transition-colors ${
-                    bf.status === 'error'
-                      ? 'border-destructive/30 bg-destructive/5'
-                      : bf.status === 'done'
-                        ? 'border-green-500/20 bg-green-500/5'
-                        : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {bf.status === 'done' && <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />}
-                    {bf.status === 'error' && <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />}
-                    {bf.status === 'pending' && <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30 flex-shrink-0" />}
-                    {(bf.status === 'compressing' || bf.status === 'processing' || bf.status === 'polling') && (
-                      <Loader2 className="h-4 w-4 animate-spin text-primary flex-shrink-0" />
-                    )}
-                    <span className="text-sm truncate">{bf.name}</span>
-                    <span className="text-xs text-muted-foreground flex-shrink-0">{formatFileSize(bf.file.size)}</span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {bf.status === 'compressing' && (
-                      <span className="text-xs text-muted-foreground animate-pulse">Compressing...</span>
-                    )}
-                    {bf.status === 'processing' && (
-                      <span className="text-xs text-primary animate-pulse">Extracting...</span>
-                    )}
-                    {bf.status === 'polling' && (
-                      <span className="text-xs text-muted-foreground animate-pulse">Waiting for results...</span>
-                    )}
-                    {bf.status === 'done' && (
-                      <Badge variant="secondary" className="text-xs">
-                        {bf.transactions.length} transaction{bf.transactions.length !== 1 ? 's' : ''}
-                      </Badge>
-                    )}
-                    {bf.status === 'error' && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="text-xs text-red-500 max-w-[180px] truncate cursor-help">
-                              {bf.error}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="left" className="max-w-[300px]">
-                            <p className="text-sm">{bf.error}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                  </div>
-                </div>
-              ))}
+        <div className="min-h-0 flex-1 overflow-y-auto space-y-2">
+          {files.map((bf) => (
+            <div
+              key={bf.id}
+              className={`flex items-center justify-between p-3 rounded-md border transition-colors ${
+                bf.status === 'error'
+                  ? 'border-destructive/30 bg-destructive/5'
+                  : bf.status === 'done'
+                    ? 'border-green-500/20 bg-green-500/5'
+                    : ''
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                {bf.status === 'done' && <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />}
+                {bf.status === 'error' && <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />}
+                {bf.status === 'pending' && <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30 flex-shrink-0" />}
+                {(bf.status === 'compressing' || bf.status === 'processing' || bf.status === 'polling') && (
+                  <Loader2 className="h-4 w-4 animate-spin text-primary flex-shrink-0" />
+                )}
+                <span className="text-sm truncate">{bf.name}</span>
+                <span className="text-xs text-muted-foreground flex-shrink-0">{formatFileSize(bf.file.size)}</span>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {bf.status === 'compressing' && (
+                  <span className="text-xs text-muted-foreground animate-pulse">Compressing...</span>
+                )}
+                {bf.status === 'processing' && (
+                  <span className="text-xs text-primary animate-pulse">Extracting...</span>
+                )}
+                {bf.status === 'polling' && (
+                  <span className="text-xs text-muted-foreground animate-pulse">Waiting for results...</span>
+                )}
+                {bf.status === 'done' && (
+                  <Badge variant="secondary" className="text-xs">
+                    {bf.transactions.length} transaction{bf.transactions.length !== 1 ? 's' : ''}
+                  </Badge>
+                )}
+                {bf.status === 'error' && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-xs text-red-500 max-w-[180px] truncate cursor-help">
+                          {bf.error}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="max-w-[300px]">
+                        <p className="text-sm">{bf.error}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
             </div>
-          </ScrollArea>
+          ))}
         </div>
 
         <div className="flex justify-between items-center pt-2 border-t flex-shrink-0">
@@ -1197,8 +1189,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
         )}
 
         {/* Table */}
-        <div className="min-h-0 flex-1 overflow-hidden border rounded-md">
-          <ScrollArea className="h-full">
+        <div className="min-h-0 flex-1 overflow-y-auto border rounded-md">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30">
@@ -1390,7 +1381,6 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
               )}
             </TableBody>
           </Table>
-          </ScrollArea>
         </div>
 
         {/* Tax classification toggle */}
