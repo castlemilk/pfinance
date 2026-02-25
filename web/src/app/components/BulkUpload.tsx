@@ -65,6 +65,9 @@ import {
   Trash2,
   Sparkles,
   ArrowRight,
+  Pause,
+  Play,
+  Square,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -216,6 +219,17 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
   const cancelledRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Pause/resume state
+  const [isPaused, setIsPaused] = useState(false);
+  const pausedRef = useRef(false);
+  const processingFileIndex = useRef(0);
+
+  // Size-based progress estimation
+  const [currentFileProgress, setCurrentFileProgress] = useState(0);
+  const processingStartTime = useRef(0);
+  const fileProcessingTimes = useRef<{ bytes: number; ms: number }[]>([]);
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // ── Helpers ──────────────────────────────────────────
 
   const addFiles = useCallback((fileList: FileList) => {
@@ -355,32 +369,110 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
     };
   };
 
+  const getEstimatedFileTime = (fileSize: number): number => {
+    const times = fileProcessingTimes.current;
+    if (times.length === 0) {
+      return Math.max(2000, (fileSize / (1024 * 1024)) * 2000);
+    }
+    const totalProcessedBytes = times.reduce((s, t) => s + t.bytes, 0);
+    const totalProcessedMs = times.reduce((s, t) => s + t.ms, 0);
+    return fileSize * (totalProcessedMs / totalProcessedBytes);
+  };
+
+  const startProgressInterval = (fileSize: number) => {
+    stopProgressInterval();
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - processingStartTime.current;
+      const estimatedMs = getEstimatedFileTime(fileSize);
+      const progress = Math.min(0.95, elapsed / estimatedMs);
+      setCurrentFileProgress(progress);
+    }, 500);
+    progressIntervalRef.current = interval;
+  };
+
+  const stopProgressInterval = () => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+    setCurrentFileProgress(0);
+  };
+
+  const stopAndReview = () => {
+    cancelledRef.current = true;
+    stopProgressInterval();
+    const allTx: BulkTransaction[] = [];
+    for (const bf of files) {
+      if (bf.status === 'done') {
+        allTx.push(...bf.transactions);
+      }
+    }
+    setTransactions(allTx);
+    setStep('review');
+  };
+
   const processAllFiles = async () => {
     cancelledRef.current = false;
-    setStep('processing');
+
+    // If resuming from pause, continue from saved index
+    if (!isPaused) {
+      setStep('processing');
+      processingFileIndex.current = 0;
+      fileProcessingTimes.current = [];
+    }
+
+    setIsPaused(false);
+    pausedRef.current = false;
 
     const allTransactions: BulkTransaction[] = [];
 
-    for (let i = 0; i < files.length; i++) {
+    // Collect transactions from already-completed files before resume point
+    for (let i = 0; i < processingFileIndex.current; i++) {
+      if (files[i].status === 'done') {
+        allTransactions.push(...files[i].transactions);
+      }
+    }
+
+    for (let i = processingFileIndex.current; i < files.length; i++) {
       if (cancelledRef.current) break;
+
+      if (pausedRef.current) {
+        processingFileIndex.current = i;
+        setIsPaused(true);
+        stopProgressInterval();
+        setTransactions(allTransactions);
+        return;
+      }
 
       const bf = files[i];
       if (bf.status === 'done') {
-        // Already processed (e.g. from a retry), include its transactions
         allTransactions.push(...bf.transactions);
         continue;
       }
 
       try {
+        processingStartTime.current = Date.now();
+        startProgressInterval(bf.file.size);
         const result = await processSingleFile(bf);
+        stopProgressInterval();
+        fileProcessingTimes.current.push({
+          bytes: bf.file.size,
+          ms: Date.now() - processingStartTime.current,
+        });
         allTransactions.push(...result.transactions);
         updateFileWithTransactions(bf.id, 'done', result.transactions, result.statementMetadata, result.duplicateWarnings);
       } catch (err) {
+        stopProgressInterval();
+        fileProcessingTimes.current.push({
+          bytes: bf.file.size,
+          ms: Date.now() - processingStartTime.current,
+        });
         const message = err instanceof Error ? err.message : 'Processing failed';
         updateFileStatus(bf.id, 'error', message);
       }
     }
 
+    stopProgressInterval();
     setTransactions(allTransactions);
     if (!cancelledRef.current) {
       setStep('review');
@@ -672,15 +764,27 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
     setClassifyingTax(false);
     setTaxClassifyResult(null);
     cancelledRef.current = false;
+    setIsPaused(false);
+    pausedRef.current = false;
+    processingFileIndex.current = 0;
+    setCurrentFileProgress(0);
+    processingStartTime.current = 0;
+    fileProcessingTimes.current = [];
+    stopProgressInterval();
   };
 
   // ── Render ───────────────────────────────────────────
 
   const completedFiles = files.filter((f) => f.status === 'done' || f.status === 'error').length;
-  const progressPercent = files.length > 0 ? (completedFiles / files.length) * 100 : 0;
+  const totalBytes = files.reduce((s, f) => s + f.file.size, 0);
+  const completedBytes = files
+    .filter((f) => f.status === 'done' || f.status === 'error')
+    .reduce((s, f) => s + f.file.size, 0);
   const currentlyProcessing = files.find(
     (f) => f.status === 'compressing' || f.status === 'processing' || f.status === 'polling',
   );
+  const currentFileBytes = currentlyProcessing ? currentlyProcessing.file.size * currentFileProgress : 0;
+  const progressPercent = totalBytes > 0 ? ((completedBytes + currentFileBytes) / totalBytes) * 100 : 0;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
@@ -693,7 +797,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
           <DialogDescription>
             {step === 'select' && 'Select receipts and bank statements to process.'}
             {step === 'processing' && (
-              <>Processing files... ({completedFiles}/{files.length}){currentlyProcessing && ` -- ${currentlyProcessing.name}`}</>
+              <>{isPaused ? 'Processing paused' : 'Processing files...'} ({completedFiles}/{files.length}){currentlyProcessing && !isPaused && ` -- ${currentlyProcessing.name}`}</>
             )}
             {step === 'review' && `Review ${transactions.length} extracted transaction${transactions.length !== 1 ? 's' : ''} across ${stats?.uniqueSources ?? 0} file${(stats?.uniqueSources ?? 0) !== 1 ? 's' : ''}.`}
             {step === 'importing' && 'Importing selected transactions...'}
@@ -822,17 +926,43 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
   // ── Step: Processing ─────────────────────────────────
 
   function renderProcessingStep() {
+    const times = fileProcessingTimes.current;
+    let etaText: string | null = null;
+    if (times.length > 0 && !isPaused) {
+      const totalProcessedBytes = times.reduce((s, t) => s + t.bytes, 0);
+      const totalProcessedMs = times.reduce((s, t) => s + t.ms, 0);
+      const bytesPerMs = totalProcessedBytes / totalProcessedMs;
+      const remainingBytes = totalBytes - completedBytes - currentFileBytes;
+      const etaSeconds = Math.ceil(Math.max(0, remainingBytes / bytesPerMs) / 1000);
+      etaText = etaSeconds > 60
+        ? `~${Math.floor(etaSeconds / 60)}m ${etaSeconds % 60}s remaining`
+        : `~${etaSeconds}s remaining`;
+    }
+
     return (
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Progress value={progressPercent} className="h-2.5" />
+      <div className="flex flex-col gap-4 min-h-0 h-full">
+        <div className="space-y-2 flex-shrink-0">
+          <div className="relative">
+            <Progress value={progressPercent} className={`h-2.5 transition-opacity ${isPaused ? 'opacity-50' : ''}`} />
+            {isPaused && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Badge variant="secondary" className="text-xs font-medium">Paused</Badge>
+              </div>
+            )}
+          </div>
           <div className="flex justify-between text-sm text-muted-foreground">
-            <span>{completedFiles} of {files.length} files processed</span>
-            <span>{Math.round(progressPercent)}%</span>
+            <span>
+              {completedFiles} of {files.length} files processed
+              {isPaused && ' — Paused'}
+            </span>
+            <div className="flex items-center gap-2">
+              {etaText && <span className="text-xs">{etaText}</span>}
+              <span>{Math.round(progressPercent)}%</span>
+            </div>
           </div>
         </div>
 
-        <ScrollArea className="max-h-[350px]">
+        <ScrollArea className="min-h-0 flex-1">
           <div className="space-y-2">
             {files.map((bf) => (
               <div
@@ -853,6 +983,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
                     <Loader2 className="h-4 w-4 animate-spin text-primary flex-shrink-0" />
                   )}
                   <span className="text-sm truncate">{bf.name}</span>
+                  <span className="text-xs text-muted-foreground flex-shrink-0">{formatFileSize(bf.file.size)}</span>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {bf.status === 'compressing' && (
@@ -889,15 +1020,39 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
           </div>
         </ScrollArea>
 
-        <div className="flex justify-end pt-2 border-t">
+        <div className="flex justify-between items-center pt-2 border-t flex-shrink-0">
+          <div className="flex gap-2">
+            {isPaused ? (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  pausedRef.current = false;
+                  setIsPaused(false);
+                  processAllFiles();
+                }}
+                className="gap-1.5"
+              >
+                <Play className="h-3.5 w-3.5" />
+                Resume
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => { pausedRef.current = true; }}
+                className="gap-1.5"
+              >
+                <Pause className="h-3.5 w-3.5" />
+                Pause
+              </Button>
+            )}
+          </div>
           <Button
             variant="outline"
-            onClick={() => {
-              cancelledRef.current = true;
-              setStep('select');
-            }}
+            onClick={stopAndReview}
+            className="gap-1.5"
           >
-            Cancel Processing
+            <Square className="h-3.5 w-3.5" />
+            Stop & Review
           </Button>
         </div>
       </div>
@@ -927,10 +1082,10 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
     const errorFiles = files.filter((f) => f.status === 'error');
 
     return (
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3 min-h-0 h-full">
         {/* Summary stats bar */}
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-shrink-0">
             <div className="p-2.5 rounded-md border bg-card text-center">
               <div className="text-lg font-bold font-mono">${stats.total.toFixed(2)}</div>
               <div className="text-xs text-muted-foreground">Total Amount</div>
@@ -952,7 +1107,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
 
         {/* Error warnings with retry */}
         {errorFiles.length > 0 && (
-          <div className="p-3 rounded-md bg-destructive/10 border border-destructive/30 space-y-2">
+          <div className="p-3 rounded-md bg-destructive/10 border border-destructive/30 space-y-2 flex-shrink-0">
             <div className="flex items-center gap-2 text-sm font-medium text-destructive">
               <AlertCircle className="h-4 w-4" />
               {errorFiles.length} file{errorFiles.length !== 1 ? 's' : ''} failed to process
@@ -980,7 +1135,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
 
         {/* Duplicate warnings */}
         {files.some((f) => f.duplicateWarnings && f.duplicateWarnings.length > 0) && (
-          <Alert className="border-amber-500/30 bg-amber-500/5">
+          <Alert className="border-amber-500/30 bg-amber-500/5 flex-shrink-0">
             <AlertCircle className="h-4 w-4 text-amber-500" />
             <AlertTitle className="text-amber-600 dark:text-amber-400">Duplicate Warnings</AlertTitle>
             <AlertDescription>
@@ -996,7 +1151,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
         )}
 
         {/* Filter / search bar */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
           <div className="flex-1 min-w-[200px]">
             <Input
               placeholder="Search transactions..."
@@ -1031,14 +1186,14 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
 
         {/* Results count */}
         {(searchQuery || confidenceFilter !== 'all') && (
-          <div className="text-xs text-muted-foreground">
+          <div className="text-xs text-muted-foreground flex-shrink-0">
             Showing {filteredAndSortedTransactions.length} of {transactions.length} transactions
             {visibleSelected.length > 0 && ` (${visibleSelected.length} selected in view)`}
           </div>
         )}
 
         {/* Table */}
-        <ScrollArea className="max-h-[380px] border rounded-md">
+        <ScrollArea className="min-h-0 flex-1 border rounded-md">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30">
@@ -1233,7 +1388,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
         </ScrollArea>
 
         {/* Tax classification toggle */}
-        <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+        <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-amber-500" />
             <div>
@@ -1245,7 +1400,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
         </div>
 
         {/* Footer */}
-        <div className="flex justify-between items-center pt-2 border-t">
+        <div className="flex justify-between items-center pt-2 border-t flex-shrink-0">
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" onClick={handleClose}>Cancel</Button>
             <span className="text-xs text-muted-foreground">
