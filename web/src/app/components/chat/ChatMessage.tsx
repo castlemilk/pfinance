@@ -174,6 +174,7 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
                 <ExpenseCard
                   expenses={incomeLike}
                   count={(result.count as number) || (result.incomes as unknown[]).length}
+                  itemType="income"
                 />
               </div>
             );
