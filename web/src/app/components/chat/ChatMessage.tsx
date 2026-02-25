@@ -7,6 +7,9 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Bot, User, Copy, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useAuth } from '../../context/AuthWithAdminContext';
+import { GenerativeAvatar } from '../GenerativeAvatar';
 import { ExpenseCard } from './ExpenseCard';
 import type { ExpenseItem } from './ExpenseCard';
 import { SummaryCard } from './SummaryCard';
@@ -83,6 +86,7 @@ interface ChatMessageProps {
 }
 
 export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false }: ChatMessageProps) {
+  const { user } = useAuth();
   const isUser = message.role === 'user';
   // MISS-04: copy button state
   const [copied, setCopied] = useState(false);
@@ -371,14 +375,18 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
   return (
     <div className={cn('group flex gap-2.5', isUser ? 'flex-row-reverse' : 'flex-row')}>
       {/* Avatar */}
-      <div className={cn(
-        'chat-avatar flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
-        isUser
-          ? 'bg-primary/20 text-primary'
-          : 'bg-muted text-muted-foreground'
-      )}>
-        {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-      </div>
+      {isUser ? (
+        <Avatar className="chat-avatar flex-shrink-0 w-8 h-8">
+          {user?.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName || 'You'} />}
+          <AvatarFallback className="p-0 bg-transparent">
+            <GenerativeAvatar name={user?.displayName || user?.email || 'User'} size={32} />
+          </AvatarFallback>
+        </Avatar>
+      ) : (
+        <div className="chat-avatar flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
+          <Bot className="w-4 h-4" />
+        </div>
+      )}
 
       {/* Content */}
       <div className={cn(

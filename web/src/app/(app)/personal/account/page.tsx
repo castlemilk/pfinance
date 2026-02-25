@@ -25,6 +25,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { GenerativeAvatar } from '../../../components/GenerativeAvatar';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -451,8 +452,8 @@ export default function AccountPage() {
                     alt={user.displayName || 'User'}
                   />
                 )}
-                <AvatarFallback className="text-lg">
-                  {getInitials(user.displayName || user.email || 'U')}
+                <AvatarFallback className="p-0 bg-transparent">
+                  <GenerativeAvatar name={user.displayName || user.email || 'User'} size={64} />
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">

@@ -40,6 +40,7 @@ import { PaletteSelector } from './PaletteSelector';
 import { Skeleton } from '@/components/ui/skeleton';
 import NotificationCenter from './notifications/NotificationCenter';
 import { useSubscription } from '../hooks/useSubscription';
+import { GenerativeAvatar } from './GenerativeAvatar';
 
 interface NavItem {
   title: string;
@@ -347,8 +348,8 @@ export default function SidebarNav() {
                 {user.photoURL && (
                   <AvatarImage src={user.photoURL} alt={user.displayName || 'User'} />
                 )}
-                <AvatarFallback className="text-sm">
-                  {getInitials(user.displayName || user.email || 'U')}
+                <AvatarFallback className="p-0 bg-transparent">
+                  <GenerativeAvatar name={user.displayName || user.email || 'User'} size={32} />
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
