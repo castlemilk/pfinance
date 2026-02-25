@@ -80,6 +80,8 @@ export function ConversationList({
   const [renameValue, setRenameValue] = useState('');
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // UX-06: single-delete confirmation
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   // Focus the rename input when it appears
@@ -334,7 +336,7 @@ export function ConversationList({
                         title="Delete"
                         onClick={(e) => {
                           e.stopPropagation();
-                          deleteConversation(conversation.id);
+                          setDeletingId(conversation.id);
                         }}
                       >
                         <Trash2 className="w-3 h-3" />
@@ -347,6 +349,30 @@ export function ConversationList({
           )}
         </div>
       </ScrollArea>
+
+      {/* UX-06: single-delete confirmation dialog */}
+      <AlertDialog open={!!deletingId} onOpenChange={(open) => { if (!open) setDeletingId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this conversation. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deletingId) deleteConversation(deletingId);
+                setDeletingId(null);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Footer: bulk delete in select mode, clear all in normal mode */}
       {sortedConversations.length > 0 && (

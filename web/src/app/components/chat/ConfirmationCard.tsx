@@ -27,7 +27,10 @@ interface ConfirmationCardProps {
 }
 
 export function ConfirmationCard({ action, message, details, expenses, changes, duplicates, duplicateWarning, disabled = false, onConfirm, onCancel }: ConfirmationCardProps) {
+  // UX-08: initialize responded from disabled prop and keep it in sync
   const [responded, setResponded] = useState(disabled);
+  // If disabled changes (e.g. from historical load), update responded
+  if (disabled && !responded) setResponded(true);
 
   const isDelete = action.includes('delete');
 

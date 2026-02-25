@@ -22,11 +22,21 @@ function getFirebaseAdmin() {
   }
 }
 
+// Truncate message history to avoid sending excessive context to the model.
+// Keep the first message (often sets context) and the most recent messages.
+const MAX_HISTORY_MESSAGES = 40;
+
+function truncateMessages(messages: UIMessage[]): UIMessage[] {
+  if (messages.length <= MAX_HISTORY_MESSAGES) return messages;
+  // Keep first message + last (MAX - 1) messages
+  return [messages[0], ...messages.slice(-(MAX_HISTORY_MESSAGES - 1))];
+}
+
 export async function POST(request: Request) {
   const { messages } = (await request.json()) as { messages: UIMessage[] };
 
   const authToken = request.headers.get('X-Firebase-Token');
-  const userId = request.headers.get('X-User-ID') || '';
+  let userId = request.headers.get('X-User-ID') || '';
   const displayName = request.headers.get('X-User-DisplayName') || '';
   const email = request.headers.get('X-User-Email') || '';
 
@@ -37,26 +47,34 @@ export async function POST(request: Request) {
     });
   }
 
-  // P0-4 fix: verify isPro from Firebase token claims instead of trusting client header
+  // SEC-02: verify token and override userId with the verified uid from Firebase
   let isPro = false;
   if (authToken) {
     try {
       getFirebaseAdmin();
       const decodedToken = await getAuth().verifyIdToken(authToken);
+      // Override client-provided userId with the verified token uid
+      userId = decodedToken.uid;
       isPro = decodedToken.subscription_tier === 'PRO' && decodedToken.subscription_status === 'ACTIVE';
     } catch (err) {
       console.error('[Chat API] Token verification failed:', err);
-      // Fall through with isPro=false — user can still use free tools
+      return new Response(JSON.stringify({ error: 'Invalid authentication token' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
   }
 
   const client = createBackendClient(authToken, userId, email, displayName);
   const tools = createTools(client, userId, isPro);
 
+  // RES-05: truncate message history to prevent excessive context
+  const trimmedMessages = truncateMessages(messages);
+
   const result = streamText({
     model: getChatModel(),
     system: buildSystemPrompt({ userId, displayName, email, isPro }),
-    messages: await convertToModelMessages(messages),
+    messages: await convertToModelMessages(trimmedMessages),
     tools,
     stopWhen: stepCountIs(10),
   });

@@ -54,12 +54,26 @@ function loadConversations(userId: string): ChatConversation[] {
   }
 }
 
-function persistConversations(userId: string, conversations: ChatConversation[]): void {
-  if (typeof window === 'undefined') return;
+function persistConversations(userId: string, conversations: ChatConversation[]): boolean {
+  if (typeof window === 'undefined') return false;
   try {
     localStorage.setItem(storageKey(userId), JSON.stringify(conversations));
-  } catch {
-    // localStorage may be full or unavailable; silently fail
+    return true;
+  } catch (err) {
+    // RES-01: surface quota errors so callers can handle them
+    console.warn('[ChatStorage] Failed to persist conversations:', err);
+    // Attempt recovery: remove oldest conversations and retry
+    if (conversations.length > 1) {
+      const reduced = conversations.slice(0, Math.ceil(conversations.length / 2));
+      try {
+        localStorage.setItem(storageKey(userId), JSON.stringify(reduced));
+        console.warn(`[ChatStorage] Recovered by pruning to ${reduced.length} conversations`);
+        return true;
+      } catch {
+        // Still can't save — give up
+      }
+    }
+    return false;
   }
 }
 
@@ -96,7 +110,7 @@ function toMeta(conversation: ChatConversation): ChatConversationMeta {
 
 /**
  * Generate a conversation title from the first user message.
- * Truncates to 50 characters.
+ * Truncates to ~50 characters at a word boundary.
  */
 export function generateTitle(messages: UIMessage[]): string {
   for (const msg of messages) {
@@ -108,9 +122,11 @@ export function generateTitle(messages: UIMessage[]): string {
       .map(p => p.text);
     const text = textParts.join(' ').trim();
     if (text.length > 0) {
-      return text.length > TITLE_MAX_LENGTH
-        ? text.slice(0, TITLE_MAX_LENGTH)
-        : text;
+      if (text.length <= TITLE_MAX_LENGTH) return text;
+      // HIST-01: truncate at word boundary instead of mid-word
+      const truncated = text.slice(0, TITLE_MAX_LENGTH);
+      const lastSpace = truncated.lastIndexOf(' ');
+      return (lastSpace > TITLE_MAX_LENGTH * 0.4 ? truncated.slice(0, lastSpace) : truncated) + '...';
     }
   }
   return DEFAULT_TITLE;

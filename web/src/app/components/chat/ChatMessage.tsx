@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import type { UIMessage } from 'ai';
 import type { ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Bot, User } from 'lucide-react';
+import { Bot, User, Copy, Check, AlertCircle } from 'lucide-react';
 import { ExpenseCard } from './ExpenseCard';
 import type { ExpenseItem } from './ExpenseCard';
 import { SummaryCard } from './SummaryCard';
@@ -83,6 +83,8 @@ interface ChatMessageProps {
 
 export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false }: ChatMessageProps) {
   const isUser = message.role === 'user';
+  // MISS-04: copy button state
+  const [copied, setCopied] = useState(false);
 
   // Extract text content from parts
   const textContent = message.parts
@@ -95,6 +97,18 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
     .filter(p => p.type.startsWith('tool-'))
     .map(p => p as unknown as { type: string; state: string; output: Record<string, unknown> })
     .filter(p => p.state === 'output-available' && p.output);
+
+  // MISS-04: copy assistant text to clipboard
+  const handleCopy = useCallback(async () => {
+    if (!textContent) return;
+    try {
+      await navigator.clipboard.writeText(textContent);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API may not be available
+    }
+  }, [textContent]);
 
   // Create stable load-more callbacks for each pagination type
   const createExpensePaginator = useCallback((params: { startDate?: string; endDate?: string; pageSize?: number }) => {
@@ -151,6 +165,7 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
   const seen = new Set<string>();
   const confirmationCards: ReactNode[] = [];
   const dataCards: ReactNode[] = [];
+  const errorCards: ReactNode[] = [];
 
   for (let i = 0; i < toolParts.length; i++) {
     const result = toolParts[i].output;
@@ -158,11 +173,41 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
     if (seen.has(key)) continue;
     seen.add(key);
 
+    // BUG-04: handle tool error results explicitly
+    if (result.status === 'error' || result.error) {
+      const errorMsg = (result.error as string) || (result.message as string) || 'An error occurred while processing this request.';
+      errorCards.push(
+        <div key={`err-${i}`} className="skeu-card border-destructive/30 bg-destructive/5 rounded-lg px-3 py-2 text-sm flex items-start gap-2 text-destructive">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{errorMsg}</span>
+        </div>
+      );
+      continue;
+    }
+
     // Handle confirmation requests
     if (result.status === 'pending_confirmation') {
-      // P1-3 fix: handle singular `expense` field for single delete, plus `expenses` for batch
       const expensesList = (result.expenses as Array<{ description: string; amount: number; date: string; category: string }> | undefined)
         || (result.expense ? [result.expense as { description: string; amount: number; date: string; category: string }] : undefined);
+
+      // BUG-05: normalize changes — handle both Record<string, {from,to}> and string[] formats
+      let normalizedChanges: Record<string, { from: unknown; to: unknown }> | undefined;
+      if (result.changes) {
+        if (Array.isArray(result.changes)) {
+          // Convert string[] to Record format (e.g. ["isTaxDeductible: false → true"])
+          normalizedChanges = {};
+          for (const change of result.changes as string[]) {
+            const match = String(change).match(/^(.+?):\s*(.+?)\s*(?:→|->)\s*(.+)$/);
+            if (match) {
+              normalizedChanges[match[1].trim()] = { from: match[2].trim(), to: match[3].trim() };
+            } else {
+              normalizedChanges[String(change)] = { from: '—', to: 'updated' };
+            }
+          }
+        } else {
+          normalizedChanges = result.changes as Record<string, { from: unknown; to: unknown }>;
+        }
+      }
 
       confirmationCards.push(
         <ConfirmationCard
@@ -171,7 +216,7 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
           message={result.message as string}
           details={result.details as Record<string, unknown> | undefined}
           expenses={expensesList}
-          changes={result.changes as Record<string, { from: unknown; to: unknown }> | undefined}
+          changes={normalizedChanges}
           duplicates={result.duplicates as Array<{ description: string; amount: number; date: string; matchScore: number; matchReason: string }> | undefined}
           duplicateWarning={result.duplicateWarning as string | undefined}
           disabled={isHistorical}
@@ -315,10 +360,10 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
     }
   }
 
-  const hasToolCards = confirmationCards.length > 0 || dataCards.length > 0;
+  const hasToolCards = confirmationCards.length > 0 || dataCards.length > 0 || errorCards.length > 0;
 
   return (
-    <div className={cn('flex gap-2.5', isUser ? 'flex-row-reverse' : 'flex-row')}>
+    <div className={cn('group flex gap-2.5', isUser ? 'flex-row-reverse' : 'flex-row')}>
       {/* Avatar */}
       <div className={cn(
         'chat-avatar flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
@@ -337,25 +382,43 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
           : 'max-w-[92%] sm:max-w-[85%] lg:max-w-[75%]',
         isUser ? 'items-end' : 'items-start'
       )}>
-        {/* Text content — P1-7 fix: render markdown for assistant messages */}
+        {/* Text content */}
         {textContent && (
-          <div className={cn(
-            'px-3.5 py-2.5 text-sm',
-            isUser
-              ? 'chat-bubble-user rounded-2xl rounded-br-sm'
-              : 'chat-bubble-assistant rounded-2xl rounded-bl-sm'
-          )}>
-            {isUser ? (
-              <div className="whitespace-pre-wrap">{textContent}</div>
-            ) : (
-              <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_code]:bg-muted/50 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono [&_pre]:bg-muted/30 [&_pre]:p-3 [&_pre]:rounded-md [&_pre]:overflow-x-auto">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {textContent}
-                </ReactMarkdown>
-              </div>
+          <div className="relative">
+            <div className={cn(
+              'px-3.5 py-2.5 text-sm',
+              isUser
+                ? 'chat-bubble-user rounded-2xl rounded-br-sm'
+                : 'chat-bubble-assistant rounded-2xl rounded-bl-sm'
+            )}>
+              {isUser ? (
+                <div className="whitespace-pre-wrap">{textContent}</div>
+              ) : (
+                <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_code]:bg-muted/50 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono [&_pre]:bg-muted/30 [&_pre]:p-3 [&_pre]:rounded-md [&_pre]:overflow-x-auto">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {textContent}
+                  </ReactMarkdown>
+                </div>
+              )}
+            </div>
+
+            {/* MISS-04: copy button for assistant messages */}
+            {!isUser && textContent && (
+              <button
+                onClick={handleCopy}
+                className="absolute -bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity h-5 w-5 rounded flex items-center justify-center bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground"
+                title="Copy message"
+              >
+                {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+              </button>
             )}
           </div>
         )}
+
+        {/* BUG-04: error cards */}
+        {errorCards.map((card, i) => (
+          <div key={`ew-${i}`} className="w-full">{card}</div>
+        ))}
 
         {/* Confirmation cards — full width */}
         {confirmationCards.map((card, i) => (
@@ -377,6 +440,7 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
             ))}
           </div>
         )}
+
       </div>
     </div>
   );

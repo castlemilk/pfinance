@@ -4,7 +4,7 @@ import { useRef, useEffect, useCallback, useState, useLayoutEffect } from 'react
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, RotateCcw, Loader2, History, Plus, Bot, AlertCircle } from 'lucide-react';
+import { Send, RotateCcw, Loader2, History, Plus, Bot, AlertCircle, Square as StopIcon, RefreshCw } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
 import { ConversationList } from './ConversationList';
 import { useAuth } from '../../context/AuthWithAdminContext';
@@ -27,16 +27,17 @@ const SUGGESTED_PROMPTS = [
 export function ChatPanel({ compact = false, showHistory = false }: ChatPanelProps) {
   const { user, loading } = useAuth();
   const { isPro } = useSubscription();
-  // P0-1 fix: use a sentinel div at the bottom for scrollIntoView instead of ScrollArea ref
   const scrollEndRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [input, setInput] = useState('');
   const [showConversations, setShowConversations] = useState(showHistory);
-  // P0-3 fix: use a ref to track conversation ID for immediate use (avoids state async lag)
   const conversationIdRef = useRef<string | null>(null);
-  // Fix: skip the loadMessages effect when we just created a fresh (empty) conversation
-  // to prevent it from wiping the message that sendMessage() just added
   const skipNextLoadRef = useRef(false);
+  // UX-01: track whether user has manually scrolled up
+  const userScrolledUpRef = useRef(false);
+  // BUG-03: track which conversation's messages are loaded from history
+  const [isHistoricalLoad, setIsHistoricalLoad] = useState(false);
 
   const {
     activeConversationId,
@@ -68,6 +69,8 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
     status,
     setMessages,
     error,
+    stop,
+    regenerate,
   } = useChat({
     id: 'main', // Stable ID — we manage conversation switching via setMessages, not useChat sessions
     transport: new DefaultChatTransport({
@@ -81,10 +84,8 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
 
   const isLoading = status === 'submitted' || status === 'streaming';
 
-  // P0-2 fix: always call setMessages when conversation changes (even for empty convos)
+  // Load messages when conversation changes
   useEffect(() => {
-    // Skip loading when we just created a fresh conversation — prevents wiping
-    // the message that sendMessage() added in the same event loop tick
     if (skipNextLoadRef.current) {
       skipNextLoadRef.current = false;
       return;
@@ -92,10 +93,20 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
     if (activeConversationId) {
       const loaded = loadMessages(activeConversationId);
       setMessages(loaded);
+      // BUG-03: mark loaded messages as historical so confirmation buttons are disabled
+      setIsHistoricalLoad(loaded.length > 0);
     } else {
       setMessages([]);
+      setIsHistoricalLoad(false);
     }
   }, [activeConversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear historical flag when user sends a new message
+  useEffect(() => {
+    if (isLoading) {
+      setIsHistoricalLoad(false);
+    }
+  }, [isLoading]);
 
   // Auto-save messages when streaming completes
   useEffect(() => {
@@ -105,10 +116,32 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
     }
   }, [messages, isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // P0-1 fix: auto-scroll using sentinel div
+  // UX-01: smart auto-scroll — only scroll down if user hasn't scrolled up
   useEffect(() => {
-    scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!userScrolledUpRef.current) {
+      scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, isLoading]);
+
+  // UX-01: detect when user scrolls up in the message area
+  useEffect(() => {
+    const scrollContainer = scrollAreaRef.current;
+    if (!scrollContainer) return;
+
+    // Find the actual scrollable viewport inside ScrollArea (radix puts it in a child)
+    const viewport = scrollContainer.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
+    if (!viewport) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = viewport;
+      // Consider "at bottom" if within 100px of the bottom
+      const atBottom = scrollHeight - scrollTop - clientHeight < 100;
+      userScrolledUpRef.current = !atBottom;
+    };
+
+    viewport.addEventListener('scroll', handleScroll, { passive: true });
+    return () => viewport.removeEventListener('scroll', handleScroll);
+  }, [showConversations]); // re-attach when toggling views
 
   // Auto-grow textarea
   useLayoutEffect(() => {
@@ -127,7 +160,6 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
     sendMessage({ text });
   }, [sendMessage]);
 
-  // P0-3 fix: create conversation synchronously and return the ID via ref
   const ensureConversation = useCallback(() => {
     if (!conversationIdRef.current) {
       skipNextLoadRef.current = true;
@@ -145,6 +177,7 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
       sendMessage({ text: input });
       setInput('');
       setShowConversations(false);
+      userScrolledUpRef.current = false; // reset scroll lock on new message
     }
   };
 
@@ -156,6 +189,7 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
         sendMessage({ text: input });
         setInput('');
         setShowConversations(false);
+        userScrolledUpRef.current = false;
       }
     }
   };
@@ -164,13 +198,27 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
     ensureConversation();
     sendMessage({ text: prompt });
     setShowConversations(false);
+    userScrolledUpRef.current = false;
   };
 
-  // P1-6 fix: clear messages first, then create conversation
+  // BUG-01 fix: add skipNextLoadRef guard so the new conversation effect doesn't wipe messages
   const handleNewChat = () => {
     setMessages([]);
+    skipNextLoadRef.current = true;
     createConversation();
     setShowConversations(false);
+    setIsHistoricalLoad(false);
+  };
+
+  // MISS-01: retry last failed message
+  const handleRetry = () => {
+    userScrolledUpRef.current = false;
+    regenerate();
+  };
+
+  // MISS-02: stop generating
+  const handleStop = () => {
+    stop();
   };
 
   if (loading) {
@@ -189,6 +237,11 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
       </div>
     );
   }
+
+  // UX-05: extract a meaningful error message
+  const errorMessage = error
+    ? (error.message || 'Something went wrong. Please try again.')
+    : null;
 
   return (
     <div className={cn('flex flex-col', compact ? 'h-full' : 'h-[calc(100vh-8rem)]')}>
@@ -243,7 +296,7 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
       ) : (
         <>
           {/* Messages */}
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1" ref={scrollAreaRef}>
             <div className="p-4 space-y-4">
               {messages.length === 0 ? (
                 <div className="space-y-4 pt-8">
@@ -272,33 +325,56 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
                     message={msg}
                     onConfirm={handleConfirm}
                     onCancel={handleCancel}
+                    isHistorical={isHistoricalLoad}
                   />
                 ))
               )}
 
+              {/* Loading indicator with stop button */}
               {isLoading && (
                 <div className="flex gap-2.5">
                   <div className="chat-avatar w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 text-muted-foreground">
                     <Bot className="w-4 h-4" />
                   </div>
-                  <div className="chat-bubble-assistant rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-2">
-                    <span className="flex gap-1.5">
-                      <span className="chat-typing-dot" />
-                      <span className="chat-typing-dot" />
-                      <span className="chat-typing-dot" />
-                    </span>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="chat-bubble-assistant rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-2">
+                      <span className="flex gap-1.5">
+                        <span className="chat-typing-dot" />
+                        <span className="chat-typing-dot" />
+                        <span className="chat-typing-dot" />
+                      </span>
+                    </div>
+                    {/* MISS-02: stop button */}
+                    <button
+                      onClick={handleStop}
+                      className="chat-action-pill h-6 px-2.5 text-xs gap-1 self-start"
+                    >
+                      <StopIcon className="w-3 h-3" />
+                      Stop
+                    </button>
                   </div>
                 </div>
               )}
 
+              {/* UX-05: error display with retry */}
               {error && (
-                <div className="skeu-card border-destructive/30 bg-destructive/5 rounded-lg px-3 py-2 text-sm flex items-center gap-2 text-destructive">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  Something went wrong. Please try again.
+                <div className="space-y-2">
+                  <div className="skeu-card border-destructive/30 bg-destructive/5 rounded-lg px-3 py-2 text-sm flex items-start gap-2 text-destructive">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{errorMessage}</span>
+                  </div>
+                  {/* MISS-01: retry button */}
+                  <button
+                    onClick={handleRetry}
+                    className="chat-action-pill h-7 px-3 text-xs gap-1.5"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Retry
+                  </button>
                 </div>
               )}
 
-              {/* P0-1 fix: scroll sentinel */}
+              {/* Scroll sentinel */}
               <div ref={scrollEndRef} />
             </div>
           </ScrollArea>
