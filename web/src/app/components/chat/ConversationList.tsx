@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
@@ -17,17 +16,13 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   Plus,
   MessageSquare,
   Trash2,
-  MoreVertical,
   Pencil,
+  CheckSquare,
+  Square,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useChatHistory } from '@/lib/chat/ChatHistoryContext';
@@ -83,6 +78,8 @@ export function ConversationList({
 
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   // Focus the rename input when it appears
@@ -140,22 +137,87 @@ export function ConversationList({
     [commitRename, cancelRename],
   );
 
+  // --- Selection mode ---
+
+  const toggleSelectMode = useCallback(() => {
+    setSelectMode(prev => {
+      if (prev) setSelectedIds(new Set()); // Clear on exit
+      return !prev;
+    });
+  }, []);
+
+  const toggleSelection = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds(prev => {
+      if (prev.size === conversations.length) return new Set();
+      return new Set(conversations.map(c => c.id));
+    });
+  }, [conversations]);
+
+  const deleteSelected = useCallback(() => {
+    for (const id of selectedIds) {
+      deleteConversation(id);
+    }
+    setSelectedIds(new Set());
+    setSelectMode(false);
+  }, [selectedIds, deleteConversation]);
+
   // Sort conversations by most recent first
   const sortedConversations = [...conversations].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   );
 
+  const allSelected = sortedConversations.length > 0 && selectedIds.size === sortedConversations.length;
+
   return (
     <div className={cn('flex flex-col h-full', className)}>
-      {/* Header + New Chat */}
+      {/* Header */}
       <div className="px-3 py-3 space-y-2">
-        <button
-          className="chat-action-pill w-full justify-center gap-2 py-2"
-          onClick={handleNewChat}
-        >
-          <Plus className="w-4 h-4" />
-          New Chat
-        </button>
+        {selectMode ? (
+          <div className="flex items-center gap-2">
+            <button
+              className="chat-action-pill flex-1 justify-center gap-2 py-2"
+              onClick={toggleSelectAll}
+            >
+              {allSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+              {allSelected ? 'Deselect All' : 'Select All'}
+            </button>
+            <button
+              className="chat-action-pill py-2 px-3"
+              onClick={toggleSelectMode}
+              title="Cancel"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <button
+              className="chat-action-pill flex-1 justify-center gap-2 py-2"
+              onClick={handleNewChat}
+            >
+              <Plus className="w-4 h-4" />
+              New Chat
+            </button>
+            {sortedConversations.length > 0 && (
+              <button
+                className="chat-action-pill py-2 px-3"
+                onClick={toggleSelectMode}
+                title="Select conversations"
+              >
+                <CheckSquare className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <Separator />
@@ -177,27 +239,41 @@ export function ConversationList({
             sortedConversations.map((conversation) => {
               const isActive = conversation.id === activeConversationId;
               const isRenaming = conversation.id === renamingId;
+              const isSelected = selectedIds.has(conversation.id);
 
               return (
                 <div
                   key={conversation.id}
                   className={cn(
                     'group relative flex items-center gap-2 rounded-lg px-2.5 py-2 cursor-pointer transition-all',
-                    isActive
-                      ? 'skeu-inset'
-                      : 'hover:bg-primary/5',
+                    selectMode && isSelected
+                      ? 'bg-primary/10'
+                      : isActive && !selectMode
+                        ? 'skeu-inset'
+                        : 'hover:bg-primary/5',
                   )}
                   onClick={() => {
-                    if (!isRenaming) {
+                    if (selectMode) {
+                      toggleSelection(conversation.id);
+                    } else if (!isRenaming) {
                       handleSelect(conversation.id);
                     }
                   }}
                 >
-                  {/* Conversation icon */}
-                  <MessageSquare className={cn(
-                    'w-4 h-4 shrink-0',
-                    isActive ? 'text-primary' : 'text-muted-foreground'
-                  )} />
+                  {/* Left icon: checkbox in select mode, message icon otherwise */}
+                  {selectMode ? (
+                    <div className="w-4 h-4 shrink-0 text-primary">
+                      {isSelected
+                        ? <CheckSquare className="w-4 h-4" />
+                        : <Square className="w-4 h-4 text-muted-foreground" />
+                      }
+                    </div>
+                  ) : (
+                    <MessageSquare className={cn(
+                      'w-4 h-4 shrink-0',
+                      isActive ? 'text-primary' : 'text-muted-foreground'
+                    )} />
+                  )}
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
@@ -237,44 +313,33 @@ export function ConversationList({
                     )}
                   </div>
 
-                  {/* Actions dropdown — visible on hover or when active */}
-                  {!isRenaming && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className={cn(
-                            'h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity',
-                            isActive && 'opacity-100',
-                          )}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <MoreVertical className="w-3.5 h-3.5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-36">
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startRename(conversation.id, conversation.title);
-                          }}
-                        >
-                          <Pencil className="w-3.5 h-3.5 mr-2" />
-                          Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteConversation(conversation.id);
-                          }}
-                        >
-                          <Trash2 className="w-3.5 h-3.5 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                  {/* Quick action buttons — visible on hover (normal mode only) */}
+                  {!selectMode && !isRenaming && (
+                    <div className={cn(
+                      'flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity',
+                      isActive && 'opacity-100',
+                    )}>
+                      <button
+                        className="h-6 w-6 rounded flex items-center justify-center hover:bg-primary/10 text-muted-foreground hover:text-foreground transition-colors"
+                        title="Rename"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startRename(conversation.id, conversation.title);
+                        }}
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button
+                        className="h-6 w-6 rounded flex items-center justify-center hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        title="Delete"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteConversation(conversation.id);
+                        }}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   )}
                 </div>
               );
@@ -283,42 +348,76 @@ export function ConversationList({
         </div>
       </ScrollArea>
 
-      {/* Clear All — only show when there are conversations */}
+      {/* Footer: bulk delete in select mode, clear all in normal mode */}
       {sortedConversations.length > 0 && (
         <>
           <Separator />
           <div className="px-3 py-3">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <SkeuButton
-                  variant="destructive"
-                  size="sm"
-                  className="w-full gap-2"
-                  icon={<Trash2 className="w-3.5 h-3.5" />}
-                >
-                  Clear All Conversations
-                </SkeuButton>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Clear all conversations?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete all {sortedConversations.length}{' '}
-                    conversation{sortedConversations.length === 1 ? '' : 's'}.
-                    This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={clearAllConversations}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            {selectMode ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <SkeuButton
+                    variant="destructive"
+                    size="sm"
+                    className="w-full gap-2"
+                    icon={<Trash2 className="w-3.5 h-3.5" />}
+                    disabled={selectedIds.size === 0}
                   >
-                    Delete All
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                    Delete {selectedIds.size > 0 ? `${selectedIds.size} Selected` : 'Selected'}
+                  </SkeuButton>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete {selectedIds.size} conversation{selectedIds.size === 1 ? '' : 's'}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete the selected conversation{selectedIds.size === 1 ? '' : 's'}.
+                      This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={deleteSelected}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <SkeuButton
+                    variant="destructive"
+                    size="sm"
+                    className="w-full gap-2"
+                    icon={<Trash2 className="w-3.5 h-3.5" />}
+                  >
+                    Clear All Conversations
+                  </SkeuButton>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Clear all conversations?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete all {sortedConversations.length}{' '}
+                      conversation{sortedConversations.length === 1 ? '' : 's'}.
+                      This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={clearAllConversations}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete All
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </>
       )}
