@@ -171,19 +171,37 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
     }),
 
     get_budget_progress: tool({
-      description: 'Get all budgets with their spending progress.',
-      inputSchema: z.object({}),
-      execute: async () => {
+      description: 'Get budgets with their spending progress. Use the query parameter to find specific budgets by name or description.',
+      inputSchema: z.object({
+        query: z.string().optional().describe('Search text to filter budgets by name or description (e.g. "groceries", "entertainment")'),
+        activeOnly: z.boolean().optional().describe('Only return active budgets (default: false, returns all)'),
+      }),
+      execute: async (args) => {
         try {
           const budgetsRes = await client.listBudgets({ userId });
+
+          // Client-side text search filtering
+          const q = args.query?.toLowerCase().trim();
+          let filtered = q
+            ? budgetsRes.budgets.filter(b =>
+                b.name.toLowerCase().includes(q) ||
+                (b.description?.toLowerCase().includes(q) ?? false)
+              )
+            : budgetsRes.budgets;
+
+          if (args.activeOnly) {
+            filtered = filtered.filter(b => b.isActive);
+          }
+
           const budgets = [];
-          for (const b of budgetsRes.budgets) {
+          for (const b of filtered) {
             try {
               const progressRes = await client.getBudgetProgress({ budgetId: b.id });
               const prog = progressRes.progress;
               budgets.push({
                 id: b.id,
                 name: b.name,
+                description: b.description || undefined,
                 limit: Number(b.amountCents) !== 0 ? centsToDollars(b.amountCents) : b.amount,
                 spent: prog ? (Number(prog.spentAmountCents) !== 0 ? centsToDollars(prog.spentAmountCents) : prog.spentAmount) : 0,
                 percentage: prog?.percentageUsed || 0,
@@ -194,6 +212,7 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
               budgets.push({
                 id: b.id,
                 name: b.name,
+                description: b.description || undefined,
                 limit: Number(b.amountCents) !== 0 ? centsToDollars(b.amountCents) : b.amount,
                 spent: 0,
                 percentage: 0,
@@ -202,7 +221,7 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
               });
             }
           }
-          return { budgets, count: budgets.length };
+          return { budgets, count: budgets.length, ...(q ? { searchQuery: q } : {}) };
         } catch (err: unknown) {
           return { error: String(err) };
         }
@@ -240,8 +259,9 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
     }),
 
     list_goals: tool({
-      description: 'List financial goals with progress.',
+      description: 'List and search financial goals with progress. Use the query parameter to find goals by name or description.',
       inputSchema: z.object({
+        query: z.string().optional().describe('Search text to filter goals by name or description (e.g. "emergency fund", "holiday")'),
         status: z.enum(['ACTIVE', 'PAUSED', 'COMPLETED', 'CANCELLED']).optional().describe('Filter by goal status'),
       }),
       execute: async (args) => {
@@ -256,14 +276,25 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
             userId,
             status: args.status ? statusMap[args.status] : GoalStatus.UNSPECIFIED,
           });
+
+          // Client-side text search filtering
+          const q = args.query?.toLowerCase().trim();
+          const filtered = q
+            ? res.goals.filter(g =>
+                g.name.toLowerCase().includes(q) ||
+                (g.description?.toLowerCase().includes(q) ?? false)
+              )
+            : res.goals;
+
           const goals = [];
-          for (const g of res.goals) {
+          for (const g of filtered) {
             try {
               const progressRes = await client.getGoalProgress({ goalId: g.id });
               const prog = progressRes.progress;
               goals.push({
                 id: g.id,
                 name: g.name,
+                description: g.description || undefined,
                 type: g.goalType,
                 target: Number(g.targetAmountCents) !== 0 ? centsToDollars(g.targetAmountCents) : g.targetAmount,
                 current: prog ? (Number(prog.currentAmountCents) !== 0 ? centsToDollars(prog.currentAmountCents) : prog.currentAmount) : 0,
@@ -275,6 +306,7 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
               goals.push({
                 id: g.id,
                 name: g.name,
+                description: g.description || undefined,
                 type: g.goalType,
                 target: Number(g.targetAmountCents) !== 0 ? centsToDollars(g.targetAmountCents) : g.targetAmount,
                 current: 0,
@@ -284,7 +316,7 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
               });
             }
           }
-          return { goals, count: goals.length };
+          return { goals, count: goals.length, ...(q ? { searchQuery: q } : {}) };
         } catch (err: unknown) {
           return { error: String(err) };
         }

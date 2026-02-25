@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthWithAdminContext';
+import { useGoals, FinancialGoal } from '../context/GoalContext';
+import { useBudgets } from '../context/BudgetContext';
 import { financeClient } from '@/lib/financeService';
 import {
   Command,
@@ -41,8 +43,10 @@ import {
   ArrowUpDown,
   Search,
   Sparkles,
+  Target,
+  Wallet,
 } from 'lucide-react';
-import { SearchResult, TransactionType } from '@/gen/pfinance/v1/types_pb';
+import { SearchResult, TransactionType, BudgetPeriod, Budget } from '@/gen/pfinance/v1/types_pb';
 import { timestampDate, timestampFromDate } from '@bufbuild/protobuf/wkt';
 
 // Category options matching the proto ExpenseCategory enum
@@ -138,10 +142,14 @@ function getDateRangeFromPreset(preset: DatePreset, customStart: string, customE
 
 export default function SearchCommandPalette() {
   const { user } = useAuth();
+  const { goals } = useGoals();
+  const { budgets } = useBudgets();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [goalResults, setGoalResults] = useState<FinancialGoal[]>([]);
+  const [budgetResults, setBudgetResults] = useState<Budget[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>(DEFAULT_FILTERS);
@@ -179,6 +187,8 @@ export default function SearchCommandPalette() {
       const timer = setTimeout(() => {
         setQuery('');
         setResults([]);
+        setGoalResults([]);
+        setBudgetResults([]);
         setTotalCount(0);
         setShowFilters(false);
       }, 200);
@@ -189,6 +199,8 @@ export default function SearchCommandPalette() {
   const search = useCallback(async (searchQuery: string, searchFilters: SearchFilters) => {
     if (!user) {
       setResults([]);
+      setGoalResults([]);
+      setBudgetResults([]);
       setTotalCount(0);
       return;
     }
@@ -202,6 +214,8 @@ export default function SearchCommandPalette() {
 
     if (!searchQuery.trim() && !hasActiveFilters) {
       setResults([]);
+      setGoalResults([]);
+      setBudgetResults([]);
       setTotalCount(0);
       return;
     }
@@ -217,6 +231,7 @@ export default function SearchCommandPalette() {
       const amountMin = searchFilters.amountMin ? parseFloat(searchFilters.amountMin) : 0;
       const amountMax = searchFilters.amountMax ? parseFloat(searchFilters.amountMax) : 0;
 
+      // Transaction search (server-side via Algolia/Store)
       const response = await financeClient.searchTransactions({
         userId: user.uid,
         query: searchQuery,
@@ -230,13 +245,86 @@ export default function SearchCommandPalette() {
       });
       setResults(response.results);
       setTotalCount(response.totalCount);
+
+      // Client-side goal & budget search (only when type filter doesn't exclude them)
+      const isTransactionTypeFilter = searchFilters.type === TransactionType.EXPENSE ||
+        searchFilters.type === TransactionType.INCOME;
+
+      if (isTransactionTypeFilter) {
+        // Type filter is set to expenses or income — hide goals/budgets
+        setGoalResults([]);
+        setBudgetResults([]);
+      } else {
+        const q = searchQuery.toLowerCase().trim();
+
+        // Filter goals
+        let filteredGoals = goals.filter(goal => {
+          if (!q) return true; // If only filters active, show all
+          return goal.name.toLowerCase().includes(q) ||
+            (goal.description?.toLowerCase().includes(q) ?? false);
+        });
+
+        // Apply category filter to goals
+        if (searchFilters.category) {
+          filteredGoals = filteredGoals.filter(goal =>
+            goal.categoryIds?.some(c => c === searchFilters.category)
+          );
+        }
+
+        // Apply amount filter to goals (target amount)
+        if (amountMin > 0) {
+          filteredGoals = filteredGoals.filter(goal => goal.targetAmount >= amountMin);
+        }
+        if (amountMax > 0) {
+          filteredGoals = filteredGoals.filter(goal => goal.targetAmount <= amountMax);
+        }
+
+        // Apply date filter to goals
+        if (dateRange.start) {
+          filteredGoals = filteredGoals.filter(goal => goal.targetDate >= dateRange.start!);
+        }
+        if (dateRange.end) {
+          filteredGoals = filteredGoals.filter(goal => goal.startDate <= dateRange.end!);
+        }
+
+        setGoalResults(filteredGoals);
+
+        // Filter budgets
+        let filteredBudgets = budgets.filter(budget => {
+          if (!q) return true;
+          return budget.name.toLowerCase().includes(q) ||
+            (budget.description?.toLowerCase().includes(q) ?? false);
+        });
+
+        // Apply category filter to budgets
+        if (searchFilters.category) {
+          const catIndex = CATEGORIES.indexOf(searchFilters.category as typeof CATEGORIES[number]);
+          if (catIndex >= 0) {
+            filteredBudgets = filteredBudgets.filter(budget =>
+              budget.categoryIds.some(c => c === catIndex + 1) // ExpenseCategory enum is 1-indexed
+            );
+          }
+        }
+
+        // Apply amount filter to budgets
+        if (amountMin > 0) {
+          filteredBudgets = filteredBudgets.filter(budget => budget.amount >= amountMin);
+        }
+        if (amountMax > 0) {
+          filteredBudgets = filteredBudgets.filter(budget => budget.amount <= amountMax);
+        }
+
+        setBudgetResults(filteredBudgets);
+      }
     } catch {
       setResults([]);
+      setGoalResults([]);
+      setBudgetResults([]);
       setTotalCount(0);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, goals, budgets]);
 
   // Debounced search - triggers on query or filter changes
   useEffect(() => {
@@ -263,6 +351,16 @@ export default function SearchCommandPalette() {
     }
   };
 
+  const handleSelectGoal = () => {
+    setOpen(false);
+    router.push('/personal/goals/');
+  };
+
+  const handleSelectBudget = () => {
+    setOpen(false);
+    router.push('/personal/budgets/');
+  };
+
   const formatAmount = (result: SearchResult) => {
     const cents = result.amountCents;
     if (cents !== BigInt(0)) {
@@ -275,6 +373,26 @@ export default function SearchCommandPalette() {
     if (!result.date) return '';
     const d = timestampDate(result.date);
     return d.toLocaleDateString('en-AU', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const formatGoalType = (type: string) => {
+    switch (type) {
+      case 'savings': return 'Savings';
+      case 'debt_payoff': return 'Debt Payoff';
+      case 'spending_limit': return 'Spending Limit';
+      default: return type;
+    }
+  };
+
+  const formatBudgetPeriod = (period: BudgetPeriod) => {
+    switch (period) {
+      case BudgetPeriod.WEEKLY: return 'Weekly';
+      case BudgetPeriod.FORTNIGHTLY: return 'Fortnightly';
+      case BudgetPeriod.MONTHLY: return 'Monthly';
+      case BudgetPeriod.QUARTERLY: return 'Quarterly';
+      case BudgetPeriod.YEARLY: return 'Yearly';
+      default: return '';
+    }
   };
 
   const updateFilter = <K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) => {
@@ -308,11 +426,13 @@ export default function SearchCommandPalette() {
   const hasQuery = query.trim().length > 0;
   const hasActiveFilters = activeFilterCount > 0;
   const hasSearchCriteria = hasQuery || hasActiveFilters;
+  const allResultsCount = results.length + goalResults.length + budgetResults.length;
+  const totalResultsCount = totalCount + goalResults.length + budgetResults.length;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="overflow-hidden p-0 shadow-lg border-primary/20 sm:max-w-2xl max-w-[calc(100%-2rem)]">
-        <DialogTitle className="sr-only">Search Transactions</DialogTitle>
+        <DialogTitle className="sr-only">Search transactions, goals, budgets</DialogTitle>
         <Command
           className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5"
           shouldFilter={false}
@@ -323,7 +443,7 @@ export default function SearchCommandPalette() {
             <input
               ref={inputRef}
               className="flex h-12 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-              placeholder="Search transactions, merchants, categories..."
+              placeholder="Search transactions, goals, budgets..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -570,11 +690,11 @@ export default function SearchCommandPalette() {
               </div>
             )}
 
-            {!loading && hasSearchCriteria && results.length === 0 && (
+            {!loading && hasSearchCriteria && allResultsCount === 0 && (
               <CommandEmpty>
                 <div className="flex flex-col items-center gap-2 py-4">
                   <Search className="h-8 w-8 text-muted-foreground/50" />
-                  <p className="text-muted-foreground">No transactions found</p>
+                  <p className="text-muted-foreground">No results found</p>
                   {hasActiveFilters && (
                     <Button
                       variant="ghost"
@@ -598,7 +718,7 @@ export default function SearchCommandPalette() {
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">
-                      Search your transactions
+                      Search transactions, goals &amp; budgets
                     </p>
                     <p className="text-xs text-muted-foreground/70">
                       Type to search or use filters to narrow results
@@ -615,11 +735,11 @@ export default function SearchCommandPalette() {
             )}
 
             {/* Results Summary */}
-            {!loading && results.length > 0 && (
+            {!loading && allResultsCount > 0 && (
               <>
                 <div className="px-4 py-2 flex items-center justify-between text-xs text-muted-foreground border-b bg-muted/20">
                   <span>
-                    {totalCount > 0 ? `${totalCount} result${totalCount !== 1 ? 's' : ''}` : `${results.length} result${results.length !== 1 ? 's' : ''}`}
+                    {totalResultsCount > 0 ? `${totalResultsCount} result${totalResultsCount !== 1 ? 's' : ''}` : `${allResultsCount} result${allResultsCount !== 1 ? 's' : ''}`}
                   </span>
                   <div className="flex items-center gap-3">
                     {expenses.length > 0 && (
@@ -634,6 +754,18 @@ export default function SearchCommandPalette() {
                         +${totalIncomeAmount.toFixed(2)}
                       </span>
                     )}
+                    {goalResults.length > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Target className="h-3 w-3 text-amber-500" />
+                        {goalResults.length}
+                      </span>
+                    )}
+                    {budgetResults.length > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Wallet className="h-3 w-3 text-blue-500" />
+                        {budgetResults.length}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -642,7 +774,7 @@ export default function SearchCommandPalette() {
                     {expenses.map((result) => (
                       <CommandItem
                         key={result.id}
-                        value={`${result.id}-${result.description}`}
+                        value={`expense-${result.id}-${result.description}`}
                         onSelect={() => handleSelect(result)}
                         className="cursor-pointer group"
                       >
@@ -677,7 +809,7 @@ export default function SearchCommandPalette() {
                     {incomes.map((result) => (
                       <CommandItem
                         key={result.id}
-                        value={`${result.id}-${result.description}`}
+                        value={`income-${result.id}-${result.description}`}
                         onSelect={() => handleSelect(result)}
                         className="cursor-pointer group"
                       >
@@ -698,6 +830,81 @@ export default function SearchCommandPalette() {
                           </span>
                           <Badge variant="outline" className="text-[10px] px-1.5 hidden sm:inline-flex">
                             {formatDate(result)}
+                          </Badge>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+
+                {(expenses.length > 0 || incomes.length > 0) && goalResults.length > 0 && <CommandSeparator />}
+
+                {goalResults.length > 0 && (
+                  <CommandGroup heading={`Goals (${goalResults.length})`}>
+                    {goalResults.map((goal) => {
+                      const progress = goal.targetAmount > 0
+                        ? Math.round((goal.currentAmount / goal.targetAmount) * 100)
+                        : 0;
+                      return (
+                        <CommandItem
+                          key={goal.id}
+                          value={`goal-${goal.id}-${goal.name}`}
+                          onSelect={handleSelectGoal}
+                          className="cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <Target className="h-4 w-4 text-amber-500 shrink-0" />
+                            <div className="flex flex-col min-w-0 flex-1">
+                              <span className="truncate text-sm">{goal.name}</span>
+                              <span className="text-[10px] text-muted-foreground truncate">
+                                {formatGoalType(goal.goalType)} &middot; {progress}% complete
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-sm font-medium text-amber-500 tabular-nums">
+                              ${goal.targetAmount.toFixed(2)}
+                            </span>
+                            <Badge variant="outline" className="text-[10px] px-1.5 hidden sm:inline-flex capitalize">
+                              {goal.status}
+                            </Badge>
+                          </div>
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                )}
+
+                {(expenses.length > 0 || incomes.length > 0 || goalResults.length > 0) && budgetResults.length > 0 && <CommandSeparator />}
+
+                {budgetResults.length > 0 && (
+                  <CommandGroup heading={`Budgets (${budgetResults.length})`}>
+                    {budgetResults.map((budget) => (
+                      <CommandItem
+                        key={budget.id}
+                        value={`budget-${budget.id}-${budget.name}`}
+                        onSelect={handleSelectBudget}
+                        className="cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <Wallet className="h-4 w-4 text-blue-500 shrink-0" />
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className="truncate text-sm">{budget.name}</span>
+                            <span className="text-[10px] text-muted-foreground truncate">
+                              {formatBudgetPeriod(budget.period)}
+                              {budget.description ? ` \u00B7 ${budget.description}` : ''}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-sm font-medium text-blue-500 tabular-nums">
+                            ${budget.amount.toFixed(2)}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] px-1.5 hidden sm:inline-flex ${budget.isActive ? 'text-green-600 border-green-600/30' : 'text-muted-foreground'}`}
+                          >
+                            {budget.isActive ? 'Active' : 'Inactive'}
                           </Badge>
                         </div>
                       </CommandItem>
