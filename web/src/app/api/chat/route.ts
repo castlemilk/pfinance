@@ -68,8 +68,9 @@ export async function POST(request: Request) {
       userId = decodedToken.uid;
       isPro = decodedToken.subscription_tier === 'PRO' && decodedToken.subscription_status === 'ACTIVE';
     } catch (err) {
-      console.error('[Chat API] Token verification failed:', err);
-      return new Response(JSON.stringify({ error: 'Invalid authentication token' }), {
+      const errDetail = err instanceof Error ? err.message : String(err);
+      console.error('[Chat API] Token verification failed:', errDetail);
+      return new Response(JSON.stringify({ error: 'Invalid authentication token', v: 2, detail: errDetail }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       });
