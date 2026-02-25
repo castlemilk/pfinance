@@ -244,17 +244,17 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
     : null;
 
   return (
-    <div className={cn('flex flex-col', compact ? 'h-full' : 'h-[calc(100vh-8rem)]')}>
-      {/* Header */}
-      <div className="skeu-card skeu-scanlines flex items-center justify-between px-4 py-3 rounded-none border-x-0 border-t-0">
-        <div className="flex items-center gap-2">
+    <div className={cn('flex flex-col overflow-hidden', compact ? 'h-full' : 'h-[calc(100vh-8rem)]')}>
+      {/* Header — pr-10 in compact mode to avoid overlap with Sheet close button */}
+      <div className={cn('skeu-card skeu-scanlines flex items-center justify-between px-4 py-3 rounded-none border-x-0 border-t-0 shrink-0', compact && 'pr-12')}>
+        <div className="flex items-center gap-2 min-w-0">
           <span className="chat-led text-green-500" />
-          <div>
-            <h3 className="font-semibold text-sm">Finance Assistant</h3>
-            <p className="text-xs text-muted-foreground">Ask about your expenses, budgets, and more</p>
+          <div className="min-w-0">
+            <h3 className="font-semibold text-sm truncate">Finance Assistant</h3>
+            <p className="text-xs text-muted-foreground truncate">Ask about your expenses, budgets, and more</p>
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => setShowConversations(!showConversations)}
             className="chat-action-pill h-7 px-2"
@@ -296,7 +296,7 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
       ) : (
         <>
           {/* Messages */}
-          <ScrollArea className="flex-1" ref={scrollAreaRef}>
+          <ScrollArea className="flex-1 overflow-hidden" ref={scrollAreaRef}>
             <div className="p-4 space-y-4">
               {messages.length === 0 ? (
                 <div className="space-y-4 pt-8">
@@ -380,7 +380,7 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
           </ScrollArea>
 
           {/* Input */}
-          <div className="chat-input-well">
+          <div className="chat-input-well shrink-0">
             <form onSubmit={handleSubmit} className="flex gap-2 items-end">
               <textarea
                 ref={textareaRef}

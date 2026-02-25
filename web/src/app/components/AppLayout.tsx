@@ -52,7 +52,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <Bot className="h-5 w-5 sm:h-6 sm:w-6" />
             </button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-full sm:w-[400px] md:w-[540px] p-0">
+          <SheetContent side="right" className="w-full sm:w-[400px] md:w-[540px] p-0 gap-0">
             <SheetTitle className="sr-only">Finance Assistant</SheetTitle>
             <SheetDescription className="sr-only">Chat with your financial data</SheetDescription>
             <ChatPanel compact />
