@@ -101,8 +101,18 @@ type GeminiResponse struct {
 	Metadata     *GeminiMetadata     `json:"metadata,omitempty"`
 }
 
-// extractWithGeminiRetry wraps extractWithGemini with retry logic.
+// extractWithGeminiRetry wraps extractWithGemini with retry logic using default token limit.
 func (v *ValidationService) extractWithGeminiRetry(ctx context.Context, documentData []byte) (*GeminiResponse, error) {
+	return v.extractWithGeminiRetryAdvanced(ctx, documentData, 0)
+}
+
+// extractWithGeminiRetryAdvanced wraps extractWithGemini with retry logic and dynamic token sizing.
+func (v *ValidationService) extractWithGeminiRetryAdvanced(ctx context.Context, documentData []byte, maxOutputTokens int) (*GeminiResponse, error) {
+	if maxOutputTokens > 0 {
+		return WithRetry(ctx, v.RetryConfig, func(ctx context.Context) (*GeminiResponse, error) {
+			return v.extractWithGemini(ctx, documentData, maxOutputTokens)
+		})
+	}
 	return WithRetry(ctx, v.RetryConfig, func(ctx context.Context) (*GeminiResponse, error) {
 		return v.extractWithGemini(ctx, documentData)
 	})
@@ -153,7 +163,7 @@ func countPDFPages(data []byte) int {
 	return count
 }
 
-func (v *ValidationService) extractWithGemini(ctx context.Context, documentData []byte) (*GeminiResponse, error) {
+func (v *ValidationService) extractWithGemini(ctx context.Context, documentData []byte, maxOutputTokensOverride ...int) (*GeminiResponse, error) {
 	// Encode document as base64
 	encoded := base64.StdEncoding.EncodeToString(documentData)
 
@@ -177,6 +187,12 @@ Rules:
 - metadata: bank name, last 4 digits of account, statement period dates, currency code
 - If this is not a bank statement (e.g. receipt), omit the metadata field`
 
+	// Determine maxOutputTokens: use override if provided and > 0, otherwise default
+	outputTokens := 8192
+	if len(maxOutputTokensOverride) > 0 && maxOutputTokensOverride[0] > 0 {
+		outputTokens = maxOutputTokensOverride[0]
+	}
+
 	requestBody := map[string]interface{}{
 		"contents": []map[string]interface{}{
 			{
@@ -193,7 +209,7 @@ Rules:
 		},
 		"generationConfig": map[string]interface{}{
 			"temperature":     0.1,
-			"maxOutputTokens": 4096,
+			"maxOutputTokens": outputTokens,
 		},
 	}
 
@@ -203,7 +219,7 @@ Rules:
 	}
 
 	// Make request to Gemini API
-	url := fmt.Sprintf("%s/models/gemini-1.5-flash:generateContent?key=%s", v.geminiBaseURL, v.geminiAPIKey)
+	url := fmt.Sprintf("%s/models/gemini-2.0-flash:generateContent?key=%s", v.geminiBaseURL, v.geminiAPIKey)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
@@ -285,7 +301,7 @@ func (v *ValidationService) compareResults(
 	validated *GeminiResponse,
 ) *ValidationResult {
 	result := &ValidationResult{
-		ValidatedBy: "gemini-1.5-flash",
+		ValidatedBy: "gemini-2.0-flash",
 	}
 
 	if len(extracted.Transactions) == 0 && len(validated.Transactions) == 0 {
@@ -366,11 +382,28 @@ func extractJSON(text string, v interface{}) error {
 	return json.Unmarshal([]byte(jsonStr), v)
 }
 
+// GeminiExtractionOpts holds optional parameters for Gemini extraction.
+type GeminiExtractionOpts struct {
+	MaxOutputTokens int // 0 = use default 8192
+}
+
 // ExtractWithGemini extracts transactions from a document using Gemini API.
+// This is the backward-compatible entry point that uses default options.
 func (v *ValidationService) ExtractWithGemini(
 	ctx context.Context,
 	documentData []byte,
 	docType pfinancev1.DocumentType,
+) (*pfinancev1.ExtractionResult, error) {
+	return v.ExtractWithGeminiAdvanced(ctx, documentData, docType, GeminiExtractionOpts{})
+}
+
+// ExtractWithGeminiAdvanced extracts transactions from a document using Gemini API
+// with configurable options (e.g. dynamic maxOutputTokens).
+func (v *ValidationService) ExtractWithGeminiAdvanced(
+	ctx context.Context,
+	documentData []byte,
+	docType pfinancev1.DocumentType,
+	opts GeminiExtractionOpts,
 ) (*pfinancev1.ExtractionResult, error) {
 	if v.geminiAPIKey == "" {
 		return nil, fmt.Errorf("Gemini API key not configured")
@@ -378,7 +411,7 @@ func (v *ValidationService) ExtractWithGemini(
 
 	startTime := time.Now()
 
-	geminiResult, err := v.extractWithGeminiRetry(ctx, documentData)
+	geminiResult, err := v.extractWithGeminiRetryAdvanced(ctx, documentData, opts.MaxOutputTokens)
 	if err != nil {
 		return nil, err
 	}
@@ -388,7 +421,7 @@ func (v *ValidationService) ExtractWithGemini(
 	// Detect actual page count for PDFs
 	pageCount := int32(1)
 	if detectMimeType(documentData) == "application/pdf" {
-		pageCount = int32(countPDFPages(documentData))
+		pageCount = int32(CountPDFPagesAccurate(documentData))
 	}
 
 	// Convert to proto result
@@ -436,7 +469,7 @@ func (v *ValidationService) ExtractWithGemini(
 	result := &pfinancev1.ExtractionResult{
 		Transactions:      transactions,
 		OverallConfidence: 0.9,
-		ModelUsed:         "gemini-1.5-flash",
+		ModelUsed:         "gemini-2.0-flash",
 		ProcessingTimeMs:  processingTime,
 		DocumentType:      docType,
 		PageCount:         pageCount,
@@ -516,7 +549,7 @@ Rules:
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/models/gemini-1.5-flash:generateContent?key=%s", v.geminiBaseURL, v.geminiAPIKey)
+	url := fmt.Sprintf("%s/models/gemini-2.0-flash:generateContent?key=%s", v.geminiBaseURL, v.geminiAPIKey)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
@@ -567,6 +600,142 @@ Rules:
 		TransactionCount:  int32(metadata.TransactionCount),
 		Currency:          metadata.Currency,
 		Fingerprint:       computeFingerprint(&metadata),
+	}, nil
+}
+
+// ExtractFromTextWithGemini extracts transactions from pre-extracted plain text
+// using Gemini API (text-only prompt, no inline document data).
+func (v *ValidationService) ExtractFromTextWithGemini(
+	ctx context.Context,
+	text string,
+	docType pfinancev1.DocumentType,
+) (*pfinancev1.ExtractionResult, error) {
+	if v.geminiAPIKey == "" {
+		return nil, fmt.Errorf("Gemini API key not configured")
+	}
+
+	startTime := time.Now()
+
+	prompt := fmt.Sprintf(`Extract all expense/debit transactions from this bank statement text.
+Return ONLY a valid JSON object with this structure:
+{
+  "transactions": [
+    {"date": "YYYY-MM-DD", "description": "merchant name", "amount": 0.00, "category": "Food"}
+  ]
+}
+Rules:
+- Only include debit transactions (money going out)
+- Express amounts as positive numbers
+- Assign each transaction a category from: Food, Housing, Transportation, Entertainment, Healthcare, Utilities, Shopping, Education, Travel, Other
+- Use the merchant name and transaction context to determine the most appropriate category
+- Parse all date formats into YYYY-MM-DD
+
+Statement text:
+%s`, text)
+
+	requestBody := map[string]interface{}{
+		"contents": []map[string]interface{}{
+			{
+				"parts": []map[string]interface{}{
+					{"text": prompt},
+				},
+			},
+		},
+		"generationConfig": map[string]interface{}{
+			"temperature":     0.1,
+			"maxOutputTokens": 8192,
+		},
+	}
+
+	jsonBody, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/models/gemini-2.0-flash:generateContent?key=%s", v.geminiBaseURL, v.geminiAPIKey)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonBody))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := v.httpClient.Do(req)
+	if err != nil {
+		return nil, classifyGeminiError(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, classifyGeminiHTTPError(resp.StatusCode, string(body))
+	}
+
+	var geminiResp struct {
+		Candidates []struct {
+			Content struct {
+				Parts []struct {
+					Text string `json:"text"`
+				} `json:"parts"`
+			} `json:"content"`
+		} `json:"candidates"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&geminiResp); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	if len(geminiResp.Candidates) == 0 || len(geminiResp.Candidates[0].Content.Parts) == 0 {
+		return nil, fmt.Errorf("no response from Gemini")
+	}
+
+	responseText := geminiResp.Candidates[0].Content.Parts[0].Text
+
+	var geminiResult GeminiResponse
+	if err := extractJSON(responseText, &geminiResult); err != nil {
+		return nil, fmt.Errorf("parse Gemini result: %w", err)
+	}
+
+	processingTime := int32(time.Since(startTime).Milliseconds())
+
+	// Convert to proto result
+	transactions := make([]*pfinancev1.ExtractedTransaction, 0, len(geminiResult.Transactions))
+	for i, tx := range geminiResult.Transactions {
+		info := NormalizeMerchant(tx.Description)
+		category := parseCategory(tx.Category)
+		if category == pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED ||
+			category == pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_OTHER {
+			if info.Category != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_OTHER {
+				category = info.Category
+			}
+		}
+
+		transactions = append(transactions, &pfinancev1.ExtractedTransaction{
+			Id:                 fmt.Sprintf("gemini-%d", i+1),
+			Date:               tx.Date,
+			Description:        tx.Description,
+			NormalizedMerchant: info.Name,
+			Amount:             tx.Amount,
+			SuggestedCategory:  category,
+			Confidence:         0.9,
+			IsDebit:            true,
+			FieldConfidences: &pfinancev1.FieldConfidence{
+				Amount:      0.95,
+				Date:        0.90,
+				Description: 0.90,
+				Merchant:    info.Confidence,
+				Category:    0.85,
+			},
+		})
+	}
+
+	return &pfinancev1.ExtractionResult{
+		Transactions:      transactions,
+		OverallConfidence: 0.9,
+		ModelUsed:         "gemini-2.0-flash",
+		ProcessingTimeMs:  processingTime,
+		DocumentType:      docType,
+		PageCount:         1,
+		MethodUsed:        pfinancev1.ExtractionMethod_EXTRACTION_METHOD_GEMINI,
 	}, nil
 }
 
@@ -671,7 +840,7 @@ OTHER RULES:
 	}
 
 	// Use Gemini Flash for speed
-	url := fmt.Sprintf("%s/models/gemini-1.5-flash:generateContent?key=%s", v.geminiBaseURL, v.geminiAPIKey)
+	url := fmt.Sprintf("%s/models/gemini-2.0-flash:generateContent?key=%s", v.geminiBaseURL, v.geminiAPIKey)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)

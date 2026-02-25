@@ -1,0 +1,43 @@
+COMMONWEALTH BANK
+CREDIT CARD STATEMENT
+
+Account Number: **** **** **** 7832
+Statement Period: 01/02/2025 to 28/02/2025
+
+Date        Description                          Amount
+--------------------------------------------------------------
+01/02/2025  WOOLWORTHS METRO SYDNEY              $45.67
+02/02/2025  UBER *TRIP SYDNEY                    $18.50
+03/02/2025  NETFLIX.COM                          $22.99
+04/02/2025  SHELL COLES EXPRESS MASCOT           $78.43
+05/02/2025  MENULOG *ORDER                       $32.90
+06/02/2025  JB HI-FI BROADWAY                    $249.00
+07/02/2025  CHEMIST WAREHOUSE SYDNEY             $15.80
+08/02/2025  SPOTIFY PREMIUM                      $12.99
+09/02/2025  COLES SUPERMARKET NEWTOWN            $67.34
+10/02/2025  OPTUS MOBILE PLAN                    $65.00
+11/02/2025  UBER EATS *ORDER                     $28.45
+12/02/2025  BUNNINGS WAREHOUSE ALEXANDRIA        $156.78
+13/02/2025  STARBUCKS GEORGE ST                  $7.50
+14/02/2025  AIRBNB *HM BOOKING                   $320.00
+15/02/2025  QANTAS AIRWAYS BOOKING               $450.00
+16/02/2025  KMART BROADWAY                       $34.99
+17/02/2025  MCDONALD'S CENTRAL                   $12.40
+18/02/2025  OPAL CARD TOP UP                     $50.00
+19/02/2025  ALDI STORES MARRICKVILLE             $52.18
+20/02/2025  DOMINOS PIZZA NEWTOWN                $24.95
+21/02/2025  TARGET BROADWAY                      $89.99
+22/02/2025  BP FUEL SYDNEY                       $92.30
+23/02/2025  AMAZON AU MARKETPLACE                $67.50
+24/02/2025  TELSTRA MOBILE PLAN                  $79.00
+25/02/2025  WOOLWORTHS ONLINE                    $125.40
+26/02/2025  UBER *TRIP AIRPORT                   $45.00
+27/02/2025  DISNEY+ SUBSCRIPTION                 $13.99
+28/02/2025  PRICELINE PHARMACY BROADWAY          $28.50
+28/02/2025  IKEA TEMPE                           $445.00
+28/02/2025  CVS PHARMACY ONLINE                  $19.95
+--------------------------------------------------------------
+TOTAL                                          $2,902.50
+
+Minimum Payment Due: $75.00
+Payment Due Date: 25/03/2025

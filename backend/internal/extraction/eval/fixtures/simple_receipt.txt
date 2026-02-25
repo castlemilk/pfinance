@@ -1,0 +1,22 @@
+WOOLWORTHS METRO
+123 George Street
+Sydney NSW 2000
+ABN 88 000 014 675
+
+Date: 15/03/2025
+
+RECEIPT #4521
+
+Milk 2L                          $4.50
+Sourdough Bread                  $5.99
+Chicken Breast 500g              $8.95
+Organic Bananas                  $3.49
+Greek Yoghurt 1kg               $6.20
+                              --------
+TOTAL                           $29.13
+
+EFTPOS                          $29.13
+Card: **** **** **** 4521
+Auth: 089234
+
+Thank you for shopping at Woolworths!

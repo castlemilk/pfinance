@@ -1,0 +1,112 @@
+ANZ BANK
+TRANSACTION ACCOUNT STATEMENT
+
+Account: ANZ Access Advantage ****8901
+Period: 01/01/2025 - 31/01/2025
+
+Date        Transaction Details                  Debit      Credit
+--------------------------------------------------------------------
+01/01/2025  WOOLWORTHS METRO CBD                 $23.45
+01/01/2025  UBER *TRIP                           $14.20
+01/01/2025  7-ELEVEN CONVENIENCE                 $8.90
+02/01/2025  COLES SUPERMARKET BONDI              $56.78
+02/01/2025  NETFLIX.COM SUBSCRIPTION             $22.99
+02/01/2025  PARKING WILSON CBD                   $18.00
+03/01/2025  MCDONALD'S KINGS CROSS               $15.90
+03/01/2025  OPAL CARD AUTO TOP UP                $40.00
+03/01/2025  CHEMIST WAREHOUSE BONDI              $32.50
+04/01/2025  AMAZON AU MARKETPLACE                $89.99
+04/01/2025  UBER EATS *DELIVERY                  $27.80
+04/01/2025  SHELL FUEL MASCOT                    $95.43
+05/01/2025  SPOTIFY PREMIUM                      $12.99
+05/01/2025  ALDI STORES NEWTOWN                  $43.67
+05/01/2025  DOMINOS PIZZA ONLINE                 $19.95
+06/01/2025  TARGET BONDI JUNCTION                $67.00
+06/01/2025  JB HI-FI BROADWAY                    $199.00
+06/01/2025  STARBUCKS CIRCULAR QUAY              $6.80
+07/01/2025  WOOLWORTHS ONLINE ORDER              $112.34
+07/01/2025  TELSTRA PREPAID                      $30.00
+07/01/2025  UBER *TRIP AIRPORT                   $52.00
+08/01/2025  COLES EXPRESS FUEL                   $88.76
+08/01/2025  GUZMAN Y GOMEZ CENTRAL               $16.50
+08/01/2025  KMART BROADWAY                       $45.99
+09/01/2025  OPTUS BROADBAND                      $79.00
+09/01/2025  MENULOG *ORDER DELIVERY              $31.20
+09/01/2025  BUNNINGS WAREHOUSE MASCOT            $234.50
+10/01/2025  AIRBNB *BOOKING                      $280.00
+10/01/2025  UBER *TRIP                           $22.30
+10/01/2025  WOOLWORTHS METRO NEWTOWN             $34.56
+11/01/2025  BP FUEL EASTERN SUBURBS              $76.40
+11/01/2025  DELIVEROO *ORDER                     $25.90
+11/01/2025  DISNEY+ SUBSCRIPTION                 $13.99
+12/01/2025  ALDI STORES BONDI                    $38.45
+12/01/2025  PRICELINE PHARMACY CBD               $21.00
+12/01/2025  COLES SUPERMARKET BROADWAY           $72.13
+13/01/2025  MCDONALD'S BROADWAY                  $11.40
+13/01/2025  EBAY AUSTRALIA PURCHASE              $55.00
+13/01/2025  OPAL CARD AUTO TOP UP                $40.00
+14/01/2025  AMAZON AU MARKETPLACE                $145.00
+14/01/2025  UBER EATS *DELIVERY                  $33.60
+14/01/2025  WOOLWORTHS METRO CBD                 $28.90
+15/01/2025  QANTAS AIRWAYS DOMESTIC              $389.00
+15/01/2025  SHELL FUEL AIRPORT                   $82.10
+15/01/2025  KFC KINGS CROSS                      $14.95
+16/01/2025  COLES SUPERMARKET BONDI              $61.20
+16/01/2025  IKEA TEMPE                           $567.00
+16/01/2025  UBER *TRIP                           $19.80
+17/01/2025  WOOLWORTHS ONLINE ORDER              $98.45
+17/01/2025  STARBUCKS BARANGAROO                 $7.20
+17/01/2025  SUBWAY CENTRAL STATION               $12.50
+18/01/2025  TARGET ONLINE ORDER                  $124.99
+18/01/2025  BP FUEL MASCOT                       $71.30
+18/01/2025  MENULOG *ORDER                       $28.40
+19/01/2025  NETFLIX.COM SUBSCRIPTION             $22.99
+19/01/2025  ALDI STORES MARRICKVILLE             $47.23
+19/01/2025  UBER *TRIP                           $16.50
+20/01/2025  CHEMIST WAREHOUSE ONLINE             $45.80
+20/01/2025  COLES SUPERMARKET NEWTOWN            $53.67
+20/01/2025  DOMINOS PIZZA DELIVERY               $24.95
+21/01/2025  JB HI-FI ONLINE                      $349.00
+21/01/2025  WOOLWORTHS METRO BONDI               $31.20
+21/01/2025  UBER EATS *DELIVERY                  $29.90
+22/01/2025  TELSTRA MOBILE PLAN                  $79.00
+22/01/2025  OPAL CARD AUTO TOP UP                $40.00
+22/01/2025  PIZZA HUT DELIVERY                   $27.50
+23/01/2025  AMAZON AU MARKETPLACE                $78.50
+23/01/2025  COLES EXPRESS FUEL                   $91.20
+23/01/2025  GUZMAN Y GOMEZ BROADWAY              $18.90
+24/01/2025  BUNNINGS WAREHOUSE ALEXANDRIA        $189.00
+24/01/2025  WOOLWORTHS ONLINE ORDER              $107.80
+24/01/2025  UBER *TRIP                           $25.40
+25/01/2025  BOOKING.COM HOTEL                    $450.00
+25/01/2025  SHELL FUEL NEWTOWN                   $68.90
+25/01/2025  KFC NEWTOWN                          $16.80
+26/01/2025  COLES SUPERMARKET BONDI              $58.34
+26/01/2025  SPOTIFY PREMIUM                      $12.99
+26/01/2025  UBER EATS *DELIVERY                  $35.20
+27/01/2025  ALDI STORES BONDI                    $41.56
+27/01/2025  MCDONALD'S BROADWAY                  $13.80
+27/01/2025  PRICELINE PHARMACY BONDI             $18.50
+28/01/2025  WOOLWORTHS METRO CBD                 $39.70
+28/01/2025  DELIVEROO *ORDER                     $22.60
+28/01/2025  AMAZON AU MARKETPLACE                $63.00
+29/01/2025  BP FUEL CBD                          $79.50
+29/01/2025  COLES SUPERMARKET NEWTOWN            $64.89
+29/01/2025  UBER *TRIP AIRPORT                   $48.00
+30/01/2025  EBAY AUSTRALIA PURCHASE              $42.00
+30/01/2025  WOOLWORTHS ONLINE ORDER              $85.60
+30/01/2025  OPTUS MOBILE PLAN                    $65.00
+31/01/2025  KMART ONLINE ORDER                   $56.99
+31/01/2025  CHEMIST WAREHOUSE CBD                $27.40
+31/01/2025  UBER EATS *DELIVERY                  $31.50
+31/01/2025  ALDI STORES NEWTOWN                  $44.80
+31/01/2025  STARBUCKS MARTIN PLACE               $8.50
+31/01/2025  COLES SUPERMARKET BROADWAY           $71.23
+31/01/2025  SHELL FUEL MASCOT                    $87.60
+31/01/2025  MENULOG *ORDER                       $26.30
+31/01/2025  DOMINOS PIZZA NEWTOWN                $22.50
+31/01/2025  DISNEY+ SUBSCRIPTION                 $13.99
+--------------------------------------------------------------------
+TOTAL DEBITS                                   $7,182.42
+
+Closing Balance: $4,521.83

@@ -1,0 +1,43 @@
+WESTPAC BANKING CORPORATION
+    Choice Transaction Account
+
+Acct: ***-***-8901-4532       Statement: Jan 2025
+
+  TRANSACTIONS
+
+Date          Narrative                    Withdrawals   Deposits
+---  ------------------------------------------------   ----------
+ 3 Jan 2025   VISA POS WOOLWORTHS
+              TOWN HALL 2000 AU            $   125.40
+ 5 Jan        EFTPOS UBER *TRIP
+              SYDNEY AU                         32.50
+ 7 Jan 25     PAYPAL *NETFLIX                   22.99
+Jan 9, 2025   POS COLES ONLINE
+              HAWTHORN VIC AU                   89.67
+ 12 Jan       VISA BP FUEL ST PETERS
+              SYDNEY NSW AU                     78.30
+ 2025-01-14   DIRECT DEBIT TELSTRA
+              MOBILES                            79.00
+ 15/01/2025   EFTPOS MCDONALDS
+              TOWN HALL SYD AU            $    11.50
+ Jan 17       POS STARBUCKS
+              BARANGAROO SYDNEY AU         $     6.80
+ 20/01/25     VISA AMAZON.COM.AU
+              AMZN MKTP AU                      234.56
+ 22-01-2025   EFTPOS CHEMIST WAREHOUSE
+              BROADWAY NSW AU                    45.90
+2025/01/24    ATM WITHDRAWAL                    200.00
+ Jan 26 2025  VISA POS UBER EATS
+              UBER AU PENDING                    28.90
+28 Jan        DIRECT DEBIT OPTUS
+              MOBILE PLAN                        65.00
+ 30/01/2025   BPAY ORIGIN ENERGY
+              ELECTRICITY                       156.78
+31 Jan 2025   VISA DEBIT JB HI-FI
+              BROADWAY SYDNEY AU          $    399.00
+
+                                         -----------
+  TOTAL WITHDRAWALS                      $  1,576.30
+  TOTAL DEPOSITS                         $  3,200.00
+                                         -----------
+  CLOSING BALANCE                        $  4,823.70

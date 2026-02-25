@@ -1,0 +1,41 @@
+{
+  "name": "simple_receipt",
+  "document_type": "receipt",
+  "transactions": [
+    {
+      "date": "2025-03-15",
+      "description": "Milk 2L",
+      "amount": 4.50,
+      "category": "Food",
+      "is_debit": true
+    },
+    {
+      "date": "2025-03-15",
+      "description": "Sourdough Bread",
+      "amount": 5.99,
+      "category": "Food",
+      "is_debit": true
+    },
+    {
+      "date": "2025-03-15",
+      "description": "Chicken Breast 500g",
+      "amount": 8.95,
+      "category": "Food",
+      "is_debit": true
+    },
+    {
+      "date": "2025-03-15",
+      "description": "Organic Bananas",
+      "amount": 3.49,
+      "category": "Food",
+      "is_debit": true
+    },
+    {
+      "date": "2025-03-15",
+      "description": "Greek Yoghurt 1kg",
+      "amount": 6.20,
+      "category": "Food",
+      "is_debit": true
+    }
+  ]
+}
