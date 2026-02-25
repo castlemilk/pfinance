@@ -868,52 +868,112 @@ select:focus {
     0 1px 0 color-mix(in oklch, white 3%, transparent);
 }
 
-/* 3D pressable button */
+/* Dark instrument-panel button — text/border/glow use accent color, bg is dark-tinted */
 .skeu-button {
   position: relative;
+  overflow: hidden;
   background: linear-gradient(
     180deg,
-    color-mix(in oklch, var(--primary) 100%, white 15%) 0%,
-    var(--primary) 50%,
-    color-mix(in oklch, var(--primary) 100%, black 10%) 100%
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 30%, black) 0%,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 18%, black) 100%
   );
-  color: var(--primary-foreground);
-  border: 1px solid color-mix(in oklch, var(--primary) 80%, black 20%);
+  color: var(--skeu-base, var(--primary));
+  border: 1px solid color-mix(in oklch, var(--skeu-base, var(--primary)) 50%, transparent);
   border-radius: var(--radius-lg);
+  text-shadow: 0 0 8px color-mix(in oklch, var(--skeu-base, var(--primary)) 40%, transparent);
   box-shadow:
-    0 1px 0 0 color-mix(in oklch, white 25%, transparent) inset,
-    0 -1px 0 0 color-mix(in oklch, black 10%, transparent) inset,
-    0 3px 6px -1px rgba(0, 0, 0, 0.15),
-    0 6px 12px -2px rgba(0, 0, 0, 0.1);
+    0 0 8px color-mix(in oklch, var(--skeu-base, var(--primary)) 12%, transparent),
+    inset 0 1px 0 color-mix(in oklch, var(--skeu-base, var(--primary)) 10%, transparent),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   transition: all 0.15s ease;
 }
 .skeu-button:hover {
   background: linear-gradient(
     180deg,
-    color-mix(in oklch, var(--primary) 100%, white 20%) 0%,
-    color-mix(in oklch, var(--primary) 100%, white 5%) 50%,
-    color-mix(in oklch, var(--primary) 100%, black 5%) 100%
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 38%, black) 0%,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 24%, black) 100%
   );
+  border-color: color-mix(in oklch, var(--skeu-base, var(--primary)) 65%, transparent);
+  text-shadow: 0 0 12px color-mix(in oklch, var(--skeu-base, var(--primary)) 55%, transparent);
   box-shadow:
-    0 1px 0 0 color-mix(in oklch, white 30%, transparent) inset,
-    0 -1px 0 0 color-mix(in oklch, black 8%, transparent) inset,
-    0 4px 8px -1px rgba(0, 0, 0, 0.18),
-    0 8px 16px -2px rgba(0, 0, 0, 0.12),
-    0 0 20px color-mix(in oklch, var(--glow-color) 20%, transparent);
+    0 0 12px color-mix(in oklch, var(--skeu-base, var(--primary)) 25%, transparent),
+    inset 0 1px 0 color-mix(in oklch, var(--skeu-base, var(--primary)) 12%, transparent),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.3),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 .skeu-button:active {
   transform: translateY(1px);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 14%, black) 0%,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 22%, black) 100%
+  );
   box-shadow:
-    inset 0 2px 4px rgba(0, 0, 0, 0.15),
-    0 1px 2px rgba(0, 0, 0, 0.08);
+    inset 0 2px 6px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.02);
 }
-.dark .skeu-button {
+/* Outline variant — more transparent bg, prominent border */
+.skeu-button.skeu-variant-outline {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 10%, black) 0%,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 6%, black) 100%
+  );
+}
+.skeu-button.skeu-variant-outline:hover {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 18%, black) 0%,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 12%, black) 100%
+  );
+}
+/* Ghost variant — very subtle, minimal glow */
+.skeu-button.skeu-variant-ghost {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--skeu-base, var(--muted-foreground)) 8%, black) 0%,
+    color-mix(in oklch, var(--skeu-base, var(--muted-foreground)) 5%, black) 100%
+  );
+  border-color: color-mix(in oklch, var(--skeu-base, var(--muted-foreground)) 20%, transparent);
+  text-shadow: none;
   box-shadow:
-    0 1px 0 0 color-mix(in oklch, white 15%, transparent) inset,
-    0 -1px 0 0 color-mix(in oklch, black 15%, transparent) inset,
-    0 3px 8px -1px rgba(0, 0, 0, 0.3),
-    0 6px 16px -2px rgba(0, 0, 0, 0.25),
-    0 0 12px color-mix(in oklch, var(--glow-color) 15%, transparent);
+    inset 0 -2px 4px rgba(0, 0, 0, 0.25),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+.skeu-button.skeu-variant-ghost:hover {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--skeu-base, var(--muted-foreground)) 15%, black) 0%,
+    color-mix(in oklch, var(--skeu-base, var(--muted-foreground)) 10%, black) 100%
+  );
+  border-color: color-mix(in oklch, var(--skeu-base, var(--muted-foreground)) 35%, transparent);
+  text-shadow: 0 0 6px color-mix(in oklch, var(--skeu-base, var(--muted-foreground)) 25%, transparent);
+}
+/* Light mode ghost — transparent bg with subtle border instead of dark fill */
+:root:not(.dark) .skeu-button.skeu-variant-ghost {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--foreground) 6%, transparent) 0%,
+    color-mix(in oklch, var(--foreground) 3%, transparent) 100%
+  );
+  color: var(--foreground);
+  border-color: color-mix(in oklch, var(--foreground) 15%, transparent);
+  text-shadow: none;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+:root:not(.dark) .skeu-button.skeu-variant-ghost:hover {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--foreground) 10%, transparent) 0%,
+    color-mix(in oklch, var(--foreground) 6%, transparent) 100%
+  );
+  border-color: color-mix(in oklch, var(--foreground) 25%, transparent);
 }
 
 /* Frosted glass with shine reflection */
@@ -1027,6 +1087,579 @@ select:focus {
     0 2px 4px rgba(0, 0, 0, 0.3),
     inset 0 0 30px rgba(0, 0, 0, 0.15),
     0 0 15px color-mix(in oklch, var(--glow-color) 8%, transparent);
+}
+
+/* ============================================
+   SKEUOMORPHIC VARIANT SCOPING
+   Sets --skeu-base per variant (text/border/glow color)
+   ============================================ */
+.skeu-variant-primary     { --skeu-base: var(--primary); }
+.skeu-variant-secondary   { --skeu-base: var(--secondary); }
+.skeu-variant-ghost       { --skeu-base: var(--muted-foreground); }
+.skeu-variant-outline     { --skeu-base: var(--primary); }
+.skeu-variant-destructive { --skeu-base: var(--destructive); }
+.skeu-variant-accent      { --skeu-base: var(--accent); }
+
+/* ============================================
+   TOGGLE TRACK — dark recessed groove
+   ============================================ */
+.skeu-toggle-track {
+  position: relative;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklch, var(--skeu-base, var(--primary)) 25%, transparent);
+  background: linear-gradient(180deg, oklch(0.14 0.005 0) 0%, oklch(0.09 0.003 0) 100%);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.5),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.03);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.skeu-toggle-track[data-state="checked"] {
+  border-color: color-mix(in oklch, var(--skeu-base, var(--primary)) 50%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 30%, black) 0%,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 18%, black) 100%
+  );
+  box-shadow:
+    0 0 12px color-mix(in oklch, var(--skeu-base, var(--primary)) 25%, transparent),
+    inset 0 2px 4px rgba(0, 0, 0, 0.5),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.03),
+    inset 0 0 8px color-mix(in oklch, var(--skeu-base, var(--primary)) 12%, transparent);
+}
+
+/* ============================================
+   TOGGLE THUMB — muted when off, accent-colored when on
+   ============================================ */
+.skeu-toggle-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: linear-gradient(
+    180deg,
+    rgba(140, 130, 110, 0.7) 0%,
+    rgba(80, 72, 58, 0.8) 50%,
+    rgba(55, 48, 38, 0.9) 100%
+  );
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.5),
+    0 0 1px rgba(0, 0, 0, 0.4),
+    inset 0 1px 2px rgba(255, 255, 255, 0.08),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.3);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+[data-state="checked"] > .skeu-toggle-thumb,
+.skeu-toggle-thumb[data-state="checked"] {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 100%, white 30%) 0%,
+    var(--skeu-base, var(--primary)) 50%,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 100%, black 20%) 100%
+  );
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.5),
+    0 0 1px rgba(0, 0, 0, 0.4),
+    inset 0 1px 2px rgba(255, 255, 255, 0.3),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.3),
+    0 0 8px color-mix(in oklch, var(--skeu-base, var(--primary)) 40%, transparent);
+}
+
+/* ============================================
+   GRIP — 3 vertical bars on thumb
+   ============================================ */
+.skeu-grip {
+  width: 7px;
+  height: 8px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.15) 0px,
+    rgba(255, 255, 255, 0.15) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  border-radius: 1px;
+  opacity: 0.6;
+  transition: opacity 0.25s ease;
+}
+[data-state="checked"] > .skeu-toggle-thumb .skeu-grip,
+.skeu-toggle-thumb[data-state="checked"] .skeu-grip {
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.5) 0px,
+    rgba(0, 0, 0, 0.5) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  opacity: 0.5;
+}
+
+/* ============================================
+   LED INDICATORS — on-dot (left) + off-ring (right)
+   ============================================ */
+.skeu-indicator-on {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: transparent;
+  opacity: 0;
+  transition: all 0.25s ease;
+  pointer-events: none;
+}
+[data-state="checked"] > .skeu-indicator-on {
+  background: var(--skeu-base, var(--primary));
+  box-shadow: 0 0 6px var(--skeu-base, var(--primary));
+  opacity: 0.9;
+}
+.skeu-indicator-off {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklch, var(--skeu-base, var(--primary)) 30%, transparent);
+  background: transparent;
+  opacity: 0.6;
+  transition: all 0.25s ease;
+  pointer-events: none;
+}
+[data-state="checked"] > .skeu-indicator-off {
+  opacity: 0;
+}
+
+/* ============================================
+   SCANLINE OVERLAY
+   ============================================ */
+.skeu-scanlines {
+  position: relative;
+  overflow: hidden;
+}
+.skeu-scanlines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.06) 2px,
+    rgba(0, 0, 0, 0.06) 4px
+  );
+  border-radius: inherit;
+}
+
+/* ============================================
+   TOP-EDGE HIGHLIGHT
+   ============================================ */
+.skeu-top-edge {
+  position: relative;
+}
+.skeu-top-edge::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 12%, transparent) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+  border-radius: inherit;
+}
+
+/* ============================================
+   POWER TOGGLE — round recessed well
+   ============================================ */
+.skeu-power-well {
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in oklch, var(--skeu-base, var(--primary)) 25%, transparent);
+  background: linear-gradient(180deg, oklch(0.14 0.005 0) 0%, oklch(0.09 0.003 0) 100%);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.6),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.03);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+.skeu-power-well[aria-checked="true"] {
+  border-color: color-mix(in oklch, var(--skeu-base, var(--primary)) 50%, transparent);
+  box-shadow:
+    0 0 16px color-mix(in oklch, var(--skeu-base, var(--primary)) 30%, transparent),
+    inset 0 2px 6px rgba(0, 0, 0, 0.6),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.03),
+    0 0 24px color-mix(in oklch, var(--skeu-base, var(--primary)) 15%, transparent);
+}
+
+/* ============================================
+   SEGMENT RAIL — dark recessed container
+   ============================================ */
+.skeu-segment-rail {
+  border-radius: 7px;
+  border: 1px solid color-mix(in oklch, var(--skeu-base, var(--primary)) 20%, transparent);
+  background: rgba(20, 18, 14, 0.7);
+  padding: 3px;
+}
+
+/* ============================================
+   SEGMENT PILL — dark accent-colored active tab
+   ============================================ */
+.skeu-segment-pill {
+  border: 1px solid color-mix(in oklch, var(--skeu-base, var(--primary)) 60%, transparent);
+  border-radius: 5px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 30%, black) 0%,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 18%, black) 100%
+  );
+  box-shadow:
+    0 0 8px color-mix(in oklch, var(--skeu-base, var(--primary)) 25%, transparent),
+    inset 0 1px 0 color-mix(in oklch, var(--skeu-base, var(--primary)) 8%, transparent),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================
+   TAB TRIGGER — dark instrument-panel active state
+   ============================================ */
+.skeu-tab-trigger {
+  position: relative;
+  z-index: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+.skeu-tab-trigger[data-state="active"] {
+  border: 1px solid color-mix(in oklch, var(--primary) 60%, transparent);
+  border-radius: 5px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--primary) 30%, black) 0%,
+    color-mix(in oklch, var(--primary) 18%, black) 100%
+  );
+  color: var(--primary);
+  text-shadow: 0 0 8px color-mix(in oklch, var(--primary) 40%, transparent);
+  box-shadow:
+    0 0 8px color-mix(in oklch, var(--primary) 25%, transparent),
+    inset 0 1px 0 color-mix(in oklch, var(--primary) 8%, transparent),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================
+   OVERLAY PANELS — dropdowns, selects, popovers
+   Dark instrument-panel styling for floating UI
+   ============================================ */
+.skeu-overlay {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--primary) 8%, oklch(0.12 0.005 0)) 0%,
+    color-mix(in oklch, var(--primary) 4%, oklch(0.08 0.003 0)) 100%
+  );
+  border: 1px solid color-mix(in oklch, var(--primary) 25%, transparent);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 1px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 color-mix(in oklch, var(--primary) 6%, transparent),
+    0 0 16px color-mix(in oklch, var(--primary) 8%, transparent);
+}
+.skeu-overlay-item {
+  border-radius: 4px;
+  transition: all 0.1s ease;
+}
+.skeu-overlay-item:focus,
+.skeu-overlay-item[data-highlighted] {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--primary) 22%, black) 0%,
+    color-mix(in oklch, var(--primary) 14%, black) 100%
+  );
+  color: var(--primary);
+  text-shadow: 0 0 6px color-mix(in oklch, var(--primary) 30%, transparent);
+  outline: none;
+}
+/* Select trigger — dark instrument button */
+.skeu-select-trigger {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--primary) 12%, black) 0%,
+    color-mix(in oklch, var(--primary) 7%, black) 100%
+  );
+  border: 1px solid color-mix(in oklch, var(--primary) 30%, transparent);
+  color: var(--primary);
+  text-shadow: 0 0 4px color-mix(in oklch, var(--primary) 20%, transparent);
+  transition: all 0.15s ease;
+}
+.skeu-select-trigger:hover {
+  border-color: color-mix(in oklch, var(--primary) 45%, transparent);
+  box-shadow: 0 0 8px color-mix(in oklch, var(--primary) 12%, transparent);
+}
+
+/* ============================================
+   LIGHT MODE OVERRIDES
+   Replaces dark instrument-panel with light embossed style.
+   Mix with white instead of black; no glow/text-shadow; subtle drop-shadows.
+   ============================================ */
+
+/* --- Button (all non-ghost/outline variants) --- */
+:root:not(.dark) .skeu-button {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 15%, white) 0%,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 10%, white) 100%
+  );
+  color: color-mix(in oklch, var(--skeu-base, var(--primary)) 85%, black);
+  border-color: color-mix(in oklch, var(--skeu-base, var(--primary)) 30%, transparent);
+  text-shadow: none;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.1),
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.05);
+}
+:root:not(.dark) .skeu-button:hover {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 22%, white) 0%,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 16%, white) 100%
+  );
+  border-color: color-mix(in oklch, var(--skeu-base, var(--primary)) 45%, transparent);
+  text-shadow: none;
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.05);
+}
+:root:not(.dark) .skeu-button:active {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 18%, white) 100%,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 22%, white) 0%
+  );
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.12),
+    inset 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* --- Outline variant --- */
+:root:not(.dark) .skeu-button.skeu-variant-outline {
+  background: transparent;
+  color: color-mix(in oklch, var(--skeu-base, var(--primary)) 80%, black);
+  border-color: color-mix(in oklch, var(--skeu-base, var(--primary)) 35%, transparent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+:root:not(.dark) .skeu-button.skeu-variant-outline:hover {
+  background: color-mix(in oklch, var(--skeu-base, var(--primary)) 8%, transparent);
+  border-color: color-mix(in oklch, var(--skeu-base, var(--primary)) 50%, transparent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* --- Scanlines (very faint in light mode) --- */
+:root:not(.dark) .skeu-scanlines::after {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.015) 2px,
+    rgba(0, 0, 0, 0.015) 4px
+  );
+}
+
+/* --- Top-edge highlight (white glare) --- */
+:root:not(.dark) .skeu-top-edge::before {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.6) 50%,
+    transparent 100%
+  );
+}
+
+/* --- Select trigger --- */
+:root:not(.dark) .skeu-select-trigger {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--primary) 10%, white) 0%,
+    color-mix(in oklch, var(--primary) 6%, white) 100%
+  );
+  border-color: color-mix(in oklch, var(--primary) 25%, transparent);
+  color: color-mix(in oklch, var(--primary) 80%, black);
+  text-shadow: none;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+:root:not(.dark) .skeu-select-trigger:hover {
+  border-color: color-mix(in oklch, var(--primary) 40%, transparent);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* --- Overlay panels (dropdowns, selects, popovers) --- */
+:root:not(.dark) .skeu-overlay {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--primary) 3%, white) 0%,
+    color-mix(in oklch, var(--primary) 1%, white) 100%
+  );
+  border-color: color-mix(in oklch, var(--primary) 15%, transparent);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    0 1px 4px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+:root:not(.dark) .skeu-overlay-item:focus,
+:root:not(.dark) .skeu-overlay-item[data-highlighted] {
+  background: color-mix(in oklch, var(--primary) 10%, transparent);
+  color: color-mix(in oklch, var(--primary) 80%, black);
+  text-shadow: none;
+}
+
+/* --- Segment rail (recessed container) --- */
+:root:not(.dark) .skeu-segment-rail {
+  background: color-mix(in oklch, var(--muted) 50%, white);
+  border-color: color-mix(in oklch, var(--foreground) 10%, transparent);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* --- Segment pill (active segment) --- */
+:root:not(.dark) .skeu-segment-pill {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 18%, white) 0%,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 12%, white) 100%
+  );
+  border-color: color-mix(in oklch, var(--skeu-base, var(--primary)) 35%, transparent);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.1),
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* --- Tab trigger (active) --- */
+:root:not(.dark) .skeu-tab-trigger[data-state="active"] {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--primary) 18%, white) 0%,
+    color-mix(in oklch, var(--primary) 12%, white) 100%
+  );
+  border-color: color-mix(in oklch, var(--primary) 35%, transparent);
+  color: color-mix(in oklch, var(--primary) 80%, black);
+  text-shadow: none;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.1),
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* --- Toggle track --- */
+:root:not(.dark) .skeu-toggle-track {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--muted) 60%, white) 0%,
+    color-mix(in oklch, var(--muted) 40%, white) 100%
+  );
+  border-color: color-mix(in oklch, var(--foreground) 12%, transparent);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.1),
+    inset 0 0 2px rgba(0, 0, 0, 0.05),
+    0 1px 0 rgba(255, 255, 255, 0.6);
+}
+:root:not(.dark) .skeu-toggle-track[data-state="checked"] {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 35%, white) 0%,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 25%, white) 100%
+  );
+  border-color: color-mix(in oklch, var(--skeu-base, var(--primary)) 40%, transparent);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.1),
+    0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* --- Toggle thumb --- */
+:root:not(.dark) .skeu-toggle-thumb {
+  background: linear-gradient(180deg, white 0%, color-mix(in oklch, var(--muted) 15%, white) 100%);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    0 1px 1px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+:root:not(.dark) [data-state="checked"] > .skeu-toggle-thumb,
+:root:not(.dark) .skeu-toggle-thumb[data-state="checked"] {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--skeu-base, var(--primary)) 70%, white) 0%,
+    var(--skeu-base, var(--primary)) 100%
+  );
+  border-color: color-mix(in oklch, var(--skeu-base, var(--primary)) 50%, transparent);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    0 1px 1px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* --- Grip texture (dark lines on light thumb) --- */
+:root:not(.dark) .skeu-grip {
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.15) 0px,
+    rgba(0, 0, 0, 0.15) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+:root:not(.dark) [data-state="checked"] > .skeu-toggle-thumb .skeu-grip,
+:root:not(.dark) .skeu-toggle-thumb[data-state="checked"] .skeu-grip {
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.4) 0px,
+    rgba(255, 255, 255, 0.4) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+/* --- LED indicators --- */
+:root:not(.dark) [data-state="checked"] > .skeu-indicator-on {
+  box-shadow: 0 0 4px color-mix(in oklch, var(--skeu-base, var(--primary)) 50%, transparent);
+}
+:root:not(.dark) .skeu-indicator-off {
+  border-color: color-mix(in oklch, var(--foreground) 20%, transparent);
+}
+
+/* --- Power well --- */
+:root:not(.dark) .skeu-power-well {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--muted) 40%, white) 0%,
+    color-mix(in oklch, var(--muted) 25%, white) 100%
+  );
+  border-color: color-mix(in oklch, var(--foreground) 12%, transparent);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.6);
+}
+:root:not(.dark) .skeu-power-well[aria-checked="true"] {
+  border-color: color-mix(in oklch, var(--skeu-base, var(--primary)) 40%, transparent);
+  box-shadow:
+    0 0 8px color-mix(in oklch, var(--skeu-base, var(--primary)) 12%, transparent),
+    inset 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 /* ============================================

@@ -140,44 +140,32 @@ export default function InsightsDashboard({ compact = false, limit }: InsightsDa
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-primary" />
-            Spending Insights
-          </h2>
-          <p className="text-muted-foreground">
-            AI-powered analysis of your spending patterns
-          </p>
-        </div>
+      {/* Controls */}
+      <div className="flex items-center justify-end gap-2">
+        <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
+          <SelectTrigger className="w-[170px]">
+            <Calendar className="h-4 w-4 mr-2" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="week">This Week</SelectItem>
+            <SelectItem value="month">This Month</SelectItem>
+            <SelectItem value="quarter">This Quarter</SelectItem>
+            <SelectItem value="year">This Year</SelectItem>
+          </SelectContent>
+        </Select>
 
-        <div className="flex items-center gap-2">
-          <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
-            <SelectTrigger className="w-[140px]">
-              <Calendar className="h-4 w-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="week">This Week</SelectItem>
-              <SelectItem value="month">This Month</SelectItem>
-              <SelectItem value="quarter">This Quarter</SelectItem>
-              <SelectItem value="year">This Year</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button variant="outline" size="icon" onClick={handleRefresh} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
+        <Button variant="outline" size="icon" onClick={handleRefresh} disabled={loading}>
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+        </Button>
       </div>
 
       {/* Summary Stats */}
       <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-green-500/10">
-              <TrendingDown className="h-5 w-5 text-green-500" />
+            <div className="p-2 rounded-lg bg-[#87A96B]/10">
+              <TrendingDown className="h-5 w-5 text-[#87A96B]" />
             </div>
             <div>
               <div className="text-2xl font-bold">{positiveInsights}</div>
@@ -188,8 +176,8 @@ export default function InsightsDashboard({ compact = false, limit }: InsightsDa
 
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-orange-500/10">
-              <TrendingUp className="h-5 w-5 text-orange-500" />
+            <div className="p-2 rounded-lg bg-[#D16A47]/10">
+              <TrendingUp className="h-5 w-5 text-[#D16A47]" />
             </div>
             <div>
               <div className="text-2xl font-bold">{attentionInsights}</div>
@@ -200,8 +188,8 @@ export default function InsightsDashboard({ compact = false, limit }: InsightsDa
 
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-yellow-500/10">
-              <Lightbulb className="h-5 w-5 text-yellow-500" />
+            <div className="p-2 rounded-lg bg-[#FFA94D]/10">
+              <Lightbulb className="h-5 w-5 text-[#FFA94D]" />
             </div>
             <div>
               <div className="text-2xl font-bold">{tipsCount}</div>

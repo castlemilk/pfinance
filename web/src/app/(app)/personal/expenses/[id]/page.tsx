@@ -33,7 +33,7 @@ import { Input } from '@/components/ui/input';
 import { useForm } from 'react-hook-form';
 import { ExpenseCategory, ExpenseFrequency } from '../../../../types';
 import { ArrowLeft, Pencil, Trash2, Loader2 } from 'lucide-react';
-import { getCategoryColor, getFrequencyColor } from '../../../../constants/theme';
+import { getCategoryColor, getFrequencyColor, getInstrumentBadgeStyle } from '../../../../constants/theme';
 
 type EditFormData = {
   description: string;
@@ -170,10 +170,7 @@ export default function ExpenseDetailPage({ params }: { params: Promise<{ id: st
                 <dt className="text-sm font-medium text-muted-foreground">Category</dt>
                 <dd className="mt-1">
                   <Badge
-                    style={{
-                      backgroundColor: getCategoryColor(expense.category),
-                      color: ['Transportation', 'Other'].includes(expense.category) ? 'black' : 'white',
-                    }}
+                    style={getInstrumentBadgeStyle(getCategoryColor(expense.category))}
                   >
                     {expense.category}
                   </Badge>
@@ -183,10 +180,7 @@ export default function ExpenseDetailPage({ params }: { params: Promise<{ id: st
                 <dt className="text-sm font-medium text-muted-foreground">Frequency</dt>
                 <dd className="mt-1">
                   <Badge
-                    style={{
-                      backgroundColor: getFrequencyColor(expense.frequency),
-                      color: 'black',
-                    }}
+                    style={getInstrumentBadgeStyle(getFrequencyColor(expense.frequency))}
                   >
                     {formatFrequency(expense.frequency)}
                   </Badge>

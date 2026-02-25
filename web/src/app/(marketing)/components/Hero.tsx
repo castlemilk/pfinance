@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Sparkles, TrendingUp, PiggyBank, CreditCard } from 'lucide-react';
 import { RoughNotation } from 'react-rough-notation';
 import dynamic from 'next/dynamic';
+import { SkeuButton } from '@/components/ui/skeu-button';
 
 const WebGLStars = dynamic(() => import('./WebGLStars'), { ssr: false });
 
@@ -95,20 +96,15 @@ export default function Hero() {
               className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
             >
               <Link href="/personal/income/">
-                <button className="skeu-button px-8 py-3 text-base font-semibold rounded-xl flex items-center gap-2 group">
+                <SkeuButton size="lg" className="text-base group">
                   Get Started Free
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </button>
+                </SkeuButton>
               </Link>
               <Link href="#features">
-                <button
-                  className="px-8 py-3 text-base font-medium rounded-xl border border-border bg-card/80 hover:bg-muted/80 transition-all duration-200"
-                  style={{
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.06), inset 0 1px 0 color-mix(in oklch, white 10%, transparent)',
-                  }}
-                >
+                <SkeuButton variant="outline" size="lg" className="text-base">
                   See How It Works
-                </button>
+                </SkeuButton>
               </Link>
             </motion.div>
 

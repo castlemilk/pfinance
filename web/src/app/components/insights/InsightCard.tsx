@@ -25,51 +25,51 @@ export default function InsightCard({ insight, compact = false }: InsightCardPro
       case InsightType.SPENDING_INCREASE:
         return {
           icon: TrendingUp,
-          color: 'text-red-500',
-          bgColor: 'bg-red-500/10',
-          borderColor: 'border-red-500/20',
+          color: 'text-[#D16A47]',
+          bgColor: 'bg-[#D16A47]/10',
+          borderColor: 'border-[#D16A47]/20',
         };
       case InsightType.SPENDING_DECREASE:
         return {
           icon: TrendingDown,
-          color: 'text-green-500',
-          bgColor: 'bg-green-500/10',
-          borderColor: 'border-green-500/20',
+          color: 'text-[#87A96B]',
+          bgColor: 'bg-[#87A96B]/10',
+          borderColor: 'border-[#87A96B]/20',
         };
       case InsightType.UNUSUAL_TRANSACTION:
         return {
           icon: AlertTriangle,
-          color: 'text-orange-500',
-          bgColor: 'bg-orange-500/10',
-          borderColor: 'border-orange-500/20',
+          color: 'text-[#E07E50]',
+          bgColor: 'bg-[#E07E50]/10',
+          borderColor: 'border-[#E07E50]/20',
         };
       case InsightType.CATEGORY_TREND:
         return {
           icon: DollarSign,
-          color: 'text-blue-500',
-          bgColor: 'bg-blue-500/10',
-          borderColor: 'border-blue-500/20',
+          color: 'text-[#C4A35A]',
+          bgColor: 'bg-[#C4A35A]/10',
+          borderColor: 'border-[#C4A35A]/20',
         };
       case InsightType.SAVINGS_TIP:
         return {
           icon: Lightbulb,
-          color: 'text-yellow-500',
-          bgColor: 'bg-yellow-500/10',
-          borderColor: 'border-yellow-500/20',
+          color: 'text-[#FFA94D]',
+          bgColor: 'bg-[#FFA94D]/10',
+          borderColor: 'border-[#FFA94D]/20',
         };
       case InsightType.BUDGET_WARNING:
         return {
           icon: AlertTriangle,
-          color: 'text-red-500',
-          bgColor: 'bg-red-500/10',
-          borderColor: 'border-red-500/20',
+          color: 'text-[#D16A47]',
+          bgColor: 'bg-[#D16A47]/10',
+          borderColor: 'border-[#D16A47]/20',
         };
       case InsightType.GOAL_PROGRESS:
         return {
           icon: Target,
-          color: 'text-purple-500',
-          bgColor: 'bg-purple-500/10',
-          borderColor: 'border-purple-500/20',
+          color: 'text-[#87A96B]',
+          bgColor: 'bg-[#87A96B]/10',
+          borderColor: 'border-[#87A96B]/20',
         };
       default:
         return {
@@ -111,7 +111,7 @@ export default function InsightCard({ insight, compact = false }: InsightCardPro
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate">{insight.title}</p>
           {insight.changePercent !== 0 && (
-            <div className={`flex items-center gap-1 text-xs ${insight.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+            <div className={`flex items-center gap-1 text-xs ${insight.isPositive ? 'text-[#87A96B]' : 'text-[#D16A47]'}`}>
               {insight.changePercent > 0 ? (
                 <ArrowUpRight className="h-3 w-3" />
               ) : (
@@ -141,9 +141,9 @@ export default function InsightCard({ insight, compact = false }: InsightCardPro
             <div className="flex items-start justify-between">
               <h4 className="font-semibold">{insight.title}</h4>
               {insight.isPositive ? (
-                <Badge className="bg-green-500/20 text-green-600 border-green-500/30">Good</Badge>
+                <Badge className="bg-[#87A96B]/15 text-[#87A96B] border border-[#87A96B]/30" style={{ textShadow: '0 0 6px #87A96B30' }}>Good</Badge>
               ) : (
-                <Badge variant="outline" className="text-orange-500 border-orange-500/30">Attention</Badge>
+                <Badge variant="outline" className="text-[#D16A47] border-[#D16A47]/30 bg-[#D16A47]/10" style={{ textShadow: '0 0 6px #D16A4730' }}>Attention</Badge>
               )}
             </div>
 
@@ -158,7 +158,7 @@ export default function InsightCard({ insight, compact = false }: InsightCardPro
               )}
 
               {insight.changePercent !== 0 && (
-                <div className={`flex items-center gap-1 text-sm ${insight.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                <div className={`flex items-center gap-1 text-sm ${insight.isPositive ? 'text-[#87A96B]' : 'text-[#D16A47]'}`}>
                   {insight.changePercent > 0 ? (
                     <ArrowUpRight className="h-4 w-4" />
                   ) : (

@@ -41,7 +41,7 @@ import { Expense, ExpenseCategory, ExpenseFrequency } from '../types';
 import { useRouter } from 'next/navigation';
 import { Pencil, Trash2, Share2, X, CalendarDays } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { getCategoryColor, getFrequencyColor } from '../constants/theme';
+import { getCategoryColor, getFrequencyColor, getInstrumentBadgeStyle } from '../constants/theme';
 import ContributeExpenseModal from './ContributeExpenseModal';
 import { useMultiUserFinance } from '../context/MultiUserFinanceContext';
 
@@ -387,19 +387,13 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
                       <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                         <Badge
                           className="text-[10px] px-1.5 py-0"
-                          style={{
-                            backgroundColor: getCategoryColor(expense.category),
-                            color: ['Transportation', 'Other'].includes(expense.category) ? 'black' : 'white'
-                          }}
+                          style={getInstrumentBadgeStyle(getCategoryColor(expense.category))}
                         >
                           {expense.category}
                         </Badge>
                         <Badge
                           className="text-[10px] px-1.5 py-0"
-                          style={{
-                            backgroundColor: getFrequencyColor(expense.frequency),
-                            color: 'black'
-                          }}
+                          style={getInstrumentBadgeStyle(getFrequencyColor(expense.frequency))}
                         >
                           {formatFrequency(expense.frequency)}
                         </Badge>
@@ -486,20 +480,14 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
                         <TableCell className="font-medium">{expense.description}</TableCell>
                         <TableCell>
                           <Badge
-                            style={{
-                              backgroundColor: getCategoryColor(expense.category),
-                              color: ['Transportation', 'Other'].includes(expense.category) ? 'black' : 'white'
-                            }}
+                            style={getInstrumentBadgeStyle(getCategoryColor(expense.category))}
                           >
                             {expense.category}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <Badge
-                            style={{
-                              backgroundColor: getFrequencyColor(expense.frequency),
-                              color: 'black'
-                            }}
+                            style={getInstrumentBadgeStyle(getFrequencyColor(expense.frequency))}
                           >
                             {formatFrequency(expense.frequency)}
                           </Badge>

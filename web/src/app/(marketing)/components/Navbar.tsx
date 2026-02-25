@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Wallet, ChevronRight } from 'lucide-react';
+import { Menu, X, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SkeuButton } from '@/components/ui/skeu-button';
 import { ThemeToggle } from '@/app/components/ThemeToggle';
 import { cn } from '@/lib/utils';
 
@@ -36,15 +38,13 @@ export default function Navbar() {
           {/* Logo - embossed */}
           <Link href="/" className="flex items-center gap-2 group">
             <div className="relative">
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300"
-                style={{
-                  background: 'linear-gradient(135deg, var(--primary), var(--chart-2))',
-                  boxShadow: 'inset 0 -2px 3px rgba(0,0,0,0.15), inset 0 1px 1px rgba(255,255,255,0.3), 0 2px 6px rgba(0,0,0,0.15)',
-                }}
-              >
-                <Wallet className="w-4 h-4 text-primary-foreground" />
-              </div>
+              <Image
+                src="/logo.png"
+                alt="PFinance Logo"
+                width={32}
+                height={32}
+                className="rounded-lg group-hover:scale-105 transition-transform duration-300"
+              />
               {/* Glow effect on hover */}
               <div className="absolute inset-0 rounded-lg bg-primary/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </div>
@@ -79,10 +79,10 @@ export default function Navbar() {
               </Button>
             </Link>
             <Link href="/personal/">
-              <button className="skeu-button px-4 py-2 text-sm font-semibold rounded-lg flex items-center gap-1 group">
+              <SkeuButton size="sm" className="group">
                 Get Started
                 <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-              </button>
+              </SkeuButton>
             </Link>
           </div>
 
@@ -161,9 +161,9 @@ export default function Navbar() {
                     </Button>
                   </Link>
                   <Link href="/personal/" className="block">
-                    <button className="w-full skeu-button px-4 py-2.5 rounded-lg font-semibold text-sm">
+                    <SkeuButton className="w-full">
                       Get Started Free
-                    </button>
+                    </SkeuButton>
                   </Link>
                 </motion.div>
               </div>

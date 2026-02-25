@@ -240,22 +240,22 @@ export default function SidebarNav() {
           <Link href="/personal">
             <Button
               variant={isPersonal ? 'default' : 'ghost'}
-              className="w-full justify-center gap-1.5 px-2"
+              className="w-full justify-center gap-1.5 px-3"
               size="sm"
             >
               <User className="w-4 h-4 shrink-0" />
-              <span className="truncate">Personal</span>
+              <span className="text-sm whitespace-nowrap">Personal</span>
             </Button>
           </Link>
           <Link href="/shared">
             <Button
               variant={isShared ? 'default' : 'ghost'}
-              className="w-full justify-center gap-1.5 px-2"
+              className="w-full justify-center gap-1.5 px-3"
               size="sm"
               disabled={!loading && !user}
             >
               <Users className="w-4 h-4 shrink-0" />
-              <span className="truncate">Shared</span>
+              <span className="text-sm whitespace-nowrap">Shared</span>
             </Button>
           </Link>
         </div>

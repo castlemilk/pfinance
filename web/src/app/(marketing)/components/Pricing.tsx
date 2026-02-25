@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Check, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SkeuButton } from '@/components/ui/skeu-button';
+import { SkeuToggle } from '@/components/ui/skeu-toggle';
 
 const plans = [
   {
@@ -89,27 +91,11 @@ export default function Pricing() {
           <span className={cn('text-sm font-medium', !isAnnual ? 'text-foreground' : 'text-muted-foreground')}>
             Monthly
           </span>
-          {/* Rocker switch */}
-          <button
-            onClick={() => setIsAnnual(!isAnnual)}
-            className="relative w-16 h-8 rounded-full transition-colors duration-300"
-            style={{
-              background: isAnnual
-                ? 'linear-gradient(180deg, color-mix(in oklch, var(--primary) 100%, black 15%) 0%, var(--primary) 100%)'
-                : 'linear-gradient(180deg, color-mix(in oklch, var(--muted) 100%, black 10%) 0%, var(--muted) 100%)',
-              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.15), inset 0 -1px 0 color-mix(in oklch, white 10%, transparent), 0 1px 0 color-mix(in oklch, white 8%, transparent)',
-            }}
-          >
-            <motion.div
-              animate={{ x: isAnnual ? 32 : 4 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              className="absolute top-1 w-6 h-6 rounded-full"
-              style={{
-                background: 'linear-gradient(180deg, #ffffff 0%, #e8e8e8 100%)',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.8)',
-              }}
-            />
-          </button>
+          <SkeuToggle
+            checked={isAnnual}
+            onCheckedChange={setIsAnnual}
+            variant="primary"
+          />
           <span className={cn('text-sm font-medium', isAnnual ? 'text-foreground' : 'text-muted-foreground')}>
             Annual
             <span className="ml-1.5 text-xs text-primary font-semibold">Save 22%</span>
@@ -183,20 +169,13 @@ export default function Pricing() {
 
               {/* CTA - Skeuomorphic button */}
               <Link href={plan.popular ? '/personal/billing/' : '/personal/'} className="block mb-8">
-                {plan.popular ? (
-                  <button className="w-full skeu-button px-6 py-3 rounded-xl font-semibold text-sm">
-                    {plan.cta}
-                  </button>
-                ) : (
-                  <button
-                    className="w-full px-6 py-3 rounded-xl font-semibold text-sm border-2 border-border hover:bg-muted transition-all"
-                    style={{
-                      boxShadow: 'inset 0 1px 0 color-mix(in oklch, white 12%, transparent), 0 2px 4px rgba(0,0,0,0.06)',
-                    }}
-                  >
-                    {plan.cta}
-                  </button>
-                )}
+                <SkeuButton
+                  variant={plan.popular ? 'primary' : 'outline'}
+                  size="lg"
+                  className="w-full"
+                >
+                  {plan.cta}
+                </SkeuButton>
               </Link>
 
               {/* Features - embossed checkmarks */}

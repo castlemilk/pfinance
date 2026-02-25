@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles } from 'lucide-react';
+import { SkeuButton } from '@/components/ui/skeu-button';
 
 export default function CTASection() {
   return (
@@ -87,10 +88,10 @@ export default function CTASection() {
               className="absolute -inset-4 bg-primary/20 rounded-2xl blur-xl"
             />
             <Link href="/personal/income/">
-              <button className="relative skeu-button px-10 py-4 text-lg font-bold rounded-xl flex items-center gap-3 group">
+              <SkeuButton variant="primary" size="lg" className="text-lg px-10 py-4 h-auto group">
                 Get Started Free
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </button>
+              </SkeuButton>
             </Link>
           </motion.div>
 

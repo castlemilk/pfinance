@@ -23,28 +23,28 @@ const quickActions: QuickAction[] = [
     description: 'Track salary and earnings',
     href: '/personal/income/',
     icon: <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6" />,
-    color: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
+    color: 'bg-[#87A96B]/10 text-[#87A96B]',
   },
   {
     title: 'Add Expense',
     description: 'Log your spending',
     href: '/personal/expenses',
     icon: <Receipt className="h-5 w-5 sm:h-6 sm:w-6" />,
-    color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+    color: 'bg-[#FFA94D]/10 text-[#FFA94D]',
   },
   {
     title: 'View Reports',
     description: 'Analyze your finances',
     href: '/personal/reports',
     icon: <FileText className="h-5 w-5 sm:h-6 sm:w-6" />,
-    color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
+    color: 'bg-[#C4A35A]/10 text-[#C4A35A]',
   },
   {
     title: 'Settings',
     description: 'Manage preferences',
     href: '/personal/settings',
     icon: <Settings className="h-5 w-5 sm:h-6 sm:w-6" />,
-    color: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
+    color: 'bg-[#8B8378]/10 text-[#8B8378]',
   },
 ];
 

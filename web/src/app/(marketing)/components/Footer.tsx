@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Wallet, Github, Twitter, Linkedin } from 'lucide-react';
+import Image from 'next/image';
+import { Github, Twitter, Linkedin } from 'lucide-react';
 
 const footerLinks = {
   product: [
@@ -44,15 +45,13 @@ export default function Footer() {
           {/* Brand Column */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{
-                  background: 'linear-gradient(135deg, var(--primary), var(--chart-2))',
-                  boxShadow: 'inset 0 -2px 3px rgba(0,0,0,0.15), inset 0 1px 1px rgba(255,255,255,0.3), 0 2px 6px rgba(0,0,0,0.12)',
-                }}
-              >
-                <Wallet className="w-4 h-4 text-primary-foreground" />
-              </div>
+              <Image
+                src="/logo.png"
+                alt="PFinance Logo"
+                width={32}
+                height={32}
+                className="rounded-lg"
+              />
               <span className="text-lg font-bold skeu-emboss">
                 <span className="text-foreground">P</span>
                 <span className="text-primary">Finance</span>

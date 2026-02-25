@@ -65,21 +65,21 @@ export default function GroupExpenseList({ }: GroupExpenseListProps) {
     }).format(amount);
   };
 
-  const getCategoryColor = (category: ExpenseCategory): string => {
+  const getCategoryHex = (category: ExpenseCategory): string => {
     // Amber Terminal Glow palette - retro earth tones
     const colors: { [key in ExpenseCategory]?: string } = {
-      [ExpenseCategory.FOOD]: 'bg-amber-500',          // Warm amber
-      [ExpenseCategory.HOUSING]: 'bg-[#87A96B]',       // Avocado green
-      [ExpenseCategory.TRANSPORTATION]: 'bg-[#A0C080]', // Sage green
-      [ExpenseCategory.ENTERTAINMENT]: 'bg-[#E07E50]', // Tawny orange
-      [ExpenseCategory.HEALTHCARE]: 'bg-[#D16A47]',    // Rust red
-      [ExpenseCategory.UTILITIES]: 'bg-[#C4956A]',     // Tan
-      [ExpenseCategory.SHOPPING]: 'bg-[#B8A88A]',      // Sand
-      [ExpenseCategory.EDUCATION]: 'bg-[#8B7355]',     // Coffee brown
-      [ExpenseCategory.TRAVEL]: 'bg-[#6B8E6B]',        // Forest olive
-      [ExpenseCategory.OTHER]: 'bg-[#9A7B4F]',         // Sienna
+      [ExpenseCategory.FOOD]: '#FFA94D',          // Warm amber
+      [ExpenseCategory.HOUSING]: '#87A96B',       // Avocado green
+      [ExpenseCategory.TRANSPORTATION]: '#D16A47', // Rust
+      [ExpenseCategory.ENTERTAINMENT]: '#E07E50', // Tawny orange
+      [ExpenseCategory.HEALTHCARE]: '#A0C080',    // Sage green
+      [ExpenseCategory.UTILITIES]: '#C4A35A',     // Golden tan
+      [ExpenseCategory.SHOPPING]: '#B8860B',      // Dark goldenrod
+      [ExpenseCategory.EDUCATION]: '#8B7355',     // Warm brown
+      [ExpenseCategory.TRAVEL]: '#6B8E23',        // Olive drab
+      [ExpenseCategory.OTHER]: '#8B8378',         // Warm gray
     };
-    return colors[category] || 'bg-[#9A7B4F]';
+    return colors[category] || '#8B8378';
   };
 
   const getCategoryLabel = (category: ExpenseCategory): string => {
@@ -190,7 +190,12 @@ export default function GroupExpenseList({ }: GroupExpenseListProps) {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <span>{expense.description}</span>
-                        <Badge className={getCategoryColor(expense.category)} variant="secondary">
+                        <Badge variant="secondary" style={{
+                          backgroundColor: getCategoryHex(expense.category) + '15',
+                          color: getCategoryHex(expense.category),
+                          border: `1px solid ${getCategoryHex(expense.category)}40`,
+                          textShadow: `0 0 6px ${getCategoryHex(expense.category)}30`,
+                        }}>
                           {getCategoryLabel(expense.category)}
                         </Badge>
                       </div>

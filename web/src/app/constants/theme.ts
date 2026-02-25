@@ -1,25 +1,26 @@
+import type React from 'react';
 import { ExpenseCategory } from '../types';
 
-// Category colors for visualizations
+// Category colors for visualizations — warm retro palette
 export const categoryColors = [
-  '#0EA5E9', // Blue
-  '#10B981', // Green
-  '#F59E0B', // Yellow
-  '#EF4444', // Red
-  '#8B5CF6', // Purple
-  '#EC4899', // Pink
-  '#F97316', // Orange
-  '#6366F1', // Indigo
-  '#14B8A6', // Teal
-  '#6B7280', // Gray
+  '#FFA94D', // Amber (Food)
+  '#87A96B', // Avocado green (Housing)
+  '#D16A47', // Rust (Transportation)
+  '#E07E50', // Tawny orange (Entertainment)
+  '#A0C080', // Sage green (Healthcare)
+  '#C4A35A', // Golden tan (Utilities)
+  '#B8860B', // Dark goldenrod (Shopping)
+  '#8B7355', // Warm brown (Education)
+  '#6B8E23', // Olive drab (Travel)
+  '#8B8378', // Warm gray (Other)
 ];
 
-// Frequency colors - more muted/pastel palette to distinguish from categories
+// Frequency colors - warm muted palette to distinguish from categories
 export const frequencyColors = {
-  weekly: '#94A3B8',    // Slate-400 - muted blue-gray
-  fortnightly: '#A78BFA', // Violet-400 - soft purple
-  monthly: '#2DD4BF',   // Teal-400 - soft teal
-  annually: '#4ADE80',  // Green-400 - soft green
+  weekly: '#A0956B',    // Warm khaki
+  fortnightly: '#B8956B', // Tan
+  monthly: '#C4A35A',   // Golden
+  annually: '#87A96B',  // Sage
 };
 
 // Map expense categories to specific colors
@@ -117,4 +118,16 @@ function getCategoryIndex(category: ExpenseCategory): number {
 // Keep the old functions for backward compatibility until all components are updated
 export const getCategoryBadgeVariant = getCategoryColorClass;
 export const getSourceBadgeVariant = getSourceColorClass;
-export const getFrequencyBadgeVariant = getFrequencyColorClass; 
+export const getFrequencyBadgeVariant = getFrequencyColorClass;
+
+/**
+ * Dark instrument-panel badge style for a given hex color.
+ * Returns a CSSProperties object with dark tinted bg, colored text/border, soft glow.
+ */
+export const getInstrumentBadgeStyle = (hexColor: string): React.CSSProperties => ({
+  backgroundColor: hexColor + '15',
+  color: hexColor,
+  border: `1px solid ${hexColor}40`,
+  textShadow: `0 0 6px ${hexColor}30`,
+  boxShadow: `0 0 4px ${hexColor}12, inset 0 0 4px ${hexColor}08`,
+}); 
