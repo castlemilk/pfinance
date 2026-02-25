@@ -6,29 +6,32 @@ import { buildSystemPrompt } from '@/lib/chat/system-prompt';
 import { getAuth } from 'firebase-admin/auth';
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
 
+// The canonical Firebase project ID for this app.
+const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'pfinance-app-1748773335';
+
 // Initialize Firebase Admin SDK (once).
-// Prefers a full service account credential when available.
-// Falls back to project-ID-only initialization — sufficient for verifyIdToken
-// which uses Google's public keys and only needs the project ID for claim validation.
+// Uses a service account credential if it matches our project, otherwise
+// falls back to project-ID-only init (sufficient for verifyIdToken).
 function getFirebaseAdmin() {
   if (getApps().length > 0) return;
 
-  // Option 1: full service account JSON (most capable)
+  // Option 1: full service account JSON — only if it matches our project
   const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
   if (serviceAccount) {
     try {
       const parsed = JSON.parse(serviceAccount);
-      initializeApp({ credential: cert(parsed) });
-      return;
+      if (parsed.project_id === FIREBASE_PROJECT_ID) {
+        initializeApp({ credential: cert(parsed) });
+        return;
+      }
+      console.warn(`[Chat API] FIREBASE_SERVICE_ACCOUNT is for project "${parsed.project_id}", expected "${FIREBASE_PROJECT_ID}". Ignoring.`);
     } catch {
       // Invalid JSON — fall through
     }
   }
 
-  // Option 2: project ID only (works on Vercel without a service account)
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
-    || process.env.GOOGLE_CLOUD_PROJECT;
-  initializeApp(projectId ? { projectId } : undefined);
+  // Option 2: project ID only (works on Vercel without a matching service account)
+  initializeApp({ projectId: FIREBASE_PROJECT_ID });
 }
 
 // Truncate message history to avoid sending excessive context to the model.
@@ -65,18 +68,8 @@ export async function POST(request: Request) {
       userId = decodedToken.uid;
       isPro = decodedToken.subscription_tier === 'PRO' && decodedToken.subscription_status === 'ACTIVE';
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      const errCode = (err as { code?: string }).code || 'unknown';
-      console.error('[Chat API] Token verification failed:', errMsg);
-      return new Response(JSON.stringify({
-        error: 'Invalid authentication token',
-        debug: {
-          code: errCode,
-          message: errMsg,
-          hasProjectId: !!(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT),
-          hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
-        },
-      }), {
+      console.error('[Chat API] Token verification failed:', err);
+      return new Response(JSON.stringify({ error: 'Invalid authentication token' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       });
