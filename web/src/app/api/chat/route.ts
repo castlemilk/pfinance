@@ -65,8 +65,18 @@ export async function POST(request: Request) {
       userId = decodedToken.uid;
       isPro = decodedToken.subscription_tier === 'PRO' && decodedToken.subscription_status === 'ACTIVE';
     } catch (err) {
-      console.error('[Chat API] Token verification failed:', err);
-      return new Response(JSON.stringify({ error: 'Invalid authentication token' }), {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const errCode = (err as { code?: string }).code || 'unknown';
+      console.error('[Chat API] Token verification failed:', errMsg);
+      return new Response(JSON.stringify({
+        error: 'Invalid authentication token',
+        debug: {
+          code: errCode,
+          message: errMsg,
+          hasProjectId: !!(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT),
+          hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
+        },
+      }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       });
