@@ -7,7 +7,8 @@ import { getAuth } from 'firebase-admin/auth';
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
 
 // The canonical Firebase project ID for this app.
-const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'pfinance-app-1748773335';
+// Trim whitespace — Vercel env vars sometimes include trailing newlines.
+const FIREBASE_PROJECT_ID = (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'pfinance-app-1748773335').trim();
 
 // Initialize Firebase Admin SDK (once).
 // Uses a service account credential if it matches our project, otherwise
@@ -68,9 +69,8 @@ export async function POST(request: Request) {
       userId = decodedToken.uid;
       isPro = decodedToken.subscription_tier === 'PRO' && decodedToken.subscription_status === 'ACTIVE';
     } catch (err) {
-      const errDetail = err instanceof Error ? err.message : String(err);
-      console.error('[Chat API] Token verification failed:', errDetail);
-      return new Response(JSON.stringify({ error: 'Invalid authentication token', v: 2, detail: errDetail }), {
+      console.error('[Chat API] Token verification failed:', err);
+      return new Response(JSON.stringify({ error: 'Invalid authentication token' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       });
