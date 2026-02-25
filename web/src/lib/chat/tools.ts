@@ -9,6 +9,11 @@ function centsToDollars(cents: bigint | number): number {
   return Number(cents) / 100;
 }
 
+// Strip proto enum prefixes like "EXPENSE_CATEGORY_FOOD" → "FOOD"
+function cleanEnumName(name: string): string {
+  return name.replace(/^EXPENSE_CATEGORY_/, '').replace(/^EXPENSE_FREQUENCY_/, '');
+}
+
 // Helper to format an expense for display
 function formatExpense(e: {
   id: string;
@@ -120,7 +125,7 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
             id: r.id,
             type: r.type === 1 ? 'expense' : 'income',
             description: r.description,
-            category: r.category,
+            category: cleanEnumName(r.category),
             amount: Number(r.amountCents) !== 0 ? centsToDollars(r.amountCents) : r.amount,
             date: r.date ? timestampDate(r.date as Parameters<typeof timestampDate>[0]).toISOString().split('T')[0] : 'no date',
           }));

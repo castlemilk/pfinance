@@ -15,6 +15,11 @@ export interface ExpenseItem {
   tags?: string[];
 }
 
+// Strip proto enum prefixes for display (e.g. "EXPENSE_CATEGORY_FOOD" → "FOOD")
+function cleanCategory(cat: string): string {
+  return cat.replace(/^EXPENSE_CATEGORY_/, '').replace(/^EXPENSE_FREQUENCY_/, '');
+}
+
 interface ExpenseCardProps {
   expenses: ExpenseItem[];
   count: number;
@@ -120,9 +125,9 @@ export function ExpenseCard({
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span
                   className="text-[10px] px-1.5 py-0 rounded-full font-medium"
-                  style={getInstrumentBadgeStyle(getCategoryColor(e.category as ExpenseCategory))}
+                  style={getInstrumentBadgeStyle(getCategoryColor(cleanCategory(e.category) as ExpenseCategory))}
                 >
-                  {e.category}
+                  {cleanCategory(e.category)}
                 </span>
                 <span className="text-xs text-muted-foreground font-mono">{e.date}</span>
                 {e.tags && e.tags.length > 0 && e.tags.map(t => (

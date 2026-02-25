@@ -5,7 +5,8 @@ import type { UIMessage } from 'ai';
 import type { ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Bot, User, Copy, Check, AlertCircle } from 'lucide-react';
+import { Bot, User, Copy, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ExpenseCard } from './ExpenseCard';
 import type { ExpenseItem } from './ExpenseCard';
 import { SummaryCard } from './SummaryCard';
@@ -92,11 +93,16 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
     .map(p => p.text)
     .join('') || '';
 
-  // Extract tool parts with results (type starts with 'tool-' and has output)
-  const toolParts = (message.parts || [])
+  // Extract all tool parts
+  const allToolParts = (message.parts || [])
     .filter(p => p.type.startsWith('tool-'))
-    .map(p => p as unknown as { type: string; state: string; output: Record<string, unknown> })
-    .filter(p => p.state === 'output-available' && p.output);
+    .map(p => p as unknown as { type: string; state: string; output: Record<string, unknown>; toolName?: string });
+
+  // Tools with results ready
+  const toolParts = allToolParts.filter(p => p.state === 'output-available' && p.output);
+
+  // Count pending tool calls (invoked but no output yet) for skeleton placeholders
+  const pendingToolCount = allToolParts.filter(p => p.state !== 'output-available').length;
 
   // MISS-04: copy assistant text to clipboard
   const handleCopy = useCallback(async () => {
@@ -360,7 +366,7 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
     }
   }
 
-  const hasToolCards = confirmationCards.length > 0 || dataCards.length > 0 || errorCards.length > 0;
+  const hasToolCards = confirmationCards.length > 0 || dataCards.length > 0 || errorCards.length > 0 || pendingToolCount > 0;
 
   return (
     <div className={cn('group flex gap-2.5', isUser ? 'flex-row-reverse' : 'flex-row')}>
@@ -437,6 +443,36 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
           >
             {dataCards.map((card, i) => (
               <div key={`dw-${i}`} className="chat-tool-card min-w-0">{card}</div>
+            ))}
+          </div>
+        )}
+
+        {/* Skeleton placeholders for pending tool calls */}
+        {pendingToolCount > 0 && (
+          <div className="w-full space-y-2">
+            {Array.from({ length: pendingToolCount }).map((_, i) => (
+              <div key={`skel-${i}`} className="chat-tool-card overflow-hidden rounded-lg">
+                {/* Header skeleton */}
+                <div className="px-3 py-2 border-b border-primary/10 bg-muted/20 flex items-center justify-between">
+                  <Skeleton className="h-3.5 w-20" />
+                  <Skeleton className="h-3.5 w-16" />
+                </div>
+                {/* Row skeletons */}
+                <div className="divide-y divide-primary/5">
+                  {[1, 2, 3].map((row) => (
+                    <div key={row} className="px-3 py-2 flex items-center justify-between gap-2">
+                      <div className="flex-1 space-y-1.5">
+                        <Skeleton className="h-3.5 w-3/4" />
+                        <div className="flex items-center gap-1.5">
+                          <Skeleton className="h-3 w-12 rounded-full" />
+                          <Skeleton className="h-3 w-16" />
+                        </div>
+                      </div>
+                      <Skeleton className="h-4 w-14" />
+                    </div>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         )}

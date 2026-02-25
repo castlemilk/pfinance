@@ -36,13 +36,37 @@ function getFirebaseAdmin() {
 }
 
 // Truncate message history to avoid sending excessive context to the model.
-// Keep the first message (often sets context) and the most recent messages.
+// Preserves tool-call/tool-result message pairs to avoid "Tool results are missing" errors.
 const MAX_HISTORY_MESSAGES = 40;
 
 function truncateMessages(messages: UIMessage[]): UIMessage[] {
   if (messages.length <= MAX_HISTORY_MESSAGES) return messages;
-  // Keep first message + last (MAX - 1) messages
-  return [messages[0], ...messages.slice(-(MAX_HISTORY_MESSAGES - 1))];
+
+  // Keep the most recent messages, but ensure we don't split tool-call/result pairs.
+  // Assistant messages with tool-invocation parts must be followed by their result messages.
+  // Strategy: take last N messages, then walk backward to find a safe cut point where
+  // no assistant tool-call message is orphaned from its results.
+  const cutIndex = messages.length - MAX_HISTORY_MESSAGES;
+
+  // Walk forward from the cut point to find a safe boundary:
+  // - Skip past any assistant message that has tool invocations (its results follow it)
+  let safeCut = cutIndex;
+  for (let i = cutIndex; i < messages.length; i++) {
+    const msg = messages[i];
+    // If this is an assistant message with tool parts, its results are in subsequent messages.
+    // Skip past it so we don't orphan tool calls.
+    const hasToolParts = msg.role === 'assistant' && msg.parts?.some(
+      (p) => p.type === 'tool-invocation'
+    );
+    if (hasToolParts) {
+      safeCut = i + 1;
+    } else {
+      // Found a safe boundary (user message or assistant text-only message)
+      break;
+    }
+  }
+
+  return messages.slice(safeCut);
 }
 
 export async function POST(request: Request) {
