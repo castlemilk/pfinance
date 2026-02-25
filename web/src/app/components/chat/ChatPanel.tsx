@@ -69,7 +69,7 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
     setMessages,
     error,
   } = useChat({
-    id: activeConversationId || undefined,
+    id: 'main', // Stable ID — we manage conversation switching via setMessages, not useChat sessions
     transport: new DefaultChatTransport({
       api: '/api/chat',
       headers: getHeaders,
