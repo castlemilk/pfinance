@@ -82,7 +82,16 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
             pageSize: Math.min(args.pageSize || 20, 50),
           });
           const expenses = res.expenses.map(formatExpense);
-          return { expenses, count: expenses.length, hasMore: !!res.nextPageToken };
+          const pageSize = Math.min(args.pageSize || 20, 50);
+          return {
+            expenses,
+            count: expenses.length,
+            hasMore: !!res.nextPageToken,
+            ...(res.nextPageToken ? {
+              nextPageToken: res.nextPageToken,
+              _loadMoreParams: { startDate: args.startDate, endDate: args.endDate, pageSize },
+            } : {}),
+          };
         } catch (err: unknown) {
           return { error: String(err) };
         }
@@ -115,7 +124,15 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
             amount: Number(r.amountCents) !== 0 ? centsToDollars(r.amountCents) : r.amount,
             date: r.date ? timestampDate(r.date as Parameters<typeof timestampDate>[0]).toISOString().split('T')[0] : 'no date',
           }));
-          return { results, count: results.length };
+          return {
+            results,
+            count: results.length,
+            hasMore: !!res.nextPageToken,
+            ...(res.nextPageToken ? {
+              nextPageToken: res.nextPageToken,
+              _loadMoreParams: { query: args.query, category: args.category, amountMin: args.amountMin, amountMax: args.amountMax },
+            } : {}),
+          };
         } catch (err: unknown) {
           return { error: String(err) };
         }
@@ -202,7 +219,15 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
             pageSize: 20,
           });
           const incomes = res.incomes.map(formatIncome);
-          return { incomes, count: incomes.length };
+          return {
+            incomes,
+            count: incomes.length,
+            hasMore: !!res.nextPageToken,
+            ...(res.nextPageToken ? {
+              nextPageToken: res.nextPageToken,
+              _loadMoreParams: { startDate: args.startDate, endDate: args.endDate },
+            } : {}),
+          };
         } catch (err: unknown) {
           return { error: String(err) };
         }

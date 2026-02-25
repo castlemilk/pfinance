@@ -1,14 +1,78 @@
 'use client';
 
+import { useCallback } from 'react';
 import type { UIMessage } from 'ai';
 import type { ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Bot, User } from 'lucide-react';
 import { ExpenseCard } from './ExpenseCard';
+import type { ExpenseItem } from './ExpenseCard';
 import { SummaryCard } from './SummaryCard';
 import { ConfirmationCard } from './ConfirmationCard';
 import { cn } from '@/lib/utils';
+import { financeClient } from '@/lib/financeService';
+import { timestampFromDate, timestampDate } from '@bufbuild/protobuf/wkt';
+import { ExpenseCategory, ExpenseFrequency } from '@/gen/pfinance/v1/types_pb';
+
+// Format a proto Expense into an ExpenseItem for the card
+function formatProtoExpense(e: {
+  id: string;
+  description: string;
+  amount: number;
+  amountCents: bigint;
+  category: number;
+  date?: { seconds: bigint; nanos: number };
+  tags: string[];
+}): ExpenseItem {
+  const amount = Number(e.amountCents) !== 0 ? Number(e.amountCents) / 100 : e.amount;
+  return {
+    id: e.id,
+    description: e.description,
+    amount,
+    category: ExpenseCategory[e.category] || 'UNKNOWN',
+    date: e.date ? timestampDate(e.date as Parameters<typeof timestampDate>[0]).toISOString().split('T')[0] : 'no date',
+    tags: [...e.tags],
+  };
+}
+
+// Format a proto Income into an ExpenseItem for the card
+function formatProtoIncome(inc: {
+  id: string;
+  source: string;
+  amount: number;
+  amountCents: bigint;
+  frequency: number;
+  date?: { seconds: bigint; nanos: number };
+}): ExpenseItem {
+  const amount = Number(inc.amountCents) !== 0 ? Number(inc.amountCents) / 100 : inc.amount;
+  return {
+    id: inc.id,
+    description: inc.source,
+    amount,
+    category: ExpenseFrequency[inc.frequency] || 'UNKNOWN',
+    date: inc.date ? timestampDate(inc.date as Parameters<typeof timestampDate>[0]).toISOString().split('T')[0] : 'no date',
+  };
+}
+
+// Format a proto SearchResult into an ExpenseItem
+function formatProtoSearchResult(r: {
+  id: string;
+  description: string;
+  category: string;
+  amount: number;
+  amountCents: bigint;
+  date?: { seconds: bigint; nanos: number };
+}): ExpenseItem {
+  const amount = Number(r.amountCents) !== 0 ? Number(r.amountCents) / 100 : r.amount;
+  return {
+    id: r.id,
+    description: r.description,
+    amount,
+    category: r.category,
+    date: r.date ? timestampDate(r.date as Parameters<typeof timestampDate>[0]).toISOString().split('T')[0] : 'no date',
+  };
+}
 
 interface ChatMessageProps {
   message: UIMessage;
@@ -31,6 +95,57 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
     .filter(p => p.type.startsWith('tool-'))
     .map(p => p as unknown as { type: string; state: string; output: Record<string, unknown> })
     .filter(p => p.state === 'output-available' && p.output);
+
+  // Create stable load-more callbacks for each pagination type
+  const createExpensePaginator = useCallback((params: { startDate?: string; endDate?: string; pageSize?: number }) => {
+    return async (pageToken: string): Promise<{ items: ExpenseItem[]; nextPageToken?: string }> => {
+      const res = await financeClient.listExpenses({
+        userId: '',
+        startDate: params.startDate ? timestampFromDate(new Date(params.startDate)) : undefined,
+        endDate: params.endDate ? timestampFromDate(new Date(params.endDate)) : undefined,
+        pageSize: params.pageSize || 20,
+        pageToken,
+      });
+      return {
+        items: res.expenses.map(e => formatProtoExpense(e as Parameters<typeof formatProtoExpense>[0])),
+        nextPageToken: res.nextPageToken || undefined,
+      };
+    };
+  }, []);
+
+  const createSearchPaginator = useCallback((params: { query?: string; category?: string; amountMin?: number; amountMax?: number }) => {
+    return async (pageToken: string): Promise<{ items: ExpenseItem[]; nextPageToken?: string }> => {
+      const res = await financeClient.searchTransactions({
+        userId: '',
+        query: params.query || '',
+        category: params.category || '',
+        amountMin: params.amountMin || 0,
+        amountMax: params.amountMax || 0,
+        pageSize: 20,
+        pageToken,
+      });
+      return {
+        items: res.results.map(r => formatProtoSearchResult(r as Parameters<typeof formatProtoSearchResult>[0])),
+        nextPageToken: res.nextPageToken || undefined,
+      };
+    };
+  }, []);
+
+  const createIncomePaginator = useCallback((params: { startDate?: string; endDate?: string }) => {
+    return async (pageToken: string): Promise<{ items: ExpenseItem[]; nextPageToken?: string }> => {
+      const res = await financeClient.listIncomes({
+        userId: '',
+        startDate: params.startDate ? timestampFromDate(new Date(params.startDate)) : undefined,
+        endDate: params.endDate ? timestampFromDate(new Date(params.endDate)) : undefined,
+        pageSize: 20,
+        pageToken,
+      });
+      return {
+        items: res.incomes.map(inc => formatProtoIncome(inc as Parameters<typeof formatProtoIncome>[0])),
+        nextPageToken: res.nextPageToken || undefined,
+      };
+    };
+  }, []);
 
   // Deduplicate and categorize tool results
   const seen = new Set<string>();
@@ -59,7 +174,6 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
           changes={result.changes as Record<string, { from: unknown; to: unknown }> | undefined}
           duplicates={result.duplicates as Array<{ description: string; amount: number; date: string; matchScore: number; matchReason: string }> | undefined}
           duplicateWarning={result.duplicateWarning as string | undefined}
-          // P1-1 fix: pass disabled prop for historical conversations
           disabled={isHistorical}
           onConfirm={() => onConfirm('Yes, proceed with the operation.')}
           onCancel={() => onCancel('Cancel, do not proceed.')}
@@ -71,14 +185,23 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
     // Handle success messages — let the model summarize in text
     if (result.status === 'success') continue;
 
+    // Extract pagination metadata (added by tools when more pages exist)
+    const nextPageToken = result.nextPageToken as string | undefined;
+    const loadMoreParams = result._loadMoreParams as Record<string, unknown> | undefined;
+
     // Handle expense list results
     if (result.expenses && Array.isArray(result.expenses)) {
+      const onLoadMore = nextPageToken && loadMoreParams
+        ? createExpensePaginator(loadMoreParams as { startDate?: string; endDate?: string; pageSize?: number })
+        : undefined;
       dataCards.push(
         <ExpenseCard
           key={`data-${i}`}
           expenses={result.expenses as Array<{ id: string; description: string; amount: number; category: string; date: string; tags?: string[] }>}
           count={(result.count as number) || (result.expenses as unknown[]).length}
           hasMore={result.hasMore as boolean | undefined}
+          nextPageToken={nextPageToken}
+          onLoadMore={onLoadMore}
         />
       );
       continue;
@@ -94,11 +217,17 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
         date: r.date as string,
         tags: [] as string[],
       }));
+      const onLoadMore = nextPageToken && loadMoreParams
+        ? createSearchPaginator(loadMoreParams as { query?: string; category?: string; amountMin?: number; amountMax?: number })
+        : undefined;
       dataCards.push(
         <ExpenseCard
           key={`data-${i}`}
           expenses={expenseLike}
           count={(result.count as number) || (result.results as unknown[]).length}
+          hasMore={result.hasMore as boolean | undefined}
+          nextPageToken={nextPageToken}
+          onLoadMore={onLoadMore}
         />
       );
       continue;
@@ -138,12 +267,18 @@ export function ChatMessage({ message, onConfirm, onCancel, isHistorical = false
         date: inc.date as string,
         tags: [] as string[],
       }));
+      const onLoadMore = nextPageToken && loadMoreParams
+        ? createIncomePaginator(loadMoreParams as { startDate?: string; endDate?: string })
+        : undefined;
       dataCards.push(
         <ExpenseCard
           key={`data-${i}`}
           expenses={incomeLike}
           count={(result.count as number) || (result.incomes as unknown[]).length}
+          hasMore={result.hasMore as boolean | undefined}
           itemType="income"
+          nextPageToken={nextPageToken}
+          onLoadMore={onLoadMore}
         />
       );
       continue;

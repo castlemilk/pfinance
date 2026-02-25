@@ -1,11 +1,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ExternalLink } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { ExternalLink, Loader2 } from 'lucide-react';
 import { getCategoryColor, getInstrumentBadgeStyle } from '../../constants/theme';
 import type { ExpenseCategory } from '../../types';
 
-interface ExpenseItem {
+export interface ExpenseItem {
   id: string;
   description: string;
   amount: number;
@@ -19,28 +20,91 @@ interface ExpenseCardProps {
   count: number;
   hasMore?: boolean;
   itemType?: 'expense' | 'income';
+  nextPageToken?: string;
+  onLoadMore?: (pageToken: string) => Promise<{ items: ExpenseItem[]; nextPageToken?: string }>;
 }
 
-export function ExpenseCard({ expenses, count, hasMore, itemType = 'expense' }: ExpenseCardProps) {
+export function ExpenseCard({
+  expenses: initialExpenses,
+  count: initialCount,
+  hasMore: initialHasMore,
+  itemType = 'expense',
+  nextPageToken: initialToken,
+  onLoadMore,
+}: ExpenseCardProps) {
   const router = useRouter();
-  if (expenses.length === 0) {
+  const [items, setItems] = useState<ExpenseItem[]>(initialExpenses);
+  const [pageToken, setPageToken] = useState<string | undefined>(initialToken);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const isLoadingRef = useRef(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Sync with new initial data (different message renders)
+  useEffect(() => {
+    setItems(initialExpenses);
+    setPageToken(initialToken);
+  }, [initialExpenses, initialToken]);
+
+  const loadMore = useCallback(async () => {
+    if (!onLoadMore || !pageToken || isLoadingRef.current) return;
+    isLoadingRef.current = true;
+    setIsLoading(true);
+    setLoadError(false);
+    try {
+      const result = await onLoadMore(pageToken);
+      setItems(prev => [...prev, ...result.items]);
+      setPageToken(result.nextPageToken);
+    } catch (err) {
+      console.error('[ExpenseCard] Failed to load more:', err);
+      setLoadError(true);
+    } finally {
+      isLoadingRef.current = false;
+      setIsLoading(false);
+    }
+  }, [onLoadMore, pageToken]);
+
+  // IntersectionObserver triggers loadMore when sentinel scrolls into view
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    const scrollContainer = scrollRef.current;
+    if (!sentinel || !scrollContainer || !pageToken || !onLoadMore) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !isLoadingRef.current) {
+          loadMore();
+        }
+      },
+      { root: scrollContainer, threshold: 0.1 },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [pageToken, onLoadMore, loadMore]);
+
+  if (items.length === 0) {
     return (
       <div className="skeu-inset rounded-lg p-3 text-sm text-muted-foreground">
-        No expenses found.
+        No {itemType === 'income' ? 'incomes' : 'expenses'} found.
       </div>
     );
   }
 
-  const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const total = items.reduce((sum, e) => sum + e.amount, 0);
+  const label = itemType === 'income' ? 'income' : 'expense';
 
   return (
     <div className="overflow-hidden rounded-lg">
       <div className="px-3 py-2 border-b border-primary/10 bg-muted/20 flex items-center justify-between">
-        <span className="font-mono text-xs text-primary">{count} expense{count !== 1 ? 's' : ''}</span>
+        <span className="font-mono text-xs text-primary">
+          {items.length} {label}{items.length !== 1 ? 's' : ''}
+        </span>
         <span className="font-mono text-xs font-semibold text-primary">${total.toFixed(2)}</span>
       </div>
-      <div className="divide-y divide-primary/5 max-h-[300px] overflow-y-auto">
-        {expenses.map((e) => (
+      <div ref={scrollRef} className="divide-y divide-primary/5 max-h-[300px] overflow-y-auto">
+        {items.map((e) => (
           <div
             key={e.id}
             className="group px-3 py-2 flex items-center justify-between gap-2 text-sm cursor-pointer hover:bg-primary/5 transition-colors"
@@ -72,8 +136,25 @@ export function ExpenseCard({ expenses, count, hasMore, itemType = 'expense' }: 
             </div>
           </div>
         ))}
+
+        {/* Infinite scroll sentinel */}
+        {pageToken && onLoadMore && (
+          <div ref={sentinelRef} className="px-3 py-2 flex items-center justify-center">
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            ) : loadError ? (
+              <button onClick={loadMore} className="text-xs text-destructive font-mono hover:underline">
+                Failed to load. Tap to retry.
+              </button>
+            ) : (
+              <span className="text-xs text-muted-foreground font-mono">Scroll for more...</span>
+            )}
+          </div>
+        )}
       </div>
-      {hasMore && (
+
+      {/* Fallback when no onLoadMore callback is provided */}
+      {!onLoadMore && initialHasMore && (
         <div className="px-3 py-1.5 border-t border-primary/10 text-xs text-muted-foreground text-center font-mono">
           More results available...
         </div>
