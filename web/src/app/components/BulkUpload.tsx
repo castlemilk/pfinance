@@ -112,6 +112,20 @@ const categories: ExpenseCategory[] = [
   'Utilities', 'Shopping', 'Education', 'Travel', 'Other',
 ];
 
+const IMPORT_BATCH_SIZE = 10;
+const MAX_RETRIES = 2;
+
+interface ImportProgress {
+  imported: number;
+  skipped: number;
+  failed: number;
+  total: number;
+  reasons: string[];
+  failedTransactions: BulkTransaction[];
+}
+
+type ImportPhase = 'importing' | 'classifying';
+
 function mapProtoCategory(protoCategory: number): string {
   const categoryMap: Record<number, string> = {
     0: 'Other', 1: 'Food', 2: 'Housing', 3: 'Transportation',
@@ -194,7 +208,13 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
   const [files, setFiles] = useState<BulkFile[]>([]);
   const [transactions, setTransactions] = useState<BulkTransaction[]>([]);
   const [isDragging, setIsDragging] = useState(false);
-  const [importResult, setImportResult] = useState<{ imported: number; skipped: number; reasons: string[] } | null>(null);
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number; failed: number; reasons: string[]; failedTransactions: BulkTransaction[] } | null>(null);
+
+  // Batch import progress state
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
+  const [importPhase, setImportPhase] = useState<ImportPhase>('importing');
+  const [taxProgress, setTaxProgress] = useState(0);
+  const taxProgressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Tax classification state
   const [classifyForTax, setClassifyForTax] = useState(true);
@@ -685,58 +705,128 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
 
   // ── Import ───────────────────────────────────────────
 
-  const importSelected = async () => {
-    if (!user?.uid || selectedTransactions.length === 0) return;
+  const importBatch = async (batch: BulkTransaction[]): Promise<{ imported: number; skipped: number; reasons: string[] }> => {
+    if (!user?.uid) throw new Error('Not authenticated');
+
+    const fileWithMetadata = files.find((f) => f.statementMetadata);
+    const firstFileName = files[0]?.name || '';
+
+    const resp = await financeClient.importExtractedTransactions({
+      userId: user.uid,
+      groupId: '',
+      transactions: batch.map((t) => t.rawTransaction),
+      skipDuplicates: true,
+      defaultFrequency: ProtoExpenseFrequency.ONCE,
+      statementMetadata: fileWithMetadata?.statementMetadata,
+      originalFilename: firstFileName,
+    });
+
+    return {
+      imported: resp.importedCount,
+      skipped: resp.skippedCount,
+      reasons: [...resp.skippedReasons],
+    };
+  };
+
+  const importSelected = async (txsToImport?: BulkTransaction[]) => {
+    const toImport = txsToImport || selectedTransactions;
+    if (!user?.uid || toImport.length === 0) return;
     setStep('importing');
+    setImportPhase('importing');
 
-    try {
-      // Find statement metadata from the first file that has it
-      const fileWithMetadata = files.find((f) => f.statementMetadata);
-      const firstFileName = files[0]?.name || '';
+    const progress: ImportProgress = {
+      imported: 0,
+      skipped: 0,
+      failed: 0,
+      total: toImport.length,
+      reasons: [],
+      failedTransactions: [],
+    };
+    setImportProgress({ ...progress });
 
-      const resp = await financeClient.importExtractedTransactions({
-        userId: user.uid,
-        groupId: '',
-        transactions: selectedTransactions.map((t) => t.rawTransaction),
-        skipDuplicates: true,
-        defaultFrequency: ProtoExpenseFrequency.ONCE,
-        statementMetadata: fileWithMetadata?.statementMetadata,
-        originalFilename: firstFileName,
-      });
-      setImportResult({
-        imported: resp.importedCount,
-        skipped: resp.skippedCount,
-        reasons: [...resp.skippedReasons],
-      });
+    // Split into batches
+    const batches: BulkTransaction[][] = [];
+    for (let i = 0; i < toImport.length; i += IMPORT_BATCH_SIZE) {
+      batches.push(toImport.slice(i, i + IMPORT_BATCH_SIZE));
+    }
 
-      // Run tax classification if enabled
-      if (classifyForTax && resp.importedCount > 0) {
-        setClassifyingTax(true);
+    for (const batch of batches) {
+      let succeeded = false;
+
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
-          const taxResp = await financeClient.batchClassifyTaxDeductibility({
-            userId: user.uid,
-            financialYear: getCurrentAustralianFY(),
-            autoApply: true,
-          });
-          setTaxClassifyResult({
-            totalProcessed: taxResp.totalProcessed,
-            autoApplied: taxResp.autoApplied,
-            needsReview: taxResp.needsReview,
-            skipped: taxResp.skipped,
-          });
-        } catch (taxErr) {
-          console.error('Tax classification failed:', taxErr);
-          // Non-fatal: import still succeeded
-        } finally {
-          setClassifyingTax(false);
+          const result = await importBatch(batch);
+          progress.imported += result.imported;
+          progress.skipped += result.skipped;
+          progress.reasons.push(...result.reasons);
+          succeeded = true;
+          break;
+        } catch (err) {
+          console.error(`Batch import attempt ${attempt + 1} failed:`, err);
+          if (attempt < MAX_RETRIES) {
+            // Exponential backoff: 500ms, 1500ms
+            await new Promise((r) => setTimeout(r, 500 * Math.pow(3, attempt)));
+          }
         }
       }
 
-      setStep('done');
-    } catch (err) {
-      console.error('Import failed:', err);
-      setStep('review');
+      if (!succeeded) {
+        progress.failed += batch.length;
+        progress.failedTransactions.push(...batch);
+      }
+
+      setImportProgress({ ...progress });
     }
+
+    // Store final import result
+    setImportResult({
+      imported: progress.imported,
+      skipped: progress.skipped,
+      failed: progress.failed,
+      reasons: progress.reasons,
+      failedTransactions: progress.failedTransactions,
+    });
+
+    // Run tax classification if enabled and any transactions were imported
+    if (classifyForTax && progress.imported > 0) {
+      setImportPhase('classifying');
+      setClassifyingTax(true);
+      setTaxProgress(0);
+
+      // Start animated estimated progress
+      const estimatedMs = progress.imported * 200; // ~200ms per expense
+      const startTime = Date.now();
+      taxProgressIntervalRef.current = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const estimated = Math.min(95, (elapsed / estimatedMs) * 100);
+        setTaxProgress(estimated);
+      }, 500);
+
+      try {
+        const taxResp = await financeClient.batchClassifyTaxDeductibility({
+          userId: user.uid,
+          financialYear: getCurrentAustralianFY(),
+          autoApply: true,
+        });
+        setTaxClassifyResult({
+          totalProcessed: taxResp.totalProcessed,
+          autoApplied: taxResp.autoApplied,
+          needsReview: taxResp.needsReview,
+          skipped: taxResp.skipped,
+        });
+      } catch (taxErr) {
+        console.error('Tax classification failed:', taxErr);
+      } finally {
+        if (taxProgressIntervalRef.current) {
+          clearInterval(taxProgressIntervalRef.current);
+          taxProgressIntervalRef.current = null;
+        }
+        setTaxProgress(100);
+        setClassifyingTax(false);
+      }
+    }
+
+    setStep('done');
   };
 
   // ── Close / Reset ────────────────────────────────────
@@ -754,6 +844,13 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
     setFiles([]);
     setTransactions([]);
     setImportResult(null);
+    setImportProgress(null);
+    setImportPhase('importing');
+    setTaxProgress(0);
+    if (taxProgressIntervalRef.current) {
+      clearInterval(taxProgressIntervalRef.current);
+      taxProgressIntervalRef.current = null;
+    }
     setEditingTxId(null);
     setEditValues({});
     setSortField('date');
@@ -800,7 +897,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
               <>{isPaused ? 'Processing paused' : 'Processing files...'} ({completedFiles}/{files.length}){currentlyProcessing && !isPaused && ` -- ${currentlyProcessing.name}`}</>
             )}
             {step === 'review' && `Review ${transactions.length} extracted transaction${transactions.length !== 1 ? 's' : ''} across ${stats?.uniqueSources ?? 0} file${(stats?.uniqueSources ?? 0) !== 1 ? 's' : ''}.`}
-            {step === 'importing' && 'Importing selected transactions...'}
+            {step === 'importing' && (importPhase === 'classifying' ? 'Classifying imported expenses for tax...' : 'Importing selected transactions...')}
             {step === 'done' && 'Import complete!'}
           </DialogDescription>
         </DialogHeader>
@@ -1404,7 +1501,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
             </span>
           </div>
           <Button
-            onClick={importSelected}
+            onClick={() => importSelected()}
             disabled={selectedTransactions.length === 0}
             className="glow-hover"
           >
@@ -1419,31 +1516,76 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
   // ── Step: Importing ──────────────────────────────────
 
   function renderImportingStep() {
+    const p = importProgress;
+    const processed = p ? p.imported + p.skipped + p.failed : 0;
+    const total = p?.total ?? selectedTransactions.length;
+    const importPercent = total > 0 ? (processed / total) * 100 : 0;
+
     return (
-      <div className="text-center py-16 space-y-4">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-        <div>
-          <h3 className="font-semibold text-lg">
-            {classifyingTax ? 'Classifying for Tax Deductibility...' : 'Importing Transactions'}
-          </h3>
-          <p className="text-muted-foreground text-sm mt-1">
-            {classifyingTax
-              ? 'Running AI tax classification on imported expenses...'
-              : `Creating ${selectedTransactions.length} expense${selectedTransactions.length !== 1 ? 's' : ''}...`
-            }
-          </p>
+      <div className="py-8 px-4 space-y-6 max-w-lg mx-auto w-full">
+        {/* Phase 1: Importing */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            {importPhase === 'importing' ? (
+              <Loader2 className="h-4 w-4 animate-spin text-primary flex-shrink-0" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+            )}
+            <h3 className="font-semibold text-sm">
+              {importPhase === 'importing'
+                ? `Importing transactions... ${processed} of ${total}`
+                : `Import complete — ${p?.imported ?? 0} imported`}
+            </h3>
+          </div>
+          <Progress value={importPhase === 'importing' ? importPercent : 100} className="h-2.5" />
+          {p && (
+            <div className="flex gap-4 text-xs text-muted-foreground">
+              <span className="text-green-600 dark:text-green-400">{p.imported} imported</span>
+              {p.skipped > 0 && <span className="text-muted-foreground">{p.skipped} skipped</span>}
+              {p.failed > 0 && <span className="text-amber-600 dark:text-amber-400">{p.failed} failed</span>}
+            </div>
+          )}
         </div>
+
+        {/* Phase 2: Tax Classification */}
+        {importPhase === 'classifying' && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin text-amber-500 flex-shrink-0" />
+              <h3 className="font-semibold text-sm">
+                Classifying {p?.imported ?? 0} expense{(p?.imported ?? 0) !== 1 ? 's' : ''} for tax deductions...
+              </h3>
+            </div>
+            <Progress value={taxProgress} className="h-2.5" />
+            <div className="text-xs text-muted-foreground">
+              <Sparkles className="h-3 w-3 inline mr-1 text-amber-500" />
+              AI tax classification in progress
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
   // ── Step: Done ───────────────────────────────────────
 
+  const [showFailedDetails, setShowFailedDetails] = useState(false);
+
   function renderDoneStep() {
+    const hasFailed = (importResult?.failed ?? 0) > 0;
+
     return (
       <div className="text-center py-10 space-y-4">
-        <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto border border-green-500/20">
-          <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
+        <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto border ${
+          hasFailed
+            ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-500/20'
+            : 'bg-green-100 dark:bg-green-900/30 border-green-500/20'
+        }`}>
+          {hasFailed ? (
+            <AlertCircle className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+          ) : (
+            <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
+          )}
         </div>
         <div>
           <h3 className="text-2xl font-bold">
@@ -1457,16 +1599,62 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
           {importResult?.reasons && importResult.reasons.length > 0 && (
             <div className="mt-4 text-left mx-auto max-w-md">
               <p className="text-xs font-medium text-muted-foreground mb-2">Skip reasons:</p>
-              <ScrollArea className="max-h-[120px]">
+              <div className="max-h-[120px] overflow-y-auto">
                 <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
                   {importResult.reasons.map((r, i) => (
                     <li key={i} className="truncate">{r}</li>
                   ))}
                 </ul>
-              </ScrollArea>
+              </div>
             </div>
           )}
         </div>
+
+        {/* Failed transactions warning + retry */}
+        {hasFailed && importResult && (
+          <div className="mx-auto max-w-md space-y-3">
+            <Alert className="border-amber-500/30 bg-amber-500/5 text-left">
+              <AlertCircle className="h-4 w-4 text-amber-500" />
+              <AlertTitle className="text-amber-600 dark:text-amber-400">
+                {importResult.failed} transaction{importResult.failed !== 1 ? 's' : ''} could not be imported
+              </AlertTitle>
+              <AlertDescription className="text-xs text-muted-foreground">
+                These transactions failed after {MAX_RETRIES + 1} attempts. You can retry them or close and try again later.
+              </AlertDescription>
+            </Alert>
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => importSelected(importResult.failedTransactions)}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Retry {importResult.failed} Failed
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs"
+                onClick={() => setShowFailedDetails(!showFailedDetails)}
+              >
+                {showFailedDetails ? 'Hide' : 'Show'} Details
+              </Button>
+            </div>
+            {showFailedDetails && (
+              <div className="text-left border rounded-md p-3 max-h-[150px] overflow-y-auto">
+                <div className="space-y-1.5">
+                  {importResult.failedTransactions.map((tx) => (
+                    <div key={tx.id} className="flex items-center justify-between text-xs">
+                      <span className="truncate max-w-[250px] text-muted-foreground">{tx.description}</span>
+                      <span className="font-mono text-muted-foreground flex-shrink-0">${tx.amount.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Tax classification results */}
         {taxClassifyResult && (

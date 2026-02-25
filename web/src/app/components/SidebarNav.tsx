@@ -405,7 +405,7 @@ export default function SidebarNav() {
   return (
     <>
       {/* Mobile Header Bar - fixed top bar with hamburger menu */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b flex items-center px-4 gap-3">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b flex items-center px-4 gap-3 overflow-visible">
         <Button
           variant="ghost"
           size="icon"
@@ -437,7 +437,7 @@ export default function SidebarNav() {
         >
           <Search className="w-4 h-4" />
         </Button>
-        <div>
+        <div className="overflow-visible">
           <NotificationCenter />
         </div>
       </div>
