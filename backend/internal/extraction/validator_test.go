@@ -239,8 +239,8 @@ func TestValidationService_ExtractWithGemini(t *testing.T) {
 		t.Fatalf("expected GEMINI method, got %v", result.MethodUsed)
 	}
 
-	if result.ModelUsed != "gemini-1.5-flash" {
-		t.Fatalf("expected model gemini-1.5-flash, got %q", result.ModelUsed)
+	if result.ModelUsed != "gemini-2.0-flash" {
+		t.Fatalf("expected model gemini-2.0-flash, got %q", result.ModelUsed)
 	}
 
 	// Verify first transaction
@@ -475,8 +475,8 @@ func TestValidateExtraction_WithMockServer(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if result.ValidatedBy != "gemini-1.5-flash" {
-		t.Fatalf("expected validated by gemini-1.5-flash, got %q", result.ValidatedBy)
+	if result.ValidatedBy != "gemini-2.0-flash" {
+		t.Fatalf("expected validated by gemini-2.0-flash, got %q", result.ValidatedBy)
 	}
 	if result.Accuracy < 0.9 {
 		t.Fatalf("expected high accuracy for matching results, got %f", result.Accuracy)

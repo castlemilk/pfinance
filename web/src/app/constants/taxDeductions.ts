@@ -93,7 +93,8 @@ export function getCategoryLabel(category: TaxDeductionCategory): string {
 
 // FY date range helpers
 export function getCurrentAustralianFY(): TaxYear {
-  const now = new Date();
+  // Use AEST (UTC+10) to determine the current Australian date
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Sydney' }));
   const startYear = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
   const endYear = (startYear + 1) % 100;
   return `${startYear}-${String(endYear).padStart(2, '0')}` as TaxYear;

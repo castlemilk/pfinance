@@ -58,6 +58,7 @@ type ExtractionService struct {
 	jobStore       *JobStore
 	merchantLookup MerchantLookup
 	statementStore StatementStore
+	textExtractor  *TextExtractor
 }
 
 // Config holds configuration for the extraction service.
@@ -82,10 +83,11 @@ func NewExtractionService(cfg Config) *ExtractionService {
 	}
 
 	return &ExtractionService{
-		mlClient:  mlClient,
-		validator: validator,
-		mlEnabled: cfg.EnableML && mlClient != nil,
-		jobStore:  NewJobStore(1 * time.Hour),
+		mlClient:      mlClient,
+		validator:     validator,
+		mlEnabled:     cfg.EnableML && mlClient != nil,
+		jobStore:      NewJobStore(1 * time.Hour),
+		textExtractor: &TextExtractor{},
 	}
 }
 
@@ -217,7 +219,28 @@ func (s *ExtractionService) tryExtract(
 				Method:  "gemini",
 			}
 		}
-		return s.validator.ExtractWithGemini(ctx, data, docType)
+
+		var opts GeminiExtractionOpts
+		if detectMimeType(data) == "application/pdf" {
+			analysis := AnalyzePDF(data)
+			if analysis.Error == nil {
+				opts.MaxOutputTokens = analysis.MaxOutputTokens
+				log.Printf("[extraction] PDF analysis: %d pages, ~%d transactions, maxTokens=%d, scanned=%v",
+					analysis.PageCount, analysis.EstimatedTxCount, analysis.MaxOutputTokens, analysis.IsScanned)
+
+				// Try text-only extraction first for native PDFs with structured text
+				if !analysis.IsScanned && analysis.EstimatedTxCount >= 3 && s.textExtractor != nil {
+					if result, err := s.textExtractor.ExtractFromText(analysis, docType); err == nil && result != nil {
+						log.Printf("[extraction] text-only succeeded: %d transactions", len(result.Transactions))
+						return result, nil
+					}
+				}
+			} else {
+				log.Printf("[extraction] PDF analysis failed (using defaults): %v", analysis.Error)
+			}
+		}
+
+		return s.validator.ExtractWithGeminiAdvanced(ctx, data, docType, opts)
 
 	case pfinancev1.ExtractionMethod_EXTRACTION_METHOD_SELF_HOSTED:
 		if !s.mlEnabled {
@@ -263,6 +286,7 @@ func (s *ExtractionService) ExtractDocumentWithMethod(
 			}
 			break
 		}
+		log.Printf("[extraction] method %v failed: %v", m, err)
 		lastErr = err
 
 		// Don't fallback on non-retryable errors like invalid documents
@@ -272,6 +296,7 @@ func (s *ExtractionService) ExtractDocumentWithMethod(
 	}
 
 	if protoResult == nil {
+		log.Printf("[extraction] all methods failed for file %q (chain: %v): %v", filename, chain, lastErr)
 		return nil, &ExtractionError{
 			Code:    ErrAllMethodsFailed,
 			Message: fmt.Sprintf("all extraction methods failed: %v", lastErr),
@@ -571,7 +596,7 @@ func (s *ExtractionService) StartAsyncExtraction(
 
 	pageCount := 1
 	if detectMimeType(data) == "application/pdf" {
-		pageCount = countPDFPages(data)
+		pageCount = CountPDFPagesAccurate(data)
 	}
 
 	job := NewExtractionJobProto(jobID, userID, docType, filename, method)

@@ -108,7 +108,7 @@ func main() {
 	// Initialize tax classification pipeline
 	geminiAPIKey := os.Getenv("GEMINI_API_KEY")
 	taxPipeline := extraction.NewTaxClassificationPipeline(geminiAPIKey)
-	service.SetTaxClassificationPipeline(taxPipeline)
+	// taxPipeline will be set on the financeService after creation (below)
 	if geminiAPIKey != "" {
 		log.Println("✅ Tax classification pipeline enabled (rules + Gemini AI)")
 	} else {
@@ -129,6 +129,7 @@ func main() {
 
 	// Create the finance service
 	financeService := service.NewFinanceService(storeImpl, stripeClient, firebaseAuth)
+	financeService.SetTaxClassificationPipeline(taxPipeline)
 
 	// Create Connect handler with conditional auth interceptor
 	var interceptors []connect.Interceptor

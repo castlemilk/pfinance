@@ -1,6 +1,7 @@
 package extraction
 
 import (
+	"sort"
 	"strings"
 
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
@@ -16,42 +17,119 @@ type TaxClassification struct {
 	Source        string // "merchant_map", "category", "keyword", "tag", "not_deductible"
 }
 
-// notDeductibleMerchants maps merchants that are almost certainly NOT tax deductible.
-var notDeductibleMerchants = map[string]bool{
-	"woolworths": true, "coles": true, "aldi": true, "costco": true, "iga": true,
-	"mcdonalds": true, "mcdonald's": true, "starbucks": true, "subway": true,
-	"kfc": true, "burger king": true, "dominos": true, "pizza hut": true,
-	"uber eats": true, "doordash": true, "deliveroo": true, "menulog": true,
-	"netflix": true, "spotify": true, "disney+": true, "stan": true,
-	"amazon prime": true, "hulu": true, "youtube premium": true,
-	"jb hi-fi": true, "harvey norman": true, "kmart": true, "target": true,
-	"big w": true, "bunnings": true, "ikea": true,
+// notDeductiblePattern represents a merchant pattern that is almost certainly NOT tax deductible.
+type notDeductiblePattern struct {
+	Pattern string
 }
 
-// deductibleMerchants maps merchants to likely ATO deduction categories.
-var deductibleMerchants = map[string]TaxClassification{
-	// D10 - Tax affairs
-	"h&r block":  {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "Tax preparation service", Source: "merchant_map"},
-	"tax return": {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.90, Reasoning: "Tax preparation service", Source: "merchant_map"},
-	"myob":       {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.85, Reasoning: "Accounting software", Source: "merchant_map"},
-	"xero":       {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.85, Reasoning: "Accounting software", Source: "merchant_map"},
-	"quickbooks": {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.85, Reasoning: "Accounting software", Source: "merchant_map"},
+// notDeductibleMerchants is a sorted slice of merchant patterns (longest first for deterministic matching).
+var notDeductibleMerchants []notDeductiblePattern
 
-	// D15 - Donations
-	"red cross":      {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "DGR-registered charity", Source: "merchant_map"},
-	"salvation army": {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "DGR-registered charity", Source: "merchant_map"},
-	"unicef":         {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "DGR-registered charity", Source: "merchant_map"},
-	"world vision":   {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "DGR-registered charity", Source: "merchant_map"},
-	"oxfam":          {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "DGR-registered charity", Source: "merchant_map"},
-	"beyondblue":     {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "DGR-registered charity", Source: "merchant_map"},
-	"wwf":            {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "DGR-registered charity", Source: "merchant_map"},
+// deductibleMerchantEntry pairs a pattern with its classification.
+type deductibleMerchantEntry struct {
+	Pattern        string
+	Classification TaxClassification
+}
 
-	// Income protection insurance
-	"income protection": {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_INCOME_PROTECTION, DeductiblePct: 1.0, Confidence: 0.85, Reasoning: "Income protection insurance premium", Source: "merchant_map"},
+// deductibleMerchantsSorted is a sorted slice (longest pattern first) for deterministic matching.
+var deductibleMerchantsSorted []deductibleMerchantEntry
 
-	// D2 - Uniform
-	"workwear":    {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNIFORM, DeductiblePct: 1.0, Confidence: 0.70, Reasoning: "Possible work uniform expense", Source: "merchant_map"},
-	"dry cleaner": {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNIFORM, DeductiblePct: 1.0, Confidence: 0.50, Reasoning: "Possible work uniform cleaning", Source: "merchant_map"},
+// workKeywordEntry pairs a keyword with its category.
+type workKeywordEntry struct {
+	Keyword  string
+	Category pfinancev1.TaxDeductionCategory
+}
+
+// workKeywordsSorted is a sorted slice (longest keyword first) for deterministic matching.
+var workKeywordsSorted []workKeywordEntry
+
+func init() {
+	// Build sorted not-deductible patterns (longest first)
+	notDeductibleSet := []string{
+		"woolworths", "coles", "aldi", "costco", "iga",
+		"mcdonalds", "mcdonald's", "starbucks", "subway",
+		"kfc", "burger king", "dominos", "pizza hut",
+		"uber eats", "doordash", "deliveroo", "menulog",
+		"netflix", "spotify", "disney+", "stan",
+		"amazon prime", "hulu", "youtube premium",
+		"jb hi-fi", "harvey norman", "kmart", "target",
+		"big w", "bunnings", "ikea",
+	}
+	sort.Slice(notDeductibleSet, func(i, j int) bool {
+		if len(notDeductibleSet[i]) != len(notDeductibleSet[j]) {
+			return len(notDeductibleSet[i]) > len(notDeductibleSet[j])
+		}
+		return notDeductibleSet[i] < notDeductibleSet[j]
+	})
+	for _, p := range notDeductibleSet {
+		notDeductibleMerchants = append(notDeductibleMerchants, notDeductiblePattern{Pattern: p})
+	}
+
+	// Build sorted deductible merchant entries (longest pattern first)
+	deductibleMap := map[string]TaxClassification{
+		// D10 - Tax affairs
+		"h&r block":  {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "Tax preparation service", Source: "merchant_map"},
+		"tax return": {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.90, Reasoning: "Tax preparation service", Source: "merchant_map"},
+		"myob":       {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.85, Reasoning: "Accounting software", Source: "merchant_map"},
+		"xero":       {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.85, Reasoning: "Accounting software", Source: "merchant_map"},
+		"quickbooks": {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS, DeductiblePct: 1.0, Confidence: 0.85, Reasoning: "Accounting software", Source: "merchant_map"},
+		// D15 - Donations
+		"red cross":      {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "DGR-registered charity", Source: "merchant_map"},
+		"salvation army": {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "DGR-registered charity", Source: "merchant_map"},
+		"unicef":         {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "DGR-registered charity", Source: "merchant_map"},
+		"world vision":   {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "DGR-registered charity", Source: "merchant_map"},
+		"oxfam":          {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "DGR-registered charity", Source: "merchant_map"},
+		"beyondblue":     {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "DGR-registered charity", Source: "merchant_map"},
+		"wwf":            {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS, DeductiblePct: 1.0, Confidence: 0.95, Reasoning: "DGR-registered charity", Source: "merchant_map"},
+		// Income protection
+		"income protection": {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_INCOME_PROTECTION, DeductiblePct: 1.0, Confidence: 0.85, Reasoning: "Income protection insurance premium", Source: "merchant_map"},
+		// D2 - Uniform
+		"workwear":    {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNIFORM, DeductiblePct: 1.0, Confidence: 0.70, Reasoning: "Possible work uniform expense", Source: "merchant_map"},
+		"dry cleaner": {IsDeductible: true, Category: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNIFORM, DeductiblePct: 1.0, Confidence: 0.50, Reasoning: "Possible work uniform cleaning", Source: "merchant_map"},
+	}
+	for pattern, cls := range deductibleMap {
+		deductibleMerchantsSorted = append(deductibleMerchantsSorted, deductibleMerchantEntry{Pattern: pattern, Classification: cls})
+	}
+	sort.Slice(deductibleMerchantsSorted, func(i, j int) bool {
+		if len(deductibleMerchantsSorted[i].Pattern) != len(deductibleMerchantsSorted[j].Pattern) {
+			return len(deductibleMerchantsSorted[i].Pattern) > len(deductibleMerchantsSorted[j].Pattern)
+		}
+		return deductibleMerchantsSorted[i].Pattern < deductibleMerchantsSorted[j].Pattern
+	})
+
+	// Build sorted work keywords (longest first)
+	workKeywordsMap := map[string]pfinancev1.TaxDeductionCategory{
+		"office supplies":  pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK,
+		"stationery":       pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK,
+		"work phone":       pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK,
+		"mobile plan":      pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK,
+		"internet plan":    pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_HOME_OFFICE,
+		"home office":      pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_HOME_OFFICE,
+		"desk":             pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_HOME_OFFICE,
+		"monitor":          pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_HOME_OFFICE,
+		"keyboard":         pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_HOME_OFFICE,
+		"laptop":           pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK,
+		"union":            pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK,
+		"professional dev": pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION,
+		"conference":       pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION,
+		"seminar":          pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION,
+		"course":           pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION,
+		"textbook":         pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION,
+		"donation":         pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS,
+		"charity":          pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS,
+		"laundry":          pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNIFORM,
+		"safety boots":     pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNIFORM,
+		"tool":             pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK,
+	}
+	for kw, cat := range workKeywordsMap {
+		workKeywordsSorted = append(workKeywordsSorted, workKeywordEntry{Keyword: kw, Category: cat})
+	}
+	sort.Slice(workKeywordsSorted, func(i, j int) bool {
+		if len(workKeywordsSorted[i].Keyword) != len(workKeywordsSorted[j].Keyword) {
+			return len(workKeywordsSorted[i].Keyword) > len(workKeywordsSorted[j].Keyword)
+		}
+		return workKeywordsSorted[i].Keyword < workKeywordsSorted[j].Keyword
+	})
 }
 
 // ClassifyExpenseRuleBased applies rule-based classification for tax deductibility.
@@ -60,8 +138,9 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense) TaxClassification {
 	desc := strings.ToLower(expense.Description)
 
 	// 1. Check not-deductible merchants first (high confidence negative)
-	for merchant := range notDeductibleMerchants {
-		if strings.Contains(desc, merchant) {
+	// Sorted by length descending for deterministic longest-match-first behavior
+	for _, entry := range notDeductibleMerchants {
+		if strings.Contains(desc, entry.Pattern) {
 			return TaxClassification{
 				IsDeductible: false,
 				Confidence:   0.90,
@@ -72,9 +151,10 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense) TaxClassification {
 	}
 
 	// 2. Check deductible merchant mappings
-	for pattern, classification := range deductibleMerchants {
-		if strings.Contains(desc, pattern) {
-			return classification
+	// Sorted by length descending for deterministic longest-match-first behavior
+	for _, entry := range deductibleMerchantsSorted {
+		if strings.Contains(desc, entry.Pattern) {
+			return entry.Classification
 		}
 	}
 
@@ -115,39 +195,15 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense) TaxClassification {
 		}
 	}
 
-	// 5. Keyword-based fallback
-	workKeywords := map[string]pfinancev1.TaxDeductionCategory{
-		"office supplies":  pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK,
-		"stationery":       pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK,
-		"work phone":       pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK,
-		"mobile plan":      pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK,
-		"internet plan":    pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_HOME_OFFICE,
-		"home office":      pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_HOME_OFFICE,
-		"desk":             pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_HOME_OFFICE,
-		"monitor":          pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_HOME_OFFICE,
-		"keyboard":         pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_HOME_OFFICE,
-		"laptop":           pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK,
-		"union":            pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK,
-		"professional dev": pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION,
-		"conference":       pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION,
-		"seminar":          pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION,
-		"course":           pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION,
-		"textbook":         pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION,
-		"donation":         pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS,
-		"charity":          pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS,
-		"laundry":          pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNIFORM,
-		"safety boots":     pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNIFORM,
-		"tool":             pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK,
-	}
-
-	for keyword, cat := range workKeywords {
-		if strings.Contains(desc, keyword) {
+	// 5. Keyword-based fallback (sorted by length descending for deterministic matching)
+	for _, kw := range workKeywordsSorted {
+		if strings.Contains(desc, kw.Keyword) {
 			return TaxClassification{
 				IsDeductible:  true,
-				Category:      cat,
+				Category:      kw.Category,
 				DeductiblePct: 1.0,
 				Confidence:    0.55,
-				Reasoning:     "Description contains work-related keyword: " + keyword,
+				Reasoning:     "Description contains work-related keyword: " + kw.Keyword,
 				Source:        "keyword",
 			}
 		}

@@ -170,7 +170,7 @@ Expenses:
 
 // callGemini calls the Gemini API with a text prompt.
 func (c *TaxGeminiClassifier) callGemini(ctx context.Context, prompt string) (*GeminiTaxResponse, error) {
-	url := fmt.Sprintf("%s/models/gemini-1.5-flash:generateContent?key=%s", c.baseURL, c.apiKey)
+	url := fmt.Sprintf("%s/models/gemini-2.0-flash:generateContent?key=%s", c.baseURL, c.apiKey)
 
 	reqBody := map[string]interface{}{
 		"contents": []map[string]interface{}{

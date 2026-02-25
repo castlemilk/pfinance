@@ -1,13 +1,17 @@
 package service
 
 import (
+	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"math"
+	"strings"
 	"testing"
 	"time"
 
 	"connectrpc.com/connect"
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
+	"github.com/castlemilk/pfinance/backend/internal/extraction"
 	"github.com/castlemilk/pfinance/backend/internal/store"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -27,12 +31,12 @@ func TestParseFYDateRange(t *testing.T) {
 		{
 			fy:        "2025-26",
 			wantStart: time.Date(2025, time.July, 1, 0, 0, 0, 0, time.UTC),
-			wantEnd:   time.Date(2026, time.June, 30, 23, 59, 59, 0, time.UTC),
+			wantEnd:   time.Date(2026, time.July, 1, 0, 0, 0, 0, time.UTC),
 		},
 		{
 			fy:        "2024-25",
 			wantStart: time.Date(2024, time.July, 1, 0, 0, 0, 0, time.UTC),
-			wantEnd:   time.Date(2025, time.June, 30, 23, 59, 59, 0, time.UTC),
+			wantEnd:   time.Date(2025, time.July, 1, 0, 0, 0, 0, time.UTC),
 		},
 		{fy: "invalid", wantErr: true},
 		{fy: "abc-de", wantErr: true},
@@ -228,7 +232,7 @@ func TestTaxGetTaxSummary(t *testing.T) {
 
 	t.Run("success with income and deductions", func(t *testing.T) {
 		fyStart := time.Date(2024, time.July, 1, 0, 0, 0, 0, time.UTC)
-		fyEnd := time.Date(2025, time.June, 30, 23, 59, 59, 0, time.UTC)
+		fyEnd := time.Date(2025, time.July, 1, 0, 0, 0, 0, time.UTC)
 
 		incomes := []*pfinancev1.Income{
 			{
@@ -285,6 +289,7 @@ func TestTaxBatchUpdateExpenseTaxStatus(t *testing.T) {
 
 	mockStore := store.NewMockStore(ctrl)
 	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
 
 	userID := "tax-user-2"
 	ctx := testProContext(userID)
@@ -353,7 +358,7 @@ func TestTaxListDeductibleExpenses(t *testing.T) {
 
 	t.Run("lists deductible expenses for FY", func(t *testing.T) {
 		fyStart := time.Date(2024, time.July, 1, 0, 0, 0, 0, time.UTC)
-		fyEnd := time.Date(2025, time.June, 30, 23, 59, 59, 0, time.UTC)
+		fyEnd := time.Date(2025, time.July, 1, 0, 0, 0, 0, time.UTC)
 
 		expenses := []*pfinancev1.Expense{
 			{
@@ -392,4 +397,798 @@ func TestTaxListDeductibleExpenses(t *testing.T) {
 			t.Errorf("TotalDeductibleCents = %d, want 20000", resp.Msg.TotalDeductibleCents)
 		}
 	})
+}
+
+// ============================================================================
+// ClassifyTaxDeductibility RPC Tests
+// ============================================================================
+
+func TestTaxClassify_HighConfidenceAutoApply(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	svc.SetTaxClassificationPipeline(extraction.NewTaxClassificationPipeline(""))
+
+	userID := "tax-user"
+	ctx := testProContext(userID)
+
+	expense := &pfinancev1.Expense{
+		Id:          "exp-tax-1",
+		UserId:      userID,
+		Description: "h&r block tax prep",
+		AmountCents: 25000,
+	}
+
+	mockStore.EXPECT().GetExpense(gomock.Any(), "exp-tax-1").Return(expense, nil)
+	mockStore.EXPECT().GetTaxDeductibilityMappings(gomock.Any(), userID).Return(nil, nil)
+	mockStore.EXPECT().UpdateExpense(gomock.Any(), gomock.Any()).Return(nil)
+
+	resp, err := svc.ClassifyTaxDeductibility(ctx, connect.NewRequest(&pfinancev1.ClassifyTaxDeductibilityRequest{
+		UserId:    userID,
+		ExpenseId: "exp-tax-1",
+	}))
+	if err != nil {
+		t.Fatalf("ClassifyTaxDeductibility failed: %v", err)
+	}
+
+	result := resp.Msg.Result
+	if !result.AutoApplied {
+		t.Error("expected AutoApplied=true for high-confidence classification")
+	}
+	if result.Category != pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS {
+		t.Errorf("Category = %v, want TAX_AFFAIRS", result.Category)
+	}
+	if !result.IsDeductible {
+		t.Error("expected IsDeductible=true")
+	}
+}
+
+func TestTaxClassify_NotDeductible(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	svc.SetTaxClassificationPipeline(extraction.NewTaxClassificationPipeline(""))
+
+	userID := "tax-user"
+	ctx := testProContext(userID)
+
+	expense := &pfinancev1.Expense{
+		Id:          "exp-grocery",
+		UserId:      userID,
+		Description: "woolworths groceries",
+		AmountCents: 15000,
+	}
+
+	mockStore.EXPECT().GetExpense(gomock.Any(), "exp-grocery").Return(expense, nil)
+	mockStore.EXPECT().GetTaxDeductibilityMappings(gomock.Any(), userID).Return(nil, nil)
+	// Woolworths matches as not-deductible with confidence 0.90 (>= 0.85), so auto-apply fires
+	mockStore.EXPECT().UpdateExpense(gomock.Any(), gomock.Any()).Return(nil)
+
+	resp, err := svc.ClassifyTaxDeductibility(ctx, connect.NewRequest(&pfinancev1.ClassifyTaxDeductibilityRequest{
+		UserId:    userID,
+		ExpenseId: "exp-grocery",
+	}))
+	if err != nil {
+		t.Fatalf("ClassifyTaxDeductibility failed: %v", err)
+	}
+
+	result := resp.Msg.Result
+	if result.IsDeductible {
+		t.Error("expected IsDeductible=false for groceries")
+	}
+	if result.Confidence < 0.85 {
+		t.Errorf("Confidence = %v, want >= 0.85 for known non-deductible", result.Confidence)
+	}
+}
+
+func TestTaxClassify_MissingExpenseId(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	svc.SetTaxClassificationPipeline(extraction.NewTaxClassificationPipeline(""))
+
+	ctx := testProContext("tax-user")
+
+	_, err := svc.ClassifyTaxDeductibility(ctx, connect.NewRequest(&pfinancev1.ClassifyTaxDeductibilityRequest{
+		UserId:    "tax-user",
+		ExpenseId: "",
+	}))
+	if err == nil {
+		t.Fatal("expected error for missing expense_id")
+	}
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("error code = %v, want InvalidArgument", connect.CodeOf(err))
+	}
+}
+
+func TestTaxClassify_ExpenseNotFound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	svc.SetTaxClassificationPipeline(extraction.NewTaxClassificationPipeline(""))
+
+	ctx := testProContext("tax-user")
+
+	mockStore.EXPECT().GetExpense(gomock.Any(), "exp-missing").Return(nil, fmt.Errorf("not found"))
+
+	_, err := svc.ClassifyTaxDeductibility(ctx, connect.NewRequest(&pfinancev1.ClassifyTaxDeductibilityRequest{
+		UserId:    "tax-user",
+		ExpenseId: "exp-missing",
+	}))
+	if err == nil {
+		t.Fatal("expected error for missing expense")
+	}
+	if connect.CodeOf(err) != connect.CodeNotFound {
+		t.Errorf("error code = %v, want NotFound", connect.CodeOf(err))
+	}
+}
+
+func TestTaxClassify_WrongOwner(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	svc.SetTaxClassificationPipeline(extraction.NewTaxClassificationPipeline(""))
+
+	ctx := testProContext("tax-user")
+
+	expense := &pfinancev1.Expense{
+		Id:          "exp-other",
+		UserId:      "other-user",
+		Description: "some expense",
+		AmountCents: 5000,
+	}
+	mockStore.EXPECT().GetExpense(gomock.Any(), "exp-other").Return(expense, nil)
+
+	_, err := svc.ClassifyTaxDeductibility(ctx, connect.NewRequest(&pfinancev1.ClassifyTaxDeductibilityRequest{
+		UserId:    "tax-user",
+		ExpenseId: "exp-other",
+	}))
+	if err == nil {
+		t.Fatal("expected error for wrong owner")
+	}
+	if connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Errorf("error code = %v, want PermissionDenied", connect.CodeOf(err))
+	}
+}
+
+func TestTaxClassify_NoPipeline(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	// Pipeline not set on svc — should return Unavailable
+	ctx := testProContext("tax-user")
+
+	_, err := svc.ClassifyTaxDeductibility(ctx, connect.NewRequest(&pfinancev1.ClassifyTaxDeductibilityRequest{
+		UserId:    "tax-user",
+		ExpenseId: "exp-1",
+	}))
+	if err == nil {
+		t.Fatal("expected error when pipeline is nil")
+	}
+	if connect.CodeOf(err) != connect.CodeUnavailable {
+		t.Errorf("error code = %v, want Unavailable", connect.CodeOf(err))
+	}
+}
+
+// ============================================================================
+// BatchClassifyTaxDeductibility RPC Tests
+// ============================================================================
+
+func TestTaxBatchClassify_EmptyExpenses(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	svc.SetTaxClassificationPipeline(extraction.NewTaxClassificationPipeline(""))
+
+	userID := "tax-user"
+	ctx := testProContext(userID)
+
+	fyStart := time.Date(2024, time.July, 1, 0, 0, 0, 0, time.UTC)
+	fyEnd := time.Date(2025, time.July, 1, 0, 0, 0, 0, time.UTC)
+
+	mockStore.EXPECT().GetTaxDeductibilityMappings(gomock.Any(), userID).Return(nil, nil)
+	mockStore.EXPECT().ListExpenses(gomock.Any(), userID, "", &fyStart, &fyEnd, int32(500), "").
+		Return([]*pfinancev1.Expense{}, "", nil)
+
+	resp, err := svc.BatchClassifyTaxDeductibility(ctx, connect.NewRequest(&pfinancev1.BatchClassifyTaxDeductibilityRequest{
+		UserId:        userID,
+		FinancialYear: "2024-25",
+	}))
+	if err != nil {
+		t.Fatalf("BatchClassifyTaxDeductibility failed: %v", err)
+	}
+	if resp.Msg.TotalProcessed != 0 {
+		t.Errorf("TotalProcessed = %d, want 0", resp.Msg.TotalProcessed)
+	}
+}
+
+func TestTaxBatchClassify_AutoApplyFalse(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	svc.SetTaxClassificationPipeline(extraction.NewTaxClassificationPipeline(""))
+
+	userID := "tax-user"
+	ctx := testProContext(userID)
+
+	fyStart := time.Date(2024, time.July, 1, 0, 0, 0, 0, time.UTC)
+	fyEnd := time.Date(2025, time.July, 1, 0, 0, 0, 0, time.UTC)
+
+	expenses := []*pfinancev1.Expense{
+		{
+			Id:          "exp-hrblock",
+			UserId:      userID,
+			Description: "h&r block",
+			AmountCents: 30000,
+		},
+	}
+
+	mockStore.EXPECT().GetTaxDeductibilityMappings(gomock.Any(), userID).Return(nil, nil)
+	mockStore.EXPECT().ListExpenses(gomock.Any(), userID, "", &fyStart, &fyEnd, int32(500), "").
+		Return(expenses, "", nil)
+	// UpdateExpense should NOT be called because auto_apply=false
+
+	resp, err := svc.BatchClassifyTaxDeductibility(ctx, connect.NewRequest(&pfinancev1.BatchClassifyTaxDeductibilityRequest{
+		UserId:        userID,
+		FinancialYear: "2024-25",
+		AutoApply:     false,
+	}))
+	if err != nil {
+		t.Fatalf("BatchClassifyTaxDeductibility failed: %v", err)
+	}
+	if resp.Msg.TotalProcessed != 1 {
+		t.Errorf("TotalProcessed = %d, want 1", resp.Msg.TotalProcessed)
+	}
+	if resp.Msg.AutoApplied != 0 {
+		t.Errorf("AutoApplied = %d, want 0 (auto_apply=false)", resp.Msg.AutoApplied)
+	}
+}
+
+func TestTaxBatchClassify_InvalidFY(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	svc.SetTaxClassificationPipeline(extraction.NewTaxClassificationPipeline(""))
+
+	ctx := testProContext("tax-user")
+
+	// parseFYDateRange runs before GetTaxDeductibilityMappings, so no store calls expected
+
+	_, err := svc.BatchClassifyTaxDeductibility(ctx, connect.NewRequest(&pfinancev1.BatchClassifyTaxDeductibilityRequest{
+		UserId:        "tax-user",
+		FinancialYear: "bad",
+	}))
+	if err == nil {
+		t.Fatal("expected error for invalid FY")
+	}
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("error code = %v, want InvalidArgument", connect.CodeOf(err))
+	}
+}
+
+func TestTaxBatchClassify_NoPipeline(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	// Pipeline not set on svc — should return Unavailable
+	ctx := testProContext("tax-user")
+
+	_, err := svc.BatchClassifyTaxDeductibility(ctx, connect.NewRequest(&pfinancev1.BatchClassifyTaxDeductibilityRequest{
+		UserId:        "tax-user",
+		FinancialYear: "2024-25",
+	}))
+	if err == nil {
+		t.Fatal("expected error when pipeline is nil")
+	}
+	if connect.CodeOf(err) != connect.CodeUnavailable {
+		t.Errorf("error code = %v, want Unavailable", connect.CodeOf(err))
+	}
+}
+
+// ============================================================================
+// ExportTaxReturn RPC Tests
+// ============================================================================
+
+func TestTaxExport_CSV(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	userID := "tax-user"
+	ctx := testProContext(userID)
+
+	fyStart := time.Date(2024, time.July, 1, 0, 0, 0, 0, time.UTC)
+	fyEnd := time.Date(2025, time.July, 1, 0, 0, 0, 0, time.UTC)
+
+	mockStore.EXPECT().GetTaxConfig(gomock.Any(), userID, "").Return(nil, fmt.Errorf("not found"))
+
+	incomes := []*pfinancev1.Income{
+		{
+			Id:          "inc-1",
+			UserId:      userID,
+			AmountCents: 10000000, // $100,000
+			Date:        timestamppb.New(time.Date(2024, 8, 1, 0, 0, 0, 0, time.UTC)),
+		},
+	}
+	mockStore.EXPECT().ListIncomes(gomock.Any(), userID, "", &fyStart, &fyEnd, int32(500), "").
+		Return(incomes, "", nil)
+
+	deductions := []*pfinancev1.TaxDeductionSummary{
+		{
+			Category:     pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_HOME_OFFICE,
+			TotalCents:   100000,
+			TotalAmount:  1000.0,
+			ExpenseCount: 3,
+		},
+	}
+	mockStore.EXPECT().AggregateDeductionsByCategory(gomock.Any(), userID, "", fyStart, fyEnd).
+		Return(deductions, nil)
+
+	resp, err := svc.ExportTaxReturn(ctx, connect.NewRequest(&pfinancev1.ExportTaxReturnRequest{
+		UserId:        userID,
+		FinancialYear: "2024-25",
+		Format:        pfinancev1.TaxExportFormat_TAX_EXPORT_FORMAT_CSV,
+	}))
+	if err != nil {
+		t.Fatalf("ExportTaxReturn CSV failed: %v", err)
+	}
+
+	if resp.Msg.ContentType != "text/csv" {
+		t.Errorf("ContentType = %q, want text/csv", resp.Msg.ContentType)
+	}
+	if !strings.Contains(resp.Msg.Filename, "csv") {
+		t.Errorf("Filename = %q, expected to contain 'csv'", resp.Msg.Filename)
+	}
+
+	// Parse CSV data and verify headers
+	reader := csv.NewReader(strings.NewReader(string(resp.Msg.Data)))
+	records, err := reader.ReadAll()
+	if err != nil {
+		t.Fatalf("failed to parse CSV: %v", err)
+	}
+	if len(records) < 2 {
+		t.Fatal("CSV has fewer than 2 rows")
+	}
+	header := records[0]
+	if header[0] != "Field" || header[1] != "Amount ($)" || header[2] != "Amount (cents)" {
+		t.Errorf("CSV headers = %v, want [Field, Amount ($), Amount (cents)]", header)
+	}
+}
+
+func TestTaxExport_JSON(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	userID := "tax-user"
+	ctx := testProContext(userID)
+
+	fyStart := time.Date(2024, time.July, 1, 0, 0, 0, 0, time.UTC)
+	fyEnd := time.Date(2025, time.July, 1, 0, 0, 0, 0, time.UTC)
+
+	mockStore.EXPECT().GetTaxConfig(gomock.Any(), userID, "").Return(nil, fmt.Errorf("not found"))
+
+	incomes := []*pfinancev1.Income{
+		{
+			Id:          "inc-1",
+			UserId:      userID,
+			AmountCents: 10000000,
+			Date:        timestamppb.New(time.Date(2024, 8, 1, 0, 0, 0, 0, time.UTC)),
+		},
+	}
+	mockStore.EXPECT().ListIncomes(gomock.Any(), userID, "", &fyStart, &fyEnd, int32(500), "").
+		Return(incomes, "", nil)
+
+	deductions := []*pfinancev1.TaxDeductionSummary{
+		{
+			Category:     pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_HOME_OFFICE,
+			TotalCents:   100000,
+			TotalAmount:  1000.0,
+			ExpenseCount: 3,
+		},
+	}
+	mockStore.EXPECT().AggregateDeductionsByCategory(gomock.Any(), userID, "", fyStart, fyEnd).
+		Return(deductions, nil)
+
+	resp, err := svc.ExportTaxReturn(ctx, connect.NewRequest(&pfinancev1.ExportTaxReturnRequest{
+		UserId:        userID,
+		FinancialYear: "2024-25",
+		Format:        pfinancev1.TaxExportFormat_TAX_EXPORT_FORMAT_JSON,
+	}))
+	if err != nil {
+		t.Fatalf("ExportTaxReturn JSON failed: %v", err)
+	}
+
+	if resp.Msg.ContentType != "application/json" {
+		t.Errorf("ContentType = %q, want application/json", resp.Msg.ContentType)
+	}
+
+	// Verify JSON can be unmarshalled and has gross_income field
+	// Note: encoding/json uses Go struct tags which are snake_case for proto-generated types
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(resp.Msg.Data, &parsed); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+	if _, ok := parsed["gross_income"]; !ok {
+		t.Error("JSON does not contain gross_income field")
+	}
+}
+
+func TestTaxExport_NoIncome(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	userID := "tax-user"
+	ctx := testProContext(userID)
+
+	fyStart := time.Date(2024, time.July, 1, 0, 0, 0, 0, time.UTC)
+	fyEnd := time.Date(2025, time.July, 1, 0, 0, 0, 0, time.UTC)
+
+	mockStore.EXPECT().GetTaxConfig(gomock.Any(), userID, "").Return(nil, fmt.Errorf("not found"))
+	mockStore.EXPECT().ListIncomes(gomock.Any(), userID, "", &fyStart, &fyEnd, int32(500), "").
+		Return([]*pfinancev1.Income{}, "", nil)
+	mockStore.EXPECT().AggregateDeductionsByCategory(gomock.Any(), userID, "", fyStart, fyEnd).
+		Return([]*pfinancev1.TaxDeductionSummary{}, nil)
+
+	resp, err := svc.ExportTaxReturn(ctx, connect.NewRequest(&pfinancev1.ExportTaxReturnRequest{
+		UserId:        userID,
+		FinancialYear: "2024-25",
+		Format:        pfinancev1.TaxExportFormat_TAX_EXPORT_FORMAT_JSON,
+	}))
+	if err != nil {
+		t.Fatalf("ExportTaxReturn with no income failed: %v", err)
+	}
+	if resp.Msg.Calculation.GrossIncomeCents != 0 {
+		t.Errorf("GrossIncomeCents = %d, want 0", resp.Msg.Calculation.GrossIncomeCents)
+	}
+}
+
+// ============================================================================
+// GetTaxEstimate RPC Tests
+// ============================================================================
+
+func TestTaxEstimate_WithGrossOverride(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	userID := "tax-user"
+	ctx := testProContext(userID)
+
+	fyStart := time.Date(2024, time.July, 1, 0, 0, 0, 0, time.UTC)
+	fyEnd := time.Date(2025, time.July, 1, 0, 0, 0, 0, time.UTC)
+
+	// ListIncomes should NOT be called because gross override is provided
+	mockStore.EXPECT().AggregateDeductionsByCategory(gomock.Any(), userID, "", fyStart, fyEnd).
+		Return([]*pfinancev1.TaxDeductionSummary{}, nil)
+
+	resp, err := svc.GetTaxEstimate(ctx, connect.NewRequest(&pfinancev1.GetTaxEstimateRequest{
+		UserId:                   userID,
+		FinancialYear:            "2024-25",
+		GrossIncomeOverrideCents: 10000000, // $100k
+	}))
+	if err != nil {
+		t.Fatalf("GetTaxEstimate failed: %v", err)
+	}
+	calc := resp.Msg.Calculation
+	if calc.GrossIncomeCents != 10000000 {
+		t.Errorf("GrossIncomeCents = %d, want 10000000", calc.GrossIncomeCents)
+	}
+}
+
+func TestTaxEstimate_WithHELP(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	userID := "tax-user"
+	ctx := testProContext(userID)
+
+	fyStart := time.Date(2024, time.July, 1, 0, 0, 0, 0, time.UTC)
+	fyEnd := time.Date(2025, time.July, 1, 0, 0, 0, 0, time.UTC)
+
+	mockStore.EXPECT().AggregateDeductionsByCategory(gomock.Any(), userID, "", fyStart, fyEnd).
+		Return([]*pfinancev1.TaxDeductionSummary{}, nil)
+
+	resp, err := svc.GetTaxEstimate(ctx, connect.NewRequest(&pfinancev1.GetTaxEstimateRequest{
+		UserId:                   userID,
+		FinancialYear:            "2024-25",
+		GrossIncomeOverrideCents: 10000000, // $100k
+		IncludeHelp:              true,
+	}))
+	if err != nil {
+		t.Fatalf("GetTaxEstimate with HELP failed: %v", err)
+	}
+	calc := resp.Msg.Calculation
+	if calc.HelpRepaymentCents <= 0 {
+		t.Errorf("HelpRepaymentCents = %d, want > 0 for $100k income with HELP", calc.HelpRepaymentCents)
+	}
+}
+
+func TestTaxEstimate_WithMedicareExemption(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	userID := "tax-user"
+	ctx := testProContext(userID)
+
+	fyStart := time.Date(2024, time.July, 1, 0, 0, 0, 0, time.UTC)
+	fyEnd := time.Date(2025, time.July, 1, 0, 0, 0, 0, time.UTC)
+
+	mockStore.EXPECT().AggregateDeductionsByCategory(gomock.Any(), userID, "", fyStart, fyEnd).
+		Return([]*pfinancev1.TaxDeductionSummary{}, nil)
+
+	resp, err := svc.GetTaxEstimate(ctx, connect.NewRequest(&pfinancev1.GetTaxEstimateRequest{
+		UserId:                   userID,
+		FinancialYear:            "2024-25",
+		GrossIncomeOverrideCents: 10000000, // $100k
+		MedicareExemption:        true,
+	}))
+	if err != nil {
+		t.Fatalf("GetTaxEstimate with medicare exemption failed: %v", err)
+	}
+	calc := resp.Msg.Calculation
+	if calc.MedicareLevyCents != 0 {
+		t.Errorf("MedicareLevyCents = %d, want 0 with exemption", calc.MedicareLevyCents)
+	}
+}
+
+func TestTaxEstimate_InvalidFY(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	ctx := testProContext("tax-user")
+
+	_, err := svc.GetTaxEstimate(ctx, connect.NewRequest(&pfinancev1.GetTaxEstimateRequest{
+		UserId:                   "tax-user",
+		FinancialYear:            "bad",
+		GrossIncomeOverrideCents: 10000000,
+	}))
+	if err == nil {
+		t.Fatal("expected error for invalid FY")
+	}
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("error code = %v, want InvalidArgument", connect.CodeOf(err))
+	}
+}
+
+// ============================================================================
+// Edge Cases for Existing RPCs
+// ============================================================================
+
+func TestTaxGetTaxSummary_NoIncome(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	userID := "tax-user"
+	ctx := testProContext(userID)
+
+	fyStart := time.Date(2024, time.July, 1, 0, 0, 0, 0, time.UTC)
+	fyEnd := time.Date(2025, time.July, 1, 0, 0, 0, 0, time.UTC)
+
+	mockStore.EXPECT().ListIncomes(gomock.Any(), userID, "", &fyStart, &fyEnd, int32(500), "").
+		Return([]*pfinancev1.Income{}, "", nil)
+	mockStore.EXPECT().AggregateDeductionsByCategory(gomock.Any(), userID, "", fyStart, fyEnd).
+		Return([]*pfinancev1.TaxDeductionSummary{}, nil)
+
+	resp, err := svc.GetTaxSummary(ctx, connect.NewRequest(&pfinancev1.GetTaxSummaryRequest{
+		UserId:        userID,
+		FinancialYear: "2024-25",
+	}))
+	if err != nil {
+		t.Fatalf("GetTaxSummary with no income failed: %v", err)
+	}
+	if resp.Msg.Calculation.GrossIncomeCents != 0 {
+		t.Errorf("GrossIncomeCents = %d, want 0", resp.Msg.Calculation.GrossIncomeCents)
+	}
+}
+
+func TestTaxGetTaxSummary_InvalidFY(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	ctx := testProContext("tax-user")
+
+	_, err := svc.GetTaxSummary(ctx, connect.NewRequest(&pfinancev1.GetTaxSummaryRequest{
+		UserId:        "tax-user",
+		FinancialYear: "bad",
+	}))
+	if err == nil {
+		t.Fatal("expected error for invalid FY")
+	}
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("error code = %v, want InvalidArgument", connect.CodeOf(err))
+	}
+}
+
+func TestTaxBatchUpdate_OwnershipRejection(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	userID := "tax-user"
+	ctx := testProContext(userID)
+
+	wrongOwnerExpense := &pfinancev1.Expense{
+		Id:          "exp-wrong-owner",
+		UserId:      "different-user",
+		AmountCents: 5000,
+	}
+	mockStore.EXPECT().GetExpense(gomock.Any(), "exp-wrong-owner").Return(wrongOwnerExpense, nil)
+
+	resp, err := svc.BatchUpdateExpenseTaxStatus(ctx, connect.NewRequest(&pfinancev1.BatchUpdateExpenseTaxStatusRequest{
+		UserId: userID,
+		Updates: []*pfinancev1.ExpenseTaxUpdate{
+			{
+				ExpenseId:       "exp-wrong-owner",
+				IsTaxDeductible: true,
+			},
+		},
+	}))
+	if err != nil {
+		t.Fatalf("BatchUpdateExpenseTaxStatus failed: %v", err)
+	}
+	if len(resp.Msg.FailedExpenseIds) != 1 || resp.Msg.FailedExpenseIds[0] != "exp-wrong-owner" {
+		t.Errorf("FailedExpenseIds = %v, want [exp-wrong-owner]", resp.Msg.FailedExpenseIds)
+	}
+	if resp.Msg.UpdatedCount != 0 {
+		t.Errorf("UpdatedCount = %d, want 0", resp.Msg.UpdatedCount)
+	}
+}
+
+func TestTaxBatchUpdate_UpdateError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	userID := "tax-user"
+	ctx := testProContext(userID)
+
+	expense := &pfinancev1.Expense{
+		Id:          "exp-update-fail",
+		UserId:      userID,
+		AmountCents: 5000,
+	}
+	mockStore.EXPECT().GetExpense(gomock.Any(), "exp-update-fail").Return(expense, nil)
+	mockStore.EXPECT().UpdateExpense(gomock.Any(), gomock.Any()).Return(fmt.Errorf("store error"))
+
+	resp, err := svc.BatchUpdateExpenseTaxStatus(ctx, connect.NewRequest(&pfinancev1.BatchUpdateExpenseTaxStatusRequest{
+		UserId: userID,
+		Updates: []*pfinancev1.ExpenseTaxUpdate{
+			{
+				ExpenseId:       "exp-update-fail",
+				IsTaxDeductible: true,
+			},
+		},
+	}))
+	if err != nil {
+		t.Fatalf("BatchUpdateExpenseTaxStatus failed: %v", err)
+	}
+	if len(resp.Msg.FailedExpenseIds) != 1 || resp.Msg.FailedExpenseIds[0] != "exp-update-fail" {
+		t.Errorf("FailedExpenseIds = %v, want [exp-update-fail]", resp.Msg.FailedExpenseIds)
+	}
+}
+
+func TestTaxListDeductible_EmptyResults(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	mockStore.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("not found")).AnyTimes()
+
+	userID := "tax-user"
+	ctx := testProContext(userID)
+
+	fyStart := time.Date(2024, time.July, 1, 0, 0, 0, 0, time.UTC)
+	fyEnd := time.Date(2025, time.July, 1, 0, 0, 0, 0, time.UTC)
+
+	mockStore.EXPECT().ListDeductibleExpenses(gomock.Any(), userID, "", &fyStart, &fyEnd, pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNSPECIFIED, int32(0), "").
+		Return([]*pfinancev1.Expense{}, "", nil)
+
+	resp, err := svc.ListDeductibleExpenses(ctx, connect.NewRequest(&pfinancev1.ListDeductibleExpensesRequest{
+		UserId:        userID,
+		FinancialYear: "2024-25",
+	}))
+	if err != nil {
+		t.Fatalf("ListDeductibleExpenses failed: %v", err)
+	}
+	if len(resp.Msg.Expenses) != 0 {
+		t.Errorf("got %d expenses, want 0", len(resp.Msg.Expenses))
+	}
+	if resp.Msg.TotalDeductibleCents != 0 {
+		t.Errorf("TotalDeductibleCents = %d, want 0", resp.Msg.TotalDeductibleCents)
+	}
+}
+
+// ============================================================================
+// FY Validation Tests
+// ============================================================================
+
+func TestParseFYDateRange_MismatchedYears(t *testing.T) {
+	_, _, err := parseFYDateRange("2024-99")
+	if err == nil {
+		t.Fatal("expected error for mismatched FY years 2024-99")
+	}
+	if !strings.Contains(err.Error(), "does not match") {
+		t.Errorf("error message = %q, expected to contain 'does not match'", err.Error())
+	}
 }

@@ -52,7 +52,7 @@ func (p *TaxClassificationPipeline) ClassifyExpenses(
 	var needsGeminiIdx []int
 
 	for i, expense := range expenses {
-		// Skip already-classified expenses
+		// Skip already-classified expenses (deductible with a category set)
 		if expense.IsTaxDeductible && expense.TaxDeductionCategory != pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNSPECIFIED {
 			results[i] = ClassificationResult{
 				Expense: expense,
@@ -63,6 +63,20 @@ func (p *TaxClassificationPipeline) ClassifyExpenses(
 					Confidence:    1.0, // User already classified
 					Reasoning:     "Already classified by user",
 					Source:        "user",
+				},
+			}
+			continue
+		}
+
+		// Skip expenses explicitly marked NOT deductible by user (has a note indicating user decision)
+		if !expense.IsTaxDeductible && expense.TaxDeductionNote != "" {
+			results[i] = ClassificationResult{
+				Expense: expense,
+				Classification: TaxClassification{
+					IsDeductible: false,
+					Confidence:   1.0,
+					Reasoning:    "User marked as not deductible",
+					Source:       "user",
 				},
 			}
 			continue

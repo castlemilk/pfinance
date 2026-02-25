@@ -18,12 +18,9 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// taxPipeline is the tax classification pipeline instance (set via SetTaxClassificationPipeline).
-var taxPipeline *extraction.TaxClassificationPipeline
-
-// SetTaxClassificationPipeline sets the tax classification pipeline for the handlers.
-func SetTaxClassificationPipeline(p *extraction.TaxClassificationPipeline) {
-	taxPipeline = p
+// SetTaxClassificationPipeline sets the tax classification pipeline on the service.
+func (s *FinanceService) SetTaxClassificationPipeline(p *extraction.TaxClassificationPipeline) {
+	s.taxPipeline = p
 }
 
 // ============================================================================
@@ -75,8 +72,19 @@ func parseFYDateRange(fy string) (time.Time, time.Time, error) {
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("invalid start year in FY: %s", fy)
 	}
+	// Validate second part of FY string
+	endYearShort, err2 := strconv.Atoi(parts[1])
+	if err2 != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid end year in FY: %s", fy)
+	}
+	expectedEnd := (startYear + 1) % 100
+	if endYearShort != expectedEnd {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid financial year: end year %02d does not match start year %d (expected %02d)", endYearShort, startYear, expectedEnd)
+	}
+
 	start := time.Date(startYear, time.July, 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(startYear+1, time.June, 30, 23, 59, 59, 0, time.UTC)
+	// Use exclusive upper bound: July 1 of next year catches all nanosecond-precision timestamps on June 30
+	end := time.Date(startYear+1, time.July, 1, 0, 0, 0, 0, time.UTC)
 	return start, end, nil
 }
 
@@ -402,6 +410,9 @@ func (s *FinanceService) BatchUpdateExpenseTaxStatus(ctx context.Context, req *c
 	if err != nil {
 		return nil, err
 	}
+	if err := s.requireProWithFallback(ctx, claims); err != nil {
+		return nil, err
+	}
 
 	if len(req.Msg.Updates) > 100 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("max 100 updates per batch"))
@@ -466,10 +477,8 @@ func (s *FinanceService) ListDeductibleExpenses(ctx context.Context, req *connec
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	userID := req.Msg.UserId
-	if userID == "" {
-		userID = claims.UID
-	}
+	// Always use authenticated user's ID to prevent IDOR
+	userID := claims.UID
 
 	expenses, nextToken, err := s.store.ListDeductibleExpenses(ctx, userID, req.Msg.GroupId, &start, &end, req.Msg.Category, req.Msg.PageSize, req.Msg.PageToken)
 	if err != nil {
@@ -498,6 +507,26 @@ func (s *FinanceService) ListDeductibleExpenses(ctx context.Context, req *connec
 	}), nil
 }
 
+// friendlyDeductionCategory returns a user-friendly label like "D5 - Home Office" for CSV export.
+func friendlyDeductionCategory(cat pfinancev1.TaxDeductionCategory) string {
+	labels := map[pfinancev1.TaxDeductionCategory]string{
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_WORK_TRAVEL:       "D1 - Work Travel",
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNIFORM:           "D2 - Uniform & Laundry",
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION:    "D3 - Self-Education",
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK:        "D4 - Other Work Expenses",
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_HOME_OFFICE:       "D5 - Home Office",
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_VEHICLE:           "D6 - Vehicle Expenses",
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS:         "D15 - Donations",
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS:       "D10 - Tax Affairs",
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_INCOME_PROTECTION: "Income Protection",
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER:             "Other Deductions",
+	}
+	if label, ok := labels[cat]; ok {
+		return label
+	}
+	return cat.String()
+}
+
 // ExportTaxReturn exports the tax return data as CSV or JSON.
 func (s *FinanceService) ExportTaxReturn(ctx context.Context, req *connect.Request[pfinancev1.ExportTaxReturnRequest]) (*connect.Response[pfinancev1.ExportTaxReturnResponse], error) {
 	claims, err := auth.RequireAuth(ctx)
@@ -513,7 +542,15 @@ func (s *FinanceService) ExportTaxReturn(ctx context.Context, req *connect.Reque
 		fy = currentAustralianFY()
 	}
 
-	calc, err := s.computeTaxForFY(ctx, claims.UID, fy, 0, 0, false, false)
+	// Load user's tax config for HELP/Medicare settings
+	var includeHELP, medicareExempt bool
+	taxCfg, err := s.store.GetTaxConfig(ctx, claims.UID, "")
+	if err == nil && taxCfg != nil && taxCfg.Settings != nil {
+		includeHELP = taxCfg.Settings.IncludeStudentLoan
+		medicareExempt = taxCfg.Settings.MedicareExemption
+	}
+
+	calc, err := s.computeTaxForFY(ctx, claims.UID, fy, 0, 0, includeHELP, medicareExempt)
 	if err != nil {
 		return nil, err
 	}
@@ -542,7 +579,7 @@ func (s *FinanceService) ExportTaxReturn(ctx context.Context, req *connect.Reque
 		_ = w.Write([]string{"Financial Year", fy, ""})
 		_ = w.Write([]string{"Gross Income", fmt.Sprintf("%.2f", calc.GrossIncome), fmt.Sprintf("%d", calc.GrossIncomeCents)})
 		for _, d := range calc.Deductions {
-			label := d.Category.String()
+			label := friendlyDeductionCategory(d.Category)
 			_ = w.Write([]string{fmt.Sprintf("Deduction: %s", label), fmt.Sprintf("%.2f", d.TotalAmount), fmt.Sprintf("%d", d.TotalCents)})
 		}
 		_ = w.Write([]string{"Total Deductions", fmt.Sprintf("%.2f", calc.TotalDeductions), fmt.Sprintf("%d", calc.TotalDeductionsCents)})
@@ -583,7 +620,7 @@ func (s *FinanceService) ClassifyTaxDeductibility(ctx context.Context, req *conn
 		return nil, err
 	}
 
-	if taxPipeline == nil {
+	if s.taxPipeline == nil {
 		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("tax classification service is not available"))
 	}
 
@@ -606,7 +643,7 @@ func (s *FinanceService) ClassifyTaxDeductibility(ctx context.Context, req *conn
 		userMappings = nil
 	}
 
-	results := taxPipeline.ClassifyExpenses(ctx, []*pfinancev1.Expense{expense}, userMappings, req.Msg.Occupation, 0.85)
+	results := s.taxPipeline.ClassifyExpenses(ctx, []*pfinancev1.Expense{expense}, userMappings, req.Msg.Occupation, 0.85)
 	if len(results) == 0 {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("classification returned no results"))
 	}
@@ -655,7 +692,7 @@ func (s *FinanceService) BatchClassifyTaxDeductibility(ctx context.Context, req 
 		return nil, err
 	}
 
-	if taxPipeline == nil {
+	if s.taxPipeline == nil {
 		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("tax classification service is not available"))
 	}
 
@@ -698,7 +735,7 @@ func (s *FinanceService) BatchClassifyTaxDeductibility(ctx context.Context, req 
 	}
 
 	// Run the classification pipeline
-	classResults := taxPipeline.ClassifyExpenses(ctx, allExpenses, userMappings, req.Msg.Occupation, 0.85)
+	classResults := s.taxPipeline.ClassifyExpenses(ctx, allExpenses, userMappings, req.Msg.Occupation, 0.85)
 
 	var (
 		totalProcessed int32

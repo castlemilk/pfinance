@@ -13,6 +13,7 @@ import (
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 	"github.com/castlemilk/pfinance/backend/gen/pfinance/v1/pfinancev1connect"
 	"github.com/castlemilk/pfinance/backend/internal/auth"
+	"github.com/castlemilk/pfinance/backend/internal/extraction"
 	"github.com/castlemilk/pfinance/backend/internal/store"
 	"github.com/google/uuid"
 	"github.com/stripe/stripe-go/v82"
@@ -23,8 +24,9 @@ import (
 type FinanceService struct {
 	pfinancev1connect.UnimplementedFinanceServiceHandler
 	store        store.Store
-	stripe       *StripeClient      // nil if Stripe is not configured
-	firebaseAuth *auth.FirebaseAuth // nil if Firebase Auth is not configured
+	stripe       *StripeClient                         // nil if Stripe is not configured
+	firebaseAuth *auth.FirebaseAuth                    // nil if Firebase Auth is not configured
+	taxPipeline  *extraction.TaxClassificationPipeline // nil if not configured
 }
 
 func NewFinanceService(store store.Store, stripe *StripeClient, firebaseAuth *auth.FirebaseAuth) *FinanceService {
