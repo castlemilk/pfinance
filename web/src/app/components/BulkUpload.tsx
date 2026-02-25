@@ -822,7 +822,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
     const totalSize = files.reduce((s, f) => s + f.file.size, 0);
 
     return (
-      <div className="flex flex-col gap-4 min-h-0 h-full">
+      <div className="flex flex-col gap-4 min-h-0 flex-1">
         {/* Extraction method toggle */}
         <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 flex-shrink-0">
           <div className="flex items-center gap-2">
@@ -864,7 +864,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
 
         {/* File list */}
         {files.length > 0 && (
-          <ScrollArea className="min-h-0 flex-1">
+          <ScrollArea className="min-h-0 flex-1 overflow-hidden">
             <div className="space-y-2">
               {files.map((bf) => (
                 <div
@@ -940,7 +940,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
     }
 
     return (
-      <div className="flex flex-col gap-4 min-h-0 h-full">
+      <div className="flex flex-col gap-4 min-h-0 flex-1">
         <div className="space-y-2 flex-shrink-0">
           <div className="relative">
             <Progress value={progressPercent} className={`h-2.5 transition-opacity ${isPaused ? 'opacity-50' : ''}`} />
@@ -962,7 +962,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
           </div>
         </div>
 
-        <ScrollArea className="min-h-0 flex-1">
+        <ScrollArea className="min-h-0 flex-1 overflow-hidden">
           <div className="space-y-2">
             {files.map((bf) => (
               <div
@@ -1082,7 +1082,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
     const errorFiles = files.filter((f) => f.status === 'error');
 
     return (
-      <div className="flex flex-col gap-3 min-h-0 h-full">
+      <div className="flex flex-col gap-3 min-h-0 flex-1">
         {/* Summary stats bar */}
         {stats && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-shrink-0">
@@ -1193,7 +1193,7 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
         )}
 
         {/* Table */}
-        <ScrollArea className="min-h-0 flex-1 border rounded-md">
+        <ScrollArea className="min-h-0 flex-1 overflow-hidden border rounded-md">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30">
