@@ -12,6 +12,7 @@ import (
 	"github.com/castlemilk/pfinance/backend/gen/pfinance/v1/pfinancev1connect"
 	"github.com/castlemilk/pfinance/backend/internal/auth"
 	"github.com/castlemilk/pfinance/backend/internal/extraction"
+	"github.com/castlemilk/pfinance/backend/internal/search"
 	"github.com/castlemilk/pfinance/backend/internal/service"
 	"github.com/castlemilk/pfinance/backend/internal/store"
 	"github.com/rs/cors"
@@ -127,9 +128,36 @@ func main() {
 		log.Println("⚠️  STRIPE_SECRET_KEY or STRIPE_PRICE_ID not set, Stripe billing disabled")
 	}
 
+	// Initialize Algolia search if configured
+	algoliaAppID := os.Getenv("ALGOLIA_APP_ID")
+	algoliaSearchKey := os.Getenv("ALGOLIA_SEARCH_KEY")
+	algoliaIndexName := os.Getenv("ALGOLIA_INDEX_NAME")
+	var algoliaClient *search.AlgoliaClient
+	if algoliaAppID != "" && algoliaSearchKey != "" {
+		if algoliaIndexName == "" {
+			algoliaIndexName = "pfinance"
+		}
+		var err error
+		algoliaClient, err = search.NewAlgoliaClient(search.Config{
+			AppID:     algoliaAppID,
+			APIKey:    algoliaSearchKey,
+			IndexName: algoliaIndexName,
+		})
+		if err != nil {
+			log.Printf("WARNING: Failed to initialize Algolia: %v (falling back to store search)", err)
+		} else {
+			log.Printf("✅ Algolia search enabled (index: %s)", algoliaIndexName)
+		}
+	} else {
+		log.Println("⚠️  ALGOLIA_APP_ID or ALGOLIA_SEARCH_KEY not set, using store-based search")
+	}
+
 	// Create the finance service
 	financeService := service.NewFinanceService(storeImpl, stripeClient, firebaseAuth)
 	financeService.SetTaxClassificationPipeline(taxPipeline)
+	if algoliaClient != nil {
+		financeService.SetAlgoliaClient(algoliaClient)
+	}
 
 	// Create Connect handler with conditional auth interceptor
 	var interceptors []connect.Interceptor

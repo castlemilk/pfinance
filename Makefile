@@ -119,6 +119,9 @@ dev-backend: check-port-backend
 	export STRIPE_WEBHOOK_SECRET=$$(grep STRIPE_WEBHOOK_SECRET .env 2>/dev/null | cut -d= -f2-) && \
 	export STRIPE_PRODUCT_ID=$$(grep STRIPE_PRODUCT_ID .env 2>/dev/null | cut -d= -f2-) && \
 	export STRIPE_PRICE_ID=$$(grep STRIPE_PRICE_ID .env 2>/dev/null | cut -d= -f2-) && \
+	export ALGOLIA_APP_ID=$$(grep ALGOLIA_APP_ID .env 2>/dev/null | cut -d= -f2-) && \
+	export ALGOLIA_SEARCH_KEY=$$(grep ALGOLIA_SEARCH_KEY .env 2>/dev/null | cut -d= -f2-) && \
+	export ALGOLIA_INDEX_NAME=$$(grep ALGOLIA_INDEX_NAME .env 2>/dev/null | cut -d= -f2- || echo "pfinance") && \
 	go run cmd/server/main.go
 
 dev-backend-memory: check-port-backend
@@ -148,6 +151,9 @@ dev-backend-firebase: check-port-backend
 	export STRIPE_WEBHOOK_SECRET=$$(grep STRIPE_WEBHOOK_SECRET .env 2>/dev/null | cut -d= -f2-) && \
 	export STRIPE_PRODUCT_ID=$$(grep STRIPE_PRODUCT_ID .env 2>/dev/null | cut -d= -f2-) && \
 	export STRIPE_PRICE_ID=$$(grep STRIPE_PRICE_ID .env 2>/dev/null | cut -d= -f2-) && \
+	export ALGOLIA_APP_ID=$$(grep ALGOLIA_APP_ID .env 2>/dev/null | cut -d= -f2-) && \
+	export ALGOLIA_SEARCH_KEY=$$(grep ALGOLIA_SEARCH_KEY .env 2>/dev/null | cut -d= -f2-) && \
+	export ALGOLIA_INDEX_NAME=$$(grep ALGOLIA_INDEX_NAME .env 2>/dev/null | cut -d= -f2- || echo "pfinance") && \
 	go run cmd/server/main.go
 
 dev-frontend: check-port-frontend
@@ -505,6 +511,15 @@ deploy-frontend:
 	@cd web && npm run deploy
 
 deploy: deploy-backend deploy-frontend
+
+# Configure Algolia index settings (IaC)
+algolia-setup:
+	@echo "🔍 Configuring Algolia index settings..."
+	@cd backend && \
+	export ALGOLIA_APP_ID=$$(grep ALGOLIA_APP_ID .env 2>/dev/null | cut -d= -f2-) && \
+	export ALGOLIA_ADMIN_KEY=$$(grep ALGOLIA_ADMIN_KEY .env 2>/dev/null | cut -d= -f2-) && \
+	export ALGOLIA_INDEX_NAME=$$(grep ALGOLIA_INDEX_NAME .env 2>/dev/null | cut -d= -f2- || echo "pfinance") && \
+	go run ./scripts/algolia-setup
 
 # Deploy Firestore indexes
 deploy-indexes:

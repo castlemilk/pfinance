@@ -1,0 +1,11 @@
+{
+  "projects": {},
+  "targets": {},
+  "etags": {
+    "pfinance-app-1748773335": {
+      "extensionInstances": {
+        "firestore-algolia-search": "26daf19e09f31297c42c4e6783b920ae82b4db493fc68ebf16b015bfd431d5a1"
+      }
+    }
+  }
+}

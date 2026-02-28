@@ -14,6 +14,7 @@ import (
 	"github.com/castlemilk/pfinance/backend/gen/pfinance/v1/pfinancev1connect"
 	"github.com/castlemilk/pfinance/backend/internal/auth"
 	"github.com/castlemilk/pfinance/backend/internal/extraction"
+	"github.com/castlemilk/pfinance/backend/internal/search"
 	"github.com/castlemilk/pfinance/backend/internal/store"
 	"github.com/google/uuid"
 	"github.com/stripe/stripe-go/v82"
@@ -27,6 +28,12 @@ type FinanceService struct {
 	stripe       *StripeClient                         // nil if Stripe is not configured
 	firebaseAuth *auth.FirebaseAuth                    // nil if Firebase Auth is not configured
 	taxPipeline  *extraction.TaxClassificationPipeline // nil if not configured
+	algolia      *search.AlgoliaClient                 // nil if Algolia is not configured
+}
+
+// SetAlgoliaClient sets the Algolia search client for full-text search.
+func (s *FinanceService) SetAlgoliaClient(c *search.AlgoliaClient) {
+	s.algolia = c
 }
 
 func NewFinanceService(store store.Store, stripe *StripeClient, firebaseAuth *auth.FirebaseAuth) *FinanceService {
@@ -3619,7 +3626,8 @@ func (s *FinanceService) GetUpcomingBills(ctx context.Context, req *connect.Requ
 	}), nil
 }
 
-// SearchTransactions searches across expenses and incomes
+// SearchTransactions searches across expenses and incomes.
+// Routes to Algolia when configured, otherwise falls back to store-based search.
 func (s *FinanceService) SearchTransactions(ctx context.Context, req *connect.Request[pfinancev1.SearchTransactionsRequest]) (*connect.Response[pfinancev1.SearchTransactionsResponse], error) {
 	claims, err := auth.RequireAuth(ctx)
 	if err != nil {
@@ -3653,6 +3661,11 @@ func (s *FinanceService) SearchTransactions(ctx context.Context, req *connect.Re
 		endDate = &t
 	}
 
+	// Route to Algolia when available
+	if s.algolia != nil {
+		return s.searchViaAlgolia(ctx, userID, req.Msg, startDate, endDate)
+	}
+
 	results, nextToken, totalCount, err := s.store.SearchTransactions(ctx,
 		userID, req.Msg.GroupId, req.Msg.Query, req.Msg.Category,
 		req.Msg.AmountMin, req.Msg.AmountMax,
@@ -3666,6 +3679,51 @@ func (s *FinanceService) SearchTransactions(ctx context.Context, req *connect.Re
 		Results:       results,
 		NextPageToken: nextToken,
 		TotalCount:    int32(totalCount),
+	}), nil
+}
+
+// searchViaAlgolia performs the search through Algolia.
+func (s *FinanceService) searchViaAlgolia(ctx context.Context, userID string, msg *pfinancev1.SearchTransactionsRequest, startDate, endDate *time.Time) (*connect.Response[pfinancev1.SearchTransactionsResponse], error) {
+	pageSize := int(msg.PageSize)
+	if pageSize <= 0 {
+		pageSize = 25
+	}
+
+	// Repurpose page_token as page number for Algolia's offset pagination
+	pageNum := 0
+	if msg.PageToken != "" {
+		if _, err := fmt.Sscanf(msg.PageToken, "%d", &pageNum); err != nil {
+			pageNum = 0
+		}
+	}
+
+	resp, err := s.algolia.Search(ctx, search.SearchParams{
+		Query:     msg.Query,
+		UserID:    userID,
+		GroupID:   msg.GroupId,
+		Category:  msg.Category,
+		AmountMin: msg.AmountMin,
+		AmountMax: msg.AmountMax,
+		StartDate: startDate,
+		EndDate:   endDate,
+		Type:      msg.Type,
+		Page:      pageNum,
+		PageSize:  pageSize,
+	})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("algolia search: %w", err))
+	}
+
+	// Encode next page token
+	var nextPageToken string
+	if resp.Page+1 < resp.TotalPages {
+		nextPageToken = fmt.Sprintf("%d", resp.Page+1)
+	}
+
+	return connect.NewResponse(&pfinancev1.SearchTransactionsResponse{
+		Results:       resp.Results,
+		NextPageToken: nextPageToken,
+		TotalCount:    int32(resp.TotalCount),
 	}), nil
 }
 
