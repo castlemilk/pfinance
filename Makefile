@@ -521,6 +521,15 @@ algolia-setup:
 	export ALGOLIA_INDEX_NAME=$$(grep ALGOLIA_INDEX_NAME .env 2>/dev/null | cut -d= -f2- || echo "pfinance") && \
 	go run ./scripts/algolia-setup
 
+# Enable Firestore TTL on notifications collection (run once)
+firestore-ttl:
+	@echo "🕐 Enabling Firestore TTL on notifications.ExpiresAt..."
+	@gcloud firestore fields ttls update ExpiresAt \
+		--collection-group=notifications \
+		--enable-ttl \
+		--project=pfinance-app-1748773335
+	@echo "✅ TTL policy enabled — notifications will auto-delete after 90 days"
+
 # Deploy Firestore indexes
 deploy-indexes:
 	@echo "🔥 Deploying Firestore indexes..."

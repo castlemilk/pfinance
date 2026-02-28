@@ -6,6 +6,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { financeClient } from '@/lib/financeService';
 
 // Types for sync queue items
 export type SyncAction = 'create' | 'update' | 'delete';
@@ -165,6 +166,31 @@ export function useSyncQueue(
     return true;
   }, [queue, removeFromQueue]);
 
+  // Execute a single sync item via the finance API
+  const executeSyncItem = async (item: SyncQueueItem) => {
+    const payload = item.data as Record<string, unknown>;
+    switch (item.entityType) {
+      case 'expense':
+        if (item.action === 'create') {
+          await financeClient.createExpense(payload);
+        } else if (item.action === 'update') {
+          await financeClient.updateExpense(payload);
+        } else if (item.action === 'delete') {
+          await financeClient.deleteExpense({ expenseId: item.entityId });
+        }
+        break;
+      case 'income':
+        if (item.action === 'create') {
+          await financeClient.createIncome(payload);
+        } else if (item.action === 'update') {
+          await financeClient.updateIncome(payload);
+        } else if (item.action === 'delete') {
+          await financeClient.deleteIncome({ incomeId: item.entityId });
+        }
+        break;
+    }
+  };
+
   // Process the entire queue
   const processQueue = useCallback(async () => {
     if (isSyncingRef.current || !status.isOnline || queue.length === 0) {
@@ -185,14 +211,7 @@ export function useSyncQueue(
       }
 
       try {
-        // In real implementation, call the appropriate API based on entity type
-        console.log('[useSyncQueue] Processing item:', item);
-        
-        // Simulate API call - in real implementation, you'd call financeClient here
-        // based on item.entityType and item.action
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // On success, remove from queue
+        await executeSyncItem(item);
         removeFromQueue(item.id);
         console.log('[useSyncQueue] Item synced successfully:', item.id);
       } catch (err) {

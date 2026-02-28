@@ -186,42 +186,43 @@ func TestAnalyticsGetSpendingTrends(t *testing.T) {
 	t.Run("success with monthly trends across 3 periods", func(t *testing.T) {
 		ctx := testProContext(userID)
 
-		// The handler calls ListExpenses and ListIncomes for each period.
-		// With periods=3 and granularity=MONTH, that's 3 expense + 3 income calls.
+		// The handler now does a single ListExpenses + ListIncomes call for the entire range,
+		// then buckets results in memory.
 		now := time.Now()
 
+		// Build test data with expenses/incomes in each of the 3 periods
+		var allExpenses []*pfinancev1.Expense
+		var allIncomes []*pfinancev1.Income
 		for i := int32(0); i < 3; i++ {
 			offset := 3 - 1 - i
 			periodStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).AddDate(0, -int(offset), 0)
-			periodEnd := periodStart.AddDate(0, 1, -1)
-			periodEnd = time.Date(periodEnd.Year(), periodEnd.Month(), periodEnd.Day(), 23, 59, 59, 0, periodEnd.Location())
 
-			// Return some expenses for each period with increasing amounts
 			expenseAmount := float64((i + 1) * 100)
-			mockStore.EXPECT().
-				ListExpenses(gomock.Any(), userID, "", &periodStart, &periodEnd, int32(10000), "").
-				Return([]*pfinancev1.Expense{
-					{
-						Id:       "exp-" + string(rune('1'+i)),
-						UserId:   userID,
-						Amount:   expenseAmount,
-						Category: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
-						Date:     timestamppb.New(periodStart.AddDate(0, 0, 5)),
-					},
-				}, "", nil)
+			allExpenses = append(allExpenses, &pfinancev1.Expense{
+				Id:       fmt.Sprintf("exp-%d", i+1),
+				UserId:   userID,
+				Amount:   expenseAmount,
+				Category: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
+				Date:     timestamppb.New(periodStart.AddDate(0, 0, 5)),
+			})
 
 			incomeAmount := float64((i + 1) * 500)
-			mockStore.EXPECT().
-				ListIncomes(gomock.Any(), userID, "", &periodStart, &periodEnd, int32(10000), "").
-				Return([]*pfinancev1.Income{
-					{
-						Id:     "inc-" + string(rune('1'+i)),
-						UserId: userID,
-						Amount: incomeAmount,
-						Date:   timestamppb.New(periodStart.AddDate(0, 0, 1)),
-					},
-				}, "", nil)
+			allIncomes = append(allIncomes, &pfinancev1.Income{
+				Id:     fmt.Sprintf("inc-%d", i+1),
+				UserId: userID,
+				Amount: incomeAmount,
+				Date:   timestamppb.New(periodStart.AddDate(0, 0, 1)),
+			})
 		}
+
+		// Single call for the entire date range
+		mockStore.EXPECT().
+			ListExpenses(gomock.Any(), userID, "", gomock.Any(), gomock.Any(), int32(10000), "").
+			Return(allExpenses, "", nil)
+
+		mockStore.EXPECT().
+			ListIncomes(gomock.Any(), userID, "", gomock.Any(), gomock.Any(), int32(10000), "").
+			Return(allIncomes, "", nil)
 
 		resp, err := service.GetSpendingTrends(ctx, connect.NewRequest(&pfinancev1.GetSpendingTrendsRequest{
 			UserId:      userID,
@@ -774,6 +775,11 @@ func TestAnalyticsGetWaterfallData(t *testing.T) {
 		mockStore.EXPECT().
 			ListExpenses(gomock.Any(), userID, "", gomock.Any(), gomock.Any(), int32(10000), "").
 			Return(expenses, "", nil)
+
+		// GetTaxConfig for tax rate (returns error → falls back to 25%)
+		mockStore.EXPECT().
+			GetTaxConfig(gomock.Any(), userID, "").
+			Return(nil, fmt.Errorf("not found"))
 
 		resp, err := service.GetWaterfallData(ctx, connect.NewRequest(&pfinancev1.GetWaterfallDataRequest{
 			UserId: userID,

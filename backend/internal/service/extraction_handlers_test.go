@@ -399,7 +399,7 @@ func TestImportExtractedTransactions_Success(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	mockStore.EXPECT().CreateExpense(gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	mockStore.EXPECT().BatchCreateExpenses(gomock.Any(), gomock.Any()).Return(nil)
 	// Notification trigger calls (fire-and-forget)
 	mockStore.EXPECT().CreateNotification(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
@@ -457,15 +457,12 @@ func TestImportExtractedTransactions_PermissionDenied(t *testing.T) {
 	}
 }
 
-func TestImportExtractedTransactions_PartialFailure(t *testing.T) {
+func TestImportExtractedTransactions_BatchFailure(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockStore := store.NewMockStore(ctrl)
-	mockStore.EXPECT().CreateExpense(gomock.Any(), gomock.Any()).Return(nil).Times(1)
-	mockStore.EXPECT().CreateExpense(gomock.Any(), gomock.Any()).Return(fmt.Errorf("db error")).Times(1)
-	// Notification trigger calls (fire-and-forget)
-	mockStore.EXPECT().CreateNotification(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	mockStore.EXPECT().BatchCreateExpenses(gomock.Any(), gomock.Any()).Return(fmt.Errorf("db error"))
 
 	mock := &mockExtractor{
 		importExpenses: []*pfinancev1.Expense{
@@ -480,7 +477,7 @@ func TestImportExtractedTransactions_PartialFailure(t *testing.T) {
 	svc := NewFinanceService(mockStore, nil, nil)
 	ctx := authedCtx("user-1")
 
-	resp, err := svc.ImportExtractedTransactions(ctx, connect.NewRequest(&pfinancev1.ImportExtractedTransactionsRequest{
+	_, err := svc.ImportExtractedTransactions(ctx, connect.NewRequest(&pfinancev1.ImportExtractedTransactionsRequest{
 		UserId: "user-1",
 		Transactions: []*pfinancev1.ExtractedTransaction{
 			{Id: "1", Description: "Coffee", Amount: 5.50, IsDebit: true},
@@ -488,15 +485,8 @@ func TestImportExtractedTransactions_PartialFailure(t *testing.T) {
 		},
 	}))
 
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	// 1 succeeded, 1 failed
-	if resp.Msg.ImportedCount != 1 {
-		t.Fatalf("expected 1 imported, got %d", resp.Msg.ImportedCount)
-	}
-	if resp.Msg.SkippedCount != 1 {
-		t.Fatalf("expected 1 skipped, got %d", resp.Msg.SkippedCount)
+	if err == nil {
+		t.Fatal("expected error from batch create failure")
 	}
 }
 
@@ -509,7 +499,7 @@ func TestImportExtractedTransactions_GroupCheck(t *testing.T) {
 		Id:        "group-1",
 		MemberIds: []string{"user-1"},
 	}, nil)
-	mockStore.EXPECT().CreateExpense(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+	mockStore.EXPECT().BatchCreateExpenses(gomock.Any(), gomock.Any()).Return(nil)
 	// Notification trigger calls (fire-and-forget)
 	mockStore.EXPECT().CreateNotification(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 

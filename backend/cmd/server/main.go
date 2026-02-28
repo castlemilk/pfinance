@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"cloud.google.com/go/firestore"
 	"connectrpc.com/connect"
@@ -105,6 +106,12 @@ func main() {
 
 	service.SetExtractionService(extractionSvc)
 	log.Printf("✅ Document extraction enabled (ML service: %s)", mlServiceURL)
+
+	// Keep the Modal ML container warm with a periodic health-check ping.
+	// Modal shuts containers down after 60s of inactivity; pinging every 45s
+	// prevents the 5-10s cold-start penalty on the first real extraction request.
+	stopWarmup := extractionSvc.StartWarmupScheduler(45 * time.Second)
+	defer stopWarmup()
 
 	// Initialize tax classification pipeline
 	geminiAPIKey := os.Getenv("GEMINI_API_KEY")

@@ -88,7 +88,10 @@ func (c *AlgoliaClient) Search(ctx context.Context, params SearchParams) (*Searc
 		page = 0
 	}
 
-	filters := buildFilters(params)
+	filters, err := buildFilters(params)
+	if err != nil {
+		return nil, fmt.Errorf("building filters: %w", err)
+	}
 
 	hitsPerPage := int32(pageSize)
 	algoliaPage := int32(page)
@@ -130,22 +133,32 @@ func (c *AlgoliaClient) Search(ctx context.Context, params SearchParams) (*Searc
 	}, nil
 }
 
-// buildFilters constructs Algolia filter string from search params.
-// UserId is always enforced for security.
-func buildFilters(params SearchParams) string {
-	var parts []string
+// escapeAlgoliaFilter escapes a string value for use in an Algolia filter expression.
+// Algolia filter syntax uses double quotes around values; embedded double quotes
+// must be escaped with a backslash.
+func escapeAlgoliaFilter(s string) string {
+	escaped := strings.ReplaceAll(s, `\`, `\\`)
+	escaped = strings.ReplaceAll(escaped, `"`, `\"`)
+	return `"` + escaped + `"`
+}
 
-	// Always filter by user for security
-	if params.UserID != "" {
-		parts = append(parts, fmt.Sprintf("UserId:%q", params.UserID))
+// buildFilters constructs Algolia filter string from search params.
+// UserId is always enforced for tenant isolation — searches without
+// a UserID are rejected to prevent cross-tenant data leakage.
+func buildFilters(params SearchParams) (string, error) {
+	if params.UserID == "" {
+		return "", fmt.Errorf("UserID is required for tenant-scoped search")
 	}
 
+	var parts []string
+	parts = append(parts, "UserId:"+escapeAlgoliaFilter(params.UserID))
+
 	if params.GroupID != "" {
-		parts = append(parts, fmt.Sprintf("GroupId:%q", params.GroupID))
+		parts = append(parts, "GroupId:"+escapeAlgoliaFilter(params.GroupID))
 	}
 
 	if params.Category != "" {
-		parts = append(parts, fmt.Sprintf("Category:%q", params.Category))
+		parts = append(parts, "Category:"+escapeAlgoliaFilter(params.Category))
 	}
 
 	switch params.Type {
@@ -171,7 +184,7 @@ func buildFilters(params SearchParams) string {
 		parts = append(parts, fmt.Sprintf("DateUnix <= %d", params.EndDate.Unix()))
 	}
 
-	return strings.Join(parts, " AND ")
+	return strings.Join(parts, " AND "), nil
 }
 
 // hitToSearchResult converts an Algolia hit to a proto SearchResult.

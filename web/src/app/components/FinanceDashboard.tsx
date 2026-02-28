@@ -12,6 +12,7 @@ import UpcomingBillsCard from './recurring/UpcomingBillsCard';
 import GoalList from './goals/GoalList';
 import InsightsDashboard from './insights/InsightsDashboard';
 import AnalyticsPreview from './AnalyticsPreview';
+import TaxTrackerWidget from './TaxTrackerWidget';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { useMultiUserFinance } from '../context/MultiUserFinanceContext';
 import {
@@ -108,6 +109,9 @@ export default function FinanceDashboard({ mode }: FinanceDashboardProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* Tax Tracker Widget - personal mode only */}
+      {mode === 'personal' && <TaxTrackerWidget />}
 
       {/* Analytics Preview - personal mode only */}
       {mode === 'personal' && <AnalyticsPreview />}

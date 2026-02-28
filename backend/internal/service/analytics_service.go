@@ -146,73 +146,99 @@ func (s *FinanceService) GetSpendingTrends(ctx context.Context, req *connect.Req
 	}
 
 	now := time.Now()
-	var expenseSeries []*pfinancev1.TimeSeriesDataPoint
-	var incomeSeries []*pfinancev1.TimeSeriesDataPoint
 
-	// Compute date ranges for N periods and fetch data for each
+	// Pre-compute period boundaries for all periods (oldest first)
+	type periodInfo struct {
+		start time.Time
+		end   time.Time
+		label string
+	}
+	periodInfos := make([]periodInfo, periods)
 	for i := int32(0); i < periods; i++ {
-		var periodStart, periodEnd time.Time
-		var label string
-		// Periods are ordered oldest first: offset = periods-1-i
 		offset := periods - 1 - i
-
+		var ps, pe time.Time
+		var label string
 		switch granularity {
 		case pfinancev1.Granularity_GRANULARITY_DAY:
-			periodStart = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).AddDate(0, 0, -int(offset))
-			periodEnd = periodStart.Add(24*time.Hour - time.Second)
-			label = periodStart.Format("2006-01-02")
+			ps = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).AddDate(0, 0, -int(offset))
+			pe = ps.Add(24*time.Hour - time.Second)
+			label = ps.Format("2006-01-02")
 		case pfinancev1.Granularity_GRANULARITY_WEEK:
 			weekStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-			weekStart = weekStart.AddDate(0, 0, -int(weekStart.Weekday())) // Sunday
-			periodStart = weekStart.AddDate(0, 0, -int(offset)*7)
-			periodEnd = periodStart.AddDate(0, 0, 6)
-			periodEnd = time.Date(periodEnd.Year(), periodEnd.Month(), periodEnd.Day(), 23, 59, 59, 0, periodEnd.Location())
-			label = periodStart.Format("Jan 02")
-		default: // MONTH
-			periodStart = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).AddDate(0, -int(offset), 0)
-			periodEnd = periodStart.AddDate(0, 1, -1)
-			periodEnd = time.Date(periodEnd.Year(), periodEnd.Month(), periodEnd.Day(), 23, 59, 59, 0, periodEnd.Location())
-			label = periodStart.Format("Jan 2006")
+			weekStart = weekStart.AddDate(0, 0, -int(weekStart.Weekday()))
+			ps = weekStart.AddDate(0, 0, -int(offset)*7)
+			pe = ps.AddDate(0, 0, 6)
+			pe = time.Date(pe.Year(), pe.Month(), pe.Day(), 23, 59, 59, 0, pe.Location())
+			label = ps.Format("Jan 02")
+		default:
+			ps = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).AddDate(0, -int(offset), 0)
+			pe = ps.AddDate(0, 1, -1)
+			pe = time.Date(pe.Year(), pe.Month(), pe.Day(), 23, 59, 59, 0, pe.Location())
+			label = ps.Format("Jan 2006")
 		}
+		periodInfos[i] = periodInfo{start: ps, end: pe, label: label}
+	}
 
-		// Fetch expenses for this period
-		expenses, _, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &periodStart, &periodEnd, 10000, "")
-		if err != nil {
-			return nil, auth.WrapStoreError("list expenses", err)
+	// Single fetch for the entire date range (oldest start → newest end) instead of N+1 queries
+	overallStart := periodInfos[0].start
+	overallEnd := periodInfos[len(periodInfos)-1].end
+	allExpenses, _, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &overallStart, &overallEnd, 10000, "")
+	if err != nil {
+		return nil, auth.WrapStoreError("list expenses", err)
+	}
+	allIncomes, _, err := s.store.ListIncomes(ctx, userID, req.Msg.GroupId, &overallStart, &overallEnd, 10000, "")
+	if err != nil {
+		return nil, auth.WrapStoreError("list incomes", err)
+	}
+
+	// In-memory bucketing by period
+	expenseSeries := make([]*pfinancev1.TimeSeriesDataPoint, periods)
+	incomeSeries := make([]*pfinancev1.TimeSeriesDataPoint, periods)
+	expenseTotals := make([]float64, periods)
+	incomeTotals := make([]float64, periods)
+
+	for _, e := range allExpenses {
+		if req.Msg.Category != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED && e.Category != req.Msg.Category {
+			continue
 		}
-
-		var expenseTotal float64
-		for _, e := range expenses {
-			// Filter by category if specified
-			if req.Msg.Category != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED && e.Category != req.Msg.Category {
-				continue
+		if e.Date == nil {
+			continue
+		}
+		t := e.Date.AsTime()
+		for i, pi := range periodInfos {
+			if !t.Before(pi.start) && !t.After(pi.end) {
+				expenseTotals[i] += effectiveDollars(e.AmountCents, e.Amount)
+				break
 			}
-			expenseTotal += effectiveDollars(e.AmountCents, e.Amount)
 		}
+	}
 
-		// Fetch incomes for this period
-		incomes, _, err := s.store.ListIncomes(ctx, userID, req.Msg.GroupId, &periodStart, &periodEnd, 10000, "")
-		if err != nil {
-			return nil, auth.WrapStoreError("list incomes", err)
+	for _, inc := range allIncomes {
+		if inc.Date == nil {
+			continue
 		}
-
-		var incomeTotal float64
-		for _, inc := range incomes {
-			incomeTotal += effectiveDollars(inc.AmountCents, inc.Amount)
+		t := inc.Date.AsTime()
+		for i, pi := range periodInfos {
+			if !t.Before(pi.start) && !t.After(pi.end) {
+				incomeTotals[i] += effectiveDollars(inc.AmountCents, inc.Amount)
+				break
+			}
 		}
+	}
 
-		expenseSeries = append(expenseSeries, &pfinancev1.TimeSeriesDataPoint{
-			Date:       periodStart.Format("2006-01-02"),
-			Value:      expenseTotal,
-			ValueCents: int64(expenseTotal * 100),
-			Label:      label,
-		})
-		incomeSeries = append(incomeSeries, &pfinancev1.TimeSeriesDataPoint{
-			Date:       periodStart.Format("2006-01-02"),
-			Value:      incomeTotal,
-			ValueCents: int64(incomeTotal * 100),
-			Label:      label,
-		})
+	for i, pi := range periodInfos {
+		expenseSeries[i] = &pfinancev1.TimeSeriesDataPoint{
+			Date:       pi.start.Format("2006-01-02"),
+			Value:      expenseTotals[i],
+			ValueCents: int64(expenseTotals[i] * 100),
+			Label:      pi.label,
+		}
+		incomeSeries[i] = &pfinancev1.TimeSeriesDataPoint{
+			Date:       pi.start.Format("2006-01-02"),
+			Value:      incomeTotals[i],
+			ValueCents: int64(incomeTotals[i] * 100),
+			Label:      pi.label,
+		}
 	}
 
 	// Compute linear regression on expense series
@@ -519,21 +545,22 @@ func (s *FinanceService) DetectAnomalies(ctx context.Context, req *connect.Reque
 		}
 	}
 
+	// Pre-compute merchant counts in a single O(n) pass
+	merchantCount := make(map[string]int)
+	for _, e := range expenses {
+		if e.Description != "" {
+			merchantCount[e.Description]++
+		}
+	}
+
 	// Flag new merchants (first occurrence within this lookback is the only occurrence)
 	for _, e := range expenses {
 		if e.Description == "" {
 			continue
 		}
 		firstSeen := merchantFirstSeen[e.Description]
-		// Count how many times this merchant appears
-		count := 0
-		for _, e2 := range expenses {
-			if e2.Description == e.Description {
-				count++
-			}
-		}
 		// If the merchant was first seen in the lookback and appears only once
-		if count == 1 && !firstSeen.Before(startDate) {
+		if merchantCount[e.Description] == 1 && !firstSeen.Before(startDate) {
 			amt := effectiveDollars(e.AmountCents, e.Amount)
 			anomalies = append(anomalies, &pfinancev1.SpendingAnomaly{
 				Id:          uuid.New().String(),
@@ -910,8 +937,12 @@ func (s *FinanceService) GetWaterfallData(ctx context.Context, req *connect.Requ
 		RunningTotalCents: int64(runningTotal * 100),
 	})
 
-	// 2. Tax (estimated at a simple rate)
+	// 2. Tax (use user's configured rate, fallback to 25%)
 	estimatedTaxRate := 0.25
+	taxCfg, taxErr := s.store.GetTaxConfig(ctx, userID, req.Msg.GroupId)
+	if taxErr == nil && taxCfg != nil && taxCfg.TaxRate > 0 {
+		estimatedTaxRate = taxCfg.TaxRate / 100.0
+	}
 	estimatedTax := totalIncome * estimatedTaxRate
 	runningTotal -= estimatedTax
 	entries = append(entries, &pfinancev1.WaterfallEntry{

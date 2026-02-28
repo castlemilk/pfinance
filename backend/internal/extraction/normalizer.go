@@ -166,7 +166,35 @@ var (
 	suffixPattern = regexp.MustCompile(`(?i)\s+(pty|ltd|inc|corp|llc|au|us|uk|nz|sg)\.?$`)
 	longNumbers   = regexp.MustCompile(`\d{6,}`)
 	specialChars  = regexp.MustCompile(`[*#]+`)
+
+	// titleCaser is shared to avoid allocating a new caser on every call.
+	titleCaser = cases.Title(language.English)
 )
+
+// merchantWordEntry holds a merchant mapping plus its pre-split word list for
+// partial matching, precomputed at package init to avoid strings.Fields on
+// every NormalizeMerchant call.
+type merchantWordEntry struct {
+	info  MerchantInfo
+	words []string // words in the key with len > 3
+}
+
+var merchantWordPatterns []merchantWordEntry
+
+func init() {
+	merchantWordPatterns = make([]merchantWordEntry, 0, len(merchantMappings))
+	for key, info := range merchantMappings {
+		var longWords []string
+		for _, w := range strings.Fields(key) {
+			if len(w) > 3 {
+				longWords = append(longWords, w)
+			}
+		}
+		if len(longWords) > 0 {
+			merchantWordPatterns = append(merchantWordPatterns, merchantWordEntry{info: info, words: longWords})
+		}
+	}
+}
 
 // NormalizeMerchant normalizes a merchant name and determines its category.
 func NormalizeMerchant(rawMerchant string) MerchantInfo {
@@ -186,25 +214,26 @@ func NormalizeMerchant(rawMerchant string) MerchantInfo {
 		}
 	}
 
-	// Check for partial word matches
-	for key, info := range merchantMappings {
-		words := strings.Fields(key)
-		for _, word := range words {
-			if len(word) > 3 && strings.Contains(cleaned, word) {
+	// Check for partial word matches using precomputed word lists.
+	for i := range merchantWordPatterns {
+		e := &merchantWordPatterns[i]
+		for _, word := range e.words {
+			if strings.Contains(cleaned, word) {
 				return MerchantInfo{
-					Name:       info.Name,
-					Category:   info.Category,
+					Name:       e.info.Name,
+					Category:   e.info.Category,
 					Confidence: 0.8, // Lower confidence for partial match
 				}
 			}
 		}
 	}
 
-	// Fall back to keyword-based categorization
+	// Fall back to keyword-based categorization.
+	// Pass already-cleaned string to avoid re-running the 4 regexes.
 	for keyword, category := range categoryKeywords {
 		if strings.Contains(cleaned, keyword) {
 			return MerchantInfo{
-				Name:       formatMerchantName(rawMerchant),
+				Name:       formatCleaned(cleaned),
 				Category:   category,
 				Confidence: 0.6,
 			}
@@ -213,37 +242,38 @@ func NormalizeMerchant(rawMerchant string) MerchantInfo {
 
 	// Default: clean the name, mark as Other
 	return MerchantInfo{
-		Name:       formatMerchantName(rawMerchant),
+		Name:       formatCleaned(cleaned),
 		Category:   pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_OTHER,
 		Confidence: 0.3,
 	}
 }
 
 // formatMerchantName formats a raw merchant name for display.
+// It runs the full clean pipeline then title-cases each word.
 func formatMerchantName(raw string) string {
-	// Clean up the raw name
 	cleaned := prefixPattern.ReplaceAllString(raw, "")
 	cleaned = suffixPattern.ReplaceAllString(cleaned, "")
 	cleaned = longNumbers.ReplaceAllString(cleaned, "")
 	cleaned = specialChars.ReplaceAllString(cleaned, "")
 	cleaned = strings.TrimSpace(cleaned)
+	return formatCleaned(cleaned)
+}
 
-	// Title case each word
-	caser := cases.Title(language.English)
+// formatCleaned title-cases an already-cleaned merchant string.
+// Called from NormalizeMerchant to avoid re-running the 4 cleaning regexes.
+func formatCleaned(cleaned string) string {
 	words := strings.Fields(cleaned)
 	for i, word := range words {
 		if len(word) > 2 {
-			words[i] = caser.String(strings.ToLower(word))
+			words[i] = titleCaser.String(strings.ToLower(word))
 		} else {
 			words[i] = strings.ToUpper(word)
 		}
 	}
-
 	result := strings.Join(words, " ")
 	if len(result) > 50 {
 		result = result[:50]
 	}
-
 	return result
 }
 

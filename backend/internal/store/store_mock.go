@@ -57,6 +57,34 @@ func (mr *MockStoreMockRecorder) AggregateDeductionsByCategory(ctx, userID, grou
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AggregateDeductionsByCategory", reflect.TypeOf((*MockStore)(nil).AggregateDeductionsByCategory), ctx, userID, groupID, startDate, endDate)
 }
 
+// BatchCreateExpenses mocks base method.
+func (m *MockStore) BatchCreateExpenses(ctx context.Context, expenses []*pfinancev1.Expense) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BatchCreateExpenses", ctx, expenses)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// BatchCreateExpenses indicates an expected call of BatchCreateExpenses.
+func (mr *MockStoreMockRecorder) BatchCreateExpenses(ctx, expenses any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchCreateExpenses", reflect.TypeOf((*MockStore)(nil).BatchCreateExpenses), ctx, expenses)
+}
+
+// BatchDeleteExpenses mocks base method.
+func (m *MockStore) BatchDeleteExpenses(ctx context.Context, expenseIDs []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BatchDeleteExpenses", ctx, expenseIDs)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// BatchDeleteExpenses indicates an expected call of BatchDeleteExpenses.
+func (mr *MockStoreMockRecorder) BatchDeleteExpenses(ctx, expenseIDs any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchDeleteExpenses", reflect.TypeOf((*MockStore)(nil).BatchDeleteExpenses), ctx, expenseIDs)
+}
+
 // ClearUserData mocks base method.
 func (m *MockStore) ClearUserData(ctx context.Context, userID string) error {
 	m.ctrl.T.Helper()

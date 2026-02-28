@@ -82,6 +82,50 @@ func (s *FirestoreStore) CreateExpense(ctx context.Context, expense *pfinancev1.
 	return err
 }
 
+// BatchCreateExpenses creates multiple expenses in a single Firestore batch write.
+// Chunks into batches of 500 to respect Firestore limits.
+func (s *FirestoreStore) BatchCreateExpenses(ctx context.Context, expenses []*pfinancev1.Expense) error {
+	for i := 0; i < len(expenses); i += 500 {
+		batch := s.client.Batch()
+		end := i + 500
+		if end > len(expenses) {
+			end = len(expenses)
+		}
+		for _, expense := range expenses[i:end] {
+			collection := "expenses"
+			if expense.GroupId != "" {
+				collection = "groupExpenses"
+			}
+			batch.Set(s.client.Collection(collection).Doc(expense.Id), expense)
+		}
+		if _, err := batch.Commit(ctx); err != nil {
+			return fmt.Errorf("batch create expenses (chunk %d): %w", i/500, err)
+		}
+	}
+	return nil
+}
+
+// BatchDeleteExpenses deletes multiple expenses in a single Firestore batch write.
+// Tries both personal and group expense collections.
+func (s *FirestoreStore) BatchDeleteExpenses(ctx context.Context, expenseIDs []string) error {
+	for i := 0; i < len(expenseIDs); i += 500 {
+		batch := s.client.Batch()
+		end := i + 500
+		if end > len(expenseIDs) {
+			end = len(expenseIDs)
+		}
+		for _, id := range expenseIDs[i:end] {
+			// Delete from both collections — Firestore ignores deletes on non-existent docs
+			batch.Delete(s.client.Collection("expenses").Doc(id))
+			batch.Delete(s.client.Collection("groupExpenses").Doc(id))
+		}
+		if _, err := batch.Commit(ctx); err != nil {
+			return fmt.Errorf("batch delete expenses (chunk %d): %w", i/500, err)
+		}
+	}
+	return nil
+}
+
 // GetExpense retrieves an expense from Firestore
 func (s *FirestoreStore) GetExpense(ctx context.Context, expenseID string) (*pfinancev1.Expense, error) {
 	// Try personal expenses first
@@ -1798,7 +1842,26 @@ func (s *FirestoreStore) ListRecurringTransactions(ctx context.Context, userID, 
 // Notification operations
 
 func (s *FirestoreStore) CreateNotification(ctx context.Context, notification *pfinancev1.Notification) error {
-	_, err := s.client.Collection("notifications").Doc(notification.Id).Set(ctx, notification)
+	// Store with an ExpiresAt field for Firestore TTL auto-deletion (90 days).
+	// Enable TTL policy via:
+	//   gcloud firestore fields ttls update ExpiresAt \
+	//     --collection-group=notifications --project=PROJECT_ID
+	data := map[string]interface{}{
+		"Id":            notification.Id,
+		"UserId":        notification.UserId,
+		"Type":          notification.Type,
+		"Title":         notification.Title,
+		"Message":       notification.Message,
+		"IsRead":        notification.IsRead,
+		"ActionUrl":     notification.ActionUrl,
+		"ReferenceId":   notification.ReferenceId,
+		"ReferenceType": notification.ReferenceType,
+		"CreatedAt":     notification.CreatedAt,
+		"ReadAt":        notification.ReadAt,
+		"Metadata":      notification.Metadata,
+		"ExpiresAt":     time.Now().Add(90 * 24 * time.Hour),
+	}
+	_, err := s.client.Collection("notifications").Doc(notification.Id).Set(ctx, data)
 	return err
 }
 

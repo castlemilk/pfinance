@@ -25,10 +25,13 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 // ============================================================================
-// Polling interval (30 seconds)
+// Polling intervals
 // ============================================================================
 
-const POLL_INTERVAL_MS = 30_000;
+// Default: poll every 60 seconds
+const POLL_INTERVAL_MS = 60_000;
+// When FCM push is active, poll infrequently as a safety net
+const POLL_INTERVAL_PUSH_MS = 300_000; // 5 minutes
 
 // ============================================================================
 // Provider Component
@@ -162,7 +165,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [isAuthenticated, userId, preferences]);
 
-  // ── Poll unread count every 30 seconds ─────────────────────────────────
+  // ── Poll unread count ──────────────────────────────────────────────────
+  // Uses a longer interval when FCM push is active (push delivers updates
+  // in real-time, polling is just a safety net).
 
   useEffect(() => {
     if (!isAuthenticated || !userId) {
@@ -177,12 +182,29 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     refreshUnreadCount();
     loadPreferences();
 
+    // Determine polling interval: if FCM push is registered, poll infrequently
+    let interval = POLL_INTERVAL_MS;
+    try {
+      if (localStorage.getItem('pfinance_fcm_token')) {
+        interval = POLL_INTERVAL_PUSH_MS;
+      }
+    } catch {
+      // localStorage unavailable (SSR/incognito)
+    }
+
     // Set up polling
     pollIntervalRef.current = setInterval(() => {
       refreshUnreadCount();
-    }, POLL_INTERVAL_MS);
+    }, interval);
+
+    // Listen for foreground FCM push messages — refresh immediately
+    const handleFCMMessage = () => {
+      refreshUnreadCount();
+    };
+    window.addEventListener('fcm-foreground-message', handleFCMMessage);
 
     return () => {
+      window.removeEventListener('fcm-foreground-message', handleFCMMessage);
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;

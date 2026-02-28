@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Bell, AlertCircle, RefreshCw } from 'lucide-react';
+import { Bell, AlertCircle, RefreshCw, BellRing } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useNotifications } from '../../context/NotificationContext';
 import NotificationItem from './NotificationItem';
+import { usePushNotifications } from '../../hooks/usePushNotifications';
 
 export default function NotificationCenter() {
   const {
@@ -106,7 +107,8 @@ export default function NotificationCenter() {
         <Separator />
 
         {/* Footer */}
-        <div className="p-2">
+        <div className="p-2 space-y-1">
+          <PushNotificationButton />
           <Link href="/personal/notifications/" onClick={() => setOpen(false)}>
             <Button
               variant="ghost"
@@ -119,5 +121,23 @@ export default function NotificationCenter() {
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+function PushNotificationButton() {
+  const { permission, isSupported, requestPermission } = usePushNotifications();
+
+  if (!isSupported || permission === 'granted') return null;
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="w-full text-xs gap-1.5"
+      onClick={() => requestPermission()}
+    >
+      <BellRing className="w-3 h-3" />
+      Enable push notifications
+    </Button>
   );
 }

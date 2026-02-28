@@ -71,7 +71,9 @@ func main() {
 			"desc(DateUnix)",
 		},
 
-		// Attributes to retrieve in search results
+		// Attributes to retrieve in search results.
+		// UserId is intentionally excluded — it's a filter-only field
+		// for tenant isolation and should not be exposed in results.
 		AttributesToRetrieve: []string{
 			"objectID",
 			"Description",
@@ -80,7 +82,6 @@ func main() {
 			"AmountCents",
 			"Date",
 			"DateUnix",
-			"UserId",
 			"GroupId",
 			"Frequency",
 			"IsTaxDeductible",

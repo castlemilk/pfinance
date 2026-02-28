@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -197,9 +197,10 @@ interface BulkUploadDialogProps {
   onOpenChange: (open: boolean) => void;
   useGemini: boolean;
   setUseGemini: (v: boolean) => void;
+  initialFiles?: File[];
 }
 
-function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkUploadDialogProps) {
+export function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini, initialFiles }: BulkUploadDialogProps) {
   const { refreshData } = useFinance();
   const { user } = useAuth();
   const router = useRouter();
@@ -249,6 +250,42 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
   const processingStartTime = useRef(0);
   const fileProcessingTimes = useRef<{ bytes: number; ms: number }[]>([]);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Pre-populate from initialFiles (e.g., SmartExpenseEntry statement redirect)
+  useEffect(() => {
+    if (initialFiles && initialFiles.length > 0 && files.length === 0) {
+      const dt = new DataTransfer();
+      initialFiles.forEach(f => dt.items.add(f));
+      addFilesFromArray(initialFiles);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFiles]);
+
+  const addFilesFromArray = useCallback((fileArray: File[]) => {
+    const newFiles: BulkFile[] = fileArray
+      .filter((f) => {
+        const ext = f.name.toLowerCase();
+        return (
+          f.type.startsWith('image/') ||
+          f.type === 'application/pdf' ||
+          ext.endsWith('.pdf') ||
+          ext.endsWith('.jpg') ||
+          ext.endsWith('.jpeg') ||
+          ext.endsWith('.png') ||
+          ext.endsWith('.webp')
+        );
+      })
+      .map((f) => ({
+        id: nextId('bf'),
+        file: f,
+        name: f.name,
+        type: isPdfFile(f) ? 'statement' as const : 'receipt' as const,
+        status: 'pending' as const,
+        transactions: [],
+        retryCount: 0,
+      }));
+    setFiles((prev) => [...prev, ...newFiles]);
+  }, []);
 
   // ── Helpers ──────────────────────────────────────────
 
@@ -431,10 +468,13 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
     setStep('review');
   };
 
+  // Number of files to process in parallel. Capped at 3 to avoid overwhelming
+  // the ML service and to keep the UI progress meaningful.
+  const CONCURRENCY = 3;
+
   const processAllFiles = async () => {
     cancelledRef.current = false;
 
-    // If resuming from pause, continue from saved index
     if (!isPaused) {
       setStep('processing');
       processingFileIndex.current = 0;
@@ -444,56 +484,66 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
     setIsPaused(false);
     pausedRef.current = false;
 
-    const allTransactions: BulkTransaction[] = [];
+    // Snapshot files at start (stable reference throughout processing)
+    const snapshot = [...files];
 
-    // Collect transactions from already-completed files before resume point
+    // Collect transactions from already-completed files
+    const allTransactions: BulkTransaction[] = [];
     for (let i = 0; i < processingFileIndex.current; i++) {
-      if (files[i].status === 'done') {
-        allTransactions.push(...files[i].transactions);
+      if (snapshot[i]?.status === 'done') {
+        allTransactions.push(...snapshot[i].transactions);
       }
     }
 
-    for (let i = processingFileIndex.current; i < files.length; i++) {
-      if (cancelledRef.current) break;
+    // Pending queue: indices not yet started
+    const pending = snapshot
+      .map((bf, i) => ({ bf, i }))
+      .filter(({ i, bf }) => i >= processingFileIndex.current && bf.status !== 'done');
 
-      if (pausedRef.current) {
-        processingFileIndex.current = i;
-        setIsPaused(true);
-        stopProgressInterval();
-        setTransactions(allTransactions);
-        return;
-      }
-
-      const bf = files[i];
-      if (bf.status === 'done') {
-        allTransactions.push(...bf.transactions);
-        continue;
-      }
-
+    // Process a single file and accumulate its results
+    const processOne = async ({ bf }: { bf: BulkFile; i: number }) => {
+      if (cancelledRef.current || pausedRef.current) return;
+      const t0 = Date.now();
+      startProgressInterval(bf.file.size);
       try {
-        processingStartTime.current = Date.now();
-        startProgressInterval(bf.file.size);
         const result = await processSingleFile(bf);
         stopProgressInterval();
-        fileProcessingTimes.current.push({
-          bytes: bf.file.size,
-          ms: Date.now() - processingStartTime.current,
-        });
-        allTransactions.push(...result.transactions);
+        fileProcessingTimes.current.push({ bytes: bf.file.size, ms: Date.now() - t0 });
         updateFileWithTransactions(bf.id, 'done', result.transactions, result.statementMetadata, result.duplicateWarnings);
+        // Accumulate in shared array (no race — push is atomic in JS)
+        allTransactions.push(...result.transactions);
       } catch (err) {
         stopProgressInterval();
-        fileProcessingTimes.current.push({
-          bytes: bf.file.size,
-          ms: Date.now() - processingStartTime.current,
-        });
+        fileProcessingTimes.current.push({ bytes: bf.file.size, ms: Date.now() - t0 });
         const message = err instanceof Error ? err.message : 'Processing failed';
         updateFileStatus(bf.id, 'error', message);
       }
+    };
+
+    // Concurrency-limited pool: process up to CONCURRENCY files in parallel
+    const inFlight: Promise<void>[] = [];
+    for (const item of pending) {
+      if (cancelledRef.current) break;
+      if (pausedRef.current) {
+        processingFileIndex.current = item.i;
+        setIsPaused(true);
+        setTransactions([...allTransactions]);
+        return;
+      }
+      const p = processOne(item).then(() => {
+        inFlight.splice(inFlight.indexOf(p), 1);
+      });
+      inFlight.push(p);
+      if (inFlight.length >= CONCURRENCY) {
+        await Promise.race(inFlight);
+      }
     }
 
+    // Wait for any remaining in-flight
+    await Promise.all(inFlight);
+
     stopProgressInterval();
-    setTransactions(allTransactions);
+    setTransactions([...allTransactions]);
     if (!cancelledRef.current) {
       setStep('review');
     }
@@ -525,10 +575,20 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
   };
 
   async function pollExtractionJob(jobId: string): Promise<{ transactions: ExtractedTransaction[]; statementMetadata?: StatementMetadata } | null> {
-    const maxPolls = 60;
-    for (let i = 0; i < maxPolls; i++) {
+    // Adaptive polling: start fast (500ms), ramp up to 2s after the first few polls.
+    // Receipt extractions typically complete in 3-5s; bank statements in 8-15s.
+    const pollIntervals = [500, 500, 750, 1000, 1250, 1500, 2000]; // ms per poll index
+    const maxPollMs = 90_000;
+    const startTime = Date.now();
+    let pollIndex = 0;
+
+    while (Date.now() - startTime < maxPollMs) {
       if (cancelledRef.current) return null;
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      const interval = pollIntervals[Math.min(pollIndex, pollIntervals.length - 1)];
+      await new Promise((resolve) => setTimeout(resolve, interval));
+      pollIndex++;
+
       try {
         const jobResp = await financeClient.getExtractionJob({ jobId });
         if (jobResp.job?.status === ExtractionStatus.COMPLETED && jobResp.job.result) {
@@ -541,6 +601,9 @@ function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini }: BulkU
           throw new Error(jobResp.job.errorMessage || 'Extraction failed');
         }
       } catch (pollErr) {
+        if (pollErr instanceof Error && (pollErr.message.includes('Extraction failed') || pollErr.message.includes('failed'))) {
+          throw pollErr;
+        }
         console.error('Poll error:', pollErr);
       }
     }

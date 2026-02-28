@@ -160,6 +160,10 @@ message Expense {
   TaxDeductionCategory tax_deduction_category = 19;
   string tax_deduction_note = 20;     // e.g., "67c/hr x 200hrs"
   double tax_deductible_percent = 21; // 0.0-1.0 for partial deductions (e.g., 50% work phone)
+
+  // Receipt vault fields
+  string receipt_url = 22;              // Download URL for attached receipt
+  string receipt_storage_path = 23;     // Firebase Storage path (e.g., receipts/{userId}/{expenseId}/receipt.jpg)
 }
 
 // Income represents a single income entry
@@ -593,6 +597,7 @@ enum NotificationType {
   NOTIFICATION_TYPE_EXTRACTION_COMPLETE = 7;   // Document extraction finished
   NOTIFICATION_TYPE_GROUP_ACTIVITY = 8;        // Group expense/income added by another member
   NOTIFICATION_TYPE_WEEKLY_DIGEST = 9;         // Weekly financial summary digest
+  NOTIFICATION_TYPE_TAX_SAVINGS = 10;          // Monthly tax savings notification
 }
 
 // Notification represents an in-app notification
@@ -621,6 +626,8 @@ message NotificationPreferences {
   bool subscription_alerts = 6;    // Default: true
   bool weekly_digest = 7;          // Default: false
   int32 bill_reminder_days = 8;    // Days before due date (default: 3)
+  bool push_enabled = 9;           // Whether push notifications are enabled
+  string fcm_token = 10;           // FCM token for push delivery
 }
 
 // ============================================================================
@@ -733,6 +740,8 @@ message ProcessedStatement {
   int32 imported_count = 8;
   google.protobuf.Timestamp processed_at = 9;
   string original_filename = 10;
+  string statement_storage_url = 11;    // Download URL for stored statement PDF
+  string statement_storage_path = 12;   // Firebase Storage path for statement PDF
 }
 
 // ExtractionJob represents an async extraction job
@@ -1010,4 +1019,45 @@ message TaxDeductibilityMapping {
   double confidence = 7;               // Derived from confirmation_count
   google.protobuf.Timestamp last_used = 8;
   google.protobuf.Timestamp created_at = 9;
+}
+
+// ============================================================================
+// Potential Deduction (for deduction finder)
+// ============================================================================
+
+// PotentialDeduction represents a suggested tax deduction found by the deduction finder
+message PotentialDeduction {
+  string expense_id = 1;
+  string description = 2;
+  double amount = 3;
+  int64 amount_cents = 4;
+  google.protobuf.Timestamp date = 5;
+  ExpenseCategory category = 6;
+  TaxDeductionCategory suggested_deduction_category = 7;
+  double confidence = 8;              // 0.0-1.0
+  string reasoning = 9;              // AI explanation
+  double deductible_percent = 10;     // 0.0-1.0
+  int64 potential_savings_cents = 11;  // Calculated from marginal tax bracket
+  double potential_savings = 12;
+}
+
+// TaxYearComparison represents a comparison between two financial years
+message TaxYearComparison {
+  string year_a = 1;                  // e.g., "2024-25"
+  string year_b = 2;                  // e.g., "2025-26"
+  TaxCalculation calculation_a = 3;
+  TaxCalculation calculation_b = 4;
+  repeated CategoryDelta category_deltas = 5;
+  int64 income_change_cents = 6;
+  int64 deduction_change_cents = 7;
+  int64 tax_change_cents = 8;
+}
+
+// CategoryDelta represents the change in deductions for a category between two years
+message CategoryDelta {
+  TaxDeductionCategory category = 1;
+  int64 year_a_cents = 2;
+  int64 year_b_cents = 3;
+  int64 change_cents = 4;
+  double change_percent = 5;
 }

@@ -8,11 +8,11 @@ import { jest } from '@jest/globals';
 // Mock financeService
 jest.mock('@/lib/financeService', () => ({
   financeClient: {
-    batchUpdateExpenseTaxStatus: jest.fn().mockResolvedValue({}),
-    listIncomes: jest.fn().mockResolvedValue({ incomes: [] }),
-    listExpenses: jest.fn().mockResolvedValue({ expenses: [] }),
-    updateUser: jest.fn().mockResolvedValue({}),
-    listGroups: jest.fn().mockResolvedValue({ groups: [] }),
+    batchUpdateExpenseTaxStatus: jest.fn<() => Promise<any>>().mockResolvedValue({}),
+    listIncomes: jest.fn<() => Promise<any>>().mockResolvedValue({ incomes: [] }),
+    listExpenses: jest.fn<() => Promise<any>>().mockResolvedValue({ expenses: [] }),
+    updateUser: jest.fn<() => Promise<any>>().mockResolvedValue({}),
+    listGroups: jest.fn<() => Promise<any>>().mockResolvedValue({ groups: [] }),
   },
 }));
 

@@ -89,7 +89,7 @@ function searchResultToDisplay(result: SearchResult): {
 }
 
 export default function ExpenseList({ limit, filterDate, onClearFilter }: ExpenseListProps = {}) {
-  const { expenses, deleteExpense, deleteExpenses, updateExpense } = useFinance();
+  const { expenses, deleteExpense, deleteExpenses, updateExpense, taxConfig } = useFinance();
   const { user } = useAuth();
   const { groups } = useMultiUserFinance();
   const router = useRouter();
@@ -249,11 +249,16 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
     }).format(date);
   };
 
-  // Format amount to currency
+  // Format amount to currency (derive from taxConfig country)
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    const currencyMap: Record<string, { locale: string; currency: string }> = {
+      australia: { locale: 'en-AU', currency: 'AUD' },
+      uk: { locale: 'en-GB', currency: 'GBP' },
+    };
+    const config = currencyMap[taxConfig?.country ?? ''] ?? { locale: 'en-US', currency: 'USD' };
+    return new Intl.NumberFormat(config.locale, {
       style: 'currency',
-      currency: 'USD',
+      currency: config.currency,
     }).format(amount);
   };
 

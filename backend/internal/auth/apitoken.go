@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"connectrpc.com/connect"
@@ -39,16 +40,59 @@ func HashApiToken(raw string) string {
 	return hex.EncodeToString(h[:])
 }
 
+// cachedClaims stores resolved claims from an API token lookup.
+type cachedClaims struct {
+	claims  *UserClaims
+	subInfo *SubscriptionInfo
+	tokenID string
+	prefix  string
+	expires time.Time
+}
+
+// apiTokenCache provides a TTL-based cache for API token lookups.
+type apiTokenCache struct {
+	mu      sync.RWMutex
+	entries map[string]*cachedClaims // keyed by token hash
+	ttl     time.Duration
+}
+
+func newApiTokenCache(ttl time.Duration) *apiTokenCache {
+	return &apiTokenCache{
+		entries: make(map[string]*cachedClaims),
+		ttl:     ttl,
+	}
+}
+
+func (c *apiTokenCache) get(tokenHash string) (*cachedClaims, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	entry, ok := c.entries[tokenHash]
+	if !ok || time.Now().After(entry.expires) {
+		return nil, false
+	}
+	return entry, true
+}
+
+func (c *apiTokenCache) set(tokenHash string, entry *cachedClaims) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	entry.expires = time.Now().Add(c.ttl)
+	c.entries[tokenHash] = entry
+}
+
 // ApiTokenInterceptor checks the X-API-Key header, validates against the store,
 // and sets UserClaims + SubscriptionInfo in context.
 // If no X-API-Key header is present, the request falls through to the next interceptor.
 // firebaseAuth is optional — when provided, it's used to look up subscription claims
 // from Firebase custom claims if no user doc exists in the store.
+// Includes a 5-minute TTL cache to avoid repeated Firestore reads for the same token.
 func ApiTokenInterceptor(store ApiTokenStore, firebaseAuth ...*FirebaseAuth) connect.UnaryInterceptorFunc {
 	var fbAuth *FirebaseAuth
 	if len(firebaseAuth) > 0 {
 		fbAuth = firebaseAuth[0]
 	}
+
+	cache := newApiTokenCache(5 * time.Minute)
 
 	return func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
@@ -66,7 +110,24 @@ func ApiTokenInterceptor(store ApiTokenStore, firebaseAuth ...*FirebaseAuth) con
 			// Hash the raw token
 			tokenHash := HashApiToken(apiKey)
 
-			// Look up the token
+			// Check cache first
+			if cached, ok := cache.get(tokenHash); ok {
+				ctx = withUserClaims(ctx, cached.claims)
+				ctx = WithSubscription(ctx, cached.subInfo)
+
+				// Fire-and-forget: update last_used_at
+				go func() {
+					bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+					if err := store.UpdateApiTokenLastUsed(bgCtx, cached.tokenID, time.Now()); err != nil {
+						log.Printf("[API Token] Failed to update last_used_at for token %s: %v", cached.prefix, err)
+					}
+				}()
+
+				return next(ctx, req)
+			}
+
+			// Cache miss — look up the token
 			apiToken, err := store.GetApiTokenByHash(ctx, tokenHash)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("invalid API token"))
@@ -112,6 +173,14 @@ func ApiTokenInterceptor(store ApiTokenStore, firebaseAuth ...*FirebaseAuth) con
 			} else {
 				log.Printf("[API Token] User doc not found for %s, no Firebase Auth available: %v", apiToken.UserId, userErr)
 			}
+
+			// Cache the resolved claims
+			cache.set(tokenHash, &cachedClaims{
+				claims:  claims,
+				subInfo: subInfo,
+				tokenID: apiToken.Id,
+				prefix:  apiToken.TokenPrefix,
+			})
 
 			ctx = withUserClaims(ctx, claims)
 			ctx = WithSubscription(ctx, subInfo)

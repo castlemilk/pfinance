@@ -121,6 +121,31 @@ func (m *MemoryStore) CreateExpense(ctx context.Context, expense *pfinancev1.Exp
 	return nil
 }
 
+// BatchCreateExpenses creates multiple expenses in the memory store.
+func (m *MemoryStore) BatchCreateExpenses(ctx context.Context, expenses []*pfinancev1.Expense) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, expense := range expenses {
+		if expense.Id == "" {
+			expense.Id = uuid.New().String()
+		}
+		m.expenses[expense.Id] = expense
+	}
+	return nil
+}
+
+// BatchDeleteExpenses deletes multiple expenses from the memory store.
+func (m *MemoryStore) BatchDeleteExpenses(ctx context.Context, expenseIDs []string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, id := range expenseIDs {
+		delete(m.expenses, id)
+	}
+	return nil
+}
+
 func (m *MemoryStore) GetExpense(ctx context.Context, expenseID string) (*pfinancev1.Expense, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

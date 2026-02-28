@@ -23,17 +23,17 @@ import { AuthContext } from '../../context/AuthWithAdminContext';
 import { FinanceContext } from '../../context/FinanceContext';
 
 // ── Mock @/lib/financeService ────────────────────────────────────
-const mockBatchClassifyTaxDeductibility = jest.fn<() => Promise<any>>();
-const mockExtractDocument = jest.fn<() => Promise<any>>();
-const mockGetExtractionJob = jest.fn<() => Promise<any>>();
-const mockImportExtractedTransactions = jest.fn<() => Promise<any>>();
+const mockBatchClassifyTaxDeductibility = jest.fn<(request: any) => Promise<any>>();
+const mockExtractDocument = jest.fn<(request: any) => Promise<any>>();
+const mockGetExtractionJob = jest.fn<(request: any) => Promise<any>>();
+const mockImportExtractedTransactions = jest.fn<(request: any) => Promise<any>>();
 
 jest.mock('@/lib/financeService', () => ({
   financeClient: {
-    extractDocument: (...args: any[]) => mockExtractDocument(...args),
-    getExtractionJob: (...args: any[]) => mockGetExtractionJob(...args),
-    importExtractedTransactions: (...args: any[]) => mockImportExtractedTransactions(...args),
-    batchClassifyTaxDeductibility: (...args: any[]) => mockBatchClassifyTaxDeductibility(...args),
+    extractDocument: (req: any) => mockExtractDocument(req),
+    getExtractionJob: (req: any) => mockGetExtractionJob(req),
+    importExtractedTransactions: (req: any) => mockImportExtractedTransactions(req),
+    batchClassifyTaxDeductibility: (req: any) => mockBatchClassifyTaxDeductibility(req),
   },
   DocumentType: {
     RECEIPT: 0,
@@ -227,7 +227,7 @@ describe('BulkUpload - Tax Classification', () => {
 
   it('calls batchClassifyTaxDeductibility when classifyForTax is true and import succeeds', () => {
     // Verify the import flow conditionally calls batchClassifyTaxDeductibility
-    expect(componentSource).toContain('if (classifyForTax && resp.importedCount > 0)');
+    expect(componentSource).toContain('if (classifyForTax && progress.imported > 0)');
     expect(componentSource).toContain('financeClient.batchClassifyTaxDeductibility');
   });
 
@@ -260,8 +260,8 @@ describe('BulkUpload - Tax Classification', () => {
 
   it('shows classifying status during tax classification', () => {
     // Verify the importing step shows different text during tax classification
-    expect(componentSource).toContain('Classifying for Tax Deductibility...');
-    expect(componentSource).toContain('Running AI tax classification on imported expenses...');
+    expect(componentSource).toContain("importPhase === 'classifying'");
+    expect(componentSource).toContain("'Classifying imported expenses for tax...'");
   });
 
   it('offers Start Tax Review button when items need review', () => {

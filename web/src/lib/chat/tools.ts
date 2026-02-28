@@ -918,6 +918,67 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
         }
       },
     });
+
+    tools.get_tax_estimate = tool({
+      description: 'Get current tax estimate with what-if scenarios. Pro feature. Use to answer "how much tax will I owe?" or "what if I earn X more?"',
+      inputSchema: z.object({
+        grossIncomeOverrideCents: z.number().optional().describe('Override gross income in cents for what-if scenarios'),
+        additionalDeductionCents: z.number().optional().describe('Additional hypothetical deduction in cents'),
+      }),
+      execute: async (args) => {
+        try {
+          const res = await client.getTaxEstimate({
+            userId,
+            grossIncomeOverrideCents: BigInt(args.grossIncomeOverrideCents || 0),
+            additionalDeductionsCents: BigInt(args.additionalDeductionCents || 0),
+          });
+          if (!res.calculation) return { error: 'No tax calculation available' };
+          const calc = res.calculation;
+          return {
+            grossIncome: calc.grossIncome,
+            totalDeductions: calc.totalDeductions,
+            taxableIncome: calc.taxableIncome,
+            totalTax: calc.totalTax,
+            refundOrOwed: calc.refundOrOwed,
+            effectiveRate: calc.effectiveRate,
+          };
+        } catch (err: unknown) {
+          return { error: String(err) };
+        }
+      },
+    });
+
+    tools.find_potential_deductions = tool({
+      description: 'Scan unclassified expenses to find potential tax deductions. Pro feature. Use to answer "are there any deductions I\'m missing?"',
+      inputSchema: z.object({
+        financialYear: z.string().optional().describe('Financial year (e.g., "2024-25")'),
+        occupation: z.string().optional().describe('User occupation for better classification'),
+      }),
+      execute: async (args) => {
+        try {
+          const res = await client.findPotentialDeductions({
+            userId,
+            financialYear: args.financialYear || '',
+            occupation: args.occupation || '',
+          });
+          const suggestions = res.suggestions.map(s => ({
+            description: s.description,
+            amount: s.amount,
+            suggestedCategory: s.suggestedDeductionCategory,
+            confidence: s.confidence,
+            reasoning: s.reasoning,
+            potentialSavings: s.potentialSavings,
+          }));
+          return {
+            suggestions,
+            totalPotentialSavings: res.totalPotentialSavings,
+            scannedCount: res.scannedCount,
+          };
+        } catch (err: unknown) {
+          return { error: String(err) };
+        }
+      },
+    });
   }
 
   return tools;

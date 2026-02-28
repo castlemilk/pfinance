@@ -14,6 +14,8 @@ import (
 type Store interface {
 	// Expense operations
 	CreateExpense(ctx context.Context, expense *pfinancev1.Expense) error
+	BatchCreateExpenses(ctx context.Context, expenses []*pfinancev1.Expense) error
+	BatchDeleteExpenses(ctx context.Context, expenseIDs []string) error
 	GetExpense(ctx context.Context, expenseID string) (*pfinancev1.Expense, error)
 	UpdateExpense(ctx context.Context, expense *pfinancev1.Expense) error
 	DeleteExpense(ctx context.Context, expenseID string) error

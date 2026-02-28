@@ -43,6 +43,13 @@ import { toAnnual, fromAnnual } from '../metrics/utils/period';
 import { getTaxSystem, calculateTaxWithBrackets } from '../constants/taxSystems';
 import { useLocalDataMigration } from './finance/hooks/useLocalDataMigration';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const debugLog = (...args: any[]) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(...args);
+  }
+};
+
 // ============================================================================
 // Type Mapping Utilities
 // ============================================================================
@@ -159,6 +166,8 @@ function mapProtoExpenseToLocal(proto: ProtoExpense): Expense {
     taxDeductionCategory: protoToTaxDeductionCategory[proto.taxDeductionCategory],
     taxDeductionNote: proto.taxDeductionNote || undefined,
     taxDeductiblePercent: proto.taxDeductiblePercent || undefined,
+    receiptUrl: proto.receiptUrl || undefined,
+    receiptStoragePath: proto.receiptStoragePath || undefined,
   };
 }
 
@@ -264,7 +273,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const loading = authLoading || (useApi && !!effectiveUserId && !dataLoaded);
   
   // Debug logging
-  console.log('[FinanceContext] State:', {
+  debugLog('[FinanceContext] State:', {
     authLoading,
     user: user?.uid || null,
     isDevMode,
@@ -316,7 +325,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
   // Load data from API or localStorage - takes userId as param to avoid stale closure issues
   const loadData = useCallback(async (userId: string, shouldUseApi: boolean) => {
-    console.log('[FinanceContext] loadData called', { 
+    debugLog('[FinanceContext] loadData called', { 
       isLoadingRef: isLoadingRef.current, 
       shouldUseApi, 
       userId,
@@ -324,41 +333,33 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     
     // Guard against concurrent/redundant loads
     if (isLoadingRef.current) {
-      console.log('[FinanceContext] loadData skipped - already loading');
+      debugLog('[FinanceContext] loadData skipped - already loading');
       return;
     }
     isLoadingRef.current = true;
     
     if (shouldUseApi && userId) {
-      console.log('[FinanceContext] Loading from API for user:', userId);
+      debugLog('[FinanceContext] Loading from API for user:', userId);
       setError(null);
       try {
-        // Load expenses from API
-        console.log('[FinanceContext] Fetching expenses...');
-        const expensesResponse = await financeClient.listExpenses({
-          userId: userId,
-          pageSize: 1000,
-        });
-        console.log('[FinanceContext] Expenses loaded:', expensesResponse.expenses.length);
+        // Load expenses and incomes in parallel
+        debugLog('[FinanceContext] Fetching expenses + incomes in parallel...');
+        const [expensesResponse, incomesResponse] = await Promise.all([
+          financeClient.listExpenses({ userId: userId, pageSize: 1000 }),
+          financeClient.listIncomes({ userId: userId, pageSize: 1000 }),
+        ]);
+        debugLog('[FinanceContext] Loaded:', expensesResponse.expenses.length, 'expenses,', incomesResponse.incomes.length, 'incomes');
         const remoteExpenses = expensesResponse.expenses.map(mapProtoExpenseToLocal);
-
-        // Load incomes from API
-        console.log('[FinanceContext] Fetching incomes...');
-        const incomesResponse = await financeClient.listIncomes({
-          userId: userId,
-          pageSize: 1000,
-        });
-        console.log('[FinanceContext] Incomes loaded:', incomesResponse.incomes.length);
         const remoteIncomes = incomesResponse.incomes.map(mapProtoIncomeToLocal);
 
         // Check if we need to migrate local data to remote
         // This happens when remote is empty but user has local data from before login
         if (remoteExpenses.length === 0 && remoteIncomes.length === 0 && isMigrationNeeded()) {
-          console.log('[FinanceContext] Remote is empty, checking for local data to migrate...');
+          debugLog('[FinanceContext] Remote is empty, checking for local data to migrate...');
           try {
             const migrationResult = await migrateLocalData();
             if (migrationResult.migratedExpenses > 0 || migrationResult.migratedIncomes > 0) {
-              console.log('[FinanceContext] Migration complete, reloading from API...');
+              debugLog('[FinanceContext] Migration complete, reloading from API...');
               // Reload from API to get the migrated data with server-generated IDs
               isLoadingRef.current = false; // Reset guard for recursive call
               await loadData(userId, shouldUseApi);
@@ -391,7 +392,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
           // Tax config may not exist, use default
           console.debug('[FinanceContext] No tax config found, using default');
         }
-        console.log('[FinanceContext] API load complete');
+        debugLog('[FinanceContext] API load complete');
       } catch (err) {
         // Don't log auth errors as they're expected during initial load
         const isAuthError = err instanceof Error && err.message.includes('unauthenticated');
@@ -399,19 +400,19 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
           console.error('[FinanceContext] Failed to load data from API:', err);
           setError(err instanceof Error ? err.message : 'Failed to load data');
         } else {
-          console.log('[FinanceContext] Auth error (expected during initial load):', err);
+          debugLog('[FinanceContext] Auth error (expected during initial load):', err);
         }
         // Fall back to localStorage
-        console.log('[FinanceContext] Falling back to localStorage');
+        debugLog('[FinanceContext] Falling back to localStorage');
         loadFromLocalStorage();
       } finally {
-        console.log('[FinanceContext] Setting dataLoaded = true');
+        debugLog('[FinanceContext] Setting dataLoaded = true');
         setDataLoaded(true);
         isLoadingRef.current = false;
       }
     } else {
       // Load from localStorage for demo mode
-      console.log('[FinanceContext] Loading from localStorage (no API/user)');
+      debugLog('[FinanceContext] Loading from localStorage (no API/user)');
       loadFromLocalStorage();
       setDataLoaded(true);
       isLoadingRef.current = false;
@@ -420,7 +421,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
   // Load data when user changes
   useEffect(() => {
-    console.log('[FinanceContext] useEffect triggered', {
+    debugLog('[FinanceContext] useEffect triggered', {
       effectiveUserId,
       useApi,
       lastUserIdRef: lastUserIdRef.current,
@@ -430,12 +431,12 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     
     // Skip if user hasn't changed and data is already loaded
     if (lastUserIdRef.current === effectiveUserId && dataLoaded) {
-      console.log('[FinanceContext] useEffect skipped - same user and data loaded');
+      debugLog('[FinanceContext] useEffect skipped - same user and data loaded');
       return;
     }
     
     // Track that we're loading for this user
-    console.log('[FinanceContext] useEffect - loading data for user:', effectiveUserId);
+    debugLog('[FinanceContext] useEffect - loading data for user:', effectiveUserId);
     lastUserIdRef.current = effectiveUserId;
     
     // Reset loading guard in case of React Strict Mode double-mount
@@ -446,7 +447,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     
     // Cleanup: reset loading ref on unmount (for React Strict Mode)
     return () => {
-      console.log('[FinanceContext] useEffect cleanup');
+      debugLog('[FinanceContext] useEffect cleanup');
       isLoadingRef.current = false;
     };
   }, [effectiveUserId, useApi, loadData, dataLoaded]);
@@ -599,7 +600,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const deleteExpenses = async (ids: string[]) => {
     if (useApi && effectiveUserId) {
       try {
-        await Promise.all(ids.map(id => financeClient.deleteExpense({ expenseId: id })));
+        await financeClient.batchDeleteExpenses({ expenseIds: ids });
         setExpenses(prev => prev.filter(expense => !ids.includes(expense.id)));
       } catch (err) {
         console.error('Failed to delete expenses:', err);

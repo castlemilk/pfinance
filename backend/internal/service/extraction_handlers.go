@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"connectrpc.com/connect"
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
@@ -47,6 +48,8 @@ func mapExtractionError(err error) *connect.Error {
 
 // ExtractDocument extracts transactions from a document using ML.
 func (s *FinanceService) ExtractDocument(ctx context.Context, req *connect.Request[pfinancev1.ExtractDocumentRequest]) (*connect.Response[pfinancev1.ExtractDocumentResponse], error) {
+	rpcStart := time.Now()
+
 	userID, err := auth.RequireAuth(ctx)
 	if err != nil {
 		return nil, err
@@ -58,6 +61,9 @@ func (s *FinanceService) ExtractDocument(ctx context.Context, req *connect.Reque
 	}
 
 	method := req.Msg.ExtractionMethod
+	fileSizeKB := len(req.Msg.DocumentData) / 1024
+	log.Printf("[extract] start file=%q size=%dKB method=%v async=%v",
+		req.Msg.Filename, fileSizeKB, method, req.Msg.AsyncProcessing)
 
 	// Check if this is a multi-page PDF that should use async path
 	if req.Msg.AsyncProcessing || shouldUseAsyncPath(req.Msg.DocumentData) {
@@ -72,6 +78,7 @@ func (s *FinanceService) ExtractDocument(ctx context.Context, req *connect.Reque
 		if err != nil {
 			return nil, mapExtractionError(err)
 		}
+		log.Printf("[extract] async job started jobId=%s elapsed=%dms", jobID, time.Since(rpcStart).Milliseconds())
 		return connect.NewResponse(&pfinancev1.ExtractDocumentResponse{
 			JobId:  jobID,
 			Status: pfinancev1.ExtractionStatus_EXTRACTION_STATUS_PROCESSING,
@@ -79,6 +86,7 @@ func (s *FinanceService) ExtractDocument(ctx context.Context, req *connect.Reque
 	}
 
 	// Synchronous extraction with fallback chain
+	extractStart := time.Now()
 	result, err := extractionService.ExtractDocumentWithMethod(
 		ctx,
 		req.Msg.DocumentData,
@@ -87,17 +95,23 @@ func (s *FinanceService) ExtractDocument(ctx context.Context, req *connect.Reque
 		req.Msg.ValidateWithApi,
 		method,
 	)
+	extractMs := time.Since(extractStart).Milliseconds()
 	if err != nil {
+		log.Printf("[extract] FAILED file=%q extractMs=%d err=%v", req.Msg.Filename, extractMs, err)
 		return nil, mapExtractionError(err)
 	}
+	log.Printf("[extract] done file=%q method=%v txCount=%d confidence=%.2f extractMs=%d totalMs=%d",
+		req.Msg.Filename, result.MethodUsed, len(result.Transactions),
+		result.OverallConfidence, extractMs, time.Since(rpcStart).Milliseconds())
 
 	// Check for statement duplicates if metadata was extracted
 	var duplicateWarnings []string
 	if result.StatementMetadata != nil {
+		dupStart := time.Now()
 		isDup, warnings, _ := extractionService.CheckStatementDuplicate(ctx, userID.UID, result.StatementMetadata)
+		log.Printf("[extract] dedup check dupMs=%d isDup=%v", time.Since(dupStart).Milliseconds(), isDup)
 		duplicateWarnings = warnings
 		if isDup {
-			// Still return the result but mark with warnings
 			result.Warnings = append(result.Warnings, warnings...)
 		}
 	}
@@ -228,17 +242,23 @@ func (s *FinanceService) ImportExtractedTransactions(ctx context.Context, req *c
 	skippedCount += dupSkippedCount
 	skippedReasons = append(dupSkippedReasons, skippedReasons...)
 
-	// Store the expenses
-	var createdExpenses []*pfinancev1.Expense
-	for _, expense := range expenses {
-		if err := s.store.CreateExpense(ctx, expense); err != nil {
-			// Log and continue - partial success
-			skippedCount++
-			skippedReasons = append(skippedReasons, fmt.Sprintf("Failed to create expense: %v", err))
-			continue
+	// Attach receipt URLs to expenses if provided (parallel arrays from frontend)
+	if len(req.Msg.ReceiptUrls) > 0 || len(req.Msg.ReceiptStoragePaths) > 0 {
+		for i, expense := range expenses {
+			if i < len(req.Msg.ReceiptUrls) && req.Msg.ReceiptUrls[i] != "" {
+				expense.ReceiptUrl = req.Msg.ReceiptUrls[i]
+			}
+			if i < len(req.Msg.ReceiptStoragePaths) && req.Msg.ReceiptStoragePaths[i] != "" {
+				expense.ReceiptStoragePath = req.Msg.ReceiptStoragePaths[i]
+			}
 		}
-		createdExpenses = append(createdExpenses, expense)
 	}
+
+	// Batch store the expenses in a single call
+	if err := s.store.BatchCreateExpenses(ctx, expenses); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("batch create expenses: %w", err))
+	}
+	createdExpenses := expenses
 
 	importedCount := int32(len(createdExpenses))
 

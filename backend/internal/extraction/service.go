@@ -96,6 +96,40 @@ func (s *ExtractionService) SetMerchantLookup(lookup MerchantLookup) {
 	s.merchantLookup = lookup
 }
 
+// StartWarmupScheduler pings the ML service every interval to prevent cold starts.
+// Modal's serverless containers shut down after 60s of inactivity; a regular
+// health-check keeps the container warm so the first real request isn't delayed
+// by a 5-10s cold start.
+//
+// Call this once at server startup. The returned stop function terminates it.
+func (s *ExtractionService) StartWarmupScheduler(interval time.Duration) (stop func()) {
+	if !s.mlEnabled || s.mlClient == nil {
+		return func() {}
+	}
+	ticker := time.NewTicker(interval)
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				if _, err := s.mlClient.HealthCheck(ctx); err != nil {
+					log.Printf("[warmup] ML service health check failed: %v", err)
+				} else {
+					log.Printf("[warmup] ML service is warm")
+				}
+				cancel()
+			}
+		}
+	}()
+	return func() {
+		ticker.Stop()
+		close(done)
+	}
+}
+
 // SetStatementStore sets the statement store for dedup tracking.
 func (s *ExtractionService) SetStatementStore(store StatementStore) {
 	s.statementStore = store

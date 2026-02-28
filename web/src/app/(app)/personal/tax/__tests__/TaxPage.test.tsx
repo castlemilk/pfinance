@@ -7,14 +7,14 @@ import { jest } from '@jest/globals';
 // Mock financeService
 jest.mock('@/lib/financeService', () => ({
   financeClient: {
-    listIncomes: jest.fn().mockResolvedValue({ incomes: [] }),
-    listExpenses: jest.fn().mockResolvedValue({ expenses: [] }),
-    updateUser: jest.fn().mockResolvedValue({}),
-    listGroups: jest.fn().mockResolvedValue({ groups: [] }),
-    getTaxSummary: jest.fn().mockResolvedValue({ calculation: null }),
-    batchClassifyTaxDeductibility: jest.fn().mockResolvedValue({ totalProcessed: 0 }),
-    exportTaxReturn: jest.fn().mockResolvedValue({ data: new Uint8Array(), filename: 'test.csv', contentType: 'text/csv' }),
-    listDeductibleExpenses: jest.fn().mockResolvedValue({ expenses: [], totalDeductibleCents: BigInt(0), nextPageToken: '' }),
+    listIncomes: jest.fn<() => Promise<any>>().mockResolvedValue({ incomes: [] }),
+    listExpenses: jest.fn<() => Promise<any>>().mockResolvedValue({ expenses: [] }),
+    updateUser: jest.fn<() => Promise<any>>().mockResolvedValue({}),
+    listGroups: jest.fn<() => Promise<any>>().mockResolvedValue({ groups: [] }),
+    getTaxSummary: jest.fn<() => Promise<any>>().mockResolvedValue({ calculation: null }),
+    batchClassifyTaxDeductibility: jest.fn<() => Promise<any>>().mockResolvedValue({ totalProcessed: 0 }),
+    exportTaxReturn: jest.fn<() => Promise<any>>().mockResolvedValue({ data: new Uint8Array(), filename: 'test.csv', contentType: 'text/csv' }),
+    listDeductibleExpenses: jest.fn<() => Promise<any>>().mockResolvedValue({ expenses: [], totalDeductibleCents: BigInt(0), nextPageToken: '' }),
   },
 }));
 

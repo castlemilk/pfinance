@@ -22,6 +22,7 @@ service FinanceService {
   rpc DeleteExpense(DeleteExpenseRequest) returns (google.protobuf.Empty);
   rpc ListExpenses(ListExpensesRequest) returns (ListExpensesResponse);
   rpc BatchCreateExpenses(BatchCreateExpensesRequest) returns (BatchCreateExpensesResponse);
+  rpc BatchDeleteExpenses(BatchDeleteExpensesRequest) returns (BatchDeleteExpensesResponse);
 
   // Income operations
   rpc CreateIncome(CreateIncomeRequest) returns (CreateIncomeResponse);
@@ -153,6 +154,15 @@ service FinanceService {
   rpc ClassifyTaxDeductibility(ClassifyTaxDeductibilityRequest) returns (ClassifyTaxDeductibilityResponse);
   rpc BatchClassifyTaxDeductibility(BatchClassifyTaxDeductibilityRequest) returns (BatchClassifyTaxDeductibilityResponse);
   rpc ExportTaxReturn(ExportTaxReturnRequest) returns (ExportTaxReturnResponse);
+  rpc FindPotentialDeductions(FindPotentialDeductionsRequest) returns (FindPotentialDeductionsResponse);
+  rpc CompareTaxYears(CompareTaxYearsRequest) returns (CompareTaxYearsResponse);
+
+  // Receipt vault operations (Pro tier)
+  rpc ExportReceipts(ExportReceiptsRequest) returns (ExportReceiptsResponse);
+
+  // Push notification operations
+  rpc RegisterPushToken(RegisterPushTokenRequest) returns (RegisterPushTokenResponse);
+  rpc UnregisterPushToken(UnregisterPushTokenRequest) returns (UnregisterPushTokenResponse);
 
   // API token operations (Pro tier)
   rpc CreateApiToken(CreateApiTokenRequest) returns (CreateApiTokenResponse);
@@ -224,6 +234,10 @@ message CreateExpenseRequest {
   TaxDeductionCategory tax_deduction_category = 15;
   string tax_deduction_note = 16;
   double tax_deductible_percent = 17; // 0.0-1.0
+
+  // Receipt vault fields
+  string receipt_url = 18;
+  string receipt_storage_path = 19;
 }
 
 message CreateExpenseResponse {
@@ -258,6 +272,10 @@ message UpdateExpenseRequest {
   TaxDeductionCategory tax_deduction_category = 13;
   string tax_deduction_note = 14;
   double tax_deductible_percent = 15; // 0.0-1.0
+
+  // Receipt vault fields
+  string receipt_url = 16;
+  string receipt_storage_path = 17;
 }
 
 message UpdateExpenseResponse {
@@ -837,6 +855,8 @@ message ImportExtractedTransactionsRequest {
   ExpenseFrequency default_frequency = 5; // Default frequency for imported expenses
   StatementMetadata statement_metadata = 6; // Statement metadata for dedup tracking
   string original_filename = 7;           // Original filename for dedup tracking
+  repeated string receipt_urls = 8;         // Receipt download URLs (parallel with transactions)
+  repeated string receipt_storage_paths = 9; // Receipt storage paths (parallel with transactions)
 }
 
 message ImportExtractedTransactionsResponse {
@@ -1457,3 +1477,74 @@ message RevokeApiTokenRequest {
 }
 
 message RevokeApiTokenResponse {}
+
+// ============================================================================
+// Batch Delete operations
+// ============================================================================
+
+message BatchDeleteExpensesRequest {
+  string user_id = 1;
+  repeated string expense_ids = 2; // Max 100
+}
+
+message BatchDeleteExpensesResponse {
+  int32 deleted_count = 1;
+  repeated string failed_expense_ids = 2;
+}
+
+// ============================================================================
+// Receipt Vault operations (Pro tier)
+// ============================================================================
+
+message ExportReceiptsRequest {
+  string user_id = 1;
+  string financial_year = 2;        // e.g., "2025-26"
+}
+
+message ExportReceiptsResponse {
+  bytes data = 1;                   // ZIP file bytes
+  string filename = 2;
+  string content_type = 3;
+  int32 receipt_count = 4;
+}
+
+// ============================================================================
+// Tax Deduction Finder & Comparison (Pro tier)
+// ============================================================================
+
+message FindPotentialDeductionsRequest {
+  string user_id = 1;
+  string financial_year = 2;        // e.g., "2025-26"
+  string occupation = 3;            // User's occupation for context
+}
+
+message FindPotentialDeductionsResponse {
+  repeated PotentialDeduction suggestions = 1;
+  int64 total_potential_savings_cents = 2;
+  double total_potential_savings = 3;
+  int32 scanned_count = 4;           // How many expenses were scanned
+}
+
+message CompareTaxYearsRequest {
+  string user_id = 1;
+  string year_a = 2;                 // e.g., "2024-25"
+  string year_b = 3;                 // e.g., "2025-26"
+}
+
+message CompareTaxYearsResponse {
+  TaxYearComparison comparison = 1;
+}
+
+// ============================================================================
+// Push Notification operations
+// ============================================================================
+
+message RegisterPushTokenRequest {
+  string fcm_token = 1;
+}
+
+message RegisterPushTokenResponse {}
+
+message UnregisterPushTokenRequest {}
+
+message UnregisterPushTokenResponse {}

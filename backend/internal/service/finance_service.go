@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	gcsstorage "cloud.google.com/go/storage"
 	"connectrpc.com/connect"
+	fcmmessaging "firebase.google.com/go/v4/messaging"
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 	"github.com/castlemilk/pfinance/backend/gen/pfinance/v1/pfinancev1connect"
 	"github.com/castlemilk/pfinance/backend/internal/auth"
@@ -24,11 +26,13 @@ import (
 
 type FinanceService struct {
 	pfinancev1connect.UnimplementedFinanceServiceHandler
-	store        store.Store
-	stripe       *StripeClient                         // nil if Stripe is not configured
-	firebaseAuth *auth.FirebaseAuth                    // nil if Firebase Auth is not configured
-	taxPipeline  *extraction.TaxClassificationPipeline // nil if not configured
-	algolia      *search.AlgoliaClient                 // nil if Algolia is not configured
+	store         store.Store
+	stripe        *StripeClient                         // nil if Stripe is not configured
+	firebaseAuth  *auth.FirebaseAuth                    // nil if Firebase Auth is not configured
+	taxPipeline   *extraction.TaxClassificationPipeline // nil if not configured
+	algolia       *search.AlgoliaClient                 // nil if Algolia is not configured
+	storageBucket *gcsstorage.BucketHandle              // nil if GCS is not configured
+	fcmClient     *fcmmessaging.Client                  // nil if FCM is not configured
 }
 
 // SetAlgoliaClient sets the Algolia search client for full-text search.
@@ -100,6 +104,8 @@ func (s *FinanceService) CreateExpense(ctx context.Context, req *connect.Request
 		TaxDeductionCategory: req.Msg.TaxDeductionCategory,
 		TaxDeductionNote:     req.Msg.TaxDeductionNote,
 		TaxDeductiblePercent: taxDeductiblePercent,
+		ReceiptUrl:           req.Msg.ReceiptUrl,
+		ReceiptStoragePath:   req.Msg.ReceiptStoragePath,
 	}
 
 	// Calculate allocations based on split type
@@ -121,6 +127,14 @@ func (s *FinanceService) CreateExpense(ctx context.Context, req *connect.Request
 	} else {
 		// Notify group members about new expense
 		s.notifyGroupExpenseAdded(ctx, claims.UID, expense)
+	}
+
+	// Fire-and-forget: check monthly tax savings notification
+	if expense.IsTaxDeductible {
+		func() {
+			trigger := NewNotificationTrigger(s.store)
+			trigger.CheckMonthlyTaxSavings(ctx, claims.UID, expense)
+		}()
 	}
 
 	return connect.NewResponse(&pfinancev1.CreateExpenseResponse{
@@ -899,6 +913,14 @@ func (s *FinanceService) UpdateExpense(ctx context.Context, req *connect.Request
 		expense.TaxDeductiblePercent = 0
 	}
 
+	// Update receipt fields (conditional — only if provided)
+	if req.Msg.ReceiptUrl != "" {
+		expense.ReceiptUrl = req.Msg.ReceiptUrl
+	}
+	if req.Msg.ReceiptStoragePath != "" {
+		expense.ReceiptStoragePath = req.Msg.ReceiptStoragePath
+	}
+
 	// Recalculate allocations if split type or amount changed
 	if req.Msg.SplitType != pfinancev1.SplitType_SPLIT_TYPE_UNSPECIFIED || req.Msg.Amount > 0 {
 		createReq := &pfinancev1.CreateExpenseRequest{
@@ -967,6 +989,48 @@ func (s *FinanceService) DeleteExpense(ctx context.Context, req *connect.Request
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
+// BatchDeleteExpenses deletes multiple expenses with ownership verification.
+func (s *FinanceService) BatchDeleteExpenses(ctx context.Context, req *connect.Request[pfinancev1.BatchDeleteExpensesRequest]) (*connect.Response[pfinancev1.BatchDeleteExpensesResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(req.Msg.ExpenseIds) == 0 {
+		return connect.NewResponse(&pfinancev1.BatchDeleteExpensesResponse{}), nil
+	}
+	if len(req.Msg.ExpenseIds) > 100 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("max 100 expenses per batch"))
+	}
+
+	// Verify ownership of all expenses before deleting
+	var verifiedIDs []string
+	var failedIDs []string
+	for _, expenseID := range req.Msg.ExpenseIds {
+		expense, err := s.store.GetExpense(ctx, expenseID)
+		if err != nil {
+			failedIDs = append(failedIDs, expenseID)
+			continue
+		}
+		if expense.UserId != claims.UID {
+			failedIDs = append(failedIDs, expenseID)
+			continue
+		}
+		verifiedIDs = append(verifiedIDs, expenseID)
+	}
+
+	if len(verifiedIDs) > 0 {
+		if err := s.store.BatchDeleteExpenses(ctx, verifiedIDs); err != nil {
+			return nil, auth.WrapStoreError("batch delete expenses", err)
+		}
+	}
+
+	return connect.NewResponse(&pfinancev1.BatchDeleteExpensesResponse{
+		DeletedCount:     int32(len(verifiedIDs)),
+		FailedExpenseIds: failedIDs,
+	}), nil
+}
+
 func (s *FinanceService) BatchCreateExpenses(ctx context.Context, req *connect.Request[pfinancev1.BatchCreateExpensesRequest]) (*connect.Response[pfinancev1.BatchCreateExpensesResponse], error) {
 	claims, err := auth.RequireAuth(ctx)
 	if err != nil {
@@ -1024,11 +1088,12 @@ func (s *FinanceService) BatchCreateExpenses(ctx context.Context, req *connect.R
 			expense.Allocations = allocations
 		}
 
-		if err := s.store.CreateExpense(ctx, expense); err != nil {
-			return nil, auth.WrapStoreError("create expense", err)
-		}
-
 		expenses = append(expenses, expense)
+	}
+
+	// Batch create all expenses in a single store call
+	if err := s.store.BatchCreateExpenses(ctx, expenses); err != nil {
+		return nil, auth.WrapStoreError("batch create expenses", err)
 	}
 
 	return connect.NewResponse(&pfinancev1.BatchCreateExpensesResponse{
@@ -1768,59 +1833,12 @@ func (s *FinanceService) GetMemberBalances(ctx context.Context, req *connect.Req
 		return nil, auth.WrapStoreError("list expenses", err)
 	}
 
-	// Calculate balances: for each user, track total paid vs total owed
-	userPaid := make(map[string]float64)
-	userOwed := make(map[string]float64)
-	totalExpenses := 0.0
-
+	var totalExpenses float64
 	for _, expense := range expenses {
 		totalExpenses += expense.Amount
-
-		// Track what each user paid
-		userPaid[expense.PaidByUserId] += expense.Amount
-
-		// Track what each user owes based on allocations
-		for _, alloc := range expense.Allocations {
-			if !alloc.IsPaid {
-				userOwed[alloc.UserId] += alloc.Amount
-			}
-		}
 	}
 
-	// Calculate debts between members
-	balances := make([]*pfinancev1.MemberBalance, 0)
-	for userID := range userPaid {
-		paid := userPaid[userID]
-		owed := userOwed[userID]
-		balance := paid - owed
-
-		memberBalance := &pfinancev1.MemberBalance{
-			UserId:    userID,
-			GroupId:   req.Msg.GroupId,
-			TotalPaid: paid,
-			TotalOwed: owed,
-			Balance:   balance,
-			Debts:     make([]*pfinancev1.MemberDebt, 0),
-		}
-
-		balances = append(balances, memberBalance)
-	}
-
-	// Add users who owe but haven't paid
-	for userID := range userOwed {
-		if _, exists := userPaid[userID]; !exists {
-			owed := userOwed[userID]
-			memberBalance := &pfinancev1.MemberBalance{
-				UserId:    userID,
-				GroupId:   req.Msg.GroupId,
-				TotalPaid: 0,
-				TotalOwed: owed,
-				Balance:   -owed,
-				Debts:     make([]*pfinancev1.MemberDebt, 0),
-			}
-			balances = append(balances, memberBalance)
-		}
-	}
+	balances := computeMemberBalancesFromExpenses(expenses, req.Msg.GroupId)
 
 	return connect.NewResponse(&pfinancev1.GetMemberBalancesResponse{
 		Balances:           balances,
@@ -1958,24 +1976,61 @@ func (s *FinanceService) GetGroupSummary(ctx context.Context, req *connect.Reque
 		})
 	}
 
-	// Get member balances
-	balancesResp, err := s.GetMemberBalances(ctx, connect.NewRequest(&pfinancev1.GetMemberBalancesRequest{
-		GroupId:   req.Msg.GroupId,
-		StartDate: req.Msg.StartDate,
-		EndDate:   req.Msg.EndDate,
-	}))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get member balances: %w", err)
-	}
+	// Compute member balances from already-fetched expenses (avoids duplicate ListExpenses call)
+	memberBalances := computeMemberBalancesFromExpenses(expenses, req.Msg.GroupId)
 
 	return connect.NewResponse(&pfinancev1.GetGroupSummaryResponse{
 		TotalExpenses:         totalExpenses,
 		TotalIncome:           totalIncome,
 		ExpenseByCategory:     expenseByCategory,
-		MemberBalances:        balancesResp.Msg.Balances,
+		MemberBalances:        memberBalances,
 		UnsettledExpenseCount: int32(unsettledCount),
 		UnsettledAmount:       unsettledAmount,
 	}), nil
+}
+
+// computeMemberBalancesFromExpenses calculates member balances from a pre-fetched list of expenses.
+// Used by both GetGroupSummary (reuses already-fetched data) and GetMemberBalances.
+func computeMemberBalancesFromExpenses(expenses []*pfinancev1.Expense, groupID string) []*pfinancev1.MemberBalance {
+	userPaid := make(map[string]float64)
+	userOwed := make(map[string]float64)
+
+	for _, expense := range expenses {
+		userPaid[expense.PaidByUserId] += expense.Amount
+		for _, alloc := range expense.Allocations {
+			if !alloc.IsPaid {
+				userOwed[alloc.UserId] += alloc.Amount
+			}
+		}
+	}
+
+	balances := make([]*pfinancev1.MemberBalance, 0)
+	for userID := range userPaid {
+		paid := userPaid[userID]
+		owed := userOwed[userID]
+		balances = append(balances, &pfinancev1.MemberBalance{
+			UserId:    userID,
+			GroupId:   groupID,
+			TotalPaid: paid,
+			TotalOwed: owed,
+			Balance:   paid - owed,
+			Debts:     make([]*pfinancev1.MemberDebt, 0),
+		})
+	}
+	for userID := range userOwed {
+		if _, exists := userPaid[userID]; !exists {
+			owed := userOwed[userID]
+			balances = append(balances, &pfinancev1.MemberBalance{
+				UserId:    userID,
+				GroupId:   groupID,
+				TotalPaid: 0,
+				TotalOwed: owed,
+				Balance:   -owed,
+				Debts:     make([]*pfinancev1.MemberDebt, 0),
+			})
+		}
+	}
+	return balances
 }
 
 // Invite link operations
@@ -3634,10 +3689,9 @@ func (s *FinanceService) SearchTransactions(ctx context.Context, req *connect.Re
 		return nil, err
 	}
 
-	userID := req.Msg.UserId
-	if userID == "" {
-		userID = claims.UID
-	}
+	// Always use authenticated user's ID for tenant isolation.
+	// Never trust client-supplied user_id to prevent cross-tenant data access.
+	userID := claims.UID
 
 	// Verify group membership if searching within a group
 	if req.Msg.GroupId != "" {

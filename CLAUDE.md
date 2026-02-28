@@ -18,7 +18,13 @@ PFinance is a full-stack personal finance application with multi-user collaborat
 - **Budget Management** with progress tracking
 - **AI-Powered Document Extraction**: Receipt/bank statement OCR via self-hosted ML (Qwen2-VL) or Gemini API
 - **Smart Text Entry**: Natural language expense parsing with Gemini Flash
-- **Financial Visualizations** with visx charts
+- **Financial Visualizations** with visx charts (Pro-tier: 6 chart types)
+- **Tax Deduction Tracking**: AI classification, deduction finder, year comparison, ATO export (Pro-tier)
+- **Receipt Vault**: Upload + store receipts, ZIP export by ATO category (Pro-tier)
+- **Algolia Full-Text Search**: Real-time transaction search with tenant-isolated filters
+- **Push Notifications / PWA**: FCM push tokens, service worker, install prompt
+- **API Token Access**: Programmable access for Pro users (up to 5 tokens)
+- **Stripe Billing**: Checkout, webhook, subscription management
 
 ## Architecture Overview
 
@@ -29,47 +35,58 @@ web/src/
 ├── app/                    # Next.js App Router
 │   ├── layout.tsx         # Root layout with providers
 │   ├── page.tsx           # Main dashboard
+│   ├── (app)/personal/    # Routes: expenses, income, tax, analytics, goals, ...
 │   ├── components/        # Feature components
-│   │   ├── Dashboard.tsx
-│   │   ├── ExpenseForm.tsx
-│   │   ├── ExpenseList.tsx
-│   │   ├── BudgetTracker.tsx
-│   │   └── ...
+│   │   ├── Dashboard.tsx, ExpenseForm.tsx, ExpenseList.tsx
+│   │   ├── BulkUpload.tsx       # Multi-file import (CONCURRENCY=3, adaptive poll)
+│   │   ├── SmartExpenseEntry.tsx
+│   │   ├── TaxTrackerWidget.tsx, ReceiptViewer.tsx, InstallPrompt.tsx
+│   │   └── tax/           # TaxReviewWizard, DeductionFinder, TaxYearComparison, ATODeadlineCard
 │   ├── context/           # React Context providers
-│   │   ├── AuthContext.tsx
-│   │   ├── FinanceContext.tsx
+│   │   ├── AuthContext.tsx, FinanceContext.tsx, TaxContext.tsx
+│   │   ├── NotificationContext.tsx  # 60s poll; 5min with FCM token
 │   │   └── MultiUserFinanceContext.tsx
-│   └── utils/             # Utilities (categorization, PDF, reports)
+│   ├── hooks/             # usePushNotifications.ts, usePWAInstall.ts, useSubscription.ts
+│   └── utils/             # Utilities (categorization, PDF, reports, receiptStorage)
 ├── components/ui/         # shadcn/ui components
 ├── gen/pfinance/v1/       # Generated protobuf types
 └── lib/
-    ├── firebase.ts        # Firebase client config
+    ├── firebase.ts        # Firebase client config (storage exported but rarely used directly)
     └── financeService.ts  # Connect-RPC API client
+public/
+└── firebase-messaging-sw.js  # FCM background message handler
 ```
 
 ### Backend (Go + Connect-RPC)
 
 ```
 backend/
-├── cmd/server/main.go     # Server entrypoint
+├── cmd/server/main.go     # Server entrypoint (wires all services + warmup scheduler)
 ├── internal/
 │   ├── auth/              # Firebase Auth middleware
-│   │   ├── firebase.go    # Token validation
-│   │   ├── interceptor.go # Auth interceptor
-│   │   └── local_dev.go   # Dev mode bypass
+│   │   ├── firebase.go, interceptor.go, local_dev.go
+│   │   └── apitoken.go    # API token interceptor (chain: Debug→ApiToken→Firebase)
 │   ├── extraction/        # ML document extraction
-│   │   ├── service.go     # ExtractionService orchestration
+│   │   ├── service.go     # ExtractionService + StartWarmupScheduler (45s Modal ping)
 │   │   ├── client.go      # Self-hosted ML HTTP client
-│   │   ├── validator.go   # Gemini API integration
-│   │   └── normalizer.go  # Merchant name & category mapping
-│   ├── service/           # Business logic
-│   │   ├── finance_service.go
-│   │   └── extraction_handlers.go  # ExtractDocument, ParseExpenseText RPCs
+│   │   ├── normalizer.go  # Optimized merchant normalization (15 allocs/call)
+│   │   ├── tax_classifier.go, tax_gemini.go, tax_pipeline.go
+│   │   └── benchmark_test.go  # 6 benchmarks for extraction pipeline
+│   ├── search/
+│   │   └── algolia.go     # Tenant-isolated search (always uses claims.UID, escapeAlgoliaFilter)
+│   ├── service/           # Business logic (109 RPCs total)
+│   │   ├── finance_service.go, analytics_service.go
+│   │   ├── extraction_handlers.go, tax_service.go, tax_deduction_finder.go
+│   │   ├── receipt_service.go     # ExportReceipts ZIP
+│   │   ├── push_notification_service.go  # FCM RegisterPushToken/UnregisterPushToken
+│   │   ├── apitoken_service.go, stripe_client.go, stripe_webhook.go
+│   │   ├── notification_triggers.go, recurring_processor.go, weekly_digest.go
+│   │   └── ml_feedback_service.go
 │   └── store/             # Data access layer
-│       ├── store.go       # Interface definition
+│       ├── store.go       # Interface (incl. BatchCreateExpenses, BatchDeleteExpenses)
 │       ├── memory.go      # In-memory (dev)
-│       ├── firestore.go   # Firestore (prod)
-│       └── store_mock.go  # Generated mocks
+│       ├── firestore.go   # Firestore (prod, TTL on notifications.ExpiresAt)
+│       └── store_mock.go  # Generated mocks (go generate ./internal/store)
 └── gen/pfinance/v1/       # Generated protobuf code
 ```
 
@@ -164,11 +181,13 @@ type Store interface {
 
 ```typescript
 // Provider hierarchy
-<AuthProvider>           // Firebase authentication
-  <FinanceProvider>      // Individual finance data
-    <MultiUserFinanceProvider>  // Group features
-      <App />
-    </MultiUserFinanceProvider>
+<AuthProvider>                    // Firebase authentication
+  <FinanceProvider>               // Individual finance data
+    <TaxProvider>                 // Tax estimates, reactive to expense changes
+      <MultiUserFinanceProvider>  // Group features
+        <App />
+      </MultiUserFinanceProvider>
+    </TaxProvider>
   </FinanceProvider>
 </AuthProvider>
 ```
@@ -229,6 +248,24 @@ PFinance supports 4 selectable retro color palettes, each with light and dark mo
 - **Backend**: gomock for store mocks, test service methods directly
 - **Frontend**: Jest + React Testing Library with mocked contexts
 - **E2E**: `backend/tests/e2e_test.go`
+
+## Performance Notes
+
+### Modal Cold Start Prevention
+`StartWarmupScheduler(45 * time.Second)` in `cmd/server/main.go` pings the ML service every 45s.
+Modal containers idle out after 60s — without warmup, first extraction takes 5-10s extra.
+
+### BulkUpload Concurrency
+`CONCURRENCY = 3` in `BulkUpload.tsx` — up to 3 files processed simultaneously.
+Adaptive async polling: `[500, 500, 750, 1000, 1250, 1500, 2000]ms` (not fixed 1500ms).
+
+### Batch Store Operations
+`BatchCreateExpenses` and `BatchDeleteExpenses` in the store interface use Firestore `client.Batch()`.
+A 50-transaction import uses 1 batch commit (not 50 individual round trips).
+
+### Extraction Benchmarks
+Full pipeline (50 txns, mock server): ~188µs. Real bottleneck is Modal GPU: 2,000–10,000ms.
+Run: `go test ./internal/extraction/... -bench=. -benchmem -benchtime=5s`
 
 ## ML Document Extraction Pipeline
 
@@ -418,18 +455,27 @@ GEMINI_API_KEY=<your-gemini-api-key>
 
 ### GitHub Actions Workflows
 
-- **PR Checks**: Type checking, linting, tests for both frontend and backend
-- **Preview Deploys**: Auto-deploy PRs to preview environments
-- **Production Deploy**: Deploy to production on merge to `main`
+| File | Trigger | Description |
+|------|---------|-------------|
+| `ci.yml` | PR + push | Path-filtered (backend/frontend/proto), `buf lint`, gofmt, go vet, tests, tsc |
+| `preview-deploy.yml` | PR open/sync | Cloud Run preview (256Mi, max 2, min 0), Algolia env vars, image cleanup on PR close |
+| `production-deploy.yml` | Merge to main | Cloud Run prod (512Mi, max 5, min 0), all env vars via `--set-env-vars` |
 
 ### Deployment Targets
 
 - **Frontend**: Vercel (auto-deploys from GitHub)
-- **Backend**: Google Cloud Run
+- **Backend**: Google Cloud Run (project: `pfinance-app-1748773335`)
+
+### One-Time Setup Commands
+```bash
+make firestore-ttl    # Enable TTL policy on notifications.ExpiresAt (run once)
+make deploy-indexes   # Deploy Firestore composite indexes (run once)
+make algolia-setup    # Configure Algolia index settings (run once)
+```
 
 ## Project Dependencies
 
-- Go 1.23+ (backend)
+- Go 1.25 (backend)
 - Node.js 20+ (frontend)
 - buf CLI (protobuf generation)
 - Firebase project configured

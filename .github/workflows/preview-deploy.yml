@@ -111,8 +111,9 @@ jobs:
             --allow-unauthenticated \
             --port 8111 \
             --memory 256Mi \
+            --min-instances 0 \
             --max-instances 2 \
-            --set-env-vars "GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }},STRIPE_PRICE_ID=${{ secrets.STRIPE_PRICE_ID }},STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}" \
+            --set-env-vars "GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }},STRIPE_PRICE_ID=${{ secrets.STRIPE_PRICE_ID }},STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }},ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }},ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }},ALGOLIA_INDEX_NAME=pfinance" \
             --quiet
 
           URL=$(gcloud run services describe $SERVICE --region ${{ env.REGION }} --format 'value(status.url)')
@@ -286,3 +287,9 @@ jobs:
           ALIAS="pr-${{ github.event.pull_request.number }}.${{ env.PREVIEW_DOMAIN }}"
           vercel remove $ALIAS --token=$VERCEL_TOKEN --yes 2>/dev/null || true
           echo "✓ Removed Vercel alias: $ALIAS"
+
+      - name: Delete preview container images
+        run: |
+          TAG="pr-${{ github.event.pull_request.number }}"
+          gcloud container images delete "gcr.io/${{ env.PROJECT_ID }}/pfinance-backend-preview:$TAG" --quiet --force-delete-tags 2>/dev/null || true
+          echo "✓ Cleaned up container image for tag: $TAG"

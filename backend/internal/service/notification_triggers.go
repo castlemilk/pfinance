@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 	"github.com/castlemilk/pfinance/backend/internal/store"
@@ -298,5 +299,83 @@ func (t *NotificationTrigger) GroupIncomeAdded(ctx context.Context, actorUID str
 		if err := t.store.CreateNotification(ctx, notification); err != nil {
 			log.Printf("[NotificationTrigger] Failed to create group income notification for %s: %v", memberID, err)
 		}
+	}
+}
+
+// CheckMonthlyTaxSavings creates a monthly summary notification for tax deductions.
+// Deduplication: only one notification per calendar month.
+func (t *NotificationTrigger) CheckMonthlyTaxSavings(ctx context.Context, userID string, expense *pfinancev1.Expense) {
+	if !expense.IsTaxDeductible {
+		return
+	}
+
+	prefs, err := t.store.GetNotificationPreferences(ctx, userID)
+	if err != nil {
+		return
+	}
+	if !prefs.BudgetAlerts {
+		return
+	}
+
+	// Dedup key: year-month string for the current month
+	now := time.Now()
+	monthKey := now.Format("2006-01")
+
+	exists, err := t.store.HasNotification(ctx, userID,
+		pfinancev1.NotificationType_NOTIFICATION_TYPE_TAX_SAVINGS,
+		"monthly-tax", "month", monthKey, 744) // 744 hours ≈ 31 days
+	if err != nil {
+		log.Printf("[NotificationTrigger] Failed to check for existing tax savings notification: %v", err)
+		return
+	}
+	if exists {
+		return
+	}
+
+	// Compute total deductions for the current FY month range
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+	monthEnd := monthStart.AddDate(0, 1, 0)
+
+	expenses, _, err := t.store.ListExpenses(ctx, userID, "", &monthStart, &monthEnd, 500, "")
+	if err != nil {
+		log.Printf("[NotificationTrigger] Failed to list expenses for tax savings: %v", err)
+		return
+	}
+
+	var totalDeductibleCents int64
+	var deductionCount int
+	for _, e := range expenses {
+		if e.IsTaxDeductible {
+			cents := e.AmountCents
+			if cents == 0 {
+				cents = int64(e.Amount * 100)
+			}
+			totalDeductibleCents += cents
+			deductionCount++
+		}
+	}
+
+	if deductionCount == 0 {
+		return
+	}
+
+	totalDollars := float64(totalDeductibleCents) / 100.0
+
+	notification := &pfinancev1.Notification{
+		Id:            uuid.New().String(),
+		UserId:        userID,
+		Type:          pfinancev1.NotificationType_NOTIFICATION_TYPE_TAX_SAVINGS,
+		Title:         "Monthly Tax Deduction Summary",
+		Message:       fmt.Sprintf("You've claimed %d deductions worth $%.2f this month.", deductionCount, totalDollars),
+		IsRead:        false,
+		ActionUrl:     "/personal/tax/",
+		ReferenceId:   "monthly-tax",
+		ReferenceType: "tax_summary",
+		CreatedAt:     timestamppb.Now(),
+		Metadata:      map[string]string{"month": monthKey, "total_cents": fmt.Sprintf("%d", totalDeductibleCents)},
+	}
+
+	if err := t.store.CreateNotification(ctx, notification); err != nil {
+		log.Printf("[NotificationTrigger] Failed to create tax savings notification: %v", err)
 	}
 }

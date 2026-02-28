@@ -23,7 +23,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { compressImage } from '../utils/imageCompression';
-import { BulkUploadTrigger } from './BulkUpload';
+import { BulkUploadTrigger, BulkUploadDialog } from './BulkUpload';
 import { useFinance } from '../context/FinanceContext';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { useSubscription } from '../hooks/useSubscription';
@@ -371,6 +371,8 @@ export default function SmartExpenseEntry() {
   const [duplicateMatches, setDuplicateMatches] = useState<DuplicateMatch[]>([]);
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
+  const [bulkRedirectFile, setBulkRedirectFile] = useState<File | null>(null);
+  const selectedFileRef = useRef<File | null>(null);
 
   // Merchant suggestion from user history / static normalizer
   const { suggestion: merchantSuggestion } = useMerchantSuggestion(
@@ -577,6 +579,7 @@ export default function SmartExpenseEntry() {
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    selectedFileRef.current = file;
 
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
@@ -710,9 +713,14 @@ export default function SmartExpenseEntry() {
               });
 
             if (allExpenses.length > 0) {
-              setParsedExpense(allExpenses[0]);
-              setStep(2);
-              console.log(`Bank statement: Found ${allExpenses.length} expenses out of ${response.result.transactions.length} transactions`);
+              // Redirect to BulkUpload for multi-transaction statements
+              if (selectedFileRef.current) {
+                setBulkRedirectFile(selectedFileRef.current);
+              } else {
+                // Fallback: show first expense
+                setParsedExpense(allExpenses[0]);
+                setStep(2);
+              }
             } else {
               setError('No expense transactions found in bank statement.');
             }
@@ -1574,6 +1582,17 @@ export default function SmartExpenseEntry() {
         {mode === 'manual' && renderManualEntry()}
         {mode === 'bulk' && <BulkUploadTrigger useGemini={useGemini} setUseGemini={setUseGemini} />}
       </CardContent>
+
+      {/* Redirect to BulkUpload when statement extraction returns multiple transactions */}
+      {bulkRedirectFile && (
+        <BulkUploadDialog
+          open={!!bulkRedirectFile}
+          onOpenChange={(open) => { if (!open) setBulkRedirectFile(null); }}
+          useGemini={useGemini}
+          setUseGemini={setUseGemini}
+          initialFiles={[bulkRedirectFile]}
+        />
+      )}
     </Card>
   );
 }

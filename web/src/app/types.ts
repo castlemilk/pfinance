@@ -42,6 +42,8 @@ export interface Expense {
   taxDeductionCategory?: TaxDeductionCategoryLabel;
   taxDeductionNote?: string;
   taxDeductiblePercent?: number;
+  receiptUrl?: string;
+  receiptStoragePath?: string;
 }
 
 export interface ExpenseSummary {

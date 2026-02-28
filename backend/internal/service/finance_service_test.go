@@ -1309,9 +1309,8 @@ func TestBatchCreateExpenses(t *testing.T) {
 						MemberIds: []string{"user-123"},
 					}, nil)
 				mockStore.EXPECT().
-					CreateExpense(gomock.Any(), gomock.Any()).
-					Return(nil).
-					Times(2)
+					BatchCreateExpenses(gomock.Any(), gomock.Any()).
+					Return(nil)
 			},
 			expectedError: false,
 			expectedCount: 2,
@@ -1330,6 +1329,9 @@ func TestBatchCreateExpenses(t *testing.T) {
 						OwnerId:   "user-123",
 						MemberIds: []string{"user-123"},
 					}, nil)
+				mockStore.EXPECT().
+					BatchCreateExpenses(gomock.Any(), gomock.Any()).
+					Return(nil)
 			},
 			expectedError: false,
 			expectedCount: 0,
@@ -1361,8 +1363,13 @@ func TestBatchCreateExpenses(t *testing.T) {
 						MemberIds: []string{"user-123"},
 					}, nil)
 				mockStore.EXPECT().
-					CreateExpense(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(_ context.Context, expense *pfinancev1.Expense) error {
+					BatchCreateExpenses(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(_ context.Context, expenses []*pfinancev1.Expense) error {
+						if len(expenses) != 1 {
+							t.Errorf("Expected 1 expense in batch, got %d", len(expenses))
+							return nil
+						}
+						expense := expenses[0]
 						if len(expense.Allocations) != 2 {
 							t.Errorf("Expected 2 allocations, got %d", len(expense.Allocations))
 						}
@@ -1378,7 +1385,7 @@ func TestBatchCreateExpenses(t *testing.T) {
 			expectedCount: 1,
 		},
 		{
-			name: "store error on first expense",
+			name: "store error on batch create",
 			request: &pfinancev1.BatchCreateExpensesRequest{
 				GroupId: "group-456",
 				Expenses: []*pfinancev1.CreateExpenseRequest{
@@ -1409,7 +1416,7 @@ func TestBatchCreateExpenses(t *testing.T) {
 						MemberIds: []string{"user-123"},
 					}, nil)
 				mockStore.EXPECT().
-					CreateExpense(gomock.Any(), gomock.Any()).
+					BatchCreateExpenses(gomock.Any(), gomock.Any()).
 					Return(errors.New("store error"))
 			},
 			expectedError: true,
@@ -3251,13 +3258,11 @@ func TestGetGroupSummary(t *testing.T) {
 						Id:        "group-123",
 						OwnerId:   "user-123",
 						MemberIds: []string{"user-123"},
-					}, nil).
-					Times(2) // Once for GetGroupSummary auth, once for GetMemberBalances auth
+					}, nil)
 
 				mockStore.EXPECT().
 					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000), "").
-					Return(mockExpenses, "", nil).
-					Times(2) // Once for summary, once for balances
+					Return(mockExpenses, "", nil)
 
 				mockStore.EXPECT().
 					ListIncomes(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000), "").
@@ -3291,13 +3296,11 @@ func TestGetGroupSummary(t *testing.T) {
 						Id:        "group-123",
 						OwnerId:   "user-123",
 						MemberIds: []string{"user-123"},
-					}, nil).
-					Times(2) // Once for GetGroupSummary auth, once for GetMemberBalances auth
+					}, nil)
 
 				mockStore.EXPECT().
 					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000), "").
-					Return([]*pfinancev1.Expense{}, "", nil).
-					Times(2)
+					Return([]*pfinancev1.Expense{}, "", nil)
 
 				mockStore.EXPECT().
 					ListIncomes(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000), "").
@@ -3327,13 +3330,11 @@ func TestGetGroupSummary(t *testing.T) {
 						Id:        "group-123",
 						OwnerId:   "user-123",
 						MemberIds: []string{"user-123"},
-					}, nil).
-					Times(2) // Once for GetGroupSummary auth, once for GetMemberBalances auth
+					}, nil)
 
 				mockStore.EXPECT().
 					ListExpenses(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000), "").
-					Return(mockExpenses, "", nil).
-					Times(2)
+					Return(mockExpenses, "", nil)
 
 				mockStore.EXPECT().
 					ListIncomes(gomock.Any(), "", "group-123", gomock.Any(), gomock.Any(), int32(1000), "").

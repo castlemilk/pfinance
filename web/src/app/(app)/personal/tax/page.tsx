@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -46,6 +46,9 @@ import {
   ArrowRight,
   ClipboardCheck,
 } from 'lucide-react';
+import DeductionFinder from '../../../components/tax/DeductionFinder';
+import TaxYearComparison from '../../../components/tax/TaxYearComparison';
+import ATODeadlineCard from '../../../components/tax/ATODeadlineCard';
 
 // ============================================================================
 // Shared Helpers
@@ -161,9 +164,10 @@ function SummaryTab() {
   }, [loadTaxSummary]);
 
   // Initial load
-  useState(() => {
+  useEffect(() => {
     loadTaxSummary(fy);
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -802,7 +806,34 @@ function ExportTab() {
   const { user } = useAuth();
   const [fy, setFy] = useState<TaxYear>(getCurrentAustralianFY());
   const [exporting, setExporting] = useState(false);
+  const [exportingReceipts, setExportingReceipts] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleExportReceipts = useCallback(async () => {
+    if (!user) return;
+    setExportingReceipts(true);
+    setError(null);
+    try {
+      const response = await financeClient.exportReceipts({
+        userId: user.uid,
+        financialYear: fy,
+      });
+
+      const blob = new Blob([response.data as BlobPart], { type: response.contentType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = response.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Receipt export failed');
+    } finally {
+      setExportingReceipts(false);
+    }
+  }, [user, fy]);
 
   const handleExport = useCallback(async (format: 'csv' | 'json') => {
     if (!user) return;
@@ -876,6 +907,18 @@ function ExportTab() {
               <p className="text-xs text-muted-foreground">Structured data for developers</p>
             </div>
           </button>
+
+          <button
+            onClick={handleExportReceipts}
+            disabled={exportingReceipts}
+            className="flex flex-col items-center gap-3 p-6 rounded-lg border-2 border-dashed hover:border-primary hover:bg-accent/50 transition-colors cursor-pointer disabled:opacity-50 sm:col-span-2"
+          >
+            <Receipt className="h-10 w-10 text-purple-600" />
+            <div className="text-center">
+              <p className="font-medium">Export Receipts (ZIP)</p>
+              <p className="text-xs text-muted-foreground">Download all receipts organized by ATO category</p>
+            </div>
+          </button>
         </div>
 
         {exporting && (
@@ -928,14 +971,23 @@ export default function TaxReturnsPage() {
 
       <ProFeatureGate feature="Tax Returns" mode="blur">
         <Tabs defaultValue="summary" className="space-y-4">
-          <TabsList>
+          <TabsList className="flex-wrap">
             <TabsTrigger value="summary">Summary</TabsTrigger>
             <TabsTrigger value="deductions">Deductions</TabsTrigger>
+            <TabsTrigger value="finder">Finder</TabsTrigger>
+            <TabsTrigger value="comparison">Comparison</TabsTrigger>
             <TabsTrigger value="calculator">Calculator</TabsTrigger>
             <TabsTrigger value="export">Export</TabsTrigger>
           </TabsList>
-          <TabsContent value="summary"><SummaryTab /></TabsContent>
+          <TabsContent value="summary">
+            <div className="space-y-4">
+              <SummaryTab />
+              <ATODeadlineCard />
+            </div>
+          </TabsContent>
           <TabsContent value="deductions"><DeductionsTab /></TabsContent>
+          <TabsContent value="finder"><DeductionFinder /></TabsContent>
+          <TabsContent value="comparison"><TaxYearComparison /></TabsContent>
           <TabsContent value="calculator"><CalculatorTab /></TabsContent>
           <TabsContent value="export"><ExportTab /></TabsContent>
         </Tabs>

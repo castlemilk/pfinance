@@ -3,6 +3,7 @@
 import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFinance } from '../../../../context/FinanceContext';
+import ReceiptViewer from '../../../../components/ReceiptViewer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -194,6 +195,13 @@ export default function ExpenseDetailPage({ params }: { params: Promise<{ id: st
           </CardContent>
         </Card>
       </div>
+
+      {/* Receipt Section */}
+      {expense.receiptUrl && (
+        <div className="mt-4">
+          <ReceiptViewer receiptUrl={expense.receiptUrl} />
+        </div>
+      )}
 
       {/* Edit Expense Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
