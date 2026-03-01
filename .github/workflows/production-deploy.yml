@@ -22,7 +22,7 @@ jobs:
   # 1. Build & Push Backend (ko)
   # ===========================================
   build-backend:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
@@ -74,7 +74,7 @@ jobs:
   # ===========================================
   deploy-backend:
     needs: build-backend
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     environment:
       name: Production
     permissions:
@@ -118,7 +118,7 @@ jobs:
   # ===========================================
   deploy-frontend:
     needs: deploy-backend
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     environment:
       name: Production
       url: https://pfinance.dev
@@ -157,7 +157,7 @@ jobs:
   # ===========================================
   firebase:
     needs: deploy-backend
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
