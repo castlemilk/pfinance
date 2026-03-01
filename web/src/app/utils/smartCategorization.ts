@@ -322,15 +322,18 @@ const enhancedCategoryKeywords: Record<string, ExpenseCategory> = {
   'airport': 'Travel'
 };
 
+// Pre-computed entries (avoid Object.entries() per call)
+const categoryKeywordEntries = Object.entries(enhancedCategoryKeywords);
+
 export function simpleGuessCategory(description: string): ExpenseCategory {
   const lowercaseDesc = description.toLowerCase();
-  
-  for (const [keyword, category] of Object.entries(enhancedCategoryKeywords)) {
+
+  for (const [keyword, category] of categoryKeywordEntries) {
     if (lowercaseDesc.includes(keyword)) {
       return category;
     }
   }
-  
+
   return 'Other';
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useRef, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo, ReactNode } from 'react';
 import {
   User,
   onAuthStateChanged,
@@ -150,26 +150,25 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
   const refreshSubscription = useCallback(async () => {
     if (!effectiveUser || isAdminMode) return;
     try {
-      await effectiveUser.getIdToken(true); // Force refresh
+      // extractSubscriptionFromToken already calls getIdTokenResult(true)
+      // which forces a token refresh, so no need to call getIdToken(true) first
       await extractSubscriptionFromToken(effectiveUser);
     } catch (err) {
       console.error('[AuthContext] Failed to refresh subscription:', err);
     }
   }, [effectiveUser, isAdminMode, extractSubscriptionFromToken]);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     if (isAdminMode && impersonatedUser) {
-      // In admin mode, don't actually sign in
       console.log('[Admin Mode] Simulated sign in for:', email);
       return;
     }
     if (!auth) throw new Error('Firebase auth not initialized');
     await signInWithEmailAndPassword(auth, email, password);
-  };
+  }, [isAdminMode, impersonatedUser]);
 
-  const signUp = async (email: string, password: string, displayName: string) => {
+  const signUp = useCallback(async (email: string, password: string, displayName: string) => {
     if (isAdminMode && impersonatedUser) {
-      // In admin mode, don't actually sign up
       console.log('[Admin Mode] Simulated sign up for:', email);
       return;
     }
@@ -178,11 +177,10 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
     if (result.user) {
       await updateProfile(result.user, { displayName });
     }
-  };
+  }, [isAdminMode, impersonatedUser]);
 
-  const signInWithGoogle = async (): Promise<void> => {
+  const signInWithGoogle = useCallback(async (): Promise<void> => {
     if (isAdminMode && impersonatedUser) {
-      // In admin mode, don't actually sign in
       console.log('[Admin Mode] Simulated Google sign in');
       return;
     }
@@ -191,35 +189,32 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
     }
 
     const provider = new GoogleAuthProvider();
-
-    // Add scopes if needed
     provider.addScope('profile');
     provider.addScope('email');
 
-    // Use popup for better UX (no redirects)
     try {
       await signInWithPopup(auth, provider);
     } catch (error: unknown) {
-      // Handle specific errors
       const firebaseError = error as { code?: string };
       if (firebaseError.code === 'auth/popup-blocked') {
         console.error('Popup was blocked. Please allow popups for this site.');
       }
       throw error;
     }
-  };
+  }, [isAdminMode, impersonatedUser]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     if (isAdminMode && impersonatedUser) {
-      // In admin mode, just log a message
       console.log('[Admin Mode] Simulated logout for:', impersonatedUser.email);
       return;
     }
     if (!auth) throw new Error('Firebase auth not initialized');
     await signOut(auth);
-  };
+  }, [isAdminMode, impersonatedUser]);
 
-  const value = {
+  const isImpersonating = isAdminMode && !!impersonatedUser;
+
+  const value = useMemo(() => ({
     user: effectiveUser,
     loading,
     subscriptionLoading,
@@ -227,12 +222,13 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
     signUp,
     signInWithGoogle,
     logout,
-    isImpersonating: isAdminMode && !!impersonatedUser,
+    isImpersonating,
     actualUser,
     subscriptionTier,
     subscriptionStatus,
     refreshSubscription,
-  };
+  }), [effectiveUser, loading, subscriptionLoading, signIn, signUp, signInWithGoogle, logout,
+       isImpersonating, actualUser, subscriptionTier, subscriptionStatus, refreshSubscription]);
 
   return (
     <AuthContext.Provider value={value}>

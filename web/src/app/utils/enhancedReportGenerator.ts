@@ -1,4 +1,4 @@
-import { jsPDF } from 'jspdf';
+import type { jsPDF } from 'jspdf';
 import { ExpenseCategory, IncomeFrequency } from '../types';
 
 // Enhanced report data structure
@@ -109,6 +109,7 @@ export class EnhancedReportGenerator {
 
   // Generate PDF report with enhanced formatting
   public async generatePDF(): Promise<Blob> {
+    const { jsPDF } = await import('jspdf');
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pageWidth = pdf.internal.pageSize.getWidth();
     let yPosition = 20;

@@ -7,7 +7,7 @@
  * Shows a live sync status indicator and handles background synchronization.
  */
 
-import { createContext, useContext, ReactNode, useMemo } from 'react';
+import { createContext, useContext, ReactNode, useMemo, useCallback } from 'react';
 import { useSyncQueue, SyncStatus, SyncQueueItem, SyncAction, SyncEntityType } from './finance/hooks/useSyncQueue';
 
 interface SyncContextType {
@@ -38,7 +38,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   } = useSyncQueue({ autoSync: true });
 
   // Helper to add a sync item
-  const addPendingSync = (
+  const addPendingSync = useCallback((
     entityType: SyncEntityType,
     action: SyncAction,
     entityId: string,
@@ -50,7 +50,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       entityId,
       data,
     });
-  };
+  }, [addToQueue]);
 
   // Computed values
   const hasPendingChanges = queue.length > 0;
@@ -72,7 +72,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     return 'green';
   }, [status, queue.length]);
 
-  const value: SyncContextType = {
+  const value = useMemo<SyncContextType>(() => ({
     status,
     pendingItems: queue,
     addPendingSync,
@@ -81,7 +81,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     hasPendingChanges,
     syncStatusText,
     syncStatusColor,
-  };
+  }), [status, queue, addPendingSync, processQueue, clearQueue,
+       hasPendingChanges, syncStatusText, syncStatusColor]);
 
   return (
     <SyncContext.Provider value={value}>

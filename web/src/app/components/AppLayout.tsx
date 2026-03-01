@@ -14,8 +14,13 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
-import { ChatPanel } from './chat/ChatPanel';
+import dynamic from 'next/dynamic';
 import { ChatHistoryProvider } from '@/lib/chat/ChatHistoryContext';
+
+const ChatPanel = dynamic(
+  () => import('./chat/ChatPanel').then(m => ({ default: m.ChatPanel })),
+  { ssr: false, loading: () => null }
+);
 
 interface AppLayoutProps {
   children: ReactNode;

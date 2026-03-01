@@ -10,10 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AlertCircle, CheckCircle2, Upload, FileText, Lock, Brain } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import Papa from 'papaparse';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import OpenAI from 'openai';
 import { batchCategorizeTransactions } from '../utils/smartCategorization';
 import { ConfidenceBadge } from '@/components/ui/confidence-badge';
 
@@ -247,7 +245,8 @@ export default function TransactionImport() {
   }, [pdfProcessingEnabled, handleFiles]);
 
   // Process CSV file
-  const processCSVFile = (file: File) => {
+  const processCSVFile = async (file: File) => {
+    const Papa = (await import('papaparse')).default;
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
@@ -294,7 +293,8 @@ export default function TransactionImport() {
       // Create a File object from the Blob
       const pdfFile = new File([pdfBlob], 'statement.pdf', { type: 'application/pdf' });
       
-      // Initialize OpenAI client
+      // Initialize OpenAI client (dynamically imported to reduce bundle)
+      const OpenAI = (await import('openai')).default;
       const openai = new OpenAI({
         apiKey: apiKey,
         dangerouslyAllowBrowser: true,

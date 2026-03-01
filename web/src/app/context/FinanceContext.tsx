@@ -10,7 +10,7 @@
  * or the metrics hooks directly. This context is focused on data management.
  */
 
-import { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAdmin } from './AdminContext';
 import { useAuth } from './AuthWithAdminContext';
 import { financeClient } from '@/lib/financeService';
@@ -344,9 +344,10 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       try {
         // Load expenses and incomes in parallel
         debugLog('[FinanceContext] Fetching expenses + incomes in parallel...');
-        const [expensesResponse, incomesResponse] = await Promise.all([
+        const [expensesResponse, incomesResponse, taxResponse] = await Promise.all([
           financeClient.listExpenses({ userId: userId, pageSize: 1000 }),
           financeClient.listIncomes({ userId: userId, pageSize: 1000 }),
+          financeClient.getTaxConfig({ userId }).catch(() => null),
         ]);
         debugLog('[FinanceContext] Loaded:', expensesResponse.expenses.length, 'expenses,', incomesResponse.incomes.length, 'incomes');
         const remoteExpenses = expensesResponse.expenses.map(mapProtoExpenseToLocal);
@@ -374,23 +375,15 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         setExpenses(remoteExpenses);
         setIncomes(remoteIncomes);
 
-        // Load tax config from API
-        try {
-          const taxResponse = await financeClient.getTaxConfig({
-            userId: userId,
+        // Apply tax config (already fetched in parallel above)
+        if (taxResponse?.taxConfig) {
+          setTaxConfig({
+            enabled: taxResponse.taxConfig.enabled,
+            country: taxResponse.taxConfig.country === ProtoTaxCountry.AUSTRALIA ? 'australia' :
+                     taxResponse.taxConfig.country === ProtoTaxCountry.UK ? 'uk' : 'simple',
+            taxRate: taxResponse.taxConfig.taxRate,
+            includeDeductions: taxResponse.taxConfig.includeDeductions,
           });
-          if (taxResponse.taxConfig) {
-            setTaxConfig({
-              enabled: taxResponse.taxConfig.enabled,
-              country: taxResponse.taxConfig.country === ProtoTaxCountry.AUSTRALIA ? 'australia' :
-                       taxResponse.taxConfig.country === ProtoTaxCountry.UK ? 'uk' : 'simple',
-              taxRate: taxResponse.taxConfig.taxRate,
-              includeDeductions: taxResponse.taxConfig.includeDeductions,
-            });
-          }
-        } catch {
-          // Tax config may not exist, use default
-          console.debug('[FinanceContext] No tax config found, using default');
         }
         debugLog('[FinanceContext] API load complete');
       } catch (err) {
@@ -758,54 +751,54 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   // Legacy Computed Methods (for backward compatibility)
   // ============================================================================
 
-  const getTotalExpenses = () => {
+  const getTotalExpenses = useCallback(() => {
     return expenses.reduce((total, expense) => {
       return total + toAnnual(expense.amount, expense.frequency as IncomeFrequency);
     }, 0);
-  };
+  }, [expenses]);
 
-  const getExpenseSummary = (): ExpenseSummary[] => {
+  const getExpenseSummary = useCallback((): ExpenseSummary[] => {
     const totalAmount = getTotalExpenses();
-    
+
     const categorySums = expenses.reduce((acc, expense) => {
       const annualAmount = toAnnual(expense.amount, expense.frequency as IncomeFrequency);
       acc[expense.category] = (acc[expense.category] || 0) + annualAmount;
       return acc;
     }, {} as Record<ExpenseCategory, number>);
-    
+
     return Object.entries(categorySums).map(([category, amount]) => ({
       category: category as ExpenseCategory,
       totalAmount: amount,
       percentage: totalAmount > 0 ? (amount / totalAmount) * 100 : 0,
     }));
-  };
+  }, [expenses, getTotalExpenses]);
 
-  const getTotalIncome = (period: IncomeFrequency = 'annually'): number => {
+  const getTotalIncome = useCallback((period: IncomeFrequency = 'annually'): number => {
     const annualTotal = incomes.reduce((total, income) => {
       return total + toAnnual(income.amount, income.frequency);
     }, 0);
     return fromAnnual(annualTotal, period);
-  };
+  }, [incomes]);
 
-  const calculateTax = (amount: number): number => {
+  const calculateTax = useCallback((amount: number): number => {
     if (!taxConfig.enabled || amount <= 0) return 0;
-    
+
     if (taxConfig.country === 'simple') {
       return (amount * taxConfig.taxRate) / 100;
     }
-    
+
     const taxSystem = getTaxSystem(taxConfig.country);
     const brackets = taxConfig.customBrackets || taxSystem.brackets;
     return calculateTaxWithBrackets(amount, brackets);
-  };
+  }, [taxConfig]);
 
-  const getNetIncome = (period: IncomeFrequency = 'annually'): number => {
+  const getNetIncome = useCallback((period: IncomeFrequency = 'annually'): number => {
     const totalIncome = getTotalIncome(period);
-    
+
     if (!taxConfig.enabled) return totalIncome;
-    
+
     const annualIncome = toAnnual(totalIncome, period);
-    
+
     let annualTaxableIncome = annualIncome;
     if (taxConfig.includeDeductions) {
       const deductibleAmount = incomes.reduce((total, income) => {
@@ -817,47 +810,53 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       }, 0);
       annualTaxableIncome = Math.max(0, annualIncome - deductibleAmount);
     }
-    
+
     const annualTax = calculateTax(annualTaxableIncome);
     const periodTax = fromAnnual(annualTax, period);
-    
+
     return totalIncome - periodTax;
-  };
+  }, [incomes, taxConfig, getTotalIncome, calculateTax]);
+
+  const value = useMemo(() => ({
+    // Raw data
+    expenses,
+    incomes,
+    taxConfig,
+    loading,
+    error,
+
+    // Expense CRUD
+    addExpense,
+    addExpenses,
+    updateExpense,
+    deleteExpense,
+    deleteExpenses,
+
+    // Income CRUD
+    addIncome,
+    updateIncome,
+    deleteIncome,
+
+    // Tax config
+    updateTaxConfig,
+
+    // Refresh
+    refreshData,
+
+    // Legacy computed methods
+    getExpenseSummary,
+    getTotalExpenses,
+    getTotalIncome,
+    getNetIncome,
+    calculateTax,
+  }), [expenses, incomes, taxConfig, loading, error,
+       addExpense, addExpenses, updateExpense, deleteExpense, deleteExpenses,
+       addIncome, updateIncome, deleteIncome,
+       updateTaxConfig, refreshData,
+       getExpenseSummary, getTotalExpenses, getTotalIncome, getNetIncome, calculateTax]);
 
   return (
-    <FinanceContext.Provider value={{ 
-      // Raw data
-      expenses, 
-      incomes,
-      taxConfig,
-      loading,
-      error,
-      
-      // Expense CRUD
-      addExpense, 
-      addExpenses,
-      updateExpense,
-      deleteExpense,
-      deleteExpenses,
-      
-      // Income CRUD
-      addIncome,
-      updateIncome,
-      deleteIncome,
-      
-      // Tax config
-      updateTaxConfig,
-      
-      // Refresh
-      refreshData,
-      
-      // Legacy computed methods
-      getExpenseSummary,
-      getTotalExpenses,
-      getTotalIncome,
-      getNetIncome,
-      calculateTax
-    }}>
+    <FinanceContext.Provider value={value}>
       {children}
     </FinanceContext.Provider>
   );

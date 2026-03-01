@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode, useMemo } from 'react';
 import { financeClient } from '@/lib/financeService';
 import type { Notification, NotificationPreferences } from '@/gen/pfinance/v1/types_pb';
 import { useAuth } from './AuthWithAdminContext';
@@ -214,7 +214,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   // ── Context value ──────────────────────────────────────────────────────
 
-  const value: NotificationContextType = {
+  const value = useMemo<NotificationContextType>(() => ({
     notifications,
     unreadCount,
     loading,
@@ -225,7 +225,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     markAllRead,
     updatePreferences,
     refreshUnreadCount,
-  };
+  }), [notifications, unreadCount, loading, error, preferences,
+       loadNotifications, markRead, markAllRead, updatePreferences, refreshUnreadCount]);
 
   return (
     <NotificationContext.Provider value={value}>

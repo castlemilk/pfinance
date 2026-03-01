@@ -1,4 +1,4 @@
-import { jsPDF } from 'jspdf';
+import type { jsPDF } from 'jspdf';
 
 // ── Data types ───────────────────────────────────────────────────────────────
 
@@ -92,6 +92,7 @@ export class TaxReportGenerator {
   // ── Public API ──────────────────────────────────────────────────────────
 
   async generatePDF(): Promise<Blob> {
+    const { jsPDF } = await import('jspdf');
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pageWidth = pdf.internal.pageSize.getWidth();
 

@@ -19,7 +19,8 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import FinanceFlowDiagram from './FinanceFlowDiagram';
+import dynamic from 'next/dynamic';
+const FinanceFlowDiagram = dynamic(() => import('./FinanceFlowDiagram'), { ssr: false });
 import { getTaxSystem } from '../constants/taxSystems';
 import { countryFlags } from './TaxConfig';
 

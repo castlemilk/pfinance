@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { PaletteId, DEFAULT_PALETTE, isValidPalette } from '../constants/palettes';
 
 type Theme = 'light' | 'dark' | 'system';
@@ -28,116 +28,81 @@ export function ThemeProvider({
   defaultPalette = DEFAULT_PALETTE,
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(defaultTheme);
-  const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('light');
+  const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>('light');
   const [palette, setPaletteState] = useState<PaletteId>(defaultPalette);
 
-  // Get system preference
-  const getSystemTheme = useCallback((): 'light' | 'dark' => {
-    if (typeof window !== 'undefined') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches
-        ? 'dark'
-        : 'light';
-    }
-    return 'light';
-  }, []);
-
-  // Calculate actual theme based on theme setting
-  const calculateActualTheme = useCallback((currentTheme: Theme): 'light' | 'dark' => {
-    if (currentTheme === 'system') {
-      return getSystemTheme();
-    }
-    return currentTheme;
-  }, [getSystemTheme]);
+  // Derive actualTheme during render (no extra state, no double-render)
+  const actualTheme: 'light' | 'dark' = theme === 'system' ? systemTheme : theme;
 
   // Load theme and palette from localStorage on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedTheme = localStorage.getItem('pfinance-theme') as Theme;
-      if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
-        setTheme(savedTheme);
-      }
-
-      const savedPalette = localStorage.getItem('pfinance-palette');
-      if (savedPalette && isValidPalette(savedPalette)) {
-        setPaletteState(savedPalette);
-      }
+    if (typeof window === 'undefined') return;
+    const savedTheme = localStorage.getItem('pfinance-theme') as Theme;
+    if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
+      setTheme(savedTheme);
     }
+    const savedPalette = localStorage.getItem('pfinance-palette');
+    if (savedPalette && isValidPalette(savedPalette)) {
+      setPaletteState(savedPalette);
+    }
+    // Initialize system theme
+    setSystemTheme(
+      window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    );
   }, []);
 
-  // Update actual theme and DOM when theme changes
+  // Update DOM when actualTheme changes + persist theme preference
   useEffect(() => {
-    const newActualTheme = calculateActualTheme(theme);
-    setActualTheme(newActualTheme);
-
-    // Update DOM
-    if (typeof window !== 'undefined') {
-      const root = window.document.documentElement;
-      root.classList.remove('light', 'dark');
-      root.classList.add(newActualTheme);
-
-      // Save to localStorage
-      localStorage.setItem('pfinance-theme', theme);
-    }
-  }, [theme, calculateActualTheme]);
+    if (typeof window === 'undefined') return;
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(actualTheme);
+    localStorage.setItem('pfinance-theme', theme);
+  }, [theme, actualTheme]);
 
   // Update DOM when palette changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const root = window.document.documentElement;
-
-      // Remove palette attribute for default (amber-terminal)
-      // Set data-palette for other palettes
-      if (palette === 'amber-terminal') {
-        delete root.dataset.palette;
-      } else {
-        root.dataset.palette = palette;
-      }
-
-      // Save to localStorage
-      localStorage.setItem('pfinance-palette', palette);
+    if (typeof window === 'undefined') return;
+    const root = window.document.documentElement;
+    if (palette === 'amber-terminal') {
+      delete root.dataset.palette;
+    } else {
+      root.dataset.palette = palette;
     }
+    localStorage.setItem('pfinance-palette', palette);
   }, [palette]);
 
   // Listen for system theme changes
   useEffect(() => {
-    if (typeof window !== 'undefined' && theme === 'system') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      setSystemTheme(e.matches ? 'dark' : 'light');
+    };
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
-      const handleChange = () => {
-        setActualTheme(calculateActualTheme(theme));
-      };
-
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
-    }
-  }, [theme, calculateActualTheme]);
-
-  const handleSetTheme = (newTheme: Theme) => {
+  const handleSetTheme = useCallback((newTheme: Theme) => {
     setTheme(newTheme);
-  };
+  }, []);
 
-  const handleSetPalette = (newPalette: PaletteId) => {
+  const handleSetPalette = useCallback((newPalette: PaletteId) => {
     setPaletteState(newPalette);
-  };
+  }, []);
 
-  const toggleTheme = () => {
-    if (theme === 'light') {
-      setTheme('dark');
-    } else if (theme === 'dark') {
-      setTheme('system');
-    } else {
-      setTheme('light');
-    }
-  };
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => prev === 'light' ? 'dark' : prev === 'dark' ? 'system' : 'light');
+  }, []);
 
-  const value = {
+  const value = useMemo(() => ({
     theme,
     actualTheme,
     palette,
     setTheme: handleSetTheme,
     setPalette: handleSetPalette,
     toggleTheme,
-  };
+  }), [theme, actualTheme, palette, handleSetTheme, handleSetPalette, toggleTheme]);
 
   return (
     <ThemeContext.Provider value={value}>

@@ -16,8 +16,7 @@ import { useFinance } from '@/app/context/FinanceContext';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getTaxSystem, TaxYear, TaxCategory, DEFAULT_TAX_YEAR, DEFAULT_TAX_CATEGORY } from '@/app/constants/taxSystems';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+
 
 // Local imports
 import { SalaryFormData, OvertimeEntry, FringeBenefitEntry, SalarySacrificeEntry, NovatedLeaseEntry } from './types';
@@ -28,8 +27,10 @@ import { ExtraSettings, DEFAULT_DEDUCTIONS, DeductionsData, DEFAULT_FAMILY_BENEF
 import { SummaryPanel } from './SummaryPanel';
 import { PresetSelector, Preset, PresetType } from './PresetSelector';
 import { TaxYearSelector } from './TaxYearSelector';
-import SalaryBreakdownChart from '../SalaryBreakdownChart';
+import dynamic from 'next/dynamic';
 import { toAnnualAmount } from './utils';
+
+const SalaryBreakdownChart = dynamic(() => import('../SalaryBreakdownChart'), { ssr: false });
 
 export function SalaryCalculatorNew() {
   const { taxConfig, updateTaxConfig, addIncome, updateIncome, incomes } = useFinance();
@@ -262,6 +263,10 @@ export function SalaryCalculatorNew() {
     if (!calculatorRef.current) return;
 
     try {
+      const [{ jsPDF }, { default: html2canvas }] = await Promise.all([
+        import('jspdf'),
+        import('html2canvas'),
+      ]);
       const canvas = await html2canvas(calculatorRef.current, {
         scale: 2,
         logging: false,

@@ -308,6 +308,15 @@ const categoryKeywords: Record<string, ExpenseCategory> = {
   'body corp': 'Housing',
 };
 
+// Pre-computed entries arrays (avoid Object.entries() per call)
+const merchantEntries = Object.entries(merchantMappings);
+const merchantWordEntries = merchantEntries.map(([key, info]) => ({
+  words: key.split(' '),
+  key,
+  info,
+}));
+const categoryEntries = Object.entries(categoryKeywords);
+
 /**
  * Normalize a merchant name and determine its category
  */
@@ -323,7 +332,7 @@ export function normalizeMerchant(rawMerchant: string): MerchantInfo {
     .trim();
 
   // Check direct mapping first
-  for (const [key, info] of Object.entries(merchantMappings)) {
+  for (const [key, info] of merchantEntries) {
     if (cleaned.includes(key) || key.includes(cleaned)) {
       return {
         name: info.name,
@@ -333,9 +342,8 @@ export function normalizeMerchant(rawMerchant: string): MerchantInfo {
     }
   }
 
-  // Check for partial matches
-  for (const [key, info] of Object.entries(merchantMappings)) {
-    const words = key.split(' ');
+  // Check for partial matches (uses pre-split words)
+  for (const { words, info } of merchantWordEntries) {
     if (words.some(word => cleaned.includes(word) && word.length > 3)) {
       return {
         name: info.name,
@@ -346,7 +354,7 @@ export function normalizeMerchant(rawMerchant: string): MerchantInfo {
   }
 
   // Fall back to keyword-based categorization
-  for (const [keyword, category] of Object.entries(categoryKeywords)) {
+  for (const [keyword, category] of categoryEntries) {
     if (cleaned.includes(keyword)) {
       return {
         name: formatMerchantName(rawMerchant),

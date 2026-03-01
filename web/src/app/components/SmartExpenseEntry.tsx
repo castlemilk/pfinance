@@ -167,6 +167,11 @@ const frequencyKeywords: Record<string, ExpenseFrequency> = {
   'every year': 'annually',
 };
 
+// Pre-compiled regexes for frequency keyword removal (avoids new RegExp per call)
+const frequencyPatterns: Array<[RegExp, ExpenseFrequency, string]> = Object.entries(frequencyKeywords).map(
+  ([keyword, freq]) => [new RegExp(keyword, 'gi'), freq, keyword]
+);
+
 // Parse date references
 function parseRelativeDate(input: string): Date | undefined {
   const lower = input.toLowerCase();
@@ -261,13 +266,14 @@ function parseNaturalLanguage(input: string): ParsedExpense | null {
     return multiResult.expenses[0];
   }
 
-  // Extract frequency if present
+  // Extract frequency if present (uses pre-compiled regexes)
   let frequency: ExpenseFrequency | undefined;
   let cleanedInput = input;
-  for (const [keyword, freq] of Object.entries(frequencyKeywords)) {
+  for (const [pattern, freq, keyword] of frequencyPatterns) {
     if (input.toLowerCase().includes(keyword)) {
       frequency = freq;
-      cleanedInput = cleanedInput.replace(new RegExp(keyword, 'gi'), '').trim();
+      pattern.lastIndex = 0;
+      cleanedInput = cleanedInput.replace(pattern, '').trim();
       break;
     }
   }

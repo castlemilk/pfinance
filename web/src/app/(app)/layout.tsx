@@ -10,10 +10,15 @@ import { RecurringProvider } from '../context/RecurringContext';
 import { GoalProvider } from '../context/GoalContext';
 import { TaxProvider } from '../context/TaxContext';
 import { NotificationProvider } from '../context/NotificationContext';
+import dynamic from 'next/dynamic';
 import AppLayout from '../components/AppLayout';
 import AppSkeleton from '../components/skeletons/AppSkeleton';
-import SearchCommandPalette from '../components/SearchCommandPalette';
 import InstallPrompt from '../components/InstallPrompt';
+
+const SearchCommandPalette = dynamic(() => import('../components/SearchCommandPalette'), {
+  ssr: false,
+  loading: () => null,
+});
 
 interface AppRouteLayoutProps {
   children: ReactNode;

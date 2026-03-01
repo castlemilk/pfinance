@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import ExpenseChart from './ExpenseChart';
-import ExpenseSankey from './ExpenseSankey';
+import dynamic from 'next/dynamic';
 import ChartToggle from './ChartToggle';
+
+const ExpenseChart = dynamic(() => import('./ExpenseChart'), { ssr: false });
+const ExpenseSankey = dynamic(() => import('./ExpenseSankey'), { ssr: false });
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { IncomeFrequency } from '../types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';

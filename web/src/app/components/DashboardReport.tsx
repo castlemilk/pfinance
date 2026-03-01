@@ -27,9 +27,10 @@ import {
 import { useFinanceMetrics } from '../metrics/hooks/useFinanceMetrics';
 import { SAVINGS_STATUS_CLASSES } from '../metrics/utils/colors';
 
-// Import visualizations
-import ExpenseSankey from './ExpenseSankey';
-import ExpenseChart from './ExpenseChart';
+// Import visualizations (dynamically loaded — heavy visx dependency)
+import dynamic from 'next/dynamic';
+const ExpenseSankey = dynamic(() => import('./ExpenseSankey'), { ssr: false });
+const ExpenseChart = dynamic(() => import('./ExpenseChart'), { ssr: false });
 
 // Import reports components
 import { ExtraSettingsSummary, hasActiveSettings, type ExtraSettingsData } from './reports';

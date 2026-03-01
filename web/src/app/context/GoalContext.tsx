@@ -11,7 +11,7 @@
  * Uses backend API when authenticated, falls back to localStorage for demo mode.
  */
 
-import { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from './AuthWithAdminContext';
 import { financeClient } from '@/lib/financeService';
 import { Timestamp, timestampDate, timestampFromDate } from '@bufbuild/protobuf/wkt';
@@ -347,8 +347,8 @@ export function GoalProvider({ children }: { children: ReactNode }) {
   const isAuthenticated = !!user;
   const userId = user?.uid || 'demo-user';
 
-  // Computed: active goals
-  const activeGoals = goals.filter(g => g.status === 'active');
+  // Computed: active goals (memoized)
+  const activeGoals = useMemo(() => goals.filter(g => g.status === 'active'), [goals]);
 
   // Load goals on mount/auth change
   const loadGoals = useCallback(async () => {
@@ -368,22 +368,23 @@ export function GoalProvider({ children }: { children: ReactNode }) {
         const loadedGoals = response.goals.map(mapProtoGoalToLocal);
         setGoals(loadedGoals);
 
-        // Calculate progress for each goal
-        const progressMap = new Map<string, GoalProgress>();
-        for (const goal of loadedGoals) {
-          try {
-            const progressResponse = await financeClient.getGoalProgress({
-              goalId: goal.id,
-            });
-            if (progressResponse.progress) {
-              progressMap.set(goal.id, mapProtoProgressToLocal(progressResponse.progress));
+        // Calculate progress for all goals in parallel
+        const progressEntries = await Promise.all(
+          loadedGoals.map(async (goal) => {
+            try {
+              const progressResponse = await financeClient.getGoalProgress({
+                goalId: goal.id,
+              });
+              return [goal.id, progressResponse.progress
+                ? mapProtoProgressToLocal(progressResponse.progress)
+                : calculateProgress(goal)] as const;
+            } catch {
+              // Fall back to local calculation
+              return [goal.id, calculateProgress(goal)] as const;
             }
-          } catch (e) {
-            // Fall back to local calculation
-            progressMap.set(goal.id, calculateProgress(goal));
-          }
-        }
-        setGoalProgresses(progressMap);
+          })
+        );
+        setGoalProgresses(new Map(progressEntries));
       } else {
         // Load from localStorage for demo mode
         const loadedGoals = loadDemoGoals();
@@ -675,7 +676,7 @@ export function GoalProvider({ children }: { children: ReactNode }) {
     await loadGoals();
   }, [loadGoals]);
 
-  const value: GoalContextType = {
+  const value = useMemo<GoalContextType>(() => ({
     goals,
     activeGoals,
     goalProgresses,
@@ -687,7 +688,9 @@ export function GoalProvider({ children }: { children: ReactNode }) {
     contributeToGoal,
     refreshGoalProgress,
     refreshGoals,
-  };
+  }), [goals, activeGoals, goalProgresses, loading, error,
+       createGoal, updateGoal, deleteGoal, contributeToGoal,
+       refreshGoalProgress, refreshGoals]);
 
   return (
     <GoalContext.Provider value={value}>

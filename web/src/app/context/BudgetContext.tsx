@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from './AuthWithAdminContext';
 import { financeClient } from '@/lib/financeService';
 import { 
@@ -71,10 +71,14 @@ interface UpdateBudgetParams {
 
 const BudgetContext = createContext<BudgetContextType | undefined>(undefined);
 
+const debugLog = (...args: unknown[]) => {
+  if (process.env.NODE_ENV === 'development') console.log(...args);
+};
+
 export function BudgetProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [budgetProgresses, setBudgetProgresses] = useState<Map<string, BudgetProgress>>(new Map());
+  const [budgetProgresses, setBudgetProgresses] = useState<Map<string, BudgetProgress>>(() => new Map());
   const [error, setError] = useState<string | null>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
   const isLoadingRef = useRef(false); // Guard against concurrent/redundant loads
@@ -92,8 +96,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
   // Loading is true if auth is loading OR we have a user but haven't loaded data yet
   const loading = authLoading || (!!effectiveUserId && !dataLoaded);
   
-  // Debug logging
-  console.log('[BudgetContext] State:', {
+  debugLog('[BudgetContext] State:', {
     authLoading,
     user: user?.uid || null,
     isDevMode,
@@ -150,7 +153,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     // Use provided userId or fall back to effectiveUserId for backward compatibility
     const targetUserId = userId || effectiveUserId;
     
-    console.log('[BudgetContext] refreshBudgets called', { 
+    debugLog('[BudgetContext] refreshBudgets called', { 
       financeGroupId, 
       userId, 
       targetUserId,
@@ -158,13 +161,13 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     });
     
     if (!targetUserId) {
-      console.log('[BudgetContext] refreshBudgets skipped - no user ID');
+      debugLog('[BudgetContext] refreshBudgets skipped - no user ID');
       return;
     }
 
     // Guard against concurrent/redundant loads
     if (isLoadingRef.current) {
-      console.log('[BudgetContext] refreshBudgets skipped - already loading');
+      debugLog('[BudgetContext] refreshBudgets skipped - already loading');
       return;
     }
     isLoadingRef.current = true;
@@ -173,7 +176,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      console.log('[BudgetContext] Fetching budgets for user:', targetUserId);
+      debugLog('[BudgetContext] Fetching budgets for user:', targetUserId);
       const response = await financeClient.listBudgets({
         userId: targetUserId,
         groupId: financeGroupId || '',
@@ -181,7 +184,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         pageSize: 100
       });
       const newBudgets = response.budgets || [];
-      console.log('[BudgetContext] Budgets loaded:', newBudgets.length);
+      debugLog('[BudgetContext] Budgets loaded:', newBudgets.length);
       
       if (financeGroupId) {
         // For shared budgets, merge with existing personal budgets
@@ -198,7 +201,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       if (newBudgets.length > 0) {
         await refreshAllBudgetProgresses(financeGroupId, newBudgets);
       }
-      console.log('[BudgetContext] Budget load complete');
+      debugLog('[BudgetContext] Budget load complete');
     } catch (err) {
       // Don't log auth errors as they're expected during initial load
       const isAuthError = err instanceof Error && err.message.includes('unauthenticated');
@@ -206,10 +209,10 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         console.error('[BudgetContext] Failed to load budgets:', err);
         setError('Failed to load budgets');
       } else {
-        console.log('[BudgetContext] Auth error (expected during initial load)');
+        debugLog('[BudgetContext] Auth error (expected during initial load)');
       }
     } finally {
-      console.log('[BudgetContext] Setting dataLoaded = true');
+      debugLog('[BudgetContext] Setting dataLoaded = true');
       setDataLoaded(true);
       isLoadingRef.current = false;
     }
@@ -217,7 +220,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
 
   // Load budgets when effectiveUserId changes
   useEffect(() => {
-    console.log('[BudgetContext] useEffect triggered', {
+    debugLog('[BudgetContext] useEffect triggered', {
       effectiveUserId,
       lastUserIdRef: lastUserIdRef.current,
       dataLoaded,
@@ -226,7 +229,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     
     // Skip if user hasn't changed (prevents redundant loads)
     if (lastUserIdRef.current === effectiveUserId && dataLoaded) {
-      console.log('[BudgetContext] useEffect skipped - same user and data loaded');
+      debugLog('[BudgetContext] useEffect skipped - same user and data loaded');
       return;
     }
     lastUserIdRef.current = effectiveUserId;
@@ -235,11 +238,11 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     isLoadingRef.current = false;
 
     if (effectiveUserId) {
-      console.log('[BudgetContext] useEffect - loading budgets for user:', effectiveUserId);
+      debugLog('[BudgetContext] useEffect - loading budgets for user:', effectiveUserId);
       // Pass userId explicitly to avoid stale closure
       refreshBudgets(undefined, effectiveUserId);
     } else {
-      console.log('[BudgetContext] useEffect - no user, clearing budgets');
+      debugLog('[BudgetContext] useEffect - no user, clearing budgets');
       setBudgets([]);
       setBudgetProgresses(new Map());
       setDataLoaded(true); // No user = no data to load
@@ -247,7 +250,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     
     // Cleanup: reset loading ref on unmount (for React Strict Mode)
     return () => {
-      console.log('[BudgetContext] useEffect cleanup');
+      debugLog('[BudgetContext] useEffect cleanup');
       isLoadingRef.current = false;
     };
   }, [effectiveUserId, refreshBudgets, dataLoaded]);
@@ -345,10 +348,10 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Computed values
-  const activeBudgets = budgets.filter(budget => budget.isActive);
-  const personalBudgets = budgets.filter(budget => !budget.groupId);
-  const sharedBudgets = budgets.filter(budget => budget.groupId);
+  // Computed values (memoized to prevent unnecessary re-renders)
+  const activeBudgets = useMemo(() => budgets.filter(budget => budget.isActive), [budgets]);
+  const personalBudgets = useMemo(() => budgets.filter(budget => !budget.groupId), [budgets]);
+  const sharedBudgets = useMemo(() => budgets.filter(budget => !!budget.groupId), [budgets]);
 
   // Helper functions
   const getBudgetById = useCallback((budgetId: string): Budget | undefined => {
@@ -366,7 +369,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     return activeBudgets.filter(budget => budget.groupId === financeGroupId);
   }, [activeBudgets]);
 
-  const contextValue: BudgetContextType = {
+  const contextValue = useMemo<BudgetContextType>(() => ({
     // Data
     budgets,
     activeBudgets,
@@ -374,24 +377,27 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     sharedBudgets,
     loading,
     error,
-    
+
     // CRUD operations
     createBudget,
     updateBudget,
     deleteBudget,
     getBudgetProgress,
-    
+
     // Management
     refreshBudgets,
     getBudgetById,
     getBudgetsForCategory,
     getBudgetsForFinanceGroup,
-    
+
     // Progress tracking
     budgetProgresses,
     refreshBudgetProgress,
-    refreshAllBudgetProgresses
-  };
+    refreshAllBudgetProgresses,
+  }), [budgets, activeBudgets, personalBudgets, sharedBudgets, loading, error,
+       createBudget, updateBudget, deleteBudget, getBudgetProgress,
+       refreshBudgets, getBudgetById, getBudgetsForCategory, getBudgetsForFinanceGroup,
+       budgetProgresses, refreshBudgetProgress, refreshAllBudgetProgresses]);
 
   return (
     <BudgetContext.Provider value={contextValue}>

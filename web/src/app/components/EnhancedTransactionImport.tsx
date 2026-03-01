@@ -13,8 +13,6 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import Papa from 'papaparse';
-
 // Import enhanced utilities
 import { EnhancedSmartCategorization } from '../utils/enhancedSmartCategorization';
 import { EnhancedPdfProcessor } from '../utils/enhancedPdfProcessor';
@@ -155,8 +153,9 @@ export default function EnhancedTransactionImport() {
 
   // Process CSV file
   const processCSVFile = useCallback(async (file: File): Promise<EnhancedTransaction[]> => {
+    const PapaParse = (await import('papaparse')).default;
     return new Promise((resolve, reject) => {
-      Papa.parse(file, {
+      PapaParse.parse(file, {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
