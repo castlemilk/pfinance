@@ -24,7 +24,7 @@ jobs:
   # ===========================================
   changes:
     if: github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
       backend: ${{ steps.filter.outputs.backend }}
@@ -46,7 +46,7 @@ jobs:
   # ===========================================
   backend:
     needs: changes
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: read
       id-token: write
@@ -147,7 +147,7 @@ jobs:
   frontend:
     needs: [changes, backend]
     if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       pull-requests: write
     environment:
@@ -261,7 +261,7 @@ jobs:
   # ===========================================
   cleanup:
     if: github.event.action == 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: read
       id-token: write

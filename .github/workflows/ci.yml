@@ -19,7 +19,7 @@ jobs:
   # Change Detection (~5s)
   # ===========================================
   changes:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
       backend: ${{ steps.filter.outputs.backend }}
@@ -46,7 +46,7 @@ jobs:
   test:
     needs: changes
     if: needs.changes.outputs.any_code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
 
@@ -116,7 +116,7 @@ jobs:
   ci-status:
     needs: [test]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Check CI status
         run: |
