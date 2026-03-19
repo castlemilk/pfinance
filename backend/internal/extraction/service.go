@@ -57,6 +57,7 @@ type ExtractionService struct {
 	mlEnabled      bool
 	jobStore       *JobStore
 	merchantLookup MerchantLookup
+	merchantCache  *MerchantCache
 	statementStore StatementStore
 	textExtractor  *TextExtractor
 }
@@ -87,6 +88,7 @@ func NewExtractionService(cfg Config) *ExtractionService {
 		validator:     validator,
 		mlEnabled:     cfg.EnableML && mlClient != nil,
 		jobStore:      NewJobStore(1 * time.Hour),
+		merchantCache: NewMerchantCache(15*time.Minute, 4096),
 		textExtractor: &TextExtractor{},
 	}
 }
@@ -381,8 +383,8 @@ func (s *ExtractionService) postProcessResultWithUser(ctx context.Context, userI
 			}
 		}
 
-		// 2. Static normalizer
-		info := NormalizeMerchant(tx.Description)
+		// 2. Static normalizer with fuzzy matching + cache
+		info := NormalizeMerchantCached(tx.Description, s.merchantCache)
 
 		// Prefer user mapping over static
 		if userInfo != nil && userInfo.Confidence > info.Confidence {
