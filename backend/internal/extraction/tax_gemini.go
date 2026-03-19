@@ -31,14 +31,22 @@ func NewTaxGeminiClassifier(apiKey string) *TaxGeminiClassifier {
 	}
 }
 
+// GeminiTaxFieldConfidences represents per-field confidence scores from Gemini.
+type GeminiTaxFieldConfidences struct {
+	IsDeductible         float64 `json:"is_deductible"`
+	ATOCategory          float64 `json:"ato_category"`
+	DeductiblePercentage float64 `json:"deductible_percentage"`
+}
+
 // GeminiTaxResult represents a single expense classification from Gemini.
 type GeminiTaxResult struct {
-	ExpenseID            string  `json:"expense_id"`
-	IsDeductible         bool    `json:"is_deductible"`
-	ATOCategory          string  `json:"ato_category"`
-	DeductiblePercentage float64 `json:"deductible_percentage"`
-	Confidence           float64 `json:"confidence"`
-	Reasoning            string  `json:"reasoning"`
+	ExpenseID            string                     `json:"expense_id"`
+	IsDeductible         bool                       `json:"is_deductible"`
+	ATOCategory          string                     `json:"ato_category"`
+	DeductiblePercentage float64                    `json:"deductible_percentage"`
+	Confidence           float64                    `json:"confidence"`
+	Reasoning            string                     `json:"reasoning"`
+	FieldConfidences     *GeminiTaxFieldConfidences `json:"field_confidences,omitempty"`
 }
 
 // GeminiTaxResponse represents the full response from Gemini.
@@ -136,7 +144,12 @@ Key rules:
 - Education must relate to CURRENT job, not a new career
 
 Classify each expense. Return JSON only:
-{"results": [{"expense_id": "...", "is_deductible": true/false, "ato_category": "D1|D2|D3|D4|D5|D6|D10|D15|INCOME_PROTECTION|OTHER|NOT_DEDUCTIBLE", "deductible_percentage": 0.0-1.0, "confidence": 0.0-1.0, "reasoning": "brief explanation"}]}
+{"results": [{"expense_id": "...", "is_deductible": true/false, "ato_category": "D1|D2|D3|D4|D5|D6|D10|D15|INCOME_PROTECTION|OTHER|NOT_DEDUCTIBLE", "deductible_percentage": 0.0-1.0, "confidence": 0.0-1.0, "reasoning": "brief explanation", "field_confidences": {"is_deductible": 0.0-1.0, "ato_category": 0.0-1.0, "deductible_percentage": 0.0-1.0}}]}
+
+For field_confidences, provide separate confidence scores for each classification decision:
+- is_deductible: how confident you are in the deductibility decision
+- ato_category: how confident you are in the specific ATO category
+- deductible_percentage: how confident you are in the deductible percentage
 
 Expenses:
 %s`, occupationCtx, correctionCtx, string(expenseJSON))
@@ -171,13 +184,25 @@ Expenses:
 			pct = 1.0
 		}
 
+		fc := TaxFieldConfidences{
+			IsDeductible:         r.Confidence,
+			ATOCategory:          r.Confidence,
+			DeductiblePercentage: r.Confidence,
+		}
+		if r.FieldConfidences != nil {
+			fc.IsDeductible = r.FieldConfidences.IsDeductible
+			fc.ATOCategory = r.FieldConfidences.ATOCategory
+			fc.DeductiblePercentage = r.FieldConfidences.DeductiblePercentage
+		}
+
 		classifications = append(classifications, TaxClassification{
-			IsDeductible:  r.IsDeductible,
-			Category:      cat,
-			DeductiblePct: pct,
-			Confidence:    r.Confidence,
-			Reasoning:     r.Reasoning,
-			Source:        "gemini",
+			IsDeductible:     r.IsDeductible,
+			Category:         cat,
+			DeductiblePct:    pct,
+			Confidence:       r.Confidence,
+			Reasoning:        r.Reasoning,
+			Source:           "gemini",
+			FieldConfidences: fc,
 		})
 	}
 

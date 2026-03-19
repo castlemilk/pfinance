@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { financeClient } from '@/lib/financeService';
 import { useFinance } from '../../../context/FinanceContext';
-import { TaxClassificationResult } from '@/gen/pfinance/v1/finance_service_pb';
+import { TaxClassificationResult, TaxFieldConfidences } from '@/gen/pfinance/v1/finance_service_pb';
 import { TaxDeductionCategory } from '@/gen/pfinance/v1/types_pb';
 import {
   TAX_DEDUCTION_CATEGORIES,
@@ -341,6 +341,14 @@ function ReviewItemCard({
               )}
               <ConfidenceBadge confidence={result.confidence} />
             </div>
+            {result.fieldConfidences && (
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Fields:</span>
+                <ConfidenceBadge confidence={result.fieldConfidences.isDeductible} label="Deductible" />
+                <ConfidenceBadge confidence={result.fieldConfidences.atoCategory} label="Category" />
+                <ConfidenceBadge confidence={result.fieldConfidences.deductiblePercentage} label="Percent" />
+              </div>
+            )}
             {result.reasoning && (
               <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">
                 {result.reasoning}

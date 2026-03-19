@@ -1396,16 +1396,24 @@ message ListDeductibleExpensesResponse {
   double total_deductible = 4;
 }
 
+// TaxFieldConfidences represents per-field confidence scores for tax classification
+message TaxFieldConfidences {
+  double is_deductible = 1;          // Confidence in the deductibility decision (0.0-1.0)
+  double ato_category = 2;           // Confidence in the ATO category assignment (0.0-1.0)
+  double deductible_percentage = 3;  // Confidence in the deductible percentage (0.0-1.0)
+}
+
 // TaxClassificationResult represents AI classification for a single expense
 message TaxClassificationResult {
   string expense_id = 1;
   bool is_deductible = 2;
   TaxDeductionCategory category = 3;
   double deductible_percent = 4;    // 0.0-1.0
-  double confidence = 5;            // 0.0-1.0
+  double confidence = 5;            // 0.0-1.0 (overall, kept for backward compatibility)
   string reasoning = 6;             // Brief explanation
   bool auto_applied = 7;            // Whether it was auto-applied (confidence >= 0.85)
   bool needs_review = 8;            // Whether user should review (0.60-0.84)
+  TaxFieldConfidences field_confidences = 9; // Per-field confidence breakdown
 }
 
 message ClassifyTaxDeductibilityRequest {

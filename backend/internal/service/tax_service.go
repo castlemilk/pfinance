@@ -784,6 +784,7 @@ func (s *FinanceService) ClassifyTaxDeductibility(ctx context.Context, req *conn
 			Reasoning:         cls.Reasoning,
 			AutoApplied:       autoApplied,
 			NeedsReview:       needsReview,
+			FieldConfidences:  toProtoFieldConfidences(cls.FieldConfidences),
 		},
 	}), nil
 }
@@ -899,6 +900,7 @@ func (s *FinanceService) BatchClassifyTaxDeductibility(ctx context.Context, req 
 			Reasoning:         cls.Reasoning,
 			AutoApplied:       isAutoApply && req.Msg.AutoApply,
 			NeedsReview:       isNeedsReview,
+			FieldConfidences:  toProtoFieldConfidences(cls.FieldConfidences),
 		})
 	}
 
@@ -925,4 +927,13 @@ func currentAustralianFY() string {
 	}
 	endYear := (startYear + 1) % 100
 	return fmt.Sprintf("%d-%02d", startYear, endYear)
+}
+
+// toProtoFieldConfidences converts internal TaxFieldConfidences to proto TaxFieldConfidences.
+func toProtoFieldConfidences(fc extraction.TaxFieldConfidences) *pfinancev1.TaxFieldConfidences {
+	return &pfinancev1.TaxFieldConfidences{
+		IsDeductible:         fc.IsDeductible,
+		AtoCategory:          fc.ATOCategory,
+		DeductiblePercentage: fc.DeductiblePercentage,
+	}
 }

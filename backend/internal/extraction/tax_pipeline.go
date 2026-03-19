@@ -74,6 +74,11 @@ func (p *TaxClassificationPipeline) ClassifyExpenses(
 					Confidence:    1.0, // User already classified
 					Reasoning:     "Already classified by user",
 					Source:        "user",
+					FieldConfidences: TaxFieldConfidences{
+						IsDeductible:         1.0,
+						ATOCategory:          1.0,
+						DeductiblePercentage: 1.0,
+					},
 				},
 			}
 			continue
@@ -88,6 +93,11 @@ func (p *TaxClassificationPipeline) ClassifyExpenses(
 					Confidence:   1.0,
 					Reasoning:    "User marked as not deductible",
 					Source:       "user",
+					FieldConfidences: TaxFieldConfidences{
+						IsDeductible:         1.0,
+						ATOCategory:          0.0,
+						DeductiblePercentage: 0.0,
+					},
 				},
 			}
 			continue
@@ -163,6 +173,11 @@ func (p *TaxClassificationPipeline) ClassifyExpenses(
 					Confidence:   0.30,
 					Reasoning:    "Could not determine deductibility",
 					Source:       "none",
+					FieldConfidences: TaxFieldConfidences{
+						IsDeductible:         0.30,
+						ATOCategory:          0.0,
+						DeductiblePercentage: 0.0,
+					},
 				},
 			}
 		}
@@ -184,6 +199,11 @@ func matchUserMapping(expense *pfinancev1.Expense, mappings []*pfinancev1.TaxDed
 				Confidence:    m.Confidence,
 				Reasoning:     "Matched user-learned pattern: " + m.MerchantPattern,
 				Source:        "user_mapping",
+				FieldConfidences: TaxFieldConfidences{
+					IsDeductible:         m.Confidence,
+					ATOCategory:          m.Confidence,
+					DeductiblePercentage: m.Confidence,
+				},
 			}
 		}
 	}

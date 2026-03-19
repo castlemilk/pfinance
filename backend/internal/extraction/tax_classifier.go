@@ -7,14 +7,22 @@ import (
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 )
 
+// TaxFieldConfidences holds per-field confidence scores for tax classification.
+type TaxFieldConfidences struct {
+	IsDeductible         float64 // Confidence in the deductibility decision (0.0-1.0)
+	ATOCategory          float64 // Confidence in the ATO category assignment (0.0-1.0)
+	DeductiblePercentage float64 // Confidence in the deductible percentage (0.0-1.0)
+}
+
 // TaxClassification represents the result of classifying an expense for tax deductibility
 type TaxClassification struct {
-	IsDeductible  bool
-	Category      pfinancev1.TaxDeductionCategory
-	DeductiblePct float64 // 0.0-1.0
-	Confidence    float64 // 0.0-1.0
-	Reasoning     string
-	Source        string // "merchant_map", "category", "keyword", "tag", "not_deductible"
+	IsDeductible     bool
+	Category         pfinancev1.TaxDeductionCategory
+	DeductiblePct    float64 // 0.0-1.0
+	Confidence       float64 // 0.0-1.0 (overall, kept for backward compatibility)
+	Reasoning        string
+	Source           string // "merchant_map", "category", "keyword", "tag", "not_deductible"
+	FieldConfidences TaxFieldConfidences
 }
 
 // notDeductiblePattern represents a merchant pattern that is almost certainly NOT tax deductible.
@@ -257,6 +265,11 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense, occupation ...string)
 				Confidence:   0.90,
 				Reasoning:    "Personal expense merchant - unlikely to be deductible",
 				Source:       "not_deductible",
+				FieldConfidences: TaxFieldConfidences{
+					IsDeductible:         0.90,
+					ATOCategory:          0.0, // N/A for not-deductible
+					DeductiblePercentage: 0.0,
+				},
 			}
 		}
 	}
@@ -265,7 +278,13 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense, occupation ...string)
 	// Sorted by length descending for deterministic longest-match-first behavior
 	for _, entry := range deductibleMerchantsSorted {
 		if strings.Contains(desc, entry.Pattern) {
-			return applyOccupationBoost(entry.Classification, occ)
+			cls := entry.Classification
+			cls.FieldConfidences = TaxFieldConfidences{
+				IsDeductible:         cls.Confidence,
+				ATOCategory:          cls.Confidence,
+				DeductiblePercentage: cls.Confidence,
+			}
+			return applyOccupationBoost(cls, occ)
 		}
 	}
 
@@ -279,6 +298,11 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense, occupation ...string)
 			Confidence:    0.55,
 			Reasoning:     "Education expense - may be deductible if work-related",
 			Source:        "category",
+			FieldConfidences: TaxFieldConfidences{
+				IsDeductible:         0.60,
+				ATOCategory:          0.70,
+				DeductiblePercentage: 0.50,
+			},
 		}
 		return applyOccupationBoost(cls, occ)
 	case pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_TRANSPORTATION:
@@ -289,6 +313,11 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense, occupation ...string)
 			Confidence:    0.40,
 			Reasoning:     "Transport expense - may be deductible if for work travel (not commuting)",
 			Source:        "category",
+			FieldConfidences: TaxFieldConfidences{
+				IsDeductible:         0.45,
+				ATOCategory:          0.55,
+				DeductiblePercentage: 0.30,
+			},
 		}
 		return applyOccupationBoost(cls, occ)
 	}
@@ -304,6 +333,11 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense, occupation ...string)
 				Confidence:    0.60,
 				Reasoning:     "Tagged as work/business related by user",
 				Source:        "tag",
+				FieldConfidences: TaxFieldConfidences{
+					IsDeductible:         0.75,
+					ATOCategory:          0.40,
+					DeductiblePercentage: 0.55,
+				},
 			}
 		}
 	}
@@ -318,6 +352,11 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense, occupation ...string)
 				Confidence:    0.55,
 				Reasoning:     "Description contains work-related keyword: " + kw.Keyword,
 				Source:        "keyword",
+				FieldConfidences: TaxFieldConfidences{
+					IsDeductible:         0.60,
+					ATOCategory:          0.55,
+					DeductiblePercentage: 0.45,
+				},
 			}
 			return applyOccupationBoost(cls, occ)
 		}
@@ -329,5 +368,10 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense, occupation ...string)
 		Confidence:   0.30, // Low confidence — needs human or AI review
 		Reasoning:    "No matching rules found",
 		Source:       "none",
+		FieldConfidences: TaxFieldConfidences{
+			IsDeductible:         0.30,
+			ATOCategory:          0.0,
+			DeductiblePercentage: 0.0,
+		},
 	}
 }
