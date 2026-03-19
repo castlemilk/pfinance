@@ -85,12 +85,22 @@ func (s *FinanceService) CreateExpense(ctx context.Context, req *connect.Request
 		taxDeductiblePercent = 1.0
 	}
 
+	// Dual-write amount/cents
+	amount := req.Msg.Amount
+	amountCents := req.Msg.AmountCents
+	if amountCents != 0 && amount == 0 {
+		amount = float64(amountCents) / 100.0
+	} else if amount != 0 && amountCents == 0 {
+		amountCents = int64(amount * 100)
+	}
+
 	expense := &pfinancev1.Expense{
 		Id:                   uuid.New().String(),
 		UserId:               req.Msg.UserId,
 		GroupId:              req.Msg.GroupId,
 		Description:          req.Msg.Description,
-		Amount:               req.Msg.Amount,
+		Amount:               amount,
+		AmountCents:          amountCents,
 		Category:             req.Msg.Category,
 		Frequency:            req.Msg.Frequency,
 		Date:                 req.Msg.Date,
@@ -682,18 +692,28 @@ func (s *FinanceService) CreateIncome(ctx context.Context, req *connect.Request[
 		}
 	}
 
+	// Dual-write amount/cents
+	incAmount := req.Msg.Amount
+	incAmountCents := req.Msg.AmountCents
+	if incAmountCents != 0 && incAmount == 0 {
+		incAmount = float64(incAmountCents) / 100.0
+	} else if incAmount != 0 && incAmountCents == 0 {
+		incAmountCents = int64(incAmount * 100)
+	}
+
 	income := &pfinancev1.Income{
-		Id:         uuid.New().String(),
-		UserId:     req.Msg.UserId,
-		GroupId:    req.Msg.GroupId,
-		Source:     req.Msg.Source,
-		Amount:     req.Msg.Amount,
-		Frequency:  req.Msg.Frequency,
-		TaxStatus:  req.Msg.TaxStatus,
-		Deductions: req.Msg.Deductions,
-		Date:       req.Msg.Date,
-		CreatedAt:  timestamppb.Now(),
-		UpdatedAt:  timestamppb.Now(),
+		Id:          uuid.New().String(),
+		UserId:      req.Msg.UserId,
+		GroupId:     req.Msg.GroupId,
+		Source:      req.Msg.Source,
+		Amount:      incAmount,
+		AmountCents: incAmountCents,
+		Frequency:   req.Msg.Frequency,
+		TaxStatus:   req.Msg.TaxStatus,
+		Deductions:  req.Msg.Deductions,
+		Date:        req.Msg.Date,
+		CreatedAt:   timestamppb.Now(),
+		UpdatedAt:   timestamppb.Now(),
 	}
 
 	if err := s.store.CreateIncome(ctx, income); err != nil {
@@ -882,8 +902,16 @@ func (s *FinanceService) UpdateExpense(ctx context.Context, req *connect.Request
 	if req.Msg.Description != "" {
 		expense.Description = req.Msg.Description
 	}
-	if req.Msg.Amount > 0 {
-		expense.Amount = req.Msg.Amount
+	if req.Msg.AmountCents != 0 || req.Msg.Amount > 0 {
+		amt := req.Msg.Amount
+		amtCents := req.Msg.AmountCents
+		if amtCents != 0 && amt == 0 {
+			amt = float64(amtCents) / 100.0
+		} else if amt != 0 && amtCents == 0 {
+			amtCents = int64(amt * 100)
+		}
+		expense.Amount = amt
+		expense.AmountCents = amtCents
 	}
 	if req.Msg.Category != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED {
 		expense.Category = req.Msg.Category
@@ -1063,12 +1091,22 @@ func (s *FinanceService) BatchCreateExpenses(ctx context.Context, req *connect.R
 			paidByUserId = expReq.UserId
 		}
 
+		// Dual-write amount/cents
+		batchAmt := expReq.Amount
+		batchAmtCents := expReq.AmountCents
+		if batchAmtCents != 0 && batchAmt == 0 {
+			batchAmt = float64(batchAmtCents) / 100.0
+		} else if batchAmt != 0 && batchAmtCents == 0 {
+			batchAmtCents = int64(batchAmt * 100)
+		}
+
 		expense := &pfinancev1.Expense{
 			Id:           uuid.New().String(),
 			UserId:       expReq.UserId,
 			GroupId:      req.Msg.GroupId,
 			Description:  expReq.Description,
-			Amount:       expReq.Amount,
+			Amount:       batchAmt,
+			AmountCents:  batchAmtCents,
 			Category:     expReq.Category,
 			Frequency:    expReq.Frequency,
 			Date:         expReq.Date,
@@ -1135,8 +1173,16 @@ func (s *FinanceService) UpdateIncome(ctx context.Context, req *connect.Request[
 	if req.Msg.Source != "" {
 		income.Source = req.Msg.Source
 	}
-	if req.Msg.Amount > 0 {
-		income.Amount = req.Msg.Amount
+	if req.Msg.AmountCents != 0 || req.Msg.Amount > 0 {
+		uIncAmt := req.Msg.Amount
+		uIncAmtCents := req.Msg.AmountCents
+		if uIncAmtCents != 0 && uIncAmt == 0 {
+			uIncAmt = float64(uIncAmtCents) / 100.0
+		} else if uIncAmt != 0 && uIncAmtCents == 0 {
+			uIncAmtCents = int64(uIncAmt * 100)
+		}
+		income.Amount = uIncAmt
+		income.AmountCents = uIncAmtCents
 	}
 	if req.Msg.Frequency != pfinancev1.IncomeFrequency_INCOME_FREQUENCY_UNSPECIFIED {
 		income.Frequency = req.Msg.Frequency
@@ -1300,13 +1346,23 @@ func (s *FinanceService) CreateBudget(ctx context.Context, req *connect.Request[
 		}
 	}
 
+	// Dual-write amount/cents
+	budgetAmt := req.Msg.Amount
+	budgetAmtCents := req.Msg.AmountCents
+	if budgetAmtCents != 0 && budgetAmt == 0 {
+		budgetAmt = float64(budgetAmtCents) / 100.0
+	} else if budgetAmt != 0 && budgetAmtCents == 0 {
+		budgetAmtCents = int64(budgetAmt * 100)
+	}
+
 	budget := &pfinancev1.Budget{
 		Id:          uuid.New().String(),
 		UserId:      req.Msg.UserId,
 		GroupId:     req.Msg.GroupId,
 		Name:        req.Msg.Name,
 		Description: req.Msg.Description,
-		Amount:      req.Msg.Amount,
+		Amount:      budgetAmt,
+		AmountCents: budgetAmtCents,
 		Period:      req.Msg.Period,
 		CategoryIds: req.Msg.CategoryIds,
 		IsActive:    true,
@@ -1397,7 +1453,16 @@ func (s *FinanceService) UpdateBudget(ctx context.Context, req *connect.Request[
 	// Update fields
 	existing.Name = req.Msg.Name
 	existing.Description = req.Msg.Description
-	existing.Amount = req.Msg.Amount
+	// Dual-write amount/cents
+	uBudgetAmt := req.Msg.Amount
+	uBudgetAmtCents := req.Msg.AmountCents
+	if uBudgetAmtCents != 0 && uBudgetAmt == 0 {
+		uBudgetAmt = float64(uBudgetAmtCents) / 100.0
+	} else if uBudgetAmt != 0 && uBudgetAmtCents == 0 {
+		uBudgetAmtCents = int64(uBudgetAmt * 100)
+	}
+	existing.Amount = uBudgetAmt
+	existing.AmountCents = uBudgetAmtCents
 	existing.Period = req.Msg.Period
 	existing.CategoryIds = req.Msg.CategoryIds
 	existing.IsActive = req.Msg.IsActive
@@ -2312,10 +2377,20 @@ func (s *FinanceService) ContributeExpenseToGroup(ctx context.Context, req *conn
 			fmt.Errorf("user is not a member of the target group"))
 	}
 
-	// Calculate amount to contribute
-	amount := req.Msg.Amount
-	if amount <= 0 {
-		amount = sourceExpense.Amount
+	// Calculate amount to contribute with dual-write
+	contribAmt := req.Msg.Amount
+	contribAmtCents := req.Msg.AmountCents
+	if contribAmtCents != 0 && contribAmt == 0 {
+		contribAmt = float64(contribAmtCents) / 100.0
+	} else if contribAmt != 0 && contribAmtCents == 0 {
+		contribAmtCents = int64(contribAmt * 100)
+	}
+	if contribAmt <= 0 {
+		contribAmt = sourceExpense.Amount
+		contribAmtCents = sourceExpense.AmountCents
+		if contribAmtCents == 0 && contribAmt != 0 {
+			contribAmtCents = int64(contribAmt * 100)
+		}
 	}
 
 	// Create the group expense
@@ -2324,7 +2399,8 @@ func (s *FinanceService) ContributeExpenseToGroup(ctx context.Context, req *conn
 		UserId:       req.Msg.ContributedBy,
 		GroupId:      req.Msg.TargetGroupId,
 		Description:  sourceExpense.Description,
-		Amount:       amount,
+		Amount:       contribAmt,
+		AmountCents:  contribAmtCents,
 		Category:     sourceExpense.Category,
 		Frequency:    sourceExpense.Frequency,
 		Date:         sourceExpense.Date,
@@ -2343,7 +2419,7 @@ func (s *FinanceService) ContributeExpenseToGroup(ctx context.Context, req *conn
 	}
 
 	if req.Msg.SplitType == pfinancev1.SplitType_SPLIT_TYPE_EQUAL {
-		shareAmount := amount / float64(len(allocatedUserIds))
+		shareAmount := contribAmt / float64(len(allocatedUserIds))
 		for _, userId := range allocatedUserIds {
 			groupExpense.Allocations = append(groupExpense.Allocations, &pfinancev1.ExpenseAllocation{
 				UserId: userId,
@@ -2365,7 +2441,8 @@ func (s *FinanceService) ContributeExpenseToGroup(ctx context.Context, req *conn
 		SourceExpenseId:       req.Msg.SourceExpenseId,
 		TargetGroupId:         req.Msg.TargetGroupId,
 		ContributedBy:         req.Msg.ContributedBy,
-		Amount:                amount,
+		Amount:                contribAmt,
+		AmountCents:           contribAmtCents,
 		SplitType:             req.Msg.SplitType,
 		Allocations:           groupExpense.Allocations,
 		CreatedGroupExpenseId: groupExpense.Id,
