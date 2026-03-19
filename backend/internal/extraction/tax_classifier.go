@@ -132,10 +132,121 @@ func init() {
 	})
 }
 
+// occupationCategoryRelevance maps occupation groups to deduction categories with
+// a confidence boost (positive) or penalty (negative). Only applied when an occupation
+// is provided. The boost is additive to the base confidence.
+var occupationCategoryRelevance = map[string]map[pfinancev1.TaxDeductionCategory]float64{
+	"nurse": {
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNIFORM:        +0.15,
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION: +0.10,
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_WORK_TRAVEL:    +0.05,
+	},
+	"teacher": {
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION: +0.15,
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK:     +0.10,
+	},
+	"engineer": {
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_HOME_OFFICE:    +0.10,
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION: +0.10,
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK:     +0.05,
+	},
+	"developer": {
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_HOME_OFFICE:    +0.10,
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION: +0.10,
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK:     +0.05,
+	},
+	"tradesperson": {
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_VEHICLE:    +0.15,
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK: +0.15,
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNIFORM:    +0.10,
+	},
+	"sales": {
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_VEHICLE:     +0.10,
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_WORK_TRAVEL: +0.10,
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK:  +0.05,
+	},
+	"healthcare": {
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNIFORM:        +0.15,
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION: +0.10,
+	},
+	"accountant": {
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS:    +0.10,
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION: +0.10,
+		pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_HOME_OFFICE:    +0.05,
+	},
+}
+
+// occupationAliases maps common occupation strings to canonical keys used in
+// occupationCategoryRelevance. Only the most common mappings are included;
+// unrecognized occupations receive no boost.
+var occupationAliases = map[string]string{
+	"registered nurse": "nurse", "rn": "nurse", "nursing": "nurse",
+	"doctor": "healthcare", "gp": "healthcare", "physician": "healthcare",
+	"paramedic": "healthcare", "dentist": "healthcare", "pharmacist": "healthcare",
+	"software engineer": "developer", "programmer": "developer", "web developer": "developer",
+	"it": "engineer", "data engineer": "engineer", "devops": "engineer",
+	"electrician": "tradesperson", "plumber": "tradesperson", "carpenter": "tradesperson",
+	"mechanic": "tradesperson", "builder": "tradesperson",
+	"sales representative": "sales", "sales manager": "sales", "real estate agent": "sales",
+	"school teacher": "teacher", "lecturer": "teacher", "tutor": "teacher",
+	"cpa": "accountant", "bookkeeper": "accountant", "tax agent": "accountant",
+}
+
+// resolveOccupation normalizes an occupation string to a canonical key.
+func resolveOccupation(occupation string) string {
+	occ := strings.ToLower(strings.TrimSpace(occupation))
+	if occ == "" {
+		return ""
+	}
+	// Direct match
+	if _, ok := occupationCategoryRelevance[occ]; ok {
+		return occ
+	}
+	// Alias match
+	if canonical, ok := occupationAliases[occ]; ok {
+		return canonical
+	}
+	// Substring match (e.g., "senior software engineer" contains "software engineer")
+	for alias, canonical := range occupationAliases {
+		if strings.Contains(occ, alias) {
+			return canonical
+		}
+	}
+	return ""
+}
+
+// applyOccupationBoost adjusts a classification's confidence based on how relevant
+// the deduction category is to the user's occupation. Returns a new classification.
+func applyOccupationBoost(cls TaxClassification, occupation string) TaxClassification {
+	canonical := resolveOccupation(occupation)
+	if canonical == "" {
+		return cls
+	}
+	boosts, ok := occupationCategoryRelevance[canonical]
+	if !ok {
+		return cls
+	}
+	boost, ok := boosts[cls.Category]
+	if !ok {
+		return cls
+	}
+
+	boosted := cls
+	boosted.Confidence = min(0.99, cls.Confidence+boost)
+	if boost > 0 {
+		boosted.Reasoning += " (boosted: relevant to " + canonical + " occupation)"
+	}
+	return boosted
+}
+
 // ClassifyExpenseRuleBased applies rule-based classification for tax deductibility.
-// Returns a TaxClassification with confidence. This is the first tier of the pipeline.
-func ClassifyExpenseRuleBased(expense *pfinancev1.Expense) TaxClassification {
+// Returns a TaxClassification with confidence. This is Tier 2 of the pipeline.
+func ClassifyExpenseRuleBased(expense *pfinancev1.Expense, occupation ...string) TaxClassification {
 	desc := strings.ToLower(expense.Description)
+	occ := ""
+	if len(occupation) > 0 {
+		occ = occupation[0]
+	}
 
 	// 1. Check not-deductible merchants first (high confidence negative)
 	// Sorted by length descending for deterministic longest-match-first behavior
@@ -154,14 +265,14 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense) TaxClassification {
 	// Sorted by length descending for deterministic longest-match-first behavior
 	for _, entry := range deductibleMerchantsSorted {
 		if strings.Contains(desc, entry.Pattern) {
-			return entry.Classification
+			return applyOccupationBoost(entry.Classification, occ)
 		}
 	}
 
 	// 3. Category-based heuristics (lower confidence)
 	switch expense.Category {
 	case pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_EDUCATION:
-		return TaxClassification{
+		cls := TaxClassification{
 			IsDeductible:  true,
 			Category:      pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION,
 			DeductiblePct: 1.0,
@@ -169,8 +280,9 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense) TaxClassification {
 			Reasoning:     "Education expense - may be deductible if work-related",
 			Source:        "category",
 		}
+		return applyOccupationBoost(cls, occ)
 	case pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_TRANSPORTATION:
-		return TaxClassification{
+		cls := TaxClassification{
 			IsDeductible:  true,
 			Category:      pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_WORK_TRAVEL,
 			DeductiblePct: 0.5, // Assume 50% work use without more info
@@ -178,6 +290,7 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense) TaxClassification {
 			Reasoning:     "Transport expense - may be deductible if for work travel (not commuting)",
 			Source:        "category",
 		}
+		return applyOccupationBoost(cls, occ)
 	}
 
 	// 4. Tag-based rules
@@ -198,7 +311,7 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense) TaxClassification {
 	// 5. Keyword-based fallback (sorted by length descending for deterministic matching)
 	for _, kw := range workKeywordsSorted {
 		if strings.Contains(desc, kw.Keyword) {
-			return TaxClassification{
+			cls := TaxClassification{
 				IsDeductible:  true,
 				Category:      kw.Category,
 				DeductiblePct: 1.0,
@@ -206,6 +319,7 @@ func ClassifyExpenseRuleBased(expense *pfinancev1.Expense) TaxClassification {
 				Reasoning:     "Description contains work-related keyword: " + kw.Keyword,
 				Source:        "keyword",
 			}
+			return applyOccupationBoost(cls, occ)
 		}
 	}
 

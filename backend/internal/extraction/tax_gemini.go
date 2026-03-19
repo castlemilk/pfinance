@@ -56,9 +56,15 @@ type expenseForPrompt struct {
 	Tags        string  `json:"tags"`
 }
 
+// ClassifyBatchArgs holds optional arguments for ClassifyBatch.
+type ClassifyBatchArgs struct {
+	UserMappings      []*pfinancev1.TaxDeductibilityMapping
+	CorrectionSignals []CorrectionSignal
+}
+
 // ClassifyBatch classifies a batch of expenses using Gemini API.
 // Processes up to 20 expenses per API call.
-func (c *TaxGeminiClassifier) ClassifyBatch(ctx context.Context, expenses []*pfinancev1.Expense, occupation string) ([]TaxClassification, error) {
+func (c *TaxGeminiClassifier) ClassifyBatch(ctx context.Context, expenses []*pfinancev1.Expense, occupation string, userMappings []*pfinancev1.TaxDeductibilityMapping, correctionSignals ...[]CorrectionSignal) ([]TaxClassification, error) {
 	if c.apiKey == "" {
 		return nil, fmt.Errorf("Gemini API key not configured")
 	}
@@ -97,8 +103,18 @@ func (c *TaxGeminiClassifier) ClassifyBatch(ctx context.Context, expenses []*pfi
 		occupationCtx = fmt.Sprintf("\nThe user's occupation is: %s. Consider this when determining work-relatedness.\n", occupation)
 	}
 
+	correctionCtx := ""
+	if len(userMappings) > 0 {
+		correctionCtx = buildCorrectionContext(userMappings)
+	}
+
+	// Add correction history signals to give Gemini context about user's past corrections
+	if len(correctionSignals) > 0 && len(correctionSignals[0]) > 0 {
+		correctionCtx += buildCorrectionSignalContext(correctionSignals[0])
+	}
+
 	prompt := fmt.Sprintf(`You are an Australian tax deduction classifier. Classify each expense for tax deductibility under ATO rules.
-%s
+%s%s
 ATO Deduction Categories:
 - D1: Work-related travel (NOT regular commuting)
 - D2: Uniform, laundry, dry-cleaning (must be occupation-specific or protective)
@@ -123,7 +139,7 @@ Classify each expense. Return JSON only:
 {"results": [{"expense_id": "...", "is_deductible": true/false, "ato_category": "D1|D2|D3|D4|D5|D6|D10|D15|INCOME_PROTECTION|OTHER|NOT_DEDUCTIBLE", "deductible_percentage": 0.0-1.0, "confidence": 0.0-1.0, "reasoning": "brief explanation"}]}
 
 Expenses:
-%s`, occupationCtx, string(expenseJSON))
+%s`, occupationCtx, correctionCtx, string(expenseJSON))
 
 	result, err := c.callGemini(ctx, prompt)
 	if err != nil {
@@ -271,5 +287,80 @@ func mapATOCategoryToEnum(cat string) pfinancev1.TaxDeductionCategory {
 		return pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER
 	default:
 		return pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNSPECIFIED
+	}
+}
+
+// buildCorrectionContext builds a prompt section from user's learned tax mappings.
+// This gives Gemini context about what the user has previously classified.
+func buildCorrectionContext(mappings []*pfinancev1.TaxDeductibilityMapping) string {
+	if len(mappings) == 0 {
+		return ""
+	}
+
+	// Limit to 20 most relevant (highest confidence) mappings to avoid bloating prompt
+	limit := 20
+	if len(mappings) < limit {
+		limit = len(mappings)
+	}
+
+	var examples []string
+	for i := 0; i < limit; i++ {
+		m := mappings[i]
+		catStr := mapEnumToATOCategory(m.DeductionCategory)
+		pctStr := fmt.Sprintf("%.0f%%", m.DeductiblePercent*100)
+		examples = append(examples, fmt.Sprintf("- \"%s\" → %s (%s deductible, confirmed %d times)",
+			m.MerchantPattern, catStr, pctStr, m.ConfirmationCount))
+	}
+
+	return fmt.Sprintf("\nThe user has previously classified these merchants:\n%s\nUse these as guidance for similar merchants.\n",
+		strings.Join(examples, "\n"))
+}
+
+// buildCorrectionSignalContext builds a prompt section from aggregated correction signals.
+// This tells Gemini about patterns in how the user has corrected past classifications.
+func buildCorrectionSignalContext(signals []CorrectionSignal) string {
+	if len(signals) == 0 {
+		return ""
+	}
+
+	limit := 15
+	if len(signals) < limit {
+		limit = len(signals)
+	}
+
+	var examples []string
+	for i := 0; i < limit; i++ {
+		s := signals[i]
+		examples = append(examples, fmt.Sprintf("- \"%s\" was corrected to category %s (%d times, %.0f%% consistent)",
+			s.MerchantPattern, s.CorrectedCategory.String(), s.CorrectionCount, s.Consistency*100))
+	}
+
+	return fmt.Sprintf("\nThe user has frequently corrected these merchants' categories:\n%s\nConsider these correction patterns when classifying similar merchants.\n",
+		strings.Join(examples, "\n"))
+}
+
+// mapEnumToATOCategory converts a TaxDeductionCategory enum to its ATO code string.
+func mapEnumToATOCategory(cat pfinancev1.TaxDeductionCategory) string {
+	switch cat {
+	case pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_WORK_TRAVEL:
+		return "D1"
+	case pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNIFORM:
+		return "D2"
+	case pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION:
+		return "D3"
+	case pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_OTHER_WORK:
+		return "D4"
+	case pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_HOME_OFFICE:
+		return "D5"
+	case pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_VEHICLE:
+		return "D6"
+	case pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_TAX_AFFAIRS:
+		return "D10"
+	case pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_DONATIONS:
+		return "D15"
+	case pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_INCOME_PROTECTION:
+		return "INCOME_PROTECTION"
+	default:
+		return "OTHER"
 	}
 }

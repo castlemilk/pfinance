@@ -449,12 +449,115 @@ func (s *FinanceService) BatchUpdateExpenseTaxStatus(ctx context.Context, req *c
 			continue
 		}
 		updatedCount++
+
+		// Feed correction back into TaxDeductibilityMapping (Tier 1 learning)
+		if update.IsTaxDeductible && update.TaxDeductionCategory != pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNSPECIFIED {
+			s.learnTaxDeductibility(ctx, claims.UID, expense, update)
+		}
 	}
 
 	return connect.NewResponse(&pfinancev1.BatchUpdateExpenseTaxStatusResponse{
 		UpdatedCount:     updatedCount,
 		FailedExpenseIds: failedIDs,
 	}), nil
+}
+
+// learnTaxDeductibility creates or updates a TaxDeductibilityMapping from a user's tax correction.
+// This feeds user corrections back into Tier 1 of the classification pipeline.
+func (s *FinanceService) learnTaxDeductibility(ctx context.Context, userID string, expense *pfinancev1.Expense, update *pfinancev1.ExpenseTaxUpdate) {
+	// Extract merchant pattern from description
+	merchantPattern := strings.ToLower(strings.TrimSpace(expense.Description))
+	if merchantPattern == "" {
+		return
+	}
+
+	// Normalize: use the first meaningful segment (before common suffixes like dates/refs)
+	merchantPattern = extractMerchantPattern(merchantPattern)
+	if merchantPattern == "" {
+		return
+	}
+
+	// Check for existing mapping
+	mappings, err := s.store.GetTaxDeductibilityMappings(ctx, userID)
+	if err != nil {
+		log.Printf("[TaxFeedback] Failed to get mappings: %v", err)
+		return
+	}
+
+	for _, m := range mappings {
+		if strings.EqualFold(m.MerchantPattern, merchantPattern) {
+			// Update existing mapping
+			m.DeductionCategory = update.TaxDeductionCategory
+			if update.TaxDeductiblePercent > 0 {
+				m.DeductiblePercent = update.TaxDeductiblePercent
+			} else {
+				m.DeductiblePercent = 1.0
+			}
+			m.ConfirmationCount++
+			m.Confidence = taxMappingConfidence(m.ConfirmationCount)
+			m.LastUsed = timestamppb.Now()
+			if err := s.store.UpsertTaxDeductibilityMapping(ctx, m); err != nil {
+				log.Printf("[TaxFeedback] Failed to update mapping: %v", err)
+			}
+			return
+		}
+	}
+
+	// Create new mapping
+	pct := update.TaxDeductiblePercent
+	if pct <= 0 {
+		pct = 1.0
+	}
+	mapping := &pfinancev1.TaxDeductibilityMapping{
+		UserId:            userID,
+		MerchantPattern:   merchantPattern,
+		DeductionCategory: update.TaxDeductionCategory,
+		DeductiblePercent: pct,
+		ConfirmationCount: 1,
+		Confidence:        taxMappingConfidence(1),
+		LastUsed:          timestamppb.Now(),
+		CreatedAt:         timestamppb.Now(),
+	}
+	if err := s.store.UpsertTaxDeductibilityMapping(ctx, mapping); err != nil {
+		log.Printf("[TaxFeedback] Failed to create mapping: %v", err)
+	}
+}
+
+// extractMerchantPattern extracts a reusable merchant pattern from a description.
+// Strips trailing dates, reference numbers, and transaction IDs.
+func extractMerchantPattern(desc string) string {
+	// Remove common suffixes: dates (dd/mm/yyyy, yyyy-mm-dd), reference numbers, card numbers
+	for _, sep := range []string{" - ", " ref:", " ref ", " card ", " visa ", " eftpos ", " #"} {
+		if idx := strings.Index(desc, sep); idx > 3 {
+			desc = desc[:idx]
+		}
+	}
+	desc = strings.TrimSpace(desc)
+	// Must be at least 3 chars to be a meaningful pattern
+	if len(desc) < 3 {
+		return ""
+	}
+	return desc
+}
+
+// taxMappingConfidence returns confidence derived from confirmation count.
+// Starts at 0.70 (just above Tier 1 threshold) and grows with confirmations.
+func taxMappingConfidence(count int32) float64 {
+	return math.Min(0.99, 0.70+0.05*float64(count))
+}
+
+// getCorrectionSignals fetches recent correction records and aggregates them
+// into signals for the classification pipeline.
+func (s *FinanceService) getCorrectionSignals(ctx context.Context, userID string) []extraction.CorrectionSignal {
+	corrections, err := s.store.ListCorrectionRecords(ctx, userID, 200)
+	if err != nil {
+		log.Printf("[TaxClassify] Failed to fetch correction records: %v", err)
+		return nil
+	}
+	if len(corrections) == 0 {
+		return nil
+	}
+	return AggregateCorrectionPatterns(corrections)
 }
 
 // ListDeductibleExpenses lists tax-deductible expenses for a financial year.
@@ -643,7 +746,10 @@ func (s *FinanceService) ClassifyTaxDeductibility(ctx context.Context, req *conn
 		userMappings = nil
 	}
 
-	results := s.taxPipeline.ClassifyExpenses(ctx, []*pfinancev1.Expense{expense}, userMappings, req.Msg.Occupation, 0.85)
+	// Fetch correction history for feedback signals
+	correctionSignals := s.getCorrectionSignals(ctx, claims.UID)
+
+	results := s.taxPipeline.ClassifyExpenses(ctx, []*pfinancev1.Expense{expense}, userMappings, req.Msg.Occupation, 0.85, correctionSignals)
 	if len(results) == 0 {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("classification returned no results"))
 	}
@@ -734,8 +840,11 @@ func (s *FinanceService) BatchClassifyTaxDeductibility(ctx context.Context, req 
 		}), nil
 	}
 
+	// Fetch correction history for feedback signals
+	correctionSignals := s.getCorrectionSignals(ctx, claims.UID)
+
 	// Run the classification pipeline
-	classResults := s.taxPipeline.ClassifyExpenses(ctx, allExpenses, userMappings, req.Msg.Occupation, 0.85)
+	classResults := s.taxPipeline.ClassifyExpenses(ctx, allExpenses, userMappings, req.Msg.Occupation, 0.85, correctionSignals)
 
 	var (
 		totalProcessed int32

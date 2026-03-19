@@ -249,6 +249,106 @@ func TestClassifyExpenseRuleBased_NoMatch(t *testing.T) {
 	}
 }
 
+func TestResolveOccupation(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"nurse", "nurse"},
+		{"Registered Nurse", "nurse"},
+		{"software engineer", "developer"},
+		{"Senior Software Engineer", "developer"},
+		{"electrician", "tradesperson"},
+		{"unknown job", ""},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := resolveOccupation(tt.input)
+			if got != tt.want {
+				t.Errorf("resolveOccupation(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestClassifyExpenseRuleBased_OccupationBoost(t *testing.T) {
+	// A nurse buying work uniform gets a boost on the UNIFORM category
+	expense := &pfinancev1.Expense{
+		Description: "dry cleaner work scrubs",
+	}
+
+	// Without occupation: base confidence for "dry cleaner" is 0.50
+	resultNoOcc := ClassifyExpenseRuleBased(expense)
+	if resultNoOcc.Confidence != 0.50 {
+		t.Errorf("without occupation: expected Confidence=0.50, got %f", resultNoOcc.Confidence)
+	}
+
+	// With nurse occupation: should get +0.15 boost for UNIFORM category
+	resultNurse := ClassifyExpenseRuleBased(expense, "nurse")
+	if resultNurse.Confidence != 0.65 {
+		t.Errorf("with nurse occupation: expected Confidence=0.65, got %f", resultNurse.Confidence)
+	}
+	if resultNurse.Category != pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_UNIFORM {
+		t.Errorf("expected Category=UNIFORM, got %v", resultNurse.Category)
+	}
+}
+
+func TestClassifyExpenseRuleBased_OccupationBoostKeyword(t *testing.T) {
+	// A teacher buying education materials gets a boost
+	expense := &pfinancev1.Expense{
+		Description: "conference registration fee",
+	}
+
+	// Without occupation: keyword "conference" → SELF_EDUCATION, 0.55
+	resultNoOcc := ClassifyExpenseRuleBased(expense)
+	if resultNoOcc.Confidence != 0.55 {
+		t.Errorf("without occupation: expected Confidence=0.55, got %f", resultNoOcc.Confidence)
+	}
+
+	// With teacher occupation: should get +0.15 boost for SELF_EDUCATION
+	resultTeacher := ClassifyExpenseRuleBased(expense, "teacher")
+	wantConf := 0.70
+	diff := resultTeacher.Confidence - wantConf
+	if diff < 0 {
+		diff = -diff
+	}
+	if diff > 1e-9 {
+		t.Errorf("with teacher occupation: expected Confidence≈0.70, got %f", resultTeacher.Confidence)
+	}
+}
+
+func TestClassifyExpenseRuleBased_OccupationNoBoostForIrrelevant(t *testing.T) {
+	// A nurse buying accounting software - no UNIFORM boost, but TAX_AFFAIRS has no nurse boost
+	expense := &pfinancev1.Expense{
+		Description: "xero subscription",
+	}
+
+	resultNoOcc := ClassifyExpenseRuleBased(expense)
+	resultNurse := ClassifyExpenseRuleBased(expense, "nurse")
+
+	// xero → TAX_AFFAIRS 0.85, nurses have no TAX_AFFAIRS boost
+	if resultNoOcc.Confidence != resultNurse.Confidence {
+		t.Errorf("nurse should get no boost for TAX_AFFAIRS: noOcc=%f, nurse=%f",
+			resultNoOcc.Confidence, resultNurse.Confidence)
+	}
+}
+
+func TestClassifyExpenseRuleBased_OccupationNotDeductibleUnaffected(t *testing.T) {
+	// Not-deductible merchants should NOT be boosted by occupation
+	expense := &pfinancev1.Expense{
+		Description: "woolworths groceries",
+	}
+
+	result := ClassifyExpenseRuleBased(expense, "nurse")
+	if result.IsDeductible {
+		t.Error("expected IsDeductible=false even with occupation")
+	}
+	if result.Confidence != 0.90 {
+		t.Errorf("expected Confidence=0.90, got %f", result.Confidence)
+	}
+}
+
 func TestClassifyExpenseRuleBased_CaseInsensitive(t *testing.T) {
 	tests := []struct {
 		name        string

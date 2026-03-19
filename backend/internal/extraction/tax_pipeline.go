@@ -8,6 +8,15 @@ import (
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 )
 
+// CorrectionSignal represents an aggregated correction pattern from user history.
+// Used to strengthen classification confidence and inform the Gemini prompt.
+type CorrectionSignal struct {
+	MerchantPattern   string
+	CorrectedCategory pfinancev1.ExpenseCategory
+	CorrectionCount   int32
+	Consistency       float64 // 0.0-1.0, how consistent the corrections are
+}
+
 // TaxClassificationPipeline runs a three-tier classification pipeline:
 // 1. User-learned mappings (TaxDeductibilityMapping)
 // 2. Static rule-based classifier (tax_classifier.go)
@@ -36,12 +45,14 @@ type ClassificationResult struct {
 // ClassifyExpenses runs the three-tier pipeline on a list of expenses.
 // userMappings are the user's learned deductibility patterns.
 // autoApplyThreshold is the confidence above which results are auto-applied.
+// correctionSignals are aggregated correction patterns from user history (optional).
 func (p *TaxClassificationPipeline) ClassifyExpenses(
 	ctx context.Context,
 	expenses []*pfinancev1.Expense,
 	userMappings []*pfinancev1.TaxDeductibilityMapping,
 	occupation string,
 	autoApplyThreshold float64,
+	correctionSignals ...[]CorrectionSignal,
 ) []ClassificationResult {
 	if autoApplyThreshold <= 0 {
 		autoApplyThreshold = 0.85
@@ -88,8 +99,8 @@ func (p *TaxClassificationPipeline) ClassifyExpenses(
 			continue
 		}
 
-		// Tier 2: Rule-based classifier
-		cls := ClassifyExpenseRuleBased(expense)
+		// Tier 2: Rule-based classifier (with occupation context)
+		cls := ClassifyExpenseRuleBased(expense, occupation)
 		if cls.Confidence >= autoApplyThreshold {
 			results[i] = ClassificationResult{Expense: expense, Classification: cls}
 			continue
@@ -105,6 +116,12 @@ func (p *TaxClassificationPipeline) ClassifyExpenses(
 		needsGeminiIdx = append(needsGeminiIdx, i)
 	}
 
+	// Collect correction signals if provided
+	var signals []CorrectionSignal
+	if len(correctionSignals) > 0 {
+		signals = correctionSignals[0]
+	}
+
 	// Tier 3: Gemini AI for uncertain expenses
 	if len(needsGemini) > 0 && p.gemini != nil {
 		// Process in batches of 20
@@ -116,7 +133,7 @@ func (p *TaxClassificationPipeline) ClassifyExpenses(
 			}
 			batch := needsGemini[batchStart:batchEnd]
 
-			geminiResults, err := p.gemini.ClassifyBatch(ctx, batch, occupation)
+			geminiResults, err := p.gemini.ClassifyBatch(ctx, batch, occupation, userMappings, signals)
 			if err != nil {
 				log.Printf("[TaxPipeline] Gemini classification failed: %v", err)
 				continue

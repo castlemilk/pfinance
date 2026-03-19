@@ -425,6 +425,7 @@ func TestTaxClassify_HighConfidenceAutoApply(t *testing.T) {
 
 	mockStore.EXPECT().GetExpense(gomock.Any(), "exp-tax-1").Return(expense, nil)
 	mockStore.EXPECT().GetTaxDeductibilityMappings(gomock.Any(), userID).Return(nil, nil)
+	mockStore.EXPECT().ListCorrectionRecords(gomock.Any(), userID, 200).Return(nil, nil)
 	mockStore.EXPECT().UpdateExpense(gomock.Any(), gomock.Any()).Return(nil)
 
 	resp, err := svc.ClassifyTaxDeductibility(ctx, connect.NewRequest(&pfinancev1.ClassifyTaxDeductibilityRequest{
@@ -469,6 +470,7 @@ func TestTaxClassify_NotDeductible(t *testing.T) {
 
 	mockStore.EXPECT().GetExpense(gomock.Any(), "exp-grocery").Return(expense, nil)
 	mockStore.EXPECT().GetTaxDeductibilityMappings(gomock.Any(), userID).Return(nil, nil)
+	mockStore.EXPECT().ListCorrectionRecords(gomock.Any(), userID, 200).Return(nil, nil)
 	// Woolworths matches as not-deductible with confidence 0.90 (>= 0.85), so auto-apply fires
 	mockStore.EXPECT().UpdateExpense(gomock.Any(), gomock.Any()).Return(nil)
 
@@ -656,6 +658,7 @@ func TestTaxBatchClassify_AutoApplyFalse(t *testing.T) {
 	}
 
 	mockStore.EXPECT().GetTaxDeductibilityMappings(gomock.Any(), userID).Return(nil, nil)
+	mockStore.EXPECT().ListCorrectionRecords(gomock.Any(), userID, 200).Return(nil, nil)
 	mockStore.EXPECT().ListExpenses(gomock.Any(), userID, "", &fyStart, &fyEnd, int32(500), "").
 		Return(expenses, "", nil)
 	// UpdateExpense should NOT be called because auto_apply=false

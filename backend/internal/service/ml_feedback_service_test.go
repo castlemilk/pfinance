@@ -144,6 +144,14 @@ func TestSubmitCorrections(t *testing.T) {
 			UpsertMerchantMapping(gomock.Any(), gomock.Any()).
 			Return(nil)
 
+		// Transportation maps to Work Travel, so tax feedback loop fires
+		mockStore.EXPECT().
+			GetTaxDeductibilityMappings(gomock.Any(), "user-1").
+			Return(nil, nil)
+		mockStore.EXPECT().
+			UpsertTaxDeductibilityMapping(gomock.Any(), gomock.Any()).
+			Return(nil)
+
 		resp, err := svc.SubmitCorrections(ctx, connect.NewRequest(&pfinancev1.SubmitCorrectionsRequest{
 			UserId: "user-1",
 			Corrections: []*pfinancev1.CorrectionRecord{

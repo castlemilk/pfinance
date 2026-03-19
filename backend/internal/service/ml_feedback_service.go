@@ -68,6 +68,18 @@ func (s *FinanceService) SubmitCorrections(ctx context.Context, req *connect.Req
 				}
 			}
 		}
+
+		// Feed category corrections into TaxDeductibilityMapping when the corrected
+		// category implies deductibility (education, transportation, etc.)
+		if correction.CorrectedCategory != correction.OriginalCategory {
+			merchant := correction.CorrectedMerchant
+			if merchant == "" {
+				merchant = correction.OriginalMerchant
+			}
+			if merchant != "" {
+				s.learnTaxFromCategoryCorrection(ctx, claims.UID, merchant, correction.CorrectedCategory)
+			}
+		}
 	}
 
 	return connect.NewResponse(&pfinancev1.SubmitCorrectionsResponse{
@@ -454,4 +466,131 @@ func (s *FinanceService) GetExtractionMetrics(ctx context.Context, req *connect.
 		CorrectionsByCategory: correctionsByCategory,
 		RecentEvents:          events,
 	}), nil
+}
+
+// categoryToTaxDeduction maps expense categories that imply tax deductibility
+// to their most likely ATO deduction category.
+var categoryToTaxDeduction = map[pfinancev1.ExpenseCategory]pfinancev1.TaxDeductionCategory{
+	pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_EDUCATION:      pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_SELF_EDUCATION,
+	pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_TRANSPORTATION: pfinancev1.TaxDeductionCategory_TAX_DEDUCTION_CATEGORY_WORK_TRAVEL,
+}
+
+// learnTaxFromCategoryCorrection creates or updates a TaxDeductibilityMapping when
+// a user correction changes the category to one that implies tax deductibility.
+func (s *FinanceService) learnTaxFromCategoryCorrection(ctx context.Context, userID, merchant string, correctedCategory pfinancev1.ExpenseCategory) {
+	taxCat, ok := categoryToTaxDeduction[correctedCategory]
+	if !ok {
+		return
+	}
+
+	merchantPattern := extractMerchantPattern(strings.ToLower(strings.TrimSpace(merchant)))
+	if merchantPattern == "" {
+		return
+	}
+
+	mappings, err := s.store.GetTaxDeductibilityMappings(ctx, userID)
+	if err != nil {
+		log.Printf("[TaxFeedback] Failed to get tax mappings: %v", err)
+		return
+	}
+
+	for _, m := range mappings {
+		if strings.EqualFold(m.MerchantPattern, merchantPattern) {
+			// Only update if the category correction aligns with existing mapping
+			// or strengthens it with more confirmations
+			m.DeductionCategory = taxCat
+			m.ConfirmationCount++
+			m.Confidence = taxMappingConfidence(m.ConfirmationCount)
+			m.LastUsed = timestamppb.Now()
+			if err := s.store.UpsertTaxDeductibilityMapping(ctx, m); err != nil {
+				log.Printf("[TaxFeedback] Failed to update tax mapping: %v", err)
+			}
+			return
+		}
+	}
+
+	// Create new mapping with low initial confidence (category inference is weaker
+	// than explicit tax status changes)
+	mapping := &pfinancev1.TaxDeductibilityMapping{
+		UserId:            userID,
+		MerchantPattern:   merchantPattern,
+		DeductionCategory: taxCat,
+		DeductiblePercent: 0.5, // Conservative default for inferred deductions
+		ConfirmationCount: 1,
+		Confidence:        0.60, // Below Tier 1 threshold (0.70) until confirmed
+		LastUsed:          timestamppb.Now(),
+		CreatedAt:         timestamppb.Now(),
+	}
+	if err := s.store.UpsertTaxDeductibilityMapping(ctx, mapping); err != nil {
+		log.Printf("[TaxFeedback] Failed to create tax mapping from category correction: %v", err)
+	}
+}
+
+// AggregateCorrectionPatterns analyzes correction records to produce supplementary
+// tax deductibility signals. It groups corrections by merchant and identifies
+// consistent patterns that strengthen classification confidence.
+func AggregateCorrectionPatterns(corrections []*pfinancev1.CorrectionRecord) []extraction.CorrectionSignal {
+	type merchantStats struct {
+		merchant            string
+		categoryCorrections map[pfinancev1.ExpenseCategory]int32
+		totalCorrections    int32
+	}
+
+	byMerchant := make(map[string]*merchantStats)
+
+	for _, c := range corrections {
+		merchant := c.CorrectedMerchant
+		if merchant == "" {
+			merchant = c.OriginalMerchant
+		}
+		if merchant == "" {
+			continue
+		}
+		key := strings.ToLower(strings.TrimSpace(merchant))
+
+		stats, ok := byMerchant[key]
+		if !ok {
+			stats = &merchantStats{
+				merchant:            merchant,
+				categoryCorrections: make(map[pfinancev1.ExpenseCategory]int32),
+			}
+			byMerchant[key] = stats
+		}
+		stats.totalCorrections++
+
+		if c.CorrectedCategory != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED {
+			stats.categoryCorrections[c.CorrectedCategory]++
+		}
+	}
+
+	var signals []extraction.CorrectionSignal
+	for _, stats := range byMerchant {
+		if stats.totalCorrections < 2 {
+			continue // Need at least 2 corrections for a pattern
+		}
+
+		// Find the most common corrected category
+		var topCat pfinancev1.ExpenseCategory
+		var topCount int32
+		for cat, count := range stats.categoryCorrections {
+			if count > topCount {
+				topCat = cat
+				topCount = count
+			}
+		}
+
+		consistency := float64(topCount) / float64(stats.totalCorrections)
+		if consistency < 0.5 {
+			continue // Not consistent enough
+		}
+
+		signals = append(signals, extraction.CorrectionSignal{
+			MerchantPattern:   stats.merchant,
+			CorrectedCategory: topCat,
+			CorrectionCount:   stats.totalCorrections,
+			Consistency:       consistency,
+		})
+	}
+
+	return signals
 }
