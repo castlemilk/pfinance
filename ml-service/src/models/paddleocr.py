@@ -99,15 +99,18 @@ def normalize_merchant(raw_merchant: str) -> tuple[str, ExpenseCategory]:
     cleaned = re.sub(r"[*#]+", "", cleaned)
     cleaned = cleaned.strip()
 
+    # Normalize for lookup: strip apostrophes so "mcdonald's" matches "mcdonalds"
+    lookup = cleaned.replace("'", "").replace("\u2019", "")
+
     # Check for known merchants
     for key, category in MERCHANT_CATEGORIES.items():
-        if key in cleaned:
-            # Title case the merchant name
-            name = " ".join(word.capitalize() for word in raw_merchant.split())
+        if key in lookup:
+            # Title case the cleaned name (not raw, to drop card prefixes)
+            name = " ".join(word.capitalize() for word in cleaned.split())
             return name[:50], category
 
     # Default: clean the name, mark as Other
-    name = " ".join(word.capitalize() for word in raw_merchant.split() if len(word) > 1)
+    name = " ".join(word.capitalize() for word in cleaned.split() if len(word) > 1)
     return name[:50] or raw_merchant[:50], ExpenseCategory.OTHER
 
 

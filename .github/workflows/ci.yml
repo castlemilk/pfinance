@@ -13,6 +13,7 @@ concurrency:
 env:
   NODE_VERSION: '20'
   GO_VERSION: '1.25'
+  PYTHON_VERSION: '3.13'
 
 jobs:
   # ===========================================
@@ -24,6 +25,7 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       backend: ${{ steps.filter.outputs.backend }}
       proto: ${{ steps.filter.outputs.proto }}
+      ml_service: ${{ steps.filter.outputs.ml_service }}
       any_code: ${{ steps.filter.outputs.frontend == 'true' || steps.filter.outputs.backend == 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +41,8 @@ jobs:
               - 'proto/**'
             proto:
               - 'proto/**'
+            ml_service:
+              - 'ml-service/**'
 
   # ===========================================
   # Test (~90s) - Backend + Frontend in parallel
@@ -111,16 +115,40 @@ jobs:
           exit $FAIL
 
   # ===========================================
+  # ML Service Tests (~30s)
+  # ===========================================
+  test-ml:
+    needs: changes
+    if: needs.changes.outputs.ml_service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          cd ml-service
+          pip install -e ".[dev]"
+
+      - name: Run ML service tests
+        run: |
+          cd ml-service
+          python -m pytest tests/ -v
+
+  # ===========================================
   # CI Status (for branch protection)
   # ===========================================
   ci-status:
-    needs: [test]
+    needs: [test, test-ml]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Check CI status
         run: |
-          if [[ "${{ needs.test.result }}" == "failure" ]]; then
+          if [[ "${{ needs.test.result }}" == "failure" || "${{ needs.test-ml.result }}" == "failure" ]]; then
             echo "❌ CI failed"
             exit 1
           fi
