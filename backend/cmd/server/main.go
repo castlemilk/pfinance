@@ -95,6 +95,7 @@ func main() {
 	})
 	// Wire user-specific merchant lookups into extraction
 	merchantLookup := extraction.NewStoreMerchantLookup(storeImpl)
+	merchantLookup.SetCategoryOverrideStore(storeImpl)
 	extractionSvc.SetMerchantLookup(merchantLookup)
 
 	// Wire statement store for two-phase extraction dedup

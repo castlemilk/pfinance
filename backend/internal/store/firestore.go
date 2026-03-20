@@ -2386,6 +2386,41 @@ func (s *FirestoreStore) GetTaxDeductibilityMappings(ctx context.Context, userID
 }
 
 // ============================================================================
+// Category Override operations
+// ============================================================================
+
+// GetCategoryOverrides returns all category overrides for a user
+func (s *FirestoreStore) GetCategoryOverrides(ctx context.Context, userID string) ([]*pfinancev1.CategoryOverride, error) {
+	docs, err := s.client.Collection("category_overrides").Where("UserId", "==", userID).Documents(ctx).GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("get category overrides: %w", err)
+	}
+	var overrides []*pfinancev1.CategoryOverride
+	for _, doc := range docs {
+		var o pfinancev1.CategoryOverride
+		if err := doc.DataTo(&o); err != nil {
+			continue
+		}
+		overrides = append(overrides, &o)
+	}
+	return overrides, nil
+}
+
+// UpsertCategoryOverride creates or updates a category override
+func (s *FirestoreStore) UpsertCategoryOverride(ctx context.Context, override *pfinancev1.CategoryOverride) error {
+	docID := fmt.Sprintf("%s_%s", override.UserId, override.MerchantNormalized)
+	_, err := s.client.Collection("category_overrides").Doc(docID).Set(ctx, override)
+	return err
+}
+
+// DeleteCategoryOverride deletes a category override
+func (s *FirestoreStore) DeleteCategoryOverride(ctx context.Context, userID, merchantNormalized string) error {
+	docID := fmt.Sprintf("%s_%s", userID, merchantNormalized)
+	_, err := s.client.Collection("category_overrides").Doc(docID).Delete(ctx)
+	return err
+}
+
+// ============================================================================
 // API Token operations
 // ============================================================================
 

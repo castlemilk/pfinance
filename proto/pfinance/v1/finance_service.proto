@@ -146,6 +146,11 @@ service FinanceService {
   rpc GetMerchantSuggestions(GetMerchantSuggestionsRequest) returns (GetMerchantSuggestionsResponse);
   rpc GetExtractionMetrics(GetExtractionMetricsRequest) returns (GetExtractionMetricsResponse);
 
+  // Category override operations
+  rpc GetCategoryOverrides(GetCategoryOverridesRequest) returns (GetCategoryOverridesResponse);
+  rpc SetCategoryOverride(SetCategoryOverrideRequest) returns (SetCategoryOverrideResponse);
+  rpc DeleteCategoryOverride(DeleteCategoryOverrideRequest) returns (DeleteCategoryOverrideResponse);
+
   // Tax returns operations (Pro tier)
   rpc GetTaxSummary(GetTaxSummaryRequest) returns (GetTaxSummaryResponse);
   rpc GetTaxEstimate(GetTaxEstimateRequest) returns (GetTaxEstimateResponse);
@@ -156,6 +161,10 @@ service FinanceService {
   rpc ExportTaxReturn(ExportTaxReturnRequest) returns (ExportTaxReturnResponse);
   rpc FindPotentialDeductions(FindPotentialDeductionsRequest) returns (FindPotentialDeductionsResponse);
   rpc CompareTaxYears(CompareTaxYearsRequest) returns (CompareTaxYearsResponse);
+
+  // Tax eval operations (Pro tier)
+  rpc RunTaxEval(RunTaxEvalRequest) returns (RunTaxEvalResponse);
+  rpc GetTaxEvalJob(GetTaxEvalJobRequest) returns (GetTaxEvalJobResponse);
 
   // Receipt vault operations (Pro tier)
   rpc ExportReceipts(ExportReceiptsRequest) returns (ExportReceiptsResponse);
@@ -1333,6 +1342,35 @@ message GetExtractionMetricsResponse {
 }
 
 // ============================================================================
+// Category Override operations
+// ============================================================================
+
+message GetCategoryOverridesRequest {
+  string user_id = 1;
+}
+
+message GetCategoryOverridesResponse {
+  repeated CategoryOverride overrides = 1;
+}
+
+message SetCategoryOverrideRequest {
+  string user_id = 1;
+  string merchant_normalized = 2;
+  ExpenseCategory category = 3;
+}
+
+message SetCategoryOverrideResponse {
+  CategoryOverride override = 1;
+}
+
+message DeleteCategoryOverrideRequest {
+  string user_id = 1;
+  string merchant_normalized = 2;
+}
+
+message DeleteCategoryOverrideResponse {}
+
+// ============================================================================
 // Tax returns operations (Pro tier)
 // ============================================================================
 
@@ -1556,3 +1594,155 @@ message RegisterPushTokenResponse {}
 message UnregisterPushTokenRequest {}
 
 message UnregisterPushTokenResponse {}
+
+// ============================================================================
+// Tax eval operations
+// ============================================================================
+
+message RunTaxEvalRequest {
+  string dataset_path = 1;          // Server-side path to PDF dataset directory
+  string method = 2;                // "gemini" or "self-hosted"
+  string occupation = 3;            // User's occupation for tax classification context
+  int32 concurrency = 4;            // Parallel file processing (default: 3)
+}
+
+message RunTaxEvalResponse {
+  string job_id = 1;                // Poll with GetTaxEvalJob
+}
+
+message GetTaxEvalJobRequest {
+  string job_id = 1;
+}
+
+message GetTaxEvalJobResponse {
+  TaxEvalJob job = 1;
+}
+
+message TaxEvalJob {
+  string id = 1;
+  string status = 2;               // "processing", "completed", "failed"
+  int32 total_files = 3;
+  int32 processed_files = 4;
+  int32 progress_percent = 5;
+  string error_message = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp completed_at = 8;
+  TaxEvalResult result = 9;        // Only populated when status = "completed"
+}
+
+message TaxEvalResult {
+  int64 duration_ms = 1;
+  string dataset_path = 2;
+  string method = 3;
+  string occupation = 4;
+  int32 concurrency = 5;
+
+  // Summary metrics
+  int32 total_files = 6;
+  int32 successful_files = 7;
+  int32 failed_files = 8;
+  int32 total_transactions = 9;
+  int32 total_deductible = 10;
+  int32 total_non_deductible = 11;
+  double avg_confidence = 12;
+  double avg_processing_ms = 13;
+
+  // Cost
+  int32 total_api_calls = 14;
+  double estimated_cost_usd = 15;
+
+  // Deductions by ATO category
+  repeated TaxEvalDeductionCategory deductions = 16;
+
+  // Per-file results
+  repeated TaxEvalFileResult file_results = 17;
+
+  // Totals
+  double total_expenses = 18;
+  double total_deductions_amount = 19;
+
+  // Accuracy (populated when ground truth is available)
+  TaxEvalAccuracy accuracy = 20;
+}
+
+message TaxEvalDeductionCategory {
+  string code = 1;                  // "D1", "D4", "D5", etc.
+  string name = 2;                  // "Work-related travel"
+  int32 item_count = 3;
+  double total_amount = 4;
+  double deductible_amount = 5;
+  repeated TaxEvalItem items = 6;
+}
+
+message TaxEvalFileResult {
+  string filename = 1;
+  string relative_path = 2;
+  string category = 3;             // "statement", "receipt", "invoice", "income"
+  int64 file_size_bytes = 4;
+  int64 processing_ms = 5;
+  string error = 6;
+  int32 transaction_count = 7;
+  double overall_confidence = 8;
+  string document_type = 9;
+  repeated TaxEvalItem tax_results = 10;
+}
+
+message TaxEvalItem {
+  string description = 1;
+  double amount = 2;
+  string date = 3;
+  string expense_category = 4;
+  bool is_deductible = 5;
+  string tax_category = 6;         // ATO code: "D1", "D4", etc.
+  double deductible_percent = 7;
+  double deductible_amount = 8;
+  double confidence = 9;
+  string reasoning = 10;
+  string source = 11;              // "merchant_map", "category", "keyword", "gemini"
+  string source_file = 12;
+}
+
+// Accuracy metrics when ground truth is available
+message TaxEvalAccuracy {
+  int32 files_with_ground_truth = 1;
+  int32 files_evaluated = 2;
+  TaxEvalExtractionAccuracy extraction = 3;
+  TaxEvalClassAccuracy deductibility = 4;
+  TaxEvalClassAccuracy tax_category = 5;
+  TaxEvalAmountAccuracy amount = 6;
+  repeated TaxEvalFileAccuracy per_file = 7;
+}
+
+message TaxEvalExtractionAccuracy {
+  int32 expected_total = 1;
+  int32 extracted_total = 2;
+  int32 matched_count = 3;
+  double precision = 4;
+  double recall = 5;
+  double f1 = 6;
+}
+
+message TaxEvalClassAccuracy {
+  int32 total = 1;
+  int32 correct = 2;
+  int32 incorrect = 3;
+  double accuracy = 4;
+}
+
+message TaxEvalAmountAccuracy {
+  int32 total = 1;
+  int32 exact_matches = 2;       // within $0.01
+  int32 close_matches = 3;       // within 5%
+  double mean_abs_error = 4;
+  double mean_pct_error = 5;
+}
+
+message TaxEvalFileAccuracy {
+  string filename = 1;
+  string relative_path = 2;
+  int32 expected_transactions = 3;
+  int32 extracted_transactions = 4;
+  int32 matched = 5;
+  TaxEvalClassAccuracy deductibility = 6;
+  TaxEvalClassAccuracy tax_category = 7;
+}

@@ -51,6 +51,14 @@ func TestSubmitCorrections(t *testing.T) {
 			UpsertMerchantMapping(gomock.Any(), gomock.Any()).
 			Return(nil)
 
+		// Category override upsert (category changed OTHER → FOOD)
+		mockStore.EXPECT().
+			GetCategoryOverrides(gomock.Any(), "user-1").
+			Return(nil, nil)
+		mockStore.EXPECT().
+			UpsertCategoryOverride(gomock.Any(), gomock.Any()).
+			Return(nil)
+
 		resp, err := svc.SubmitCorrections(ctx, connect.NewRequest(&pfinancev1.SubmitCorrectionsRequest{
 			UserId: "user-1",
 			Corrections: []*pfinancev1.CorrectionRecord{
@@ -142,6 +150,14 @@ func TestSubmitCorrections(t *testing.T) {
 			Return(nil, nil)
 		mockStore.EXPECT().
 			UpsertMerchantMapping(gomock.Any(), gomock.Any()).
+			Return(nil)
+
+		// Category override upsert (category changed OTHER → TRANSPORTATION)
+		mockStore.EXPECT().
+			GetCategoryOverrides(gomock.Any(), "user-1").
+			Return(nil, nil)
+		mockStore.EXPECT().
+			UpsertCategoryOverride(gomock.Any(), gomock.Any()).
 			Return(nil)
 
 		// Transportation maps to Work Travel, so tax feedback loop fires
@@ -308,6 +324,9 @@ func TestGetMerchantSuggestions(t *testing.T) {
 		mockStore.EXPECT().
 			GetMerchantMappings(gomock.Any(), "user-1").
 			Return(nil, nil) // No user mappings
+		mockStore.EXPECT().
+			GetCategoryOverrides(gomock.Any(), "user-1").
+			Return(nil, nil) // No overrides
 
 		resp, err := svc.GetMerchantSuggestions(ctx, connect.NewRequest(&pfinancev1.GetMerchantSuggestionsRequest{
 			UserId:       "user-1",
@@ -468,6 +487,424 @@ func TestScoreDuplicate(t *testing.T) {
 		score, _ := scoreDuplicate(tx, exp)
 		if score >= 0.6 {
 			t.Errorf("expected score < 0.6 for different items, got %f", score)
+		}
+	})
+}
+
+func TestCategoryOverrideRPCs(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	ctx := testContext("user-1")
+
+	t.Run("GetCategoryOverrides returns user overrides", func(t *testing.T) {
+		mockStore.EXPECT().
+			GetCategoryOverrides(gomock.Any(), "user-1").
+			Return([]*pfinancev1.CategoryOverride{
+				{
+					Id:                 "o-1",
+					UserId:             "user-1",
+					MerchantNormalized: "woolworths",
+					UserCategory:       pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
+					CorrectionCount:    3,
+				},
+			}, nil)
+
+		resp, err := svc.GetCategoryOverrides(ctx, connect.NewRequest(&pfinancev1.GetCategoryOverridesRequest{
+			UserId: "user-1",
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(resp.Msg.Overrides) != 1 {
+			t.Fatalf("expected 1 override, got %d", len(resp.Msg.Overrides))
+		}
+		if resp.Msg.Overrides[0].MerchantNormalized != "woolworths" {
+			t.Errorf("expected woolworths, got %s", resp.Msg.Overrides[0].MerchantNormalized)
+		}
+	})
+
+	t.Run("SetCategoryOverride creates new override", func(t *testing.T) {
+		mockStore.EXPECT().
+			GetCategoryOverrides(gomock.Any(), "user-1").
+			Return(nil, nil)
+		mockStore.EXPECT().
+			UpsertCategoryOverride(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ interface{}, o *pfinancev1.CategoryOverride) error {
+				if o.MerchantNormalized != "coles" {
+					t.Errorf("expected merchant=coles, got %s", o.MerchantNormalized)
+				}
+				if o.UserCategory != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD {
+					t.Errorf("expected category=FOOD, got %v", o.UserCategory)
+				}
+				if o.CorrectionCount != 1 {
+					t.Errorf("expected correction_count=1, got %d", o.CorrectionCount)
+				}
+				return nil
+			})
+
+		resp, err := svc.SetCategoryOverride(ctx, connect.NewRequest(&pfinancev1.SetCategoryOverrideRequest{
+			UserId:             "user-1",
+			MerchantNormalized: "Coles",
+			Category:           pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resp.Msg.Override.MerchantNormalized != "coles" {
+			t.Errorf("expected normalized merchant=coles, got %s", resp.Msg.Override.MerchantNormalized)
+		}
+	})
+
+	t.Run("SetCategoryOverride updates existing override", func(t *testing.T) {
+		mockStore.EXPECT().
+			GetCategoryOverrides(gomock.Any(), "user-1").
+			Return([]*pfinancev1.CategoryOverride{
+				{
+					Id:                 "o-1",
+					UserId:             "user-1",
+					MerchantNormalized: "uber",
+					UserCategory:       pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_OTHER,
+					CorrectionCount:    2,
+					LastCorrected:      timestamppb.Now(),
+				},
+			}, nil)
+		mockStore.EXPECT().
+			UpsertCategoryOverride(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ interface{}, o *pfinancev1.CategoryOverride) error {
+				if o.CorrectionCount != 3 {
+					t.Errorf("expected correction_count=3, got %d", o.CorrectionCount)
+				}
+				if o.UserCategory != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_TRANSPORTATION {
+					t.Errorf("expected category=TRANSPORTATION")
+				}
+				return nil
+			})
+
+		_, err := svc.SetCategoryOverride(ctx, connect.NewRequest(&pfinancev1.SetCategoryOverrideRequest{
+			UserId:             "user-1",
+			MerchantNormalized: "uber",
+			Category:           pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_TRANSPORTATION,
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("SetCategoryOverride rejects empty merchant", func(t *testing.T) {
+		_, err := svc.SetCategoryOverride(ctx, connect.NewRequest(&pfinancev1.SetCategoryOverrideRequest{
+			UserId:             "user-1",
+			MerchantNormalized: "",
+			Category:           pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
+		}))
+		if err == nil {
+			t.Fatal("expected error for empty merchant")
+		}
+		if connect.CodeOf(err) != connect.CodeInvalidArgument {
+			t.Errorf("expected CodeInvalidArgument, got %v", connect.CodeOf(err))
+		}
+	})
+
+	t.Run("DeleteCategoryOverride removes override", func(t *testing.T) {
+		mockStore.EXPECT().
+			DeleteCategoryOverride(gomock.Any(), "user-1", "woolworths").
+			Return(nil)
+
+		_, err := svc.DeleteCategoryOverride(ctx, connect.NewRequest(&pfinancev1.DeleteCategoryOverrideRequest{
+			UserId:             "user-1",
+			MerchantNormalized: "Woolworths",
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestCategoryOverrideInSuggestions(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	ctx := testContext("user-1")
+
+	t.Run("override with 2+ corrections takes priority over static", func(t *testing.T) {
+		// No user merchant mappings
+		mockStore.EXPECT().
+			GetMerchantMappings(gomock.Any(), "user-1").
+			Return(nil, nil)
+		// User has category override for "netflix" → EDUCATION (2 corrections)
+		mockStore.EXPECT().
+			GetCategoryOverrides(gomock.Any(), "user-1").
+			Return([]*pfinancev1.CategoryOverride{
+				{
+					MerchantNormalized: "netflix",
+					UserCategory:       pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_EDUCATION,
+					CorrectionCount:    2,
+				},
+			}, nil)
+
+		resp, err := svc.GetMerchantSuggestions(ctx, connect.NewRequest(&pfinancev1.GetMerchantSuggestionsRequest{
+			UserId:       "user-1",
+			MerchantText: "NETFLIX.COM",
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resp.Msg.SuggestedCategory != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_EDUCATION {
+			t.Errorf("expected EDUCATION from override, got %v", resp.Msg.SuggestedCategory)
+		}
+		if resp.Msg.Source != "user_override" {
+			t.Errorf("expected source=user_override, got %s", resp.Msg.Source)
+		}
+	})
+
+	t.Run("override with 1 correction does not apply", func(t *testing.T) {
+		// No user merchant mappings
+		mockStore.EXPECT().
+			GetMerchantMappings(gomock.Any(), "user-1").
+			Return(nil, nil)
+		// User has override but only 1 correction (below threshold)
+		mockStore.EXPECT().
+			GetCategoryOverrides(gomock.Any(), "user-1").
+			Return([]*pfinancev1.CategoryOverride{
+				{
+					MerchantNormalized: "netflix",
+					UserCategory:       pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_EDUCATION,
+					CorrectionCount:    1,
+				},
+			}, nil)
+
+		resp, err := svc.GetMerchantSuggestions(ctx, connect.NewRequest(&pfinancev1.GetMerchantSuggestionsRequest{
+			UserId:       "user-1",
+			MerchantText: "NETFLIX.COM",
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// Should fall through to static normalizer → ENTERTAINMENT (not EDUCATION)
+		if resp.Msg.SuggestedCategory == pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_EDUCATION {
+			t.Error("override with 1 correction should NOT apply")
+		}
+		if resp.Msg.Source == "user_override" {
+			t.Error("source should not be user_override for 1-correction override")
+		}
+	})
+}
+
+func TestSubmitCorrectionsUpsertsOverride(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := store.NewMockStore(ctrl)
+	svc := NewFinanceService(mockStore, nil, nil)
+	ctx := testContext("user-1")
+
+	t.Run("category correction creates override and increments on repeat", func(t *testing.T) {
+		// First correction: creates new override
+		mockStore.EXPECT().
+			CreateCorrectionRecord(gomock.Any(), gomock.Any()).
+			Return(nil)
+		mockStore.EXPECT().
+			GetMerchantMappings(gomock.Any(), "user-1").
+			Return(nil, nil)
+		mockStore.EXPECT().
+			UpsertMerchantMapping(gomock.Any(), gomock.Any()).
+			Return(nil)
+		mockStore.EXPECT().
+			GetCategoryOverrides(gomock.Any(), "user-1").
+			Return(nil, nil) // No existing override
+		mockStore.EXPECT().
+			UpsertCategoryOverride(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ interface{}, o *pfinancev1.CategoryOverride) error {
+				if o.CorrectionCount != 1 {
+					t.Errorf("expected correction_count=1, got %d", o.CorrectionCount)
+				}
+				if o.MerchantNormalized != "uber" {
+					t.Errorf("expected merchant=uber, got %s", o.MerchantNormalized)
+				}
+				if o.UserCategory != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_TRANSPORTATION {
+					t.Errorf("expected category=TRANSPORTATION")
+				}
+				return nil
+			})
+		// Tax feedback for Transportation → Work Travel
+		mockStore.EXPECT().
+			GetTaxDeductibilityMappings(gomock.Any(), "user-1").
+			Return(nil, nil)
+		mockStore.EXPECT().
+			UpsertTaxDeductibilityMapping(gomock.Any(), gomock.Any()).
+			Return(nil)
+
+		_, err := svc.SubmitCorrections(ctx, connect.NewRequest(&pfinancev1.SubmitCorrectionsRequest{
+			UserId: "user-1",
+			Corrections: []*pfinancev1.CorrectionRecord{
+				{
+					OriginalMerchant:  "Uber",
+					CorrectedMerchant: "Uber",
+					OriginalCategory:  pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_OTHER,
+					CorrectedCategory: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_TRANSPORTATION,
+				},
+			},
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("second correction increments existing override", func(t *testing.T) {
+		mockStore.EXPECT().
+			CreateCorrectionRecord(gomock.Any(), gomock.Any()).
+			Return(nil)
+		mockStore.EXPECT().
+			GetMerchantMappings(gomock.Any(), "user-1").
+			Return(nil, nil)
+		mockStore.EXPECT().
+			UpsertMerchantMapping(gomock.Any(), gomock.Any()).
+			Return(nil)
+		// Existing override with count=1
+		mockStore.EXPECT().
+			GetCategoryOverrides(gomock.Any(), "user-1").
+			Return([]*pfinancev1.CategoryOverride{
+				{
+					Id:                 "o-1",
+					UserId:             "user-1",
+					MerchantNormalized: "uber",
+					UserCategory:       pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_TRANSPORTATION,
+					CorrectionCount:    1,
+				},
+			}, nil)
+		mockStore.EXPECT().
+			UpsertCategoryOverride(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ interface{}, o *pfinancev1.CategoryOverride) error {
+				if o.CorrectionCount != 2 {
+					t.Errorf("expected correction_count=2, got %d", o.CorrectionCount)
+				}
+				return nil
+			})
+		// Tax feedback
+		mockStore.EXPECT().
+			GetTaxDeductibilityMappings(gomock.Any(), "user-1").
+			Return(nil, nil)
+		mockStore.EXPECT().
+			UpsertTaxDeductibilityMapping(gomock.Any(), gomock.Any()).
+			Return(nil)
+
+		_, err := svc.SubmitCorrections(ctx, connect.NewRequest(&pfinancev1.SubmitCorrectionsRequest{
+			UserId: "user-1",
+			Corrections: []*pfinancev1.CorrectionRecord{
+				{
+					OriginalMerchant:  "Uber",
+					CorrectedMerchant: "Uber",
+					OriginalCategory:  pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_OTHER,
+					CorrectedCategory: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_TRANSPORTATION,
+				},
+			},
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestCategoryOverrideMemoryStore(t *testing.T) {
+	s := store.NewMemoryStore()
+	ctx := t.Context()
+
+	t.Run("empty overrides for new user", func(t *testing.T) {
+		overrides, err := s.GetCategoryOverrides(ctx, "user-1")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(overrides) != 0 {
+			t.Errorf("expected 0 overrides, got %d", len(overrides))
+		}
+	})
+
+	t.Run("upsert creates override", func(t *testing.T) {
+		err := s.UpsertCategoryOverride(ctx, &pfinancev1.CategoryOverride{
+			UserId:             "user-1",
+			MerchantNormalized: "woolworths",
+			UserCategory:       pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
+			CorrectionCount:    1,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		overrides, _ := s.GetCategoryOverrides(ctx, "user-1")
+		if len(overrides) != 1 {
+			t.Fatalf("expected 1 override, got %d", len(overrides))
+		}
+		if overrides[0].MerchantNormalized != "woolworths" {
+			t.Errorf("expected woolworths, got %s", overrides[0].MerchantNormalized)
+		}
+	})
+
+	t.Run("upsert updates existing override", func(t *testing.T) {
+		err := s.UpsertCategoryOverride(ctx, &pfinancev1.CategoryOverride{
+			UserId:             "user-1",
+			MerchantNormalized: "woolworths",
+			UserCategory:       pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_SHOPPING,
+			CorrectionCount:    2,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		overrides, _ := s.GetCategoryOverrides(ctx, "user-1")
+		if len(overrides) != 1 {
+			t.Fatalf("expected still 1 override, got %d", len(overrides))
+		}
+		if overrides[0].UserCategory != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_SHOPPING {
+			t.Errorf("expected SHOPPING, got %v", overrides[0].UserCategory)
+		}
+		if overrides[0].CorrectionCount != 2 {
+			t.Errorf("expected count=2, got %d", overrides[0].CorrectionCount)
+		}
+	})
+
+	t.Run("delete removes override", func(t *testing.T) {
+		err := s.DeleteCategoryOverride(ctx, "user-1", "woolworths")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		overrides, _ := s.GetCategoryOverrides(ctx, "user-1")
+		if len(overrides) != 0 {
+			t.Errorf("expected 0 overrides after delete, got %d", len(overrides))
+		}
+	})
+
+	t.Run("delete nonexistent is no-op", func(t *testing.T) {
+		err := s.DeleteCategoryOverride(ctx, "user-1", "nonexistent")
+		if err != nil {
+			t.Fatalf("expected no error for deleting nonexistent override")
+		}
+	})
+
+	t.Run("overrides are user-scoped", func(t *testing.T) {
+		_ = s.UpsertCategoryOverride(ctx, &pfinancev1.CategoryOverride{
+			UserId:             "user-1",
+			MerchantNormalized: "coles",
+			UserCategory:       pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
+			CorrectionCount:    1,
+		})
+		_ = s.UpsertCategoryOverride(ctx, &pfinancev1.CategoryOverride{
+			UserId:             "user-2",
+			MerchantNormalized: "coles",
+			UserCategory:       pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_SHOPPING,
+			CorrectionCount:    1,
+		})
+
+		u1, _ := s.GetCategoryOverrides(ctx, "user-1")
+		u2, _ := s.GetCategoryOverrides(ctx, "user-2")
+		if len(u1) != 1 || u1[0].UserCategory != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD {
+			t.Errorf("user-1 override wrong")
+		}
+		if len(u2) != 1 || u2[0].UserCategory != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_SHOPPING {
+			t.Errorf("user-2 override wrong")
 		}
 	})
 }

@@ -69,6 +69,18 @@ func (s *FinanceService) SubmitCorrections(ctx context.Context, req *connect.Req
 			}
 		}
 
+		// Upsert category override when category was corrected
+		if correction.CorrectedCategory != correction.OriginalCategory &&
+			correction.CorrectedCategory != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED {
+			merchant := correction.CorrectedMerchant
+			if merchant == "" {
+				merchant = correction.OriginalMerchant
+			}
+			if merchant != "" {
+				s.upsertCategoryOverride(ctx, claims.UID, merchant, correction.CorrectedCategory)
+			}
+		}
+
 		// Feed category corrections into TaxDeductibilityMapping when the corrected
 		// category implies deductibility (education, transportation, etc.)
 		if correction.CorrectedCategory != correction.OriginalCategory {
@@ -358,6 +370,24 @@ func (s *FinanceService) GetMerchantSuggestions(ctx context.Context, req *connec
 		}
 	}
 
+	// 1b. Check per-user category overrides (requires 2+ corrections)
+	overrides, err := s.store.GetCategoryOverrides(ctx, claims.UID)
+	if err == nil {
+		lower := strings.ToLower(merchantText)
+		for _, o := range overrides {
+			if o.CorrectionCount >= 2 &&
+				(strings.Contains(lower, o.MerchantNormalized) ||
+					strings.Contains(o.MerchantNormalized, lower)) {
+				return connect.NewResponse(&pfinancev1.GetMerchantSuggestionsResponse{
+					SuggestedName:     extraction.NormalizeMerchant(merchantText).Name,
+					SuggestedCategory: o.UserCategory,
+					Confidence:        math.Min(0.99, 0.8+0.05*float64(o.CorrectionCount)),
+					Source:            "user_override",
+				}), nil
+			}
+		}
+	}
+
 	// 2. Check static normalizer
 	info := extraction.NormalizeMerchant(merchantText)
 	if info.Category != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_OTHER {
@@ -593,4 +623,131 @@ func AggregateCorrectionPatterns(corrections []*pfinancev1.CorrectionRecord) []e
 	}
 
 	return signals
+}
+
+// upsertCategoryOverride creates or updates a per-user category override from a correction.
+func (s *FinanceService) upsertCategoryOverride(ctx context.Context, userID, merchant string, category pfinancev1.ExpenseCategory) {
+	normalized := strings.ToLower(strings.TrimSpace(merchant))
+	if normalized == "" {
+		return
+	}
+
+	overrides, err := s.store.GetCategoryOverrides(ctx, userID)
+	if err != nil {
+		log.Printf("Failed to get category overrides for user %s: %v", userID, err)
+		return
+	}
+
+	for _, o := range overrides {
+		if o.MerchantNormalized == normalized {
+			o.UserCategory = category
+			o.CorrectionCount++
+			o.LastCorrected = timestamppb.Now()
+			if err := s.store.UpsertCategoryOverride(ctx, o); err != nil {
+				log.Printf("Failed to update category override: %v", err)
+			}
+			return
+		}
+	}
+
+	override := &pfinancev1.CategoryOverride{
+		Id:                 uuid.New().String(),
+		UserId:             userID,
+		MerchantNormalized: normalized,
+		UserCategory:       category,
+		CorrectionCount:    1,
+		LastCorrected:      timestamppb.Now(),
+		CreatedAt:          timestamppb.Now(),
+	}
+	if err := s.store.UpsertCategoryOverride(ctx, override); err != nil {
+		log.Printf("Failed to create category override: %v", err)
+	}
+}
+
+// GetCategoryOverrides returns all category overrides for the authenticated user.
+func (s *FinanceService) GetCategoryOverrides(ctx context.Context, req *connect.Request[pfinancev1.GetCategoryOverridesRequest]) (*connect.Response[pfinancev1.GetCategoryOverridesResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	overrides, err := s.store.GetCategoryOverrides(ctx, claims.UID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get category overrides: %w", err))
+	}
+
+	return connect.NewResponse(&pfinancev1.GetCategoryOverridesResponse{
+		Overrides: overrides,
+	}), nil
+}
+
+// SetCategoryOverride manually sets a category override for a merchant.
+func (s *FinanceService) SetCategoryOverride(ctx context.Context, req *connect.Request[pfinancev1.SetCategoryOverrideRequest]) (*connect.Response[pfinancev1.SetCategoryOverrideResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	normalized := strings.ToLower(strings.TrimSpace(req.Msg.MerchantNormalized))
+	if normalized == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("merchant_normalized is required"))
+	}
+	if req.Msg.Category == pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("category is required"))
+	}
+
+	// Check if override already exists
+	overrides, err := s.store.GetCategoryOverrides(ctx, claims.UID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get category overrides: %w", err))
+	}
+
+	var override *pfinancev1.CategoryOverride
+	for _, o := range overrides {
+		if o.MerchantNormalized == normalized {
+			o.UserCategory = req.Msg.Category
+			o.CorrectionCount++
+			o.LastCorrected = timestamppb.Now()
+			override = o
+			break
+		}
+	}
+	if override == nil {
+		override = &pfinancev1.CategoryOverride{
+			Id:                 uuid.New().String(),
+			UserId:             claims.UID,
+			MerchantNormalized: normalized,
+			UserCategory:       req.Msg.Category,
+			CorrectionCount:    1,
+			LastCorrected:      timestamppb.Now(),
+			CreatedAt:          timestamppb.Now(),
+		}
+	}
+
+	if err := s.store.UpsertCategoryOverride(ctx, override); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set category override: %w", err))
+	}
+
+	return connect.NewResponse(&pfinancev1.SetCategoryOverrideResponse{
+		Override: override,
+	}), nil
+}
+
+// DeleteCategoryOverride removes a category override for a merchant.
+func (s *FinanceService) DeleteCategoryOverride(ctx context.Context, req *connect.Request[pfinancev1.DeleteCategoryOverrideRequest]) (*connect.Response[pfinancev1.DeleteCategoryOverrideResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	normalized := strings.ToLower(strings.TrimSpace(req.Msg.MerchantNormalized))
+	if normalized == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("merchant_normalized is required"))
+	}
+
+	if err := s.store.DeleteCategoryOverride(ctx, claims.UID, normalized); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete category override: %w", err))
+	}
+
+	return connect.NewResponse(&pfinancev1.DeleteCategoryOverrideResponse{}), nil
 }

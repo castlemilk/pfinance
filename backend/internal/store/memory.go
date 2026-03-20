@@ -37,6 +37,7 @@ type MemoryStore struct {
 	merchantMappings         map[string]*pfinancev1.MerchantMapping
 	extractionEvents         map[string]*pfinancev1.ExtractionEvent
 	taxDeductibilityMappings map[string]*pfinancev1.TaxDeductibilityMapping
+	categoryOverrides        map[string]*pfinancev1.CategoryOverride
 	apiTokens                map[string]*pfinancev1.ApiToken
 	processedStatements      []*pfinancev1.ProcessedStatement
 }
@@ -63,6 +64,7 @@ func NewMemoryStore() *MemoryStore {
 		merchantMappings:         make(map[string]*pfinancev1.MerchantMapping),
 		extractionEvents:         make(map[string]*pfinancev1.ExtractionEvent),
 		taxDeductibilityMappings: make(map[string]*pfinancev1.TaxDeductibilityMapping),
+		categoryOverrides:        make(map[string]*pfinancev1.CategoryOverride),
 		apiTokens:                make(map[string]*pfinancev1.ApiToken),
 	}
 }
@@ -1859,6 +1861,59 @@ func (m *MemoryStore) GetTaxDeductibilityMappings(ctx context.Context, userID st
 		}
 	}
 	return mappings, nil
+}
+
+// ============================================================================
+// Category Override operations
+// ============================================================================
+
+// GetCategoryOverrides returns all category overrides for a user
+func (m *MemoryStore) GetCategoryOverrides(ctx context.Context, userID string) ([]*pfinancev1.CategoryOverride, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var overrides []*pfinancev1.CategoryOverride
+	for _, o := range m.categoryOverrides {
+		if o.UserId == userID {
+			overrides = append(overrides, o)
+		}
+	}
+	return overrides, nil
+}
+
+// UpsertCategoryOverride creates or updates a category override
+func (m *MemoryStore) UpsertCategoryOverride(ctx context.Context, override *pfinancev1.CategoryOverride) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for id, existing := range m.categoryOverrides {
+		if existing.UserId == override.UserId && existing.MerchantNormalized == override.MerchantNormalized {
+			existing.UserCategory = override.UserCategory
+			existing.CorrectionCount = override.CorrectionCount
+			existing.LastCorrected = override.LastCorrected
+			m.categoryOverrides[id] = existing
+			return nil
+		}
+	}
+	if override.Id == "" {
+		override.Id = uuid.New().String()
+	}
+	m.categoryOverrides[override.Id] = override
+	return nil
+}
+
+// DeleteCategoryOverride deletes a category override
+func (m *MemoryStore) DeleteCategoryOverride(ctx context.Context, userID, merchantNormalized string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for id, o := range m.categoryOverrides {
+		if o.UserId == userID && o.MerchantNormalized == merchantNormalized {
+			delete(m.categoryOverrides, id)
+			return nil
+		}
+	}
+	return nil
 }
 
 // ============================================================================

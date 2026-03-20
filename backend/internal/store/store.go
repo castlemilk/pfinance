@@ -125,6 +125,11 @@ type Store interface {
 	UpsertTaxDeductibilityMapping(ctx context.Context, mapping *pfinancev1.TaxDeductibilityMapping) error
 	GetTaxDeductibilityMappings(ctx context.Context, userID string) ([]*pfinancev1.TaxDeductibilityMapping, error)
 
+	// Category override operations
+	GetCategoryOverrides(ctx context.Context, userID string) ([]*pfinancev1.CategoryOverride, error)
+	UpsertCategoryOverride(ctx context.Context, override *pfinancev1.CategoryOverride) error
+	DeleteCategoryOverride(ctx context.Context, userID, merchantNormalized string) error
+
 	// Processed statement tracking (for dedup)
 	CreateProcessedStatement(ctx context.Context, stmt *pfinancev1.ProcessedStatement) error
 	FindProcessedStatement(ctx context.Context, userID, fingerprint string) (*pfinancev1.ProcessedStatement, error)

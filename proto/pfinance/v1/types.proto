@@ -1008,6 +1008,17 @@ message TaxCalculation {
   double tax_withheld = 23;
 }
 
+// CategoryOverride stores a per-user merchant→category override learned from corrections
+message CategoryOverride {
+  string id = 1;
+  string user_id = 2;
+  string merchant_normalized = 3;       // Lowercase, cleaned merchant name
+  ExpenseCategory user_category = 4;    // User's preferred category
+  int32 correction_count = 5;           // How many times user corrected to this
+  google.protobuf.Timestamp last_corrected = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
 // TaxDeductibilityMapping stores learned merchant->deduction patterns
 message TaxDeductibilityMapping {
   string id = 1;

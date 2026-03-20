@@ -352,6 +352,20 @@ func (mr *MockStoreMockRecorder) DeleteBudget(ctx, budgetID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteBudget", reflect.TypeOf((*MockStore)(nil).DeleteBudget), ctx, budgetID)
 }
 
+// DeleteCategoryOverride mocks base method.
+func (m *MockStore) DeleteCategoryOverride(ctx context.Context, userID, merchantNormalized string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteCategoryOverride", ctx, userID, merchantNormalized)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteCategoryOverride indicates an expected call of DeleteCategoryOverride.
+func (mr *MockStoreMockRecorder) DeleteCategoryOverride(ctx, userID, merchantNormalized any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCategoryOverride", reflect.TypeOf((*MockStore)(nil).DeleteCategoryOverride), ctx, userID, merchantNormalized)
+}
+
 // DeleteExpense mocks base method.
 func (m *MockStore) DeleteExpense(ctx context.Context, expenseID string) error {
 	m.ctrl.T.Helper()
@@ -509,6 +523,21 @@ func (m *MockStore) GetBudgetProgress(ctx context.Context, budgetID string, asOf
 func (mr *MockStoreMockRecorder) GetBudgetProgress(ctx, budgetID, asOfDate any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBudgetProgress", reflect.TypeOf((*MockStore)(nil).GetBudgetProgress), ctx, budgetID, asOfDate)
+}
+
+// GetCategoryOverrides mocks base method.
+func (m *MockStore) GetCategoryOverrides(ctx context.Context, userID string) ([]*pfinancev1.CategoryOverride, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCategoryOverrides", ctx, userID)
+	ret0, _ := ret[0].([]*pfinancev1.CategoryOverride)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCategoryOverrides indicates an expected call of GetCategoryOverrides.
+func (mr *MockStoreMockRecorder) GetCategoryOverrides(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCategoryOverrides", reflect.TypeOf((*MockStore)(nil).GetCategoryOverrides), ctx, userID)
 }
 
 // GetContribution mocks base method.
@@ -1274,6 +1303,20 @@ func (m *MockStore) UpdateUser(ctx context.Context, user *pfinancev1.User) error
 func (mr *MockStoreMockRecorder) UpdateUser(ctx, user any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUser", reflect.TypeOf((*MockStore)(nil).UpdateUser), ctx, user)
+}
+
+// UpsertCategoryOverride mocks base method.
+func (m *MockStore) UpsertCategoryOverride(ctx context.Context, override *pfinancev1.CategoryOverride) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpsertCategoryOverride", ctx, override)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpsertCategoryOverride indicates an expected call of UpsertCategoryOverride.
+func (mr *MockStoreMockRecorder) UpsertCategoryOverride(ctx, override any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertCategoryOverride", reflect.TypeOf((*MockStore)(nil).UpsertCategoryOverride), ctx, override)
 }
 
 // UpsertMerchantMapping mocks base method.

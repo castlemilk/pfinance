@@ -3,22 +3,34 @@ package extraction
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 )
 
+// overrideConfidence returns confidence derived from category override correction count.
+func overrideConfidence(count int32) float64 {
+	return math.Min(0.99, 0.8+0.05*float64(count))
+}
+
 // MerchantMappingStore is the subset of the store interface needed for merchant lookups.
 type MerchantMappingStore interface {
 	GetMerchantMappings(ctx context.Context, userID string) ([]*pfinancev1.MerchantMapping, error)
 }
 
+// CategoryOverrideStore is the subset of the store interface needed for category override lookups.
+type CategoryOverrideStore interface {
+	GetCategoryOverrides(ctx context.Context, userID string) ([]*pfinancev1.CategoryOverride, error)
+}
+
 // StoreMerchantLookup adapts a store into a MerchantLookup with fuzzy matching
 // and per-user caching.
 type StoreMerchantLookup struct {
-	store MerchantMappingStore
-	cache *MerchantCache // shared cache keyed by "userID:rawMerchant"
+	store         MerchantMappingStore
+	overrideStore CategoryOverrideStore
+	cache         *MerchantCache // shared cache keyed by "userID:rawMerchant"
 }
 
 // NewStoreMerchantLookup creates a StoreMerchantLookup with a built-in cache.
@@ -27,6 +39,11 @@ func NewStoreMerchantLookup(store MerchantMappingStore) *StoreMerchantLookup {
 		store: store,
 		cache: NewMerchantCache(10*time.Minute, 2048),
 	}
+}
+
+// SetCategoryOverrideStore sets the store for per-user category overrides.
+func (l *StoreMerchantLookup) SetCategoryOverrideStore(store CategoryOverrideStore) {
+	l.overrideStore = store
 }
 
 // LookupMerchant checks user-specific merchant mappings with exact, substring,
@@ -39,6 +56,26 @@ func (l *StoreMerchantLookup) LookupMerchant(ctx context.Context, userID string,
 	if l.cache != nil {
 		if info, ok := l.cache.Get(cacheKey); ok {
 			return info, nil
+		}
+	}
+
+	// Pass 0: check per-user category overrides (2+ corrections required)
+	if l.overrideStore != nil {
+		overrides, err := l.overrideStore.GetCategoryOverrides(ctx, userID)
+		if err == nil {
+			for _, o := range overrides {
+				if o.CorrectionCount >= 2 &&
+					(strings.Contains(lower, o.MerchantNormalized) ||
+						strings.Contains(o.MerchantNormalized, lower)) {
+					info := &MerchantInfo{
+						Name:       NormalizeMerchant(rawMerchant).Name,
+						Category:   o.UserCategory,
+						Confidence: overrideConfidence(o.CorrectionCount),
+					}
+					l.cacheResult(cacheKey, info)
+					return info, nil
+				}
+			}
 		}
 	}
 
