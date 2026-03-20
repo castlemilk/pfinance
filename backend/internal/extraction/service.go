@@ -29,6 +29,7 @@ type Extractor interface {
 	IsGeminiAvailable() bool
 	IsEnabled() bool
 	ParseExpenseText(ctx context.Context, text string) (*pfinancev1.ParseExpenseTextResponse, error)
+	ParseBankStatement(ctx context.Context, pdfData []byte, bankHint string, method pfinancev1.ExtractionMethod) (*pfinancev1.BankStatementResult, error)
 	ImportTransactions(ctx context.Context, userID string, groupID string, transactions []*pfinancev1.ExtractedTransaction, skipDuplicates bool, defaultFrequency pfinancev1.ExpenseFrequency) ([]*pfinancev1.Expense, int, []string, error)
 	GetJob(id string) (*pfinancev1.ExtractionJob, error)
 	StartAsyncExtraction(ctx context.Context, userID string, data []byte, filename string, docType pfinancev1.DocumentType, method pfinancev1.ExtractionMethod) (string, error)
@@ -53,8 +54,10 @@ type StatementStore interface {
 // ExtractionService provides document extraction functionality.
 type ExtractionService struct {
 	mlClient       *MLClient
+	stmtClient     *StatementParserClient
 	validator      *ValidationService
 	mlEnabled      bool
+	stmtEnabled    bool
 	jobStore       *JobStore
 	merchantLookup MerchantLookup
 	merchantCache  *MerchantCache
@@ -64,11 +67,12 @@ type ExtractionService struct {
 
 // Config holds configuration for the extraction service.
 type Config struct {
-	MLServiceURL     string
-	GeminiAPIKey     string
-	MistralAPIKey    string
-	EnableML         bool
-	EnableValidation bool
+	MLServiceURL       string
+	StatementParserURL string
+	GeminiAPIKey       string
+	MistralAPIKey      string
+	EnableML           bool
+	EnableValidation   bool
 }
 
 // NewExtractionService creates a new extraction service.
@@ -78,6 +82,11 @@ func NewExtractionService(cfg Config) *ExtractionService {
 		mlClient = NewMLClient(cfg.MLServiceURL)
 	}
 
+	var stmtClient *StatementParserClient
+	if cfg.StatementParserURL != "" {
+		stmtClient = NewStatementParserClient(cfg.StatementParserURL)
+	}
+
 	var validator *ValidationService
 	if cfg.EnableValidation && cfg.GeminiAPIKey != "" {
 		validator = NewValidationService(cfg.GeminiAPIKey, cfg.MistralAPIKey)
@@ -85,8 +94,10 @@ func NewExtractionService(cfg Config) *ExtractionService {
 
 	return &ExtractionService{
 		mlClient:      mlClient,
+		stmtClient:    stmtClient,
 		validator:     validator,
 		mlEnabled:     cfg.EnableML && mlClient != nil,
+		stmtEnabled:   stmtClient != nil,
 		jobStore:      NewJobStore(1 * time.Hour),
 		merchantCache: NewMerchantCache(15*time.Minute, 4096),
 		textExtractor: &TextExtractor{},
@@ -279,6 +290,32 @@ func (s *ExtractionService) tryExtract(
 		return s.validator.ExtractWithGeminiAdvanced(ctx, data, docType, opts)
 
 	case pfinancev1.ExtractionMethod_EXTRACTION_METHOD_SELF_HOSTED:
+		// For bank statements, try the dedicated statement parser first
+		if docType == pfinancev1.DocumentType_DOCUMENT_TYPE_BANK_STATEMENT && s.stmtEnabled {
+			resp, err := s.stmtClient.ParseStatement(ctx, data, "")
+			if err == nil && !resp.NeedsFallback && resp.Confidence >= StatementConfidenceFallbackThreshold {
+				mlTxns := resp.ToMLTransactions()
+				mlResp := &MLExtractionResponse{
+					Transactions:      mlTxns,
+					OverallConfidence: resp.Confidence,
+					PageCount:         resp.PageCount,
+					DocumentType:      "bank_statement",
+				}
+				result := mlResp.ToExtractionResult()
+				if resp.BankDetected != "" {
+					result.StatementMetadata = &pfinancev1.StatementMetadata{
+						BankName: resp.BankDetected,
+					}
+				}
+				return result, nil
+			}
+			if err != nil {
+				log.Printf("[extraction] statement parser failed, trying general ML: %v", err)
+			} else {
+				log.Printf("[extraction] statement parser low confidence (%.2f), trying general ML", resp.Confidence)
+			}
+		}
+
 		if !s.mlEnabled {
 			return nil, &ExtractionError{
 				Code:    ErrMLServiceUnavailable,
@@ -699,4 +736,165 @@ func (s *ExtractionService) HealthCheck(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// StatementConfidenceFallbackThreshold is the confidence below which we fall back to Gemini.
+const StatementConfidenceFallbackThreshold = 0.5
+
+// ParseBankStatement parses a bank statement PDF using the ML statement parser
+// with confidence-based fallback to Gemini.
+func (s *ExtractionService) ParseBankStatement(
+	ctx context.Context,
+	pdfData []byte,
+	bankHint string,
+	method pfinancev1.ExtractionMethod,
+) (*pfinancev1.BankStatementResult, error) {
+	start := time.Now()
+
+	// Try statement parser first (self-hosted ML) unless Gemini explicitly requested
+	if method != pfinancev1.ExtractionMethod_EXTRACTION_METHOD_GEMINI && s.stmtEnabled {
+		result, err := s.parseWithStatementClient(ctx, pdfData, bankHint)
+		if err != nil {
+			log.Printf("[statement] ML parser failed: %v", err)
+		} else if !result.NeedsFallback && result.Confidence >= StatementConfidenceFallbackThreshold {
+			// ML parse succeeded with good confidence
+			bsResult := s.convertStatementResult(result, pfinancev1.ExtractionMethod_EXTRACTION_METHOD_SELF_HOSTED, pfinancev1.ExtractionMethod_EXTRACTION_METHOD_UNSPECIFIED)
+			bsResult.ProcessingTimeMs = int32(time.Since(start).Milliseconds())
+			return bsResult, nil
+		} else {
+			reason := result.FallbackReason
+			if reason == "" {
+				reason = fmt.Sprintf("low confidence: %.2f", result.Confidence)
+			}
+			log.Printf("[statement] ML parser needs fallback: %s", reason)
+		}
+	}
+
+	// Fallback: use Gemini via the existing extraction pipeline
+	if s.validator == nil || !s.validator.IsGeminiAvailable() {
+		if !s.stmtEnabled {
+			return nil, &ExtractionError{
+				Code:    ErrMLServiceUnavailable,
+				Message: "statement parser is not configured and Gemini is unavailable",
+				Method:  "statement",
+			}
+		}
+		return nil, &ExtractionError{
+			Code:    ErrGeminiUnavailable,
+			Message: "Gemini fallback is not available for low-confidence statement parse",
+			Method:  "statement",
+		}
+	}
+
+	log.Printf("[statement] falling back to Gemini extraction pipeline")
+	geminiResult, err := s.tryExtract(ctx, pdfData, "statement.pdf", pfinancev1.DocumentType_DOCUMENT_TYPE_BANK_STATEMENT, pfinancev1.ExtractionMethod_EXTRACTION_METHOD_GEMINI)
+	if err != nil {
+		return nil, &ExtractionError{
+			Code:    ErrAllMethodsFailed,
+			Message: fmt.Sprintf("all statement parsing methods failed: %v", err),
+			Cause:   err,
+		}
+	}
+
+	// Convert ExtractionResult to BankStatementResult
+	bsResult := s.convertExtractionToBankResult(geminiResult, pfinancev1.ExtractionMethod_EXTRACTION_METHOD_SELF_HOSTED)
+	bsResult.ProcessingTimeMs = int32(time.Since(start).Milliseconds())
+	return bsResult, nil
+}
+
+// parseWithStatementClient calls the ML statement parser service.
+func (s *ExtractionService) parseWithStatementClient(ctx context.Context, pdfData []byte, bankHint string) (*StatementParseResponse, error) {
+	if s.stmtClient == nil {
+		return nil, fmt.Errorf("statement parser client not configured")
+	}
+	return s.stmtClient.ParseStatement(ctx, pdfData, bankHint)
+}
+
+// convertStatementResult converts a StatementParseResponse to a proto BankStatementResult.
+func (s *ExtractionService) convertStatementResult(
+	resp *StatementParseResponse,
+	methodUsed pfinancev1.ExtractionMethod,
+	fallbackFrom pfinancev1.ExtractionMethod,
+) *pfinancev1.BankStatementResult {
+	var transactions []*pfinancev1.BankTransaction
+	for _, t := range resp.Transactions {
+		bt := &pfinancev1.BankTransaction{
+			Id:          t.ID,
+			Date:        t.Date,
+			Description: t.Description,
+			Amount:      t.Amount,
+			IsDebit:     t.IsDebit,
+			Confidence:  t.Confidence,
+			Page:        int32(t.Page),
+			AmountCents: int64(t.Amount * 100),
+		}
+		if t.Balance != nil {
+			bt.Balance = *t.Balance
+		}
+		if t.FieldConfidences != nil {
+			bt.FieldConfidences = &pfinancev1.FieldConfidence{
+				Amount:      t.FieldConfidences["amount"],
+				Date:        t.FieldConfidences["date"],
+				Description: t.FieldConfidences["description"],
+			}
+		}
+		transactions = append(transactions, bt)
+	}
+
+	result := &pfinancev1.BankStatementResult{
+		Transactions:      transactions,
+		BankDetected:      resp.BankDetected,
+		PageCount:         int32(resp.PageCount),
+		Confidence:        resp.Confidence,
+		BalanceReconciled: resp.BalanceReconciled,
+		ProcessingTimeMs:  int32(resp.ProcessingTimeMS),
+		Warnings:          resp.Warnings,
+		MethodUsed:        methodUsed,
+	}
+
+	if fallbackFrom != pfinancev1.ExtractionMethod_EXTRACTION_METHOD_UNSPECIFIED {
+		result.FallbackFrom = fallbackFrom
+	}
+
+	return result
+}
+
+// convertExtractionToBankResult converts an ExtractionResult (from Gemini) to BankStatementResult.
+func (s *ExtractionService) convertExtractionToBankResult(
+	result *pfinancev1.ExtractionResult,
+	fallbackFrom pfinancev1.ExtractionMethod,
+) *pfinancev1.BankStatementResult {
+	var transactions []*pfinancev1.BankTransaction
+	for _, tx := range result.Transactions {
+		bt := &pfinancev1.BankTransaction{
+			Id:          tx.Id,
+			Date:        tx.Date,
+			Description: tx.Description,
+			Amount:      tx.Amount,
+			IsDebit:     tx.IsDebit,
+			Confidence:  tx.Confidence,
+			AmountCents: tx.AmountCents,
+		}
+		if tx.FieldConfidences != nil {
+			bt.FieldConfidences = tx.FieldConfidences
+		}
+		transactions = append(transactions, bt)
+	}
+
+	bsResult := &pfinancev1.BankStatementResult{
+		Transactions:      transactions,
+		PageCount:         result.PageCount,
+		Confidence:        result.OverallConfidence,
+		Warnings:          result.Warnings,
+		MethodUsed:        result.MethodUsed,
+		StatementMetadata: result.StatementMetadata,
+	}
+
+	if fallbackFrom != pfinancev1.ExtractionMethod_EXTRACTION_METHOD_UNSPECIFIED {
+		bsResult.FallbackFrom = fallbackFrom
+		bsResult.Warnings = append(bsResult.Warnings,
+			fmt.Sprintf("Fell back from %s to %s", fallbackFrom, result.MethodUsed))
+	}
+
+	return bsResult
 }

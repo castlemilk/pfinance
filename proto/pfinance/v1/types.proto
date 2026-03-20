@@ -1072,3 +1072,35 @@ message CategoryDelta {
   int64 change_cents = 4;
   double change_percent = 5;
 }
+
+// ============================================================================
+// Bank Statement Parsing
+// ============================================================================
+
+// BankTransaction represents a single parsed transaction from a bank statement
+message BankTransaction {
+  string id = 1;
+  string date = 2;                        // Date in YYYY-MM-DD format
+  string description = 3;                 // Raw description from statement
+  double amount = 4;                      // Transaction amount (positive)
+  bool is_debit = 5;                      // True if money going out
+  double balance = 6;                     // Running balance after this transaction (0 if unavailable)
+  double confidence = 7;                  // Extraction confidence (0.0-1.0)
+  int32 page = 8;                         // Page number where transaction was found
+  FieldConfidence field_confidences = 9;  // Per-field confidence scores
+  int64 amount_cents = 10;                // Amount in cents (preferred over amount)
+}
+
+// BankStatementResult represents the full result of bank statement parsing
+message BankStatementResult {
+  repeated BankTransaction transactions = 1;
+  string bank_detected = 2;              // Detected bank name (e.g. "CBA", "Westpac")
+  int32 page_count = 3;                  // Total pages in statement
+  double confidence = 4;                 // Overall parsing confidence
+  bool balance_reconciled = 5;           // Whether running balance checks passed
+  int32 processing_time_ms = 6;          // Processing time in milliseconds
+  repeated string warnings = 7;          // Any warnings during parsing
+  StatementMetadata statement_metadata = 8; // Statement metadata for dedup
+  ExtractionMethod method_used = 9;      // Which method was used
+  ExtractionMethod fallback_from = 10;   // If fallback was used, the original method
+}

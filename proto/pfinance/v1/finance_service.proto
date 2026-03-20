@@ -99,6 +99,9 @@ service FinanceService {
   // Smart text parsing (uses AI to parse natural language expense descriptions)
   rpc ParseExpenseText(ParseExpenseTextRequest) returns (ParseExpenseTextResponse);
 
+  // Bank statement parsing (ML-powered statement extraction)
+  rpc ParseBankStatement(ParseBankStatementRequest) returns (ParseBankStatementResponse);
+
   // Recurring transaction operations
   rpc CreateRecurringTransaction(CreateRecurringTransactionRequest) returns (CreateRecurringTransactionResponse);
   rpc GetRecurringTransaction(GetRecurringTransactionRequest) returns (GetRecurringTransactionResponse);
@@ -901,6 +904,22 @@ message ParseExpenseTextResponse {
   repeated ParsedExpense additional = 2;    // Additional expenses if multiple detected
   bool success = 3;                         // Whether parsing succeeded
   string error_message = 4;                 // Error message if parsing failed
+}
+
+// ============================================================================
+// Bank statement parsing
+// ============================================================================
+
+message ParseBankStatementRequest {
+  bytes pdf_data = 1;                     // Raw PDF bytes
+  string bank_hint = 2;                   // Optional bank hint (e.g. "CBA", "Westpac")
+  ExtractionMethod extraction_method = 3; // Which extraction method to use
+  string filename = 4;                    // Original filename for tracking
+}
+
+message ParseBankStatementResponse {
+  BankStatementResult result = 1;
+  repeated string duplicate_warnings = 2; // Warnings about duplicate/overlapping statements
 }
 
 // ============================================================================

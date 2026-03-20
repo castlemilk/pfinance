@@ -284,6 +284,53 @@ func (s *FinanceService) ImportExtractedTransactions(ctx context.Context, req *c
 	}), nil
 }
 
+// ParseBankStatement parses a bank statement PDF using LayoutLMv3 with Gemini fallback.
+func (s *FinanceService) ParseBankStatement(ctx context.Context, req *connect.Request[pfinancev1.ParseBankStatementRequest]) (*connect.Response[pfinancev1.ParseBankStatementResponse], error) {
+	claims, err := auth.RequireAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if extractionService == nil {
+		return nil, connect.NewError(connect.CodeUnavailable,
+			fmt.Errorf("extraction service is not available"))
+	}
+
+	if len(req.Msg.PdfData) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument,
+			fmt.Errorf("pdf_data is required"))
+	}
+
+	rpcStart := time.Now()
+	log.Printf("[statement] start file=%q size=%dKB method=%v bank_hint=%q",
+		req.Msg.Filename, len(req.Msg.PdfData)/1024, req.Msg.ExtractionMethod, req.Msg.BankHint)
+
+	result, err := extractionService.ParseBankStatement(ctx, req.Msg.PdfData, req.Msg.BankHint, req.Msg.ExtractionMethod)
+	if err != nil {
+		log.Printf("[statement] FAILED file=%q elapsed=%dms err=%v", req.Msg.Filename, time.Since(rpcStart).Milliseconds(), err)
+		return nil, mapExtractionError(err)
+	}
+
+	log.Printf("[statement] done file=%q bank=%s txCount=%d confidence=%.2f elapsed=%dms",
+		req.Msg.Filename, result.BankDetected, len(result.Transactions),
+		result.Confidence, time.Since(rpcStart).Milliseconds())
+
+	// Check for statement duplicates
+	var duplicateWarnings []string
+	if result.StatementMetadata != nil {
+		isDup, warnings, _ := extractionService.CheckStatementDuplicate(ctx, claims.UID, result.StatementMetadata)
+		if isDup {
+			duplicateWarnings = warnings
+			result.Warnings = append(result.Warnings, warnings...)
+		}
+	}
+
+	return connect.NewResponse(&pfinancev1.ParseBankStatementResponse{
+		Result:            result,
+		DuplicateWarnings: duplicateWarnings,
+	}), nil
+}
+
 // ParseExpenseText parses natural language text into structured expense data using Gemini.
 func (s *FinanceService) ParseExpenseText(ctx context.Context, req *connect.Request[pfinancev1.ParseExpenseTextRequest]) (*connect.Response[pfinancev1.ParseExpenseTextResponse], error) {
 	_, err := auth.RequireAuth(ctx)

@@ -71,6 +71,10 @@ func (m *mockExtractor) RecordProcessedStatement(ctx context.Context, userID str
 	return nil
 }
 
+func (m *mockExtractor) ParseBankStatement(ctx context.Context, pdfData []byte, bankHint string, method pfinancev1.ExtractionMethod) (*pfinancev1.BankStatementResult, error) {
+	return nil, nil
+}
+
 func (m *mockExtractor) SetStatementStore(store extraction.StatementStore) {
 }
 
