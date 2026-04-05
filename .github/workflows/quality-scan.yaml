@@ -1,0 +1,72 @@
+name: Quality Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  CLOUDGUARD_API_URL: https://api.cloudguard.dev
+
+jobs:
+  quality-scan:
+    name: Scan Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install CloudGuardian CLI
+        run: |
+          curl -fsSL https://install.cloudguard.dev | sh
+          echo "$HOME/.cloudguard/bin" >> $GITHUB_PATH
+
+      - name: Install Dependencies
+        run: |
+          npm ci
+          (cd services/api && go mod download)
+          (cd services/ml && pip install -r requirements.txt 2>/dev/null || true)
+
+      - name: Run Tests & Lint
+        run: |
+          # Frontend tests and lint
+          npm run test -- --json --outputFile=test-results.json --coverage --coverageReporters=lcov 2>/dev/null || true
+          npm run lint -- --format json --outputFile=lint-results.json 2>/dev/null || true
+          
+          # Backend tests (Go)
+          (cd services/api && go test -coverprofile=coverage.out ./... 2>/dev/null || true)
+          
+          # ML service tests (Python)
+          (cd services/ml && pytest --cov --cov-report=json -v 2>/dev/null || true)
+
+      - name: Publish Quality Report
+        run: |
+          cloudguard quality scan --publish \
+            --repo ${{ github.event.repository.name }} \
+            --branch ${{ github.ref_name }} \
+            --commit ${{ github.sha }}
+        env:
+          GITHUB_ACTIONS: "true"
