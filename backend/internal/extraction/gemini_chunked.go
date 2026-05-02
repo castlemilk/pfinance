@@ -67,22 +67,30 @@ func (v *ValidationService) extractWithGeminiChunked(
 		return v.extractWithGeminiRetryAdvanced(ctx, documentData, maxOutputTokens)
 	}
 
-	// Skip chunking for PDFs below the threshold — fewer pages than the chunk
-	// boundary means we'd produce a single chunk anyway, with extra overhead.
+	// Skip chunking ONLY when we know the PDF is small. When pageCount is 0
+	// it means CountPDFPagesAccurate (ledongthuc/pdf) panicked or failed —
+	// for malformed PDFs, pdfcpu is often more tolerant, so let ChunkPDF have
+	// a go. If chunking returns ≤1 chunk we'll fall back to single-shot.
 	pageCount := CountPDFPagesAccurate(documentData)
-	if pageCount < cfg.pageThreshold {
+	if pageCount > 0 && pageCount < cfg.pageThreshold {
 		return v.extractWithGeminiRetryAdvanced(ctx, documentData, maxOutputTokens)
+	}
+	if pageCount == 0 {
+		log.Printf("[gemini-chunked] page count unknown (likely malformed PDF); trying pdfcpu chunking anyway")
 	}
 
 	chunks, err := ChunkPDF(documentData, cfg.pagesPerChunk)
 	if err != nil {
-		// Chunking failed — log and fall back to the single-shot pipeline so
-		// we don't make the user's situation worse than it already is.
-		log.Printf("[gemini-chunked] PDF chunking failed (%v) — falling back to single-shot", err)
-		return v.extractWithGeminiRetryAdvanced(ctx, documentData, maxOutputTokens)
+		// Chunking failed — log and fall back to single-shot with the highest
+		// reasonable token budget so a multi-page statement isn't truncated
+		// mid-JSON. This is the path malformed PDFs end up on when pdfcpu
+		// also can't read the structure.
+		log.Printf("[gemini-chunked] PDF chunking failed (%v) — falling back to single-shot with max tokens", err)
+		return v.extractWithGeminiRetryAdvanced(ctx, documentData, maxFallbackTokens(maxOutputTokens))
 	}
 	if len(chunks) <= 1 {
-		return v.extractWithGeminiRetryAdvanced(ctx, documentData, maxOutputTokens)
+		log.Printf("[gemini-chunked] only 1 chunk produced (pageCount=%d) — single-shot with max tokens", pageCount)
+		return v.extractWithGeminiRetryAdvanced(ctx, documentData, maxFallbackTokens(maxOutputTokens))
 	}
 
 	// Total page count across all chunks (last chunk's PageEnd) — used as
@@ -176,6 +184,22 @@ func (v *ValidationService) extractWithGeminiChunked(
 	log.Printf("[gemini-chunked] merged %d/%d successful chunks into %d transactions in %s",
 		successCount, len(chunks), len(merged.Transactions), time.Since(startedAt))
 	return merged, nil
+}
+
+// maxFallbackTokens picks the output-token budget for the single-shot
+// fallback path (used when chunking didn't fire). For a malformed or
+// uncountable PDF we'd rather pay for max tokens than have Gemini truncate
+// mid-JSON and trigger an unparseable response. If the caller passed a
+// hint, respect it as the floor.
+func maxFallbackTokens(callerHint int) int {
+	const cap = 32768 // Gemini 2.0 Flash hard ceiling
+	if callerHint <= 0 {
+		return cap
+	}
+	if callerHint < cap {
+		return cap
+	}
+	return callerHint
 }
 
 // perChunkOutputTokens scales the per-chunk token budget by chunk size.
