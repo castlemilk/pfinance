@@ -85,6 +85,10 @@ func (v *ValidationService) extractWithGeminiChunked(
 		return v.extractWithGeminiRetryAdvanced(ctx, documentData, maxOutputTokens)
 	}
 
+	// Total page count across all chunks (last chunk's PageEnd) — used as
+	// chunk context to tell Gemini "you're seeing pages X-Y of Z".
+	totalPages := chunks[len(chunks)-1].PageEnd
+
 	log.Printf("[gemini-chunked] processing %d chunk(s) of up to %d page(s) each, parallelism=%d",
 		len(chunks), cfg.pagesPerChunk, cfg.parallelism)
 	startedAt := time.Now()
@@ -127,8 +131,16 @@ func (v *ValidationService) extractWithGeminiChunked(
 			defer cancel()
 
 			perChunkTokens := perChunkOutputTokens(ch.PageEnd - ch.PageStart + 1)
+			chunkCtxInfo := &chunkInfo{
+				PageStart:  ch.PageStart,
+				PageEnd:    ch.PageEnd,
+				TotalPages: totalPages,
+			}
 			resp, err := WithRetry(chunkCtx, chunkRetry, func(c context.Context) (*GeminiResponse, error) {
-				return v.extractWithGemini(c, ch.Data, perChunkTokens)
+				return v.extractWithGeminiOpts(c, ch.Data, geminiExtractOpts{
+					MaxOutputTokens: perChunkTokens,
+					Chunk:           chunkCtxInfo,
+				})
 			})
 			if err != nil {
 				log.Printf("[gemini-chunked] chunk %d (pages %d-%d) failed: %v",
@@ -179,23 +191,54 @@ func perChunkOutputTokens(chunkPages int) int {
 	return per
 }
 
-// mergeChunkedResponses combines per-chunk Gemini responses into one, applying
-// boundary dedup. Two transactions are considered duplicates when they share
-// the same date, amount (rounded to cents), and a 16-char prefix of the
-// (case-insensitive, trimmed) description. Order is preserved by chunk index
-// then in-chunk position. The first non-nil chunk's metadata is used, with
-// transaction_count overwritten to the merged total.
+// mergeChunkedResponses combines per-chunk Gemini responses into one. Each
+// chunk represents a slice of pages from the same source PDF, so we:
+//
+//   - dedupe transactions on (date, amount-cents, description-prefix) so a
+//     row that straddles a chunk boundary isn't counted twice
+//   - preserve order: chunk index, then in-chunk position
+//   - merge metadata across chunks: bank/account/currency from the first
+//     chunk that supplied a non-empty value; period_start = MIN over chunks,
+//     period_end = MAX over chunks (lexicographic on YYYY-MM-DD)
+//   - set transaction_count to the merged total
 func mergeChunkedResponses(responses []*GeminiResponse) *GeminiResponse {
 	merged := &GeminiResponse{}
 	seen := make(map[string]struct{})
-	var firstMeta *GeminiMetadata
+
+	var (
+		bankName   string
+		accountID  string
+		currency   string
+		periodMin  string
+		periodMax  string
+		anyMetaSet bool
+	)
+
+	pickFirstNonEmpty := func(dst *string, src string) {
+		if *dst == "" && strings.TrimSpace(src) != "" {
+			*dst = strings.TrimSpace(src)
+		}
+	}
 
 	for _, r := range responses {
 		if r == nil {
 			continue
 		}
-		if firstMeta == nil && r.Metadata != nil {
-			firstMeta = r.Metadata
+		if r.Metadata != nil {
+			anyMetaSet = true
+			pickFirstNonEmpty(&bankName, r.Metadata.BankName)
+			pickFirstNonEmpty(&accountID, r.Metadata.AccountIdentifier)
+			pickFirstNonEmpty(&currency, r.Metadata.Currency)
+			if s := strings.TrimSpace(r.Metadata.PeriodStart); s != "" {
+				if periodMin == "" || s < periodMin {
+					periodMin = s
+				}
+			}
+			if e := strings.TrimSpace(r.Metadata.PeriodEnd); e != "" {
+				if periodMax == "" || e > periodMax {
+					periodMax = e
+				}
+			}
 		}
 		for _, tx := range r.Transactions {
 			key := dedupKey(tx)
@@ -207,9 +250,15 @@ func mergeChunkedResponses(responses []*GeminiResponse) *GeminiResponse {
 		}
 	}
 
-	if firstMeta != nil {
-		firstMeta.TransactionCount = len(merged.Transactions)
-		merged.Metadata = firstMeta
+	if anyMetaSet {
+		merged.Metadata = &GeminiMetadata{
+			BankName:          bankName,
+			AccountIdentifier: accountID,
+			Currency:          currency,
+			PeriodStart:       periodMin,
+			PeriodEnd:         periodMax,
+			TransactionCount:  len(merged.Transactions),
+		}
 	}
 	return merged
 }

@@ -165,34 +165,105 @@ func countPDFPages(data []byte) int {
 	return count
 }
 
+// extractWithGemini is the backwards-compatible variadic-int entry point.
+// New callers should use extractWithGeminiOpts directly so they can pass
+// chunk context.
 func (v *ValidationService) extractWithGemini(ctx context.Context, documentData []byte, maxOutputTokensOverride ...int) (*GeminiResponse, error) {
+	var maxTokens int
+	if len(maxOutputTokensOverride) > 0 {
+		maxTokens = maxOutputTokensOverride[0]
+	}
+	return v.extractWithGeminiOpts(ctx, documentData, geminiExtractOpts{MaxOutputTokens: maxTokens})
+}
+
+// chunkInfo tells Gemini which slice of a larger document it's looking at,
+// so it doesn't try to "complete" missing context or skip rows it thinks
+// already appeared in earlier pages.
+type chunkInfo struct {
+	PageStart  int
+	PageEnd    int
+	TotalPages int
+}
+
+// geminiExtractOpts carries optional knobs for a single Gemini extraction call.
+type geminiExtractOpts struct {
+	MaxOutputTokens int
+	Chunk           *chunkInfo
+}
+
+// geminiResponseSchema is the OpenAPI-subset schema Gemini enforces on its
+// JSON output. Forces strictly conforming JSON instead of free-form text,
+// which eliminates the "no JSON object found" parse failures we saw in prod.
+var geminiResponseSchema = map[string]interface{}{
+	"type": "object",
+	"properties": map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"bank_name":          map[string]interface{}{"type": "string"},
+				"account_identifier": map[string]interface{}{"type": "string"},
+				"period_start":       map[string]interface{}{"type": "string"},
+				"period_end":         map[string]interface{}{"type": "string"},
+				"currency":           map[string]interface{}{"type": "string"},
+			},
+		},
+		"transactions": map[string]interface{}{
+			"type": "array",
+			"items": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"date":        map[string]interface{}{"type": "string"},
+					"description": map[string]interface{}{"type": "string"},
+					"amount":      map[string]interface{}{"type": "number"},
+					"category":    map[string]interface{}{"type": "string"},
+					"reference":   map[string]interface{}{"type": "string"},
+				},
+				"required":         []string{"date", "description", "amount"},
+				"propertyOrdering": []string{"date", "description", "amount", "category", "reference"},
+			},
+		},
+	},
+	"required":         []string{"transactions"},
+	"propertyOrdering": []string{"metadata", "transactions"},
+}
+
+// buildExtractionPrompt builds the prompt text. When chunk is non-nil, the
+// prompt explicitly tells Gemini this is a slice of a larger statement so it
+// extracts every visible row without trying to dedupe against unseen pages.
+func buildExtractionPrompt(chunk *chunkInfo) string {
+	const base = `Extract every expense/debit transaction visible in this document plus statement metadata.
+
+Rules:
+- Only include debit transactions (money OUT of the account). Skip credits, deposits, refunds.
+- Express amounts as positive numbers (no minus sign, no parentheses).
+- Each transaction MUST have date (YYYY-MM-DD), description (the merchant or payee text as it appears), and amount.
+- category MUST be one of: Food, Housing, Transportation, Entertainment, Healthcare, Utilities, Shopping, Education, Travel, Other.
+- metadata: bank_name (institution name), account_identifier (last 4 digits if visible), period_start, period_end, currency code (3-letter, e.g. AUD).
+- If this is a receipt rather than a statement, omit the metadata object.
+- Do NOT skip rows you think might be duplicates — list every row you can see.
+- Do NOT invent transactions you can't see. Better to return fewer accurate rows than to fabricate.`
+
+	if chunk == nil {
+		return base
+	}
+	return fmt.Sprintf(`%s
+
+CHUNK CONTEXT: This document contains pages %d–%d of a larger %d-page statement. Extract transactions only from THESE pages. Do not try to fill in transactions from pages you can't see. Other chunks will be processed separately and merged.`,
+		base, chunk.PageStart, chunk.PageEnd, chunk.TotalPages)
+}
+
+// extractWithGeminiOpts is the canonical extraction call with structured output.
+// Set opts.Chunk to add page-range context for chunked extraction.
+func (v *ValidationService) extractWithGeminiOpts(ctx context.Context, documentData []byte, opts geminiExtractOpts) (*GeminiResponse, error) {
 	// Encode document as base64
 	encoded := base64.StdEncoding.EncodeToString(documentData)
-
-	// Detect mime type from document data
 	mimeType := detectMimeType(documentData)
 
-	// Build request for Gemini API
-	prompt := `Extract all expense/debit transactions AND metadata from this document.
-Return ONLY a valid JSON object with this structure:
-{
-  "metadata": {"bank_name": "...", "account_identifier": "XXXX", "period_start": "YYYY-MM-DD", "period_end": "YYYY-MM-DD", "currency": "AUD"},
-  "transactions": [
-    {"date": "YYYY-MM-DD", "description": "merchant name", "amount": 0.00, "category": "Food"}
-  ]
-}
-Rules:
-- Only include debit transactions (money going out)
-- Express amounts as positive numbers
-- Assign each transaction a category from: Food, Housing, Transportation, Entertainment, Healthcare, Utilities, Shopping, Education, Travel, Other
-- Use the merchant name and transaction context to determine the most appropriate category
-- metadata: bank name, last 4 digits of account, statement period dates, currency code
-- If this is not a bank statement (e.g. receipt), omit the metadata field`
+	prompt := buildExtractionPrompt(opts.Chunk)
 
-	// Determine maxOutputTokens: use override if provided and > 0, otherwise default
 	outputTokens := 8192
-	if len(maxOutputTokensOverride) > 0 && maxOutputTokensOverride[0] > 0 {
-		outputTokens = maxOutputTokensOverride[0]
+	if opts.MaxOutputTokens > 0 {
+		outputTokens = opts.MaxOutputTokens
 	}
 
 	requestBody := map[string]interface{}{
@@ -210,8 +281,10 @@ Rules:
 			},
 		},
 		"generationConfig": map[string]interface{}{
-			"temperature":     0.1,
-			"maxOutputTokens": outputTokens,
+			"temperature":      0.1,
+			"maxOutputTokens":  outputTokens,
+			"responseMimeType": "application/json",
+			"responseSchema":   geminiResponseSchema,
 		},
 	}
 

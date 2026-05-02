@@ -4,6 +4,54 @@ import (
 	"testing"
 )
 
+func TestMergeChunkedResponses_MergesMetadataAcrossChunks(t *testing.T) {
+	// Each chunk reports its own slice of metadata. The merge should pick the
+	// first non-empty value for bank/account/currency, and span the full
+	// period_start..period_end across all chunks.
+	chunkA := &GeminiResponse{
+		Transactions: []GeminiTransaction{
+			{Date: "2026-02-05", Description: "X", Amount: 1.00},
+		},
+		Metadata: &GeminiMetadata{
+			BankName:    "ANZ",
+			PeriodStart: "2026-02-01",
+			PeriodEnd:   "2026-02-10",
+			Currency:    "AUD",
+		},
+	}
+	chunkB := &GeminiResponse{
+		Transactions: []GeminiTransaction{
+			{Date: "2026-02-25", Description: "Y", Amount: 2.00},
+		},
+		Metadata: &GeminiMetadata{
+			BankName:          "", // empty — should not overwrite chunkA's value
+			AccountIdentifier: "1234",
+			PeriodStart:       "2026-02-15",
+			PeriodEnd:         "2026-02-28", // later than chunkA
+			Currency:          "AUD",
+		},
+	}
+	merged := mergeChunkedResponses([]*GeminiResponse{chunkA, chunkB})
+	if merged.Metadata == nil {
+		t.Fatal("expected merged metadata")
+	}
+	if merged.Metadata.BankName != "ANZ" {
+		t.Errorf("bank_name: want ANZ, got %q", merged.Metadata.BankName)
+	}
+	if merged.Metadata.AccountIdentifier != "1234" {
+		t.Errorf("account_identifier: want 1234, got %q", merged.Metadata.AccountIdentifier)
+	}
+	if merged.Metadata.PeriodStart != "2026-02-01" {
+		t.Errorf("period_start: want 2026-02-01 (min), got %q", merged.Metadata.PeriodStart)
+	}
+	if merged.Metadata.PeriodEnd != "2026-02-28" {
+		t.Errorf("period_end: want 2026-02-28 (max), got %q", merged.Metadata.PeriodEnd)
+	}
+	if merged.Metadata.TransactionCount != 2 {
+		t.Errorf("transaction_count: want 2, got %d", merged.Metadata.TransactionCount)
+	}
+}
+
 func TestMergeChunkedResponses_DedupesBoundaryRows(t *testing.T) {
 	chunkA := &GeminiResponse{
 		Transactions: []GeminiTransaction{
