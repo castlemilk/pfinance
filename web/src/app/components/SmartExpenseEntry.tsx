@@ -377,7 +377,7 @@ export default function SmartExpenseEntry() {
   const [duplicateMatches, setDuplicateMatches] = useState<DuplicateMatch[]>([]);
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
-  const [bulkRedirectFile, setBulkRedirectFile] = useState<File | null>(null);
+  const [bulkRedirectFiles, setBulkRedirectFiles] = useState<File[] | null>(null);
   const selectedFileRef = useRef<File | null>(null);
 
   // Merchant suggestion from user history / static normalizer
@@ -583,8 +583,19 @@ export default function SmartExpenseEntry() {
   // Image compression imported from shared utility (see utils/imageCompression.ts)
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+
+    // Multi-file selection → straight to BulkUpload, no point trying to
+    // single-step them through SmartExpenseEntry's review flow.
+    if (fileList.length > 1) {
+      setBulkRedirectFiles(Array.from(fileList));
+      // Reset so picking the same set again still triggers onChange.
+      e.target.value = '';
+      return;
+    }
+
+    const file = fileList[0];
     selectedFileRef.current = file;
 
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
@@ -721,7 +732,7 @@ export default function SmartExpenseEntry() {
             if (allExpenses.length > 0) {
               // Redirect to BulkUpload for multi-transaction statements
               if (selectedFileRef.current) {
-                setBulkRedirectFile(selectedFileRef.current);
+                setBulkRedirectFiles([selectedFileRef.current]);
               } else {
                 // Fallback: show first expense
                 setParsedExpense(allExpenses[0]);
@@ -1241,15 +1252,16 @@ export default function SmartExpenseEntry() {
                   <ImageIcon className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
                 )}
                 <p className="font-medium">
-                  {isStatementMode ? 'Upload a bank statement' : 'Upload a receipt'}
+                  {isStatementMode ? 'Upload bank statements' : 'Upload receipts'}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {isStatementMode ? 'PDF files' : 'Images (JPG, PNG)'}
+                  {isStatementMode ? 'PDF files' : 'Images (JPG, PNG)'} — select multiple to batch
                 </p>
               </div>
               <input
                 ref={fileInputRef}
                 type="file"
+                multiple
                 accept={isStatementMode ? '.pdf,application/pdf' : 'image/*'}
                 onChange={handleFileSelect}
                 className="hidden"
@@ -1598,14 +1610,16 @@ export default function SmartExpenseEntry() {
         {mode === 'bulk' && <BulkUploadTrigger useGemini={useGemini} setUseGemini={setUseGemini} />}
       </CardContent>
 
-      {/* Redirect to BulkUpload when statement extraction returns multiple transactions */}
-      {bulkRedirectFile && (
+      {/* Redirect to BulkUpload when:
+          - statement extraction returns multiple transactions, OR
+          - the user picked multiple files in the OS picker. */}
+      {bulkRedirectFiles && bulkRedirectFiles.length > 0 && (
         <BulkUploadDialog
-          open={!!bulkRedirectFile}
-          onOpenChange={(open) => { if (!open) setBulkRedirectFile(null); }}
+          open={!!bulkRedirectFiles}
+          onOpenChange={(open) => { if (!open) setBulkRedirectFiles(null); }}
           useGemini={useGemini}
           setUseGemini={setUseGemini}
-          initialFiles={[bulkRedirectFile]}
+          initialFiles={bulkRedirectFiles}
         />
       )}
     </Card>
