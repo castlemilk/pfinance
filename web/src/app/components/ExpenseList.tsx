@@ -106,6 +106,9 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Category filter (client-side, applied before pagination)
+  const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | 'all'>('all');
+
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -117,17 +120,23 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
   // Check if user has groups to share with
   const canShare = groups.length > 0;
 
-  // Filter expenses by date if filterDate is provided
+  // Filter expenses by date and/or category
   const filteredExpenses = useMemo(() => {
-    if (!filterDate) return expenses;
-    return expenses.filter((e) => {
-      const d = e.date;
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}` === filterDate;
-    });
-  }, [expenses, filterDate]);
+    let out = expenses;
+    if (filterDate) {
+      out = out.filter((e) => {
+        const d = e.date;
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}` === filterDate;
+      });
+    }
+    if (categoryFilter !== 'all') {
+      out = out.filter((e) => e.category === categoryFilter);
+    }
+    return out;
+  }, [expenses, filterDate, categoryFilter]);
 
   // Pagination computed values
   const totalPages = Math.max(1, Math.ceil(filteredExpenses.length / PAGE_SIZE));
@@ -140,7 +149,7 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
   // Reset page when filters or data change
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterDate, expenses]);
+  }, [filterDate, categoryFilter, expenses]);
 
   // Search display items
   const searchDisplayItems = useMemo(() => {
@@ -531,29 +540,47 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
             </div>
           </div>
 
-          {/* Search bar - hidden in dashboard preview mode */}
+          {/* Search bar + category filter - hidden in dashboard preview mode */}
           {!limit && (
-            <div className="relative mt-2">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search expenses..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-9"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => {
-                    setSearchQuery('');
-                    setSearchResults([]);
-                    setSearchTotalCount(0);
-                    setIsSearching(false);
-                  }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
+            <div className="flex flex-col sm:flex-row gap-2 mt-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search expenses..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 pr-9"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSearchResults([]);
+                      setSearchTotalCount(0);
+                      setIsSearching(false);
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <Select
+                value={categoryFilter}
+                onValueChange={(v) => setCategoryFilter(v as ExpenseCategory | 'all')}
+              >
+                <SelectTrigger className="w-full sm:w-44">
+                  <SelectValue placeholder="All categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All categories</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
 

@@ -3,5 +3,8 @@
   "regions": ["iad1"],
   "buildCommand": "npm run build",
   "installCommand": "rm -f package-lock.json && npm install --legacy-peer-deps",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "git": {
+    "deploymentEnabled": false
+  }
 }

@@ -626,13 +626,23 @@ func (s *ExtractionService) ImportTransactions(
 			expenseDate = timestamppb.Now()
 		}
 
-		// Create expense
+		description := tx.NormalizedMerchant
+		if description == "" {
+			description = tx.Description
+		}
+
+		amountCents := tx.AmountCents
+		if amountCents == 0 {
+			amountCents = int64(tx.Amount * 100)
+		}
+
 		expense := &pfinancev1.Expense{
 			Id:          uuid.New().String(),
 			UserId:      userID,
 			GroupId:     groupID,
-			Description: tx.NormalizedMerchant,
+			Description: description,
 			Amount:      tx.Amount,
+			AmountCents: amountCents,
 			Category:    tx.SuggestedCategory,
 			Frequency:   defaultFrequency,
 			Date:        expenseDate,
