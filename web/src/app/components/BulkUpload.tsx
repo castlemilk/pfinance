@@ -261,20 +261,84 @@ export function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialFiles]);
 
-  // While the bulk-upload UI is mounted, prevent the browser from opening
-  // files dropped anywhere on the page (default behaviour navigates to the
-  // file). The dropzone's own handlers still fire normally.
+  // ── Window-level drag-and-drop ──────────────────────────
+  //
+  // While the bulk-upload dialog is mounted, files dropped anywhere on the
+  // page are added to the upload (instead of opening in the browser). A
+  // fullscreen overlay highlights the drop target while dragging.
+  //
+  // We use a depth counter rather than dragenter/dragleave alone because
+  // dragleave fires every time the cursor crosses a child element, which
+  // would make the overlay flicker rapidly while the user moves the
+  // cursor through the dialog.
+  const dragDepthRef = useRef(0);
   useEffect(() => {
-    const prevent = (e: DragEvent) => {
+    // Only intercept drag events while the dialog is open. Otherwise an
+    // off-screen mounted instance would steal drops elsewhere on the page.
+    if (!open) return;
+    // Returns true if any of the dragged items look like files (vs. text/HTML).
+    const hasFiles = (e: DragEvent): boolean => {
+      const items = e.dataTransfer?.items;
+      if (items && items.length > 0) {
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].kind === 'file') return true;
+        }
+        return false;
+      }
+      // Older browsers/Safari sometimes only expose `types`.
+      const types = e.dataTransfer?.types;
+      if (types) {
+        for (let i = 0; i < types.length; i++) {
+          if (types[i] === 'Files' || types[i] === 'application/x-moz-file') {
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+
+    const onDragEnter = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
       e.preventDefault();
+      dragDepthRef.current += 1;
+      if (dragDepthRef.current === 1) setIsDragging(true);
     };
-    window.addEventListener('dragover', prevent);
-    window.addEventListener('drop', prevent);
+    const onDragLeave = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+      if (dragDepthRef.current === 0) setIsDragging(false);
+    };
+    const onDragOver = (e: DragEvent) => {
+      // Always preventDefault so the OS shows the "copy" cursor and so the
+      // drop event actually fires when the user releases.
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    };
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault();
+      dragDepthRef.current = 0;
+      setIsDragging(false);
+      const dropped = e.dataTransfer?.files;
+      if (dropped && dropped.length > 0) {
+        addFiles(dropped);
+      }
+    };
+
+    window.addEventListener('dragenter', onDragEnter);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('drop', onDrop);
     return () => {
-      window.removeEventListener('dragover', prevent);
-      window.removeEventListener('drop', prevent);
+      window.removeEventListener('dragenter', onDragEnter);
+      window.removeEventListener('dragleave', onDragLeave);
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('drop', onDrop);
+      dragDepthRef.current = 0;
     };
-  }, []);
+    // addFiles is stable (useCallback below) so we only depend on `open`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const addFilesFromArray = useCallback((fileArray: File[]) => {
     const newFiles: BulkFile[] = fileArray
@@ -334,27 +398,9 @@ export function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini, 
     setFiles((prev) => prev.filter((f) => f.id !== id));
   }, []);
 
-  // ── Drag & Drop ──────────────────────────────────────
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      setIsDragging(false);
-      if (e.dataTransfer.files.length > 0) {
-        addFiles(e.dataTransfer.files);
-      }
-    },
-    [addFiles],
-  );
-
-  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback(() => {
-    setIsDragging(false);
-  }, []);
+  // ── File picker (click-to-browse) ────────────────────
+  // Drag & drop is handled at window level (see useEffect above) so users
+  // can drop anywhere over the dialog, not just the small dropzone tile.
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -962,6 +1008,21 @@ export function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini, 
   const progressPercent = totalBytes > 0 ? ((completedBytes + currentFileBytes) / totalBytes) * 100 : 0;
 
   return (
+    <>
+      {/* Fullscreen drop overlay — visible only while files are being dragged
+          over the page. Drop is handled at window level, so this overlay is
+          purely visual feedback. */}
+      {open && isDragging && step === 'select' && (
+        <div className="pointer-events-none fixed inset-0 z-[100] flex items-center justify-center bg-primary/10 backdrop-blur-sm">
+          <div className="rounded-2xl border-4 border-dashed border-primary bg-background/90 px-12 py-10 shadow-2xl">
+            <Upload className="mx-auto mb-4 h-12 w-12 text-primary" />
+            <p className="text-xl font-semibold text-center">Drop to upload</p>
+            <p className="mt-1 text-sm text-muted-foreground text-center">
+              Release anywhere on the page
+            </p>
+          </div>
+        </div>
+      )}
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
       <DialogContent className="max-w-5xl sm:max-w-5xl max-h-[90vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
@@ -989,6 +1050,7 @@ export function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini, 
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 
   // ── Step: Select ─────────────────────────────────────
@@ -1010,22 +1072,22 @@ export function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini, 
           <Switch checked={useGemini} onCheckedChange={setUseGemini} />
         </div>
 
-        {/* Drop zone */}
+        {/* Drop zone — click-to-browse. Drag-and-drop is handled at window
+            level so users can drop anywhere over the dialog. */}
         <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
           onClick={() => fileInputRef.current?.click()}
           className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200 flex-shrink-0 ${
             isDragging
-              ? 'border-primary bg-primary/5 scale-[1.01]'
+              ? 'border-primary bg-primary/10'
               : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30'
           }`}
         >
           <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-          <p className="font-medium">Drop files here or click to browse</p>
+          <p className="font-medium">
+            {isDragging ? 'Drop anywhere to add' : 'Drop files here or click to browse'}
+          </p>
           <p className="text-sm text-muted-foreground mt-1">
-            JPG, PNG, WebP, PDF -- select multiple files at once
+            JPG, PNG, WebP, PDF — select multiple files at once
           </p>
           <input
             ref={fileInputRef}
