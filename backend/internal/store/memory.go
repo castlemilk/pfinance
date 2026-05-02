@@ -40,6 +40,13 @@ type MemoryStore struct {
 	categoryOverrides        map[string]*pfinancev1.CategoryOverride
 	apiTokens                map[string]*pfinancev1.ApiToken
 	processedStatements      []*pfinancev1.ProcessedStatement
+	salaryCalcStates         map[string]salaryCalcStateBlob
+}
+
+// salaryCalcStateBlob holds a per-user JSON snapshot of the salary calculator.
+type salaryCalcStateBlob struct {
+	json      string
+	updatedAt time.Time
 }
 
 // NewMemoryStore creates a new in-memory store
@@ -66,7 +73,29 @@ func NewMemoryStore() *MemoryStore {
 		taxDeductibilityMappings: make(map[string]*pfinancev1.TaxDeductibilityMapping),
 		categoryOverrides:        make(map[string]*pfinancev1.CategoryOverride),
 		apiTokens:                make(map[string]*pfinancev1.ApiToken),
+		salaryCalcStates:         make(map[string]salaryCalcStateBlob),
 	}
+}
+
+// GetSalaryCalculatorState returns the saved JSON state for a user, or
+// ("", zero time, nil) if none exists.
+func (m *MemoryStore) GetSalaryCalculatorState(_ context.Context, userID string) (string, time.Time, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	blob, ok := m.salaryCalcStates[userID]
+	if !ok {
+		return "", time.Time{}, nil
+	}
+	return blob.json, blob.updatedAt, nil
+}
+
+// SaveSalaryCalculatorState stores the JSON state for a user, replacing any
+// previous value.
+func (m *MemoryStore) SaveSalaryCalculatorState(_ context.Context, userID string, stateJSON string, updatedAt time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.salaryCalcStates[userID] = salaryCalcStateBlob{json: stateJSON, updatedAt: updatedAt}
+	return nil
 }
 
 // paginateIDs applies cursor-based pagination to a sorted slice of IDs.

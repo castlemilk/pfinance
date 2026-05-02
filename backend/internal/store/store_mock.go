@@ -750,6 +750,22 @@ func (mr *MockStoreMockRecorder) GetRecurringTransaction(ctx, rtID any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRecurringTransaction", reflect.TypeOf((*MockStore)(nil).GetRecurringTransaction), ctx, rtID)
 }
 
+// GetSalaryCalculatorState mocks base method.
+func (m *MockStore) GetSalaryCalculatorState(ctx context.Context, userID string) (string, time.Time, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSalaryCalculatorState", ctx, userID)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(time.Time)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetSalaryCalculatorState indicates an expected call of GetSalaryCalculatorState.
+func (mr *MockStoreMockRecorder) GetSalaryCalculatorState(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSalaryCalculatorState", reflect.TypeOf((*MockStore)(nil).GetSalaryCalculatorState), ctx, userID)
+}
+
 // GetTaxConfig mocks base method.
 func (m *MockStore) GetTaxConfig(ctx context.Context, userID, groupID string) (*pfinancev1.TaxConfig, error) {
 	m.ctrl.T.Helper()
@@ -1118,6 +1134,20 @@ func (m *MockStore) RevokeApiToken(ctx context.Context, tokenID string) error {
 func (mr *MockStoreMockRecorder) RevokeApiToken(ctx, tokenID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeApiToken", reflect.TypeOf((*MockStore)(nil).RevokeApiToken), ctx, tokenID)
+}
+
+// SaveSalaryCalculatorState mocks base method.
+func (m *MockStore) SaveSalaryCalculatorState(ctx context.Context, userID, stateJSON string, updatedAt time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveSalaryCalculatorState", ctx, userID, stateJSON, updatedAt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveSalaryCalculatorState indicates an expected call of SaveSalaryCalculatorState.
+func (mr *MockStoreMockRecorder) SaveSalaryCalculatorState(ctx, userID, stateJSON, updatedAt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSalaryCalculatorState", reflect.TypeOf((*MockStore)(nil).SaveSalaryCalculatorState), ctx, userID, stateJSON, updatedAt)
 }
 
 // SearchTransactions mocks base method.

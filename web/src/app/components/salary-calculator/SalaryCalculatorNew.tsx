@@ -13,6 +13,8 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { TaxSettings, IncomeFrequency } from '@/app/types';
 import { useFinance } from '@/app/context/FinanceContext';
+import { useAuth } from '@/app/context/AuthWithAdminContext';
+import { financeClient } from '@/lib/financeService';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getTaxSystem, TaxYear, TaxCategory, DEFAULT_TAX_YEAR, DEFAULT_TAX_CATEGORY } from '@/app/constants/taxSystems';
@@ -34,8 +36,17 @@ const SalaryBreakdownChart = dynamic(() => import('../SalaryBreakdownChart'), { 
 
 export function SalaryCalculatorNew() {
   const { taxConfig, updateTaxConfig, addIncome, updateIncome, incomes } = useFinance();
+  const { user } = useAuth();
   const calculatorRef = useRef<HTMLDivElement>(null);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const stateSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Hydration guard: don't auto-save state until we've finished loading.
+  // Otherwise the empty initial state would clobber the saved state in the
+  // brief window before load completes.
+  const [stateLoaded, setStateLoaded] = useState(false);
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Form state
   const form = useForm<SalaryFormData>({
@@ -228,6 +239,130 @@ export function SalaryCalculatorNew() {
     }
   }, [taxSettings.includePrivateHealth, taxSettings.includeMedicare]);
 
+  // ── Persistent calculator state per logged-in user ──────────────────
+  //
+  // On mount (and whenever the user changes), load any previously-saved
+  // calculator snapshot from the backend and rehydrate every input. While
+  // unauthenticated, the calculator works as before but nothing persists.
+  //
+  // Then on any state change (debounced 1s), serialise the snapshot and
+  // PUT it to the backend. The hydration guard prevents the empty initial
+  // state from overwriting the loaded one in the brief gap between mount
+  // and load-complete.
+  useEffect(() => {
+    if (!user) {
+      setStateLoaded(true);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await financeClient.getSalaryCalculatorState({});
+        if (cancelled) return;
+        if (res.stateJson) {
+          try {
+            const saved = JSON.parse(res.stateJson);
+            // Form fields
+            if (saved.salary !== undefined) form.setValue('salary', saved.salary);
+            if (saved.frequency) form.setValue('frequency', saved.frequency);
+            if (saved.salaryInputMode) form.setValue('salaryInputMode', saved.salaryInputMode);
+            if (saved.voluntarySuper !== undefined) form.setValue('voluntarySuper', saved.voluntarySuper);
+            if (saved.packagingCap !== undefined) form.setValue('packagingCap', saved.packagingCap);
+            if (saved.isProratedHours !== undefined) form.setValue('isProratedHours', saved.isProratedHours);
+            if (saved.proratedHours !== undefined) form.setValue('proratedHours', saved.proratedHours);
+            if (saved.proratedFrequency) form.setValue('proratedFrequency', saved.proratedFrequency);
+            // Setting state
+            if (saved.taxSettings) setTaxSettings(saved.taxSettings);
+            if (saved.taxYear) setTaxYear(saved.taxYear);
+            if (saved.taxCategory) setTaxCategory(saved.taxCategory);
+            if (saved.currentPreset) setCurrentPreset(saved.currentPreset);
+            if (saved.studentLoanBalance !== undefined) setStudentLoanBalance(saved.studentLoanBalance);
+            // Array entries
+            if (Array.isArray(saved.overtimeEntries)) setOvertimeEntries(saved.overtimeEntries);
+            if (Array.isArray(saved.fringeBenefits)) setFringeBenefits(saved.fringeBenefits);
+            if (Array.isArray(saved.salarySacrifices)) setSalarySacrifices(saved.salarySacrifices);
+            if (Array.isArray(saved.novatedLeases)) setNovatedLeases(saved.novatedLeases);
+            // Nested objects
+            if (saved.deductions) setDeductions(saved.deductions);
+            if (saved.familyBenefits) setFamilyBenefits(saved.familyBenefits);
+            if (res.updatedAt) {
+              const d = new Date(Number(res.updatedAt.seconds) * 1000);
+              setSavedAt(d);
+            }
+          } catch (parseErr) {
+            console.error('[SalaryCalculator] Failed to parse saved state JSON:', parseErr);
+          }
+        }
+      } catch (err) {
+        console.error('[SalaryCalculator] Failed to load saved state:', err);
+      } finally {
+        if (!cancelled) setStateLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Only run on user change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
+
+  // Auto-save calculator state (debounced) whenever any input changes.
+  useEffect(() => {
+    if (!user || !stateLoaded) return;
+
+    if (stateSaveTimeoutRef.current) {
+      clearTimeout(stateSaveTimeoutRef.current);
+    }
+    stateSaveTimeoutRef.current = setTimeout(async () => {
+      try {
+        const snapshot = {
+          salary: watchedSalary,
+          frequency: watchedFrequency,
+          salaryInputMode: watchedInputMode,
+          voluntarySuper,
+          packagingCap,
+          isProratedHours,
+          proratedHours,
+          proratedFrequency,
+          taxSettings,
+          taxYear,
+          taxCategory,
+          currentPreset,
+          studentLoanBalance,
+          overtimeEntries,
+          fringeBenefits,
+          salarySacrifices,
+          novatedLeases,
+          deductions,
+          familyBenefits,
+        };
+        const res = await financeClient.saveSalaryCalculatorState({
+          stateJson: JSON.stringify(snapshot),
+        });
+        if (res.updatedAt) {
+          setSavedAt(new Date(Number(res.updatedAt.seconds) * 1000));
+        }
+        setSaveError(null);
+      } catch (err) {
+        console.error('[SalaryCalculator] Failed to save state:', err);
+        setSaveError(err instanceof Error ? err.message : 'Save failed');
+      }
+    }, 1000);
+
+    return () => {
+      if (stateSaveTimeoutRef.current) {
+        clearTimeout(stateSaveTimeoutRef.current);
+      }
+    };
+  }, [
+    user, stateLoaded,
+    watchedSalary, watchedFrequency, watchedInputMode,
+    voluntarySuper, packagingCap, isProratedHours, proratedHours, proratedFrequency,
+    taxSettings, taxYear, taxCategory, currentPreset, studentLoanBalance,
+    overtimeEntries, fringeBenefits, salarySacrifices, novatedLeases,
+    deductions, familyBenefits,
+  ]);
+
   // Load calculator state from URL parameters
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -330,6 +465,21 @@ export function SalaryCalculatorNew() {
             />
           </div>
 
+          {/* Persistence status — only when signed in. */}
+          {user && (
+            <div className="text-xs text-muted-foreground">
+              {saveError ? (
+                <span className="text-red-500">Couldn&apos;t save: {saveError}</span>
+              ) : savedAt ? (
+                <span>Saved to your account · {savedAt.toLocaleTimeString()}</span>
+              ) : stateLoaded ? (
+                <span>Changes will save automatically</span>
+              ) : (
+                <span>Loading your saved settings…</span>
+              )}
+            </div>
+          )}
+
           {/* Income Card */}
           <Card>
             <CardContent className="pt-6">
@@ -390,6 +540,7 @@ export function SalaryCalculatorNew() {
             breakdowns={calculations.breakdowns}
             taxSettings={taxSettings}
             salarySacrificeCalculation={calculations.salarySacrificeCalculation}
+            salarySacrifices={salarySacrifices}
             superannuation={calculations.superannuation}
             studentLoanRate={calculations.studentLoanRate}
             lito={calculations.lito}

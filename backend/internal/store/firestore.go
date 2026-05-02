@@ -9,6 +9,8 @@ import (
 
 	"cloud.google.com/go/firestore"
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -1135,6 +1137,47 @@ func (s *FirestoreStore) GetUser(ctx context.Context, userID string) (*pfinancev
 func (s *FirestoreStore) UpdateUser(ctx context.Context, user *pfinancev1.User) error {
 	_, err := s.client.Collection("users").Doc(user.Id).Set(ctx, user)
 	return err
+}
+
+// salaryCalcStateDoc is the Firestore representation of a saved calculator
+// snapshot. Stored at users/{uid}/private/salary_calculator.
+type salaryCalcStateDoc struct {
+	StateJSON string    `firestore:"state_json"`
+	UpdatedAt time.Time `firestore:"updated_at"`
+}
+
+// GetSalaryCalculatorState returns the saved JSON state for a user.
+// Returns ("", zero time, nil) when no state has been saved yet.
+func (s *FirestoreStore) GetSalaryCalculatorState(ctx context.Context, userID string) (string, time.Time, error) {
+	doc, err := s.client.Collection("users").Doc(userID).Collection("private").Doc("salary_calculator").Get(ctx)
+	if err != nil {
+		// Treat NotFound as "no state yet" — first-time user.
+		if status.Code(err) == codes.NotFound {
+			return "", time.Time{}, nil
+		}
+		return "", time.Time{}, fmt.Errorf("get salary calc state: %w", err)
+	}
+	var state salaryCalcStateDoc
+	if err := doc.DataTo(&state); err != nil {
+		return "", time.Time{}, fmt.Errorf("parse salary calc state: %w", err)
+	}
+	return state.StateJSON, state.UpdatedAt, nil
+}
+
+// SaveSalaryCalculatorState writes the JSON state for a user, replacing any
+// existing snapshot.
+func (s *FirestoreStore) SaveSalaryCalculatorState(ctx context.Context, userID string, stateJSON string, updatedAt time.Time) error {
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+	_, err := s.client.Collection("users").Doc(userID).Collection("private").Doc("salary_calculator").Set(ctx, salaryCalcStateDoc{
+		StateJSON: stateJSON,
+		UpdatedAt: updatedAt,
+	})
+	if err != nil {
+		return fmt.Errorf("save salary calc state: %w", err)
+	}
+	return nil
 }
 
 // DeleteUser deletes a user and all their associated data from Firestore

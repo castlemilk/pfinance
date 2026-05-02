@@ -76,6 +76,11 @@ type Store interface {
 	DeleteUser(ctx context.Context, userID string) error
 	ClearUserData(ctx context.Context, userID string) error
 
+	// Salary calculator state — per-user JSON-encoded snapshot of calculator
+	// inputs. Returns ("", zero time, nil) when the user has none saved yet.
+	GetSalaryCalculatorState(ctx context.Context, userID string) (stateJSON string, updatedAt time.Time, err error)
+	SaveSalaryCalculatorState(ctx context.Context, userID string, stateJSON string, updatedAt time.Time) error
+
 	// Goal operations
 	CreateGoal(ctx context.Context, goal *pfinancev1.FinancialGoal) error
 	GetGoal(ctx context.Context, goalID string) (*pfinancev1.FinancialGoal, error)

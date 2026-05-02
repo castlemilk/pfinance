@@ -6,7 +6,8 @@
 
 import { useState } from 'react';
 import { TaxSettings, IncomeFrequency } from '@/app/types';
-import { SalaryBreakdown, SalarySacrificeCalculation } from './types';
+import { SalaryBreakdown, SalarySacrificeCalculation, SalarySacrificeEntry } from './types';
+import { toAnnualAmount } from './utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -16,6 +17,7 @@ interface SummaryPanelProps {
   breakdowns: SalaryBreakdown[];
   taxSettings: TaxSettings;
   salarySacrificeCalculation: SalarySacrificeCalculation;
+  salarySacrifices: SalarySacrificeEntry[];
   superannuation: number;
   studentLoanRate: string;
   lito: number;
@@ -26,6 +28,7 @@ export function SummaryPanel({
   breakdowns,
   taxSettings,
   salarySacrificeCalculation,
+  salarySacrifices,
   superannuation,
   studentLoanRate,
   lito,
@@ -175,6 +178,25 @@ export function SummaryPanel({
                         {formatCurrency(convertToFrequency(salarySacrificeCalculation.totalSalarySacrifice, breakdown.frequency))}
                       </span>
                     </div>
+                    {/* Per-item rows: updating a description here is visible
+                        immediately, since each row is keyed on the entry's
+                        own description + amount. */}
+                    {salarySacrifices.length > 0 && (
+                      <div className="pl-3 space-y-1 text-xs text-muted-foreground border-l-2 border-blue-200 dark:border-blue-800">
+                        {salarySacrifices.map((entry) => {
+                          const annual = toAnnualAmount(parseFloat(entry.amount) || 0, entry.frequency);
+                          const perFreq = convertToFrequency(annual, breakdown.frequency);
+                          return (
+                            <div key={entry.id} className="flex justify-between">
+                              <span className="truncate pr-2">
+                                · {entry.description || 'Salary sacrifice'}
+                              </span>
+                              <span className="whitespace-nowrap">{formatCurrency(perFreq)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                     <Separator />
                     <div className="flex justify-between font-medium">
                       <span>Total Take-home</span>

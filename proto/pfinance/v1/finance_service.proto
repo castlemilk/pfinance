@@ -192,6 +192,13 @@ service FinanceService {
   rpc ListAllUsers(ListAllUsersRequest) returns (ListAllUsersResponse);
   rpc SetUserTier(SetUserTierRequest) returns (SetUserTierResponse);
   rpc SetUserAdmin(SetUserAdminRequest) returns (SetUserAdminResponse);
+
+  // Salary calculator state — per-user persistent snapshot of calculator
+  // inputs (salary, frequency, packaging, overtime, fringe benefits, etc).
+  // Stored as a JSON blob so the calculator UI can evolve without proto
+  // churn. ~10–50KB typical, capped at 100KB by the handler.
+  rpc GetSalaryCalculatorState(GetSalaryCalculatorStateRequest) returns (GetSalaryCalculatorStateResponse);
+  rpc SaveSalaryCalculatorState(SaveSalaryCalculatorStateRequest) returns (SaveSalaryCalculatorStateResponse);
 }
 
 // User operations
@@ -1875,4 +1882,26 @@ message SetUserAdminRequest {
 
 message SetUserAdminResponse {
   AdminUserSummary user = 1;
+}
+
+// ============================================================================
+// Salary Calculator state
+// ============================================================================
+
+message GetSalaryCalculatorStateRequest {}
+
+message GetSalaryCalculatorStateResponse {
+  // JSON-encoded calculator state. Empty string when the user has never
+  // saved one yet — the frontend should treat this as "use defaults".
+  string state_json = 1;
+  google.protobuf.Timestamp updated_at = 2;
+}
+
+message SaveSalaryCalculatorStateRequest {
+  // JSON-encoded calculator state. Capped at 100KB by the handler.
+  string state_json = 1;
+}
+
+message SaveSalaryCalculatorStateResponse {
+  google.protobuf.Timestamp updated_at = 1;
 }
