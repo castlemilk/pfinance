@@ -489,6 +489,51 @@ func TestScoreDuplicate(t *testing.T) {
 			t.Errorf("expected score < 0.6 for different items, got %f", score)
 		}
 	})
+
+	// Regression: same amount + same date at DIFFERENT merchants must not
+	// auto-skip. Under the old weighting (amount 0.5 + date 0.3) this
+	// scored 0.8 — high enough to falsely flag a $50 lunch at one cafe
+	// and a $50 dinner at another on the same day as a duplicate.
+	t.Run("same amount + same date at different merchants is NOT a duplicate", func(t *testing.T) {
+		tx := &pfinancev1.ExtractedTransaction{
+			Description:        "TERRA MADRE NORTHCOTE",
+			NormalizedMerchant: "Terra Madre",
+			Amount:             50.00,
+			Date:               "2025-01-15",
+		}
+		exp := &pfinancev1.Expense{
+			Description: "MESOB ETHIOPIAN", // Completely different merchant
+			Amount:      50.00,
+			Date:        timestamppb.New(time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)),
+		}
+
+		score, reason := scoreDuplicate(tx, exp)
+		if score >= dedupSkipThreshold {
+			t.Errorf("expected score < %.2f (different merchants should never auto-skip), got %f (%s)",
+				dedupSkipThreshold, score, reason)
+		}
+	})
+
+	// Regression: same merchant, same amount, same date is the textbook
+	// duplicate (e.g. re-uploading a statement) and must score above
+	// the skip threshold.
+	t.Run("same merchant + same amount + same date IS a duplicate", func(t *testing.T) {
+		tx := &pfinancev1.ExtractedTransaction{
+			NormalizedMerchant: "Coles",
+			Amount:             87.50,
+			Date:               "2025-01-15",
+		}
+		exp := &pfinancev1.Expense{
+			Description: "Coles",
+			Amount:      87.50,
+			Date:        timestamppb.New(time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)),
+		}
+		score, reason := scoreDuplicate(tx, exp)
+		if score < dedupSkipThreshold {
+			t.Errorf("expected score >= %.2f for textbook duplicate, got %f (%s)",
+				dedupSkipThreshold, score, reason)
+		}
+	})
 }
 
 func TestCategoryOverrideRPCs(t *testing.T) {

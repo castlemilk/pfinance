@@ -888,6 +888,11 @@ message ImportExtractedTransactionsRequest {
   string original_filename = 7;           // Original filename for dedup tracking
   repeated string receipt_urls = 8;         // Receipt download URLs (parallel with transactions)
   repeated string receipt_storage_paths = 9; // Receipt storage paths (parallel with transactions)
+  // When true, BOTH the per-transaction dedup check AND the statement-level
+  // dedup are bypassed. Use when the user explicitly wants to import
+  // everything (e.g. re-uploading a partially-imported statement to recover
+  // missing rows). Overrides skip_duplicates entirely.
+  bool force_import = 10;
 }
 
 message ImportExtractedTransactionsResponse {

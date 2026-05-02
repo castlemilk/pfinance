@@ -68,6 +68,7 @@ import {
   Pause,
   Play,
   Square,
+  AlertTriangle,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -219,6 +220,10 @@ export function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini, 
 
   // Tax classification state
   const [classifyForTax, setClassifyForTax] = useState(true);
+  // forceImport bypasses both per-transaction and statement-level dedup —
+  // for cases like re-uploading a partially-imported statement to recover
+  // missing rows. Off by default to preserve normal dedup behaviour.
+  const [forceImport, setForceImport] = useState(false);
   const [classifyingTax, setClassifyingTax] = useState(false);
   const [taxClassifyResult, setTaxClassifyResult] = useState<{
     totalProcessed: number;
@@ -839,7 +844,8 @@ export function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini, 
       userId: user.uid,
       groupId: '',
       transactions: batch.map((t) => t.rawTransaction),
-      skipDuplicates: true,
+      skipDuplicates: !forceImport,
+      forceImport,
       defaultFrequency: ProtoExpenseFrequency.ONCE,
       statementMetadata: fileWithMetadata?.statementMetadata,
       originalFilename: firstFileName,
@@ -1630,6 +1636,25 @@ export function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini, 
             </div>
           </div>
           <Switch checked={classifyForTax} onCheckedChange={setClassifyForTax} />
+        </div>
+
+        {/* Force-import toggle — bypass duplicate detection. Useful when
+            re-uploading a partially-imported statement to recover missing
+            rows, where the dedup would otherwise skip everything we
+            already imported. */}
+        <div className={`flex items-center justify-between p-3 rounded-lg border flex-shrink-0 ${forceImport ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800' : 'bg-muted/30'}`}>
+          <div className="flex items-center gap-2">
+            <AlertTriangle className={`h-4 w-4 ${forceImport ? 'text-amber-600' : 'text-muted-foreground'}`} />
+            <div>
+              <Label className="text-sm font-medium">Force import (skip duplicate detection)</Label>
+              <p className="text-xs text-muted-foreground">
+                {forceImport
+                  ? 'All selected transactions will be imported even if they look like duplicates of existing expenses.'
+                  : 'Skip transactions that look like duplicates of existing expenses.'}
+              </p>
+            </div>
+          </div>
+          <Switch checked={forceImport} onCheckedChange={setForceImport} />
         </div>
 
         {/* Footer */}

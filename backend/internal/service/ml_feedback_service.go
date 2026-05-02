@@ -228,7 +228,7 @@ func (s *FinanceService) findDuplicatesForTransaction(ctx context.Context, userI
 	var candidates []*pfinancev1.DuplicateCandidate
 	for _, exp := range expenses {
 		score, reason := scoreDuplicate(tx, exp)
-		if score >= 0.6 {
+		if score >= dedupSkipThreshold {
 			dateStr := ""
 			if exp.Date != nil {
 				dateStr = exp.Date.AsTime().Format("2006-01-02")
@@ -249,39 +249,41 @@ func (s *FinanceService) findDuplicatesForTransaction(ctx context.Context, userI
 }
 
 // scoreDuplicate scores how similar a transaction is to an existing expense.
+//
+// Weights are description-heavy because two $50 transactions on the same day
+// at *different* merchants are obviously not duplicates — but the previous
+// scoring (amount 0.5 + date 0.3 + desc 0.2) would flag them as 0.8 and
+// auto-skip them. New model: description carries the most weight (gating
+// signal), amount and date are confirmers.
+//
+//	Description (Levenshtein ratio on lowercased trimmed strings):
+//	  ≥ 0.95 → 0.50  (essentially identical merchant string)
+//	  ≥ 0.85 → 0.40
+//	  ≥ 0.70 → 0.25
+//	   else  → 0.0
+//	Amount:
+//	  exact (within $0.01) → 0.30
+//	  within 5%            → 0.15
+//	Date:
+//	  same day  → 0.20
+//	  ±2 days   → 0.10
+//
+// Threshold = 0.70. Reachable combinations:
+//   - exact merchant + exact amount + same date           = 1.00
+//   - exact merchant + exact amount                       = 0.80  ✓
+//   - exact merchant + same date                          = 0.70  ✓ (just at threshold)
+//   - similar merchant (0.85+) + exact amount + same date = 0.90  ✓
+//   - exact amount + same date, DIFFERENT merchant        = 0.50  ✗ (correctly NOT flagged)
+//
+// The threshold is tuned so that mismatching merchants (the common false
+// positive) never auto-skip, regardless of how well amount and date match.
+const dedupSkipThreshold = 0.70
+
 func scoreDuplicate(tx *pfinancev1.ExtractedTransaction, exp *pfinancev1.Expense) (float64, string) {
 	score := 0.0
 	var reasons []string
 
-	// Amount match
-	if tx.Amount > 0 && exp.Amount > 0 {
-		diff := math.Abs(tx.Amount - exp.Amount)
-		if diff < 0.01 {
-			score += 0.5
-			reasons = append(reasons, "Exact amount match")
-		} else if diff/tx.Amount < 0.05 {
-			score += 0.3
-			reasons = append(reasons, "Similar amount")
-		}
-	}
-
-	// Date match
-	if tx.Date != "" && exp.Date != nil {
-		txDate, err := time.Parse("2006-01-02", tx.Date)
-		if err == nil {
-			expDate := exp.Date.AsTime()
-			dayDiff := math.Abs(txDate.Sub(expDate).Hours() / 24)
-			if dayDiff < 1 {
-				score += 0.3
-				reasons = append(reasons, "Same date")
-			} else if dayDiff <= 2 {
-				score += 0.2
-				reasons = append(reasons, "Adjacent date")
-			}
-		}
-	}
-
-	// Description similarity
+	// Description similarity — primary gate.
 	txDesc := strings.ToLower(strings.TrimSpace(tx.NormalizedMerchant))
 	if txDesc == "" {
 		txDesc = strings.ToLower(strings.TrimSpace(tx.Description))
@@ -289,9 +291,46 @@ func scoreDuplicate(tx *pfinancev1.ExtractedTransaction, exp *pfinancev1.Expense
 	expDesc := strings.ToLower(strings.TrimSpace(exp.Description))
 	if txDesc != "" && expDesc != "" {
 		ratio := levenshteinRatio(txDesc, expDesc)
-		if ratio > 0.7 {
-			score += 0.2
-			reasons = append(reasons, "Similar description")
+		switch {
+		case ratio >= 0.95:
+			score += 0.50
+			reasons = append(reasons, "Same merchant")
+		case ratio >= 0.85:
+			score += 0.40
+			reasons = append(reasons, "Very similar merchant")
+		case ratio >= 0.70:
+			score += 0.25
+			reasons = append(reasons, "Similar merchant")
+		}
+	}
+
+	// Amount match — strong confirmer when description already matches.
+	if tx.Amount > 0 && exp.Amount > 0 {
+		diff := math.Abs(tx.Amount - exp.Amount)
+		switch {
+		case diff < 0.01:
+			score += 0.30
+			reasons = append(reasons, "Exact amount match")
+		case diff/tx.Amount < 0.05:
+			score += 0.15
+			reasons = append(reasons, "Similar amount")
+		}
+	}
+
+	// Date match — confirmer.
+	if tx.Date != "" && exp.Date != nil {
+		txDate, err := time.Parse("2006-01-02", tx.Date)
+		if err == nil {
+			expDate := exp.Date.AsTime()
+			dayDiff := math.Abs(txDate.Sub(expDate).Hours() / 24)
+			switch {
+			case dayDiff < 1:
+				score += 0.20
+				reasons = append(reasons, "Same date")
+			case dayDiff <= 2:
+				score += 0.10
+				reasons = append(reasons, "Adjacent date")
+			}
 		}
 	}
 

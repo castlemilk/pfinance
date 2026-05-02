@@ -203,11 +203,14 @@ func (s *FinanceService) ImportExtractedTransactions(ctx context.Context, req *c
 			fmt.Errorf("extraction service is not available"))
 	}
 
-	// Filter out duplicates before importing if skip_duplicates is set
+	// Filter out duplicates before importing if skip_duplicates is set.
+	// force_import bypasses both this per-transaction check AND the
+	// statement-level dedup further down — used when the caller knows
+	// they're re-uploading a statement to recover missing rows.
 	transactions := req.Msg.Transactions
 	var dupSkippedCount int
 	var dupSkippedReasons []string
-	if req.Msg.SkipDuplicates && len(transactions) > 0 {
+	if req.Msg.SkipDuplicates && !req.Msg.ForceImport && len(transactions) > 0 {
 		var filtered []*pfinancev1.ExtractedTransaction
 		for _, tx := range transactions {
 			candidates := s.findDuplicatesForTransaction(ctx, claims.UID, req.Msg.GroupId, tx)
@@ -225,13 +228,16 @@ func (s *FinanceService) ImportExtractedTransactions(ctx context.Context, req *c
 		transactions = filtered
 	}
 
-	// Convert transactions to expenses
+	// Convert transactions to expenses. Pass skip_duplicates=false when
+	// force_import is set so the lower-level dedup (statement fingerprint
+	// + per-transaction hash) also lets everything through.
+	skipDuplicates := req.Msg.SkipDuplicates && !req.Msg.ForceImport
 	expenses, skippedCount, skippedReasons, err := extractionService.ImportTransactions(
 		ctx,
 		req.Msg.UserId,
 		req.Msg.GroupId,
 		transactions,
-		req.Msg.SkipDuplicates,
+		skipDuplicates,
 		req.Msg.DefaultFrequency,
 	)
 	if err != nil {
