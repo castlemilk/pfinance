@@ -1,6 +1,7 @@
 package extraction
 
 import (
+	"errors"
 	"testing"
 )
 
@@ -119,6 +120,38 @@ func TestPerChunkOutputTokens_RespectsBounds(t *testing.T) {
 		if got := perChunkOutputTokens(c.pages); got != c.want {
 			t.Errorf("perChunkOutputTokens(%d): want %d, got %d", c.pages, c.want, got)
 		}
+	}
+}
+
+func TestExtractJSON_TruncatedJSONReturnsTypedError(t *testing.T) {
+	// Response that opens a JSON object but never closes — what Gemini
+	// returns when max_output_tokens is exhausted mid-stream.
+	truncated := `{
+  "metadata": {"bank_name": "ANZ", "currency": "AUD"},
+  "transactions": [
+    {"date": "2026-01-01", "description": "Coffee Shop", "amount": 4.50},
+    {"date": "2026-01-02", "description": "Uber", "amount`
+
+	var dest map[string]interface{}
+	err := extractJSON(truncated, &dest)
+	if err == nil {
+		t.Fatal("expected error from truncated JSON, got nil")
+	}
+	if !errors.Is(err, ErrTruncatedJSON) {
+		t.Errorf("expected ErrTruncatedJSON, got %v", err)
+	}
+}
+
+func TestExtractJSON_NoOpenBraceReturnsGenericError(t *testing.T) {
+	// Response that is plain prose, no JSON object at all (e.g. a refusal).
+	prose := "I'm sorry, I can't help with that."
+	var dest map[string]interface{}
+	err := extractJSON(prose, &dest)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if errors.Is(err, ErrTruncatedJSON) {
+		t.Errorf("plain prose should NOT be classified as truncation; got %v", err)
 	}
 }
 

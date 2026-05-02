@@ -20,6 +20,13 @@ import (
 
 const defaultGeminiBaseURL = "https://generativelanguage.googleapis.com/v1beta"
 
+// ErrTruncatedJSON indicates Gemini's response started with valid JSON but
+// was cut off before a balanced closing brace — typically because the
+// configured max_output_tokens budget was exhausted. Distinct from a
+// generic "no JSON object found" error so callers can react specifically
+// (sub-chunk a page range, bump the token budget, etc).
+var ErrTruncatedJSON = fmt.Errorf("gemini response truncated mid-JSON (max_output_tokens likely exceeded)")
+
 // ValidationService validates ML extractions using commercial APIs.
 type ValidationService struct {
 	geminiAPIKey  string
@@ -97,10 +104,14 @@ type GeminiMetadata struct {
 	TransactionCount  int    `json:"transaction_count"`
 }
 
-// GeminiResponse represents the response from Gemini API.
+// GeminiResponse represents the response from Gemini API. The Warnings
+// field is server-side only (no `json` tag) — it carries human-readable
+// notes such as failed chunk page ranges that should be surfaced to the
+// frontend via ExtractionResult.warnings.
 type GeminiResponse struct {
 	Transactions []GeminiTransaction `json:"transactions"`
 	Metadata     *GeminiMetadata     `json:"metadata,omitempty"`
+	Warnings     []string            `json:"-"`
 }
 
 // extractWithGeminiRetry wraps extractWithGemini with retry logic using default token limit.
@@ -456,8 +467,16 @@ func extractJSON(text string, v interface{}) error {
 		}
 	}
 
-	if start == -1 || end == -1 {
+	if start == -1 {
 		return fmt.Errorf("no JSON object found in response")
+	}
+	if end == -1 {
+		// We saw the opening { but never reached a balanced closing brace.
+		// This is the signature of Gemini truncating mid-stream because it
+		// hit max_output_tokens — distinct from "Gemini sent prose with no
+		// JSON at all". Callers can react to ErrTruncatedJSON specifically
+		// (e.g. retry with a smaller page range or larger token budget).
+		return ErrTruncatedJSON
 	}
 
 	jsonStr := text[start:end]
@@ -560,6 +579,7 @@ func (v *ValidationService) ExtractWithGeminiAdvanced(
 		DocumentType:      docType,
 		PageCount:         pageCount,
 		MethodUsed:        pfinancev1.ExtractionMethod_EXTRACTION_METHOD_GEMINI,
+		Warnings:          append([]string(nil), geminiResult.Warnings...),
 	}
 
 	// Attach statement metadata if present (for bank statements)

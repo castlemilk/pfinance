@@ -2,6 +2,7 @@ package extraction
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -138,18 +139,7 @@ func (v *ValidationService) extractWithGeminiChunked(
 			chunkCtx, cancel := context.WithTimeout(ctx, perChunkTimeout)
 			defer cancel()
 
-			perChunkTokens := perChunkOutputTokens(ch.PageEnd - ch.PageStart + 1)
-			chunkCtxInfo := &chunkInfo{
-				PageStart:  ch.PageStart,
-				PageEnd:    ch.PageEnd,
-				TotalPages: totalPages,
-			}
-			resp, err := WithRetry(chunkCtx, chunkRetry, func(c context.Context) (*GeminiResponse, error) {
-				return v.extractWithGeminiOpts(c, ch.Data, geminiExtractOpts{
-					MaxOutputTokens: perChunkTokens,
-					Chunk:           chunkCtxInfo,
-				})
-			})
+			resp, err := v.extractChunkAdaptive(chunkCtx, ch, totalPages, chunkRetry, 0)
 			if err != nil {
 				log.Printf("[gemini-chunked] chunk %d (pages %d-%d) failed: %v",
 					i, ch.PageStart, ch.PageEnd, err)
@@ -163,11 +153,23 @@ func (v *ValidationService) extractWithGeminiChunked(
 	}
 	wg.Wait()
 
-	// Count how many chunks succeeded.
+	// Count how many chunks succeeded and collect per-chunk failure context
+	// for the user-visible warning. Truncation gets a more actionable hint
+	// than generic errors.
 	successCount := 0
-	for _, r := range responses {
+	var failedRanges []string
+	var truncatedRanges []string
+	for i, r := range responses {
 		if r != nil {
 			successCount++
+			continue
+		}
+		ch := chunks[i]
+		rangeStr := fmt.Sprintf("pages %d-%d", ch.PageStart, ch.PageEnd)
+		if errs[i] != nil && errors.Is(errs[i], ErrTruncatedJSON) {
+			truncatedRanges = append(truncatedRanges, rangeStr)
+		} else {
+			failedRanges = append(failedRanges, rangeStr)
 		}
 	}
 	if successCount == 0 {
@@ -181,9 +183,137 @@ func (v *ValidationService) extractWithGeminiChunked(
 	}
 
 	merged := mergeChunkedResponses(responses)
-	log.Printf("[gemini-chunked] merged %d/%d successful chunks into %d transactions in %s",
-		successCount, len(chunks), len(merged.Transactions), time.Since(startedAt))
+
+	// User-visible warnings — attached to the merged response and
+	// eventually surfaced via ExtractionResult.warnings on the wire.
+	if len(truncatedRanges) > 0 {
+		merged.Warnings = append(merged.Warnings, fmt.Sprintf(
+			"Some pages had too many transactions to fit in one Gemini call and were skipped: %s. The remaining pages were extracted successfully. Consider splitting the PDF into smaller files.",
+			strings.Join(truncatedRanges, ", "),
+		))
+	}
+	if len(failedRanges) > 0 {
+		merged.Warnings = append(merged.Warnings, fmt.Sprintf(
+			"Some pages could not be extracted and were skipped: %s. The remaining pages were extracted successfully.",
+			strings.Join(failedRanges, ", "),
+		))
+	}
+
+	log.Printf("[gemini-chunked] merged %d/%d successful chunks into %d transactions in %s (failed=%d truncated=%d)",
+		successCount, len(chunks), len(merged.Transactions), time.Since(startedAt),
+		len(failedRanges), len(truncatedRanges))
 	return merged, nil
+}
+
+// extractChunkAdaptive runs Gemini extraction on a chunk and, if the call
+// fails specifically because Gemini truncated mid-JSON, recursively halves
+// the page range and retries each half. This recovers chunks too dense to
+// fit in the token budget without giving up the whole page range.
+//
+// Recursion is sequential (not parallel) to keep total wall time bounded
+// by the parent chunkCtx — typical worst case is ~2-3 levels of halving
+// for a heavily-loaded chunk, well inside 120s.
+//
+// Non-truncation errors short-circuit and propagate up unchanged so we
+// don't waste retries on rate limits or schema mismatches.
+//
+// maxRecursionDepth is set to 4 because halving from 5 pages reaches
+// single pages in ⌈log2(5)⌉ = 3 splits; one level of slack catches the
+// rare case of a page so dense it truncates on its own.
+const maxAdaptiveRecursion = 4
+
+func (v *ValidationService) extractChunkAdaptive(
+	ctx context.Context,
+	ch PDFChunk,
+	totalPages int,
+	retryCfg RetryConfig,
+	depth int,
+) (*GeminiResponse, error) {
+	pages := ch.PageEnd - ch.PageStart + 1
+	tokens := perChunkOutputTokens(pages)
+	resp, err := WithRetry(ctx, retryCfg, func(c context.Context) (*GeminiResponse, error) {
+		return v.extractWithGeminiOpts(c, ch.Data, geminiExtractOpts{
+			MaxOutputTokens: tokens,
+			Chunk: &chunkInfo{
+				PageStart:  ch.PageStart,
+				PageEnd:    ch.PageEnd,
+				TotalPages: totalPages,
+			},
+		})
+	})
+	if err == nil {
+		return resp, nil
+	}
+
+	// Only adapt for truncation. Other errors (rate limits, schema rejects)
+	// don't get better with smaller chunks.
+	if !errors.Is(err, ErrTruncatedJSON) {
+		return nil, err
+	}
+	// Stop conditions: single page can't be split further; depth budget hit.
+	if pages <= 1 || depth >= maxAdaptiveRecursion {
+		return nil, err
+	}
+
+	// Halve the chunk's page range and re-trim each half from the original
+	// chunk's PDF data via pdfcpu. We use the chunk's own bytes (already a
+	// valid sub-PDF) so each split halves the work cleanly.
+	half := pages / 2
+	leftEndAbs := ch.PageStart + half - 1
+	leftCh, err := subTrim(ch, ch.PageStart, leftEndAbs)
+	if err != nil {
+		log.Printf("[gemini-chunked] could not sub-trim left half of pages %d-%d: %v",
+			ch.PageStart, ch.PageEnd, err)
+		return nil, err
+	}
+	rightCh, err := subTrim(ch, leftEndAbs+1, ch.PageEnd)
+	if err != nil {
+		log.Printf("[gemini-chunked] could not sub-trim right half of pages %d-%d: %v",
+			ch.PageStart, ch.PageEnd, err)
+		return nil, err
+	}
+
+	log.Printf("[gemini-chunked] chunk pages %d-%d truncated; sub-splitting into %d-%d and %d-%d (depth=%d)",
+		ch.PageStart, ch.PageEnd, leftCh.PageStart, leftCh.PageEnd, rightCh.PageStart, rightCh.PageEnd, depth)
+
+	leftResp, leftErr := v.extractChunkAdaptive(ctx, leftCh, totalPages, retryCfg, depth+1)
+	rightResp, rightErr := v.extractChunkAdaptive(ctx, rightCh, totalPages, retryCfg, depth+1)
+
+	// If both halves fail, surface the more specific error. If only one
+	// fails, keep the other half's transactions — partial success here is
+	// better than dropping the whole parent chunk.
+	if leftErr != nil && rightErr != nil {
+		return nil, fmt.Errorf("both sub-halves failed: left=%w right=%v", leftErr, rightErr)
+	}
+
+	merged := mergeChunkedResponses([]*GeminiResponse{leftResp, rightResp})
+	if leftErr != nil {
+		merged.Warnings = append(merged.Warnings, fmt.Sprintf("sub-half pages %d-%d failed: %v", leftCh.PageStart, leftCh.PageEnd, leftErr))
+	}
+	if rightErr != nil {
+		merged.Warnings = append(merged.Warnings, fmt.Sprintf("sub-half pages %d-%d failed: %v", rightCh.PageStart, rightCh.PageEnd, rightErr))
+	}
+	return merged, nil
+}
+
+// subTrim re-trims a sub-range from a parent chunk's PDF data. The parent
+// chunk's PageStart/PageEnd are the absolute page numbers in the original
+// document; pdfcpu's Trim, however, operates on local page indices in
+// ch.Data. So we translate absolute → local before calling Trim, then
+// stamp the absolute range back onto the result.
+func subTrim(parent PDFChunk, absStart, absEnd int) (PDFChunk, error) {
+	localStart := absStart - parent.PageStart + 1
+	localEnd := absEnd - parent.PageStart + 1
+	conf := pdfcpuRelaxedConfig()
+	out, err := trimToRange(parent.Data, localStart, localEnd, conf)
+	if err != nil {
+		return PDFChunk{}, err
+	}
+	return PDFChunk{
+		PageStart: absStart,
+		PageEnd:   absEnd,
+		Data:      out,
+	}, nil
 }
 
 // maxFallbackTokens picks the output-token budget for the single-shot

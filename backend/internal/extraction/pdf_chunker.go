@@ -41,10 +41,7 @@ func ChunkPDF(data []byte, pagesPerChunk int) (chunks []PDFChunk, err error) {
 		return []PDFChunk{{PageStart: 1, PageEnd: 0, Data: data}}, nil
 	}
 
-	conf := model.NewDefaultConfiguration()
-	// Suppress pdfcpu's default validation errors for slightly malformed but
-	// readable bank-statement PDFs (very common).
-	conf.ValidationMode = model.ValidationRelaxed
+	conf := pdfcpuRelaxedConfig()
 
 	pageCount, err := api.PageCount(bytes.NewReader(data), conf)
 	if err != nil {
@@ -71,6 +68,14 @@ func ChunkPDF(data []byte, pagesPerChunk int) (chunks []PDFChunk, err error) {
 		})
 	}
 	return chunks, nil
+}
+
+// pdfcpuRelaxedConfig returns a pdfcpu config tuned for slightly malformed
+// but still-readable bank-statement PDFs (a common case in the wild).
+func pdfcpuRelaxedConfig() *model.Configuration {
+	conf := model.NewDefaultConfiguration()
+	conf.ValidationMode = model.ValidationRelaxed
+	return conf
 }
 
 // trimToRange writes a new PDF containing pages [start..end] of src.
