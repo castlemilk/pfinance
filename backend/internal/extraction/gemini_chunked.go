@@ -102,9 +102,12 @@ func (v *ValidationService) extractWithGeminiChunked(
 		len(chunks), cfg.pagesPerChunk, cfg.parallelism)
 	startedAt := time.Now()
 
-	// Per-chunk wall-clock budget. Default 120s lets Gemini retry once and
-	// still leave room for slower chunks; tunable via env.
-	perChunkTimeout := time.Duration(envInt("GEMINI_CHUNK_TIMEOUT_SECONDS", 120)) * time.Second
+	// Per-chunk wall-clock budget. Default 180s leaves room for the
+	// original attempt (~60-90s on dense 5-page chunks) PLUS adaptive
+	// sub-chunking (parallel halves, another ~60-90s in the worst case).
+	// Production logs showed the previous 120s budget was exhausted when
+	// adaptive sub-splitting recursed on dense chunks.
+	perChunkTimeout := time.Duration(envInt("GEMINI_CHUNK_TIMEOUT_SECONDS", 180)) * time.Second
 
 	// Slimmer retry config for chunked calls — when one chunk fails we still
 	// have N-1 other chunks; fail fast so we don't burn the whole 5-min Cloud
@@ -276,8 +279,23 @@ func (v *ValidationService) extractChunkAdaptive(
 	log.Printf("[gemini-chunked] chunk pages %d-%d truncated; sub-splitting into %d-%d and %d-%d (depth=%d)",
 		ch.PageStart, ch.PageEnd, leftCh.PageStart, leftCh.PageEnd, rightCh.PageStart, rightCh.PageEnd, depth)
 
-	leftResp, leftErr := v.extractChunkAdaptive(ctx, leftCh, totalPages, retryCfg, depth+1)
-	rightResp, rightErr := v.extractChunkAdaptive(ctx, rightCh, totalPages, retryCfg, depth+1)
+	// Run the two halves concurrently so total wall time stays bounded by
+	// the slower half rather than the sum. Sequential sub-splits hit
+	// "context deadline exceeded" in production when the parent attempt
+	// already burned 60-80s of the 120s budget.
+	var leftResp, rightResp *GeminiResponse
+	var leftErr, rightErr error
+	var subWg sync.WaitGroup
+	subWg.Add(2)
+	go func() {
+		defer subWg.Done()
+		leftResp, leftErr = v.extractChunkAdaptive(ctx, leftCh, totalPages, retryCfg, depth+1)
+	}()
+	go func() {
+		defer subWg.Done()
+		rightResp, rightErr = v.extractChunkAdaptive(ctx, rightCh, totalPages, retryCfg, depth+1)
+	}()
+	subWg.Wait()
 
 	// If both halves fail, surface the more specific error. If only one
 	// fails, keep the other half's transactions — partial success here is
