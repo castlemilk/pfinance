@@ -7,9 +7,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
-
-	"golang.org/x/sync/errgroup"
 )
 
 // Chunked-extraction defaults. Tunable via env vars at startup.
@@ -90,36 +89,80 @@ func (v *ValidationService) extractWithGeminiChunked(
 		len(chunks), cfg.pagesPerChunk, cfg.parallelism)
 	startedAt := time.Now()
 
-	responses := make([]*GeminiResponse, len(chunks))
+	// Per-chunk wall-clock budget. Default 120s lets Gemini retry once and
+	// still leave room for slower chunks; tunable via env.
+	perChunkTimeout := time.Duration(envInt("GEMINI_CHUNK_TIMEOUT_SECONDS", 120)) * time.Second
 
-	g, gctx := errgroup.WithContext(ctx)
-	g.SetLimit(cfg.parallelism)
+	// Slimmer retry config for chunked calls — when one chunk fails we still
+	// have N-1 other chunks; fail fast so we don't burn the whole 5-min Cloud
+	// Run budget retrying a doomed chunk.
+	chunkRetry := RetryConfig{
+		MaxRetries:     1,
+		InitialDelay:   500 * time.Millisecond,
+		MaxDelay:       3 * time.Second,
+		BackoffFactor:  2.0,
+		JitterFraction: 0.2,
+	}
+
+	responses := make([]*GeminiResponse, len(chunks))
+	errs := make([]error, len(chunks))
+
+	// Manual semaphore so a single chunk failure doesn't cancel the others
+	// (errgroup's auto-cancel would). We collect partial results: as long as
+	// at least one chunk succeeds, the user gets transactions instead of an
+	// "all methods failed" error.
+	sem := make(chan struct{}, cfg.parallelism)
+	var wg sync.WaitGroup
 
 	for i := range chunks {
 		i := i
 		ch := chunks[i]
-		g.Go(func() error {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			chunkCtx, cancel := context.WithTimeout(ctx, perChunkTimeout)
+			defer cancel()
+
 			perChunkTokens := perChunkOutputTokens(ch.PageEnd - ch.PageStart + 1)
-			resp, err := v.extractWithGeminiRetryAdvanced(gctx, ch.Data, perChunkTokens)
+			resp, err := WithRetry(chunkCtx, chunkRetry, func(c context.Context) (*GeminiResponse, error) {
+				return v.extractWithGemini(c, ch.Data, perChunkTokens)
+			})
 			if err != nil {
 				log.Printf("[gemini-chunked] chunk %d (pages %d-%d) failed: %v",
 					i, ch.PageStart, ch.PageEnd, err)
-				return fmt.Errorf("chunk %d (pages %d-%d): %w", i, ch.PageStart, ch.PageEnd, err)
+				errs[i] = fmt.Errorf("chunk %d (pages %d-%d): %w", i, ch.PageStart, ch.PageEnd, err)
+				return
 			}
 			responses[i] = resp
 			log.Printf("[gemini-chunked] chunk %d (pages %d-%d) → %d transactions",
 				i, ch.PageStart, ch.PageEnd, len(resp.Transactions))
-			return nil
-		})
+		}()
 	}
+	wg.Wait()
 
-	if err := g.Wait(); err != nil {
-		return nil, fmt.Errorf("chunked gemini extraction: %w", err)
+	// Count how many chunks succeeded.
+	successCount := 0
+	for _, r := range responses {
+		if r != nil {
+			successCount++
+		}
+	}
+	if successCount == 0 {
+		// Every chunk failed — return the first error we saw.
+		for _, e := range errs {
+			if e != nil {
+				return nil, fmt.Errorf("all %d chunks failed; first: %w", len(chunks), e)
+			}
+		}
+		return nil, fmt.Errorf("all %d chunks failed (no error captured)", len(chunks))
 	}
 
 	merged := mergeChunkedResponses(responses)
-	log.Printf("[gemini-chunked] merged %d chunks into %d transactions in %s",
-		len(chunks), len(merged.Transactions), time.Since(startedAt))
+	log.Printf("[gemini-chunked] merged %d/%d successful chunks into %d transactions in %s",
+		successCount, len(chunks), len(merged.Transactions), time.Since(startedAt))
 	return merged, nil
 }
 

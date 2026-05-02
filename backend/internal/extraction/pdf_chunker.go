@@ -23,7 +23,17 @@ type PDFChunk struct {
 // ChunkPDF splits a PDF into chunks of up to pagesPerChunk consecutive pages.
 // Returns the original PDF as a single chunk if pagesPerChunk <= 0 or the PDF
 // has fewer pages than the chunk size. Each chunk is itself a valid PDF.
-func ChunkPDF(data []byte, pagesPerChunk int) ([]PDFChunk, error) {
+//
+// Wrapped in a recover() so pdfcpu panics on malformed PDFs surface as errors
+// rather than crashing the request handler.
+func ChunkPDF(data []byte, pagesPerChunk int) (chunks []PDFChunk, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("pdfcpu panicked while chunking: %v", r)
+			chunks = nil
+		}
+	}()
+
 	if len(data) == 0 {
 		return nil, fmt.Errorf("empty pdf data")
 	}
@@ -44,7 +54,7 @@ func ChunkPDF(data []byte, pagesPerChunk int) ([]PDFChunk, error) {
 		return []PDFChunk{{PageStart: 1, PageEnd: pageCount, Data: data}}, nil
 	}
 
-	chunks := make([]PDFChunk, 0, (pageCount+pagesPerChunk-1)/pagesPerChunk)
+	chunks = make([]PDFChunk, 0, (pageCount+pagesPerChunk-1)/pagesPerChunk)
 	for start := 1; start <= pageCount; start += pagesPerChunk {
 		end := start + pagesPerChunk - 1
 		if end > pageCount {

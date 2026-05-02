@@ -757,15 +757,24 @@ export default function SmartExpenseEntry() {
           return;
         }
       } catch (backendErr) {
-        // Backend extraction not available, fall back to frontend API
-        console.log('Backend extraction not available, using frontend API:', backendErr);
+        // Backend extraction failed. For PDFs there is no frontend fallback,
+        // so surface the actual error to the user instead of a generic
+        // "service down" message — silent fallback was masking real timeouts
+        // and chunked-extraction failures.
+        console.error('[extraction] backend call failed:', backendErr);
+        if (isPdf) {
+          const msg =
+            backendErr instanceof Error
+              ? backendErr.message
+              : 'Unknown error from extraction service';
+          setError(`Extraction failed: ${msg}`);
+          return;
+        }
+        // Image fallback: fall through to /api/process-document below.
+        console.log('[extraction] falling back to frontend API for image processing');
       }
 
-      // Fallback: Use frontend API route (only for images)
-      if (isPdf) {
-        setError('PDF processing requires the backend extraction service. Please ensure it is running.');
-        return;
-      }
+      // Frontend API fallback path (images only — PDFs returned above).
 
       const response = await fetch(dataUrl);
       const blob = await response.blob();
