@@ -45,11 +45,12 @@ type Discrepancy struct {
 
 // NewValidationService creates a new validation service.
 func NewValidationService(geminiAPIKey, mistralAPIKey string) *ValidationService {
+	timeout := time.Duration(envInt("GEMINI_HTTP_TIMEOUT_SECONDS", 90)) * time.Second
 	return &ValidationService{
 		geminiAPIKey:  geminiAPIKey,
 		mistralAPIKey: mistralAPIKey,
 		httpClient: &http.Client{
-			Timeout: 60 * time.Second,
+			Timeout: timeout,
 		},
 		geminiBaseURL: defaultGeminiBaseURL,
 		RetryConfig:   DefaultGeminiRetryConfig,
@@ -411,7 +412,11 @@ func (v *ValidationService) ExtractWithGeminiAdvanced(
 
 	startTime := time.Now()
 
-	geminiResult, err := v.extractWithGeminiRetryAdvanced(ctx, documentData, opts.MaxOutputTokens)
+	// Chunked extraction: for multi-page PDFs above the chunk threshold this
+	// splits the document, runs each chunk in parallel, and merges results.
+	// For everything else it transparently falls through to the single-shot
+	// retry pipeline.
+	geminiResult, err := v.extractWithGeminiChunked(ctx, documentData, opts.MaxOutputTokens)
 	if err != nil {
 		return nil, err
 	}

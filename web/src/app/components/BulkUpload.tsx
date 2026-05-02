@@ -261,6 +261,21 @@ export function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialFiles]);
 
+  // While the bulk-upload UI is mounted, prevent the browser from opening
+  // files dropped anywhere on the page (default behaviour navigates to the
+  // file). The dropzone's own handlers still fire normally.
+  useEffect(() => {
+    const prevent = (e: DragEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener('dragover', prevent);
+    window.addEventListener('drop', prevent);
+    return () => {
+      window.removeEventListener('dragover', prevent);
+      window.removeEventListener('drop', prevent);
+    };
+  }, []);
+
   const addFilesFromArray = useCallback((fileArray: File[]) => {
     const newFiles: BulkFile[] = fileArray
       .filter((f) => {
