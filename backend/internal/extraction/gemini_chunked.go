@@ -203,14 +203,19 @@ func maxFallbackTokens(callerHint int) int {
 }
 
 // perChunkOutputTokens scales the per-chunk token budget by chunk size.
-// Soft cap ~1500 tokens per page, never below 4k or above 16k.
+//
+// Empirically, dense bank statements run ~85–100 transactions per 5 pages
+// at ~80 tokens each = 7000–8000 output tokens. The previous 1500/page
+// budget sat right at that limit, so chunks with ≥95 rows truncated and
+// the response failed to parse. Bumped to 2500/page (≈12.5k for a
+// 5-page chunk) with a 32k ceiling matching Gemini 2.0 Flash's hard cap.
 func perChunkOutputTokens(chunkPages int) int {
-	per := chunkPages * 1500
-	if per < 4096 {
-		per = 4096
+	per := chunkPages * 2500
+	if per < 6144 {
+		per = 6144
 	}
-	if per > 16384 {
-		per = 16384
+	if per > 32768 {
+		per = 32768
 	}
 	return per
 }

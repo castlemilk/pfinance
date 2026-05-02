@@ -110,10 +110,10 @@ func TestMergeChunkedResponses_HandlesNilChunks(t *testing.T) {
 
 func TestPerChunkOutputTokens_RespectsBounds(t *testing.T) {
 	cases := []struct{ pages, want int }{
-		{1, 4096}, // floor
-		{3, 4500},
-		{5, 7500},
-		{20, 16384}, // ceiling
+		{1, 6144},   // floor (1*2500=2500 → bumped to floor)
+		{3, 7500},   // 3*2500
+		{5, 12500},  // 5*2500 — accommodates ~150 trans/chunk (well above ~95 observed)
+		{14, 32768}, // ceiling (14*2500=35000 → capped)
 	}
 	for _, c := range cases {
 		if got := perChunkOutputTokens(c.pages); got != c.want {
