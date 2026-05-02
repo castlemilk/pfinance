@@ -114,8 +114,12 @@ func main() {
 	// Keep the Modal ML container warm with a periodic health-check ping.
 	// Modal shuts containers down after 60s of inactivity; pinging every 45s
 	// prevents the 5-10s cold-start penalty on the first real extraction request.
-	stopWarmup := extractionSvc.StartWarmupScheduler(45 * time.Second)
-	defer stopWarmup()
+	// Skip when ML is disabled — otherwise we'd flood logs with health-check
+	// failures that aren't actionable.
+	if enableML {
+		stopWarmup := extractionSvc.StartWarmupScheduler(45 * time.Second)
+		defer stopWarmup()
+	}
 
 	// Initialize tax classification pipeline
 	geminiAPIKey := os.Getenv("GEMINI_API_KEY")
