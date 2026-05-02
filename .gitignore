@@ -57,8 +57,17 @@ test-results/
 # Test data - real financial statements (sensitive)
 web/testdata/statements/
 
+# Tax evaluation dataset and outputs (sensitive financial documents)
+tax25/
+tax25-*.json
+taxeval-results.json
+taxeval-report.json
+
 # Claude Code artifacts
 .settings.json
 PLAN.md
 web/testdata/
 .claude/worktrees/
+
+# Agents
+agents/

@@ -50,6 +50,9 @@ func AuthInterceptor(firebaseAuth *FirebaseAuth) connect.UnaryInterceptorFunc {
 				log.Printf("[Auth] User %s: no raw claims in token", claims.UID)
 			}
 
+			// Resolve admin status (ADMIN_EMAILS env var or custom claim)
+			ctx = WithAdmin(ctx, ResolveAdminFromClaims(claims, rawClaims))
+
 			return next(ctx, req)
 		}
 	}

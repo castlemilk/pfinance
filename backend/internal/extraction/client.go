@@ -412,6 +412,134 @@ func stringToDocumentType(s string) pfinancev1.DocumentType {
 	}
 }
 
+// LightweightFieldResult represents a per-field result from the SigLIP lightweight endpoint.
+type LightweightFieldResult struct {
+	Value      string  `json:"value"`
+	Confidence float64 `json:"confidence"`
+	Source     string  `json:"source"`
+}
+
+// LightweightReceiptResponse represents the response from POST /v1/parse-receipt-lightweight.
+type LightweightReceiptResponse struct {
+	Merchant          LightweightFieldResult `json:"merchant"`
+	Amount            LightweightFieldResult `json:"amount"`
+	Date              LightweightFieldResult `json:"date"`
+	LineItemsDetected bool                   `json:"line_items_detected"`
+	LineItemCount     int                    `json:"line_item_count"`
+	OverallConfidence float64                `json:"overall_confidence"`
+	RoutingTier       int                    `json:"routing_tier"`
+	ProcessingTimeMS  int                    `json:"processing_time_ms"`
+	ModelUsed         string                 `json:"model_used"`
+	Warnings          []string               `json:"warnings"`
+	Escalated         bool                   `json:"escalated"`
+	Error             string                 `json:"error,omitempty"`
+}
+
+// ExtractLightweight sends a receipt image to the lightweight SigLIP endpoint.
+// This uses the three-tier routing: SigLIP → Qwen2-VL → Gemini fallback signal.
+func (c *MLClient) ExtractLightweight(ctx context.Context, data []byte, filename string) (*LightweightReceiptResponse, error) {
+	return WithRetry(ctx, c.RetryConfig, func(ctx context.Context) (*LightweightReceiptResponse, error) {
+		return c.extractLightweightOnce(ctx, data, filename, 0)
+	})
+}
+
+// ExtractLightweightWithTier sends a receipt to the lightweight endpoint forcing a specific tier.
+func (c *MLClient) ExtractLightweightWithTier(ctx context.Context, data []byte, filename string, forceTier int) (*LightweightReceiptResponse, error) {
+	return WithRetry(ctx, c.RetryConfig, func(ctx context.Context) (*LightweightReceiptResponse, error) {
+		return c.extractLightweightOnce(ctx, data, filename, forceTier)
+	})
+}
+
+func (c *MLClient) extractLightweightOnce(ctx context.Context, data []byte, filename string, forceTier int) (*LightweightReceiptResponse, error) {
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	part, err := writer.CreateFormFile("file", filename)
+	if err != nil {
+		return nil, fmt.Errorf("create form file: %w", err)
+	}
+	if _, err := part.Write(data); err != nil {
+		return nil, fmt.Errorf("write file data: %w", err)
+	}
+
+	if forceTier > 0 {
+		if err := writer.WriteField("force_tier", fmt.Sprintf("%d", forceTier)); err != nil {
+			return nil, fmt.Errorf("write force_tier: %w", err)
+		}
+	}
+
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("close writer: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/v1/parse-receipt-lightweight", &buf)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, classifyMLError(err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, classifyHTTPError(resp.StatusCode, string(body))
+	}
+
+	var result LightweightReceiptResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// ToExtractionResult converts a lightweight response to a proto ExtractionResult.
+func (r *LightweightReceiptResponse) ToExtractionResult() *pfinancev1.ExtractionResult {
+	if r.Error != "" || r.RoutingTier == 3 {
+		// Tier 3: signal that Gemini fallback is needed
+		return nil
+	}
+
+	// Parse amount from string
+	var amount float64
+	if r.Amount.Value != "" {
+		fmt.Sscanf(r.Amount.Value, "%f", &amount)
+	}
+
+	tx := &pfinancev1.ExtractedTransaction{
+		Date:               r.Date.Value,
+		Description:        r.Merchant.Value,
+		NormalizedMerchant: r.Merchant.Value,
+		Amount:             amount,
+		Confidence:         r.OverallConfidence,
+		IsDebit:            true,
+		FieldConfidences: &pfinancev1.FieldConfidence{
+			Amount:   r.Amount.Confidence,
+			Date:     r.Date.Confidence,
+			Merchant: r.Merchant.Confidence,
+		},
+	}
+
+	return &pfinancev1.ExtractionResult{
+		Transactions:      []*pfinancev1.ExtractedTransaction{tx},
+		OverallConfidence: r.OverallConfidence,
+		ModelUsed:         r.ModelUsed,
+		ProcessingTimeMs:  int32(r.ProcessingTimeMS),
+		Warnings:          r.Warnings,
+		DocumentType:      pfinancev1.DocumentType_DOCUMENT_TYPE_RECEIPT,
+		PageCount:         1,
+		MethodUsed:        pfinancev1.ExtractionMethod_EXTRACTION_METHOD_SELF_HOSTED,
+	}
+}
+
 func stringToCategory(s string) pfinancev1.ExpenseCategory {
 	switch s {
 	case "Food":

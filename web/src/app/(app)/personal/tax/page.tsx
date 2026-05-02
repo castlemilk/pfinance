@@ -33,6 +33,7 @@ import { TaxDeductionCategory } from '@/gen/pfinance/v1/types_pb';
 import Link from 'next/link';
 import {
   AlertCircle,
+  BarChart3,
   Download,
   DollarSign,
   Receipt,
@@ -960,12 +961,20 @@ export default function TaxReturnsPage() {
               </p>
             </div>
           </div>
-          <Link href="/personal/tax/review">
-            <Button className="glow-hover gap-2">
-              Start Review
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/personal/tax/review">
+              <Button className="glow-hover gap-2">
+                Start Review
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/personal/tax/eval">
+              <Button variant="outline" className="gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Eval Engine
+              </Button>
+            </Link>
+          </div>
         </CardContent>
       </Card>
 

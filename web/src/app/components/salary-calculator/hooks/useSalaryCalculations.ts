@@ -127,11 +127,6 @@ export function useSalaryCalculations({
         return threshold ? taxableIncome * threshold.rate : 0;
       })();
       
-      const totalSalarySacrifice = salarySacrifices.reduce((total, ss) => {
-        const amount = parseFloat(ss.amount) || 0;
-        return total + toAnnualAmount(amount, ss.frequency);
-      }, 0);
-      
       let net = totalAnnualIncome;
       net -= effectiveTax;
       net -= medicareLevy;
@@ -139,8 +134,7 @@ export function useSalaryCalculations({
       if (taxSettings.includeVoluntarySuper) {
         net -= voluntarySuper;
       }
-      net -= totalSalarySacrifice;
-      
+
       return Math.max(0, net);
     };
   }, [overtimeEntries, salarySacrifices, taxSettings, taxCountry, taxYear, taxCategory, voluntarySuper]);
@@ -365,29 +359,31 @@ export function useSalaryCalculations({
     return Math.max(0, baseRemainingCap - voluntarySuperContribution);
   }, [baseRemainingCap, voluntarySuperContribution]);
 
-  // Calculate net income
+  // Calculate net income (take-home pay)
+  // Salary sacrifice is NOT subtracted here — it already reduces taxable income
+  // (so tax is lower), and the sacrificed amount still flows to the employee
+  // (e.g. via packaging provider, novated lease reimbursement, or as a separate
+  // pre-tax payment). Voluntary super IS subtracted because it goes to a super
+  // fund, not to the employee's pocket.
   const netIncome = useMemo(() => {
     let net = totalAnnualIncome;
 
     net -= effectiveTax; // Use effective tax (after LITO)
     net -= medicareLevy;
     net -= studentLoanRepayment;
-    
+
     if (taxSettings.includeVoluntarySuper) {
       net -= voluntarySuper;
     }
-    
-    net -= salarySacrificeCalculation.totalSalarySacrifice;
-    
+
     return Math.max(0, net);
   }, [
-    totalAnnualIncome, 
-    effectiveTax, 
-    medicareLevy, 
-    studentLoanRepayment, 
-    taxSettings.includeVoluntarySuper, 
+    totalAnnualIncome,
+    effectiveTax,
+    medicareLevy,
+    studentLoanRepayment,
+    taxSettings.includeVoluntarySuper,
     voluntarySuper,
-    salarySacrificeCalculation.totalSalarySacrifice
   ]);
 
   // Create breakdowns for all frequencies

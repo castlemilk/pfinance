@@ -176,10 +176,22 @@ service FinanceService {
   rpc RegisterPushToken(RegisterPushTokenRequest) returns (RegisterPushTokenResponse);
   rpc UnregisterPushToken(UnregisterPushTokenRequest) returns (UnregisterPushTokenResponse);
 
+  // ML Smart Capabilities (Pro tier)
+  rpc DetectRecurringTransactions(DetectRecurringTransactionsRequest) returns (DetectRecurringTransactionsResponse);
+  rpc DetectSpendingAnomalies(DetectSpendingAnomaliesRequest) returns (DetectSpendingAnomaliesResponse);
+  rpc GetSpendingForecast(GetSpendingForecastRequest) returns (GetSpendingForecastResponse);
+  rpc TriggerModelTraining(TriggerModelTrainingRequest) returns (TriggerModelTrainingResponse);
+
   // API token operations (Pro tier)
   rpc CreateApiToken(CreateApiTokenRequest) returns (CreateApiTokenResponse);
   rpc ListApiTokens(ListApiTokensRequest) returns (ListApiTokensResponse);
   rpc RevokeApiToken(RevokeApiTokenRequest) returns (RevokeApiTokenResponse);
+
+  // Admin operations (gated by ADMIN_EMAILS env var or `admin: true` custom claim)
+  rpc GetMyAdminStatus(GetMyAdminStatusRequest) returns (GetMyAdminStatusResponse);
+  rpc ListAllUsers(ListAllUsersRequest) returns (ListAllUsersResponse);
+  rpc SetUserTier(SetUserTierRequest) returns (SetUserTierResponse);
+  rpc SetUserAdmin(SetUserAdminRequest) returns (SetUserAdminResponse);
 }
 
 // User operations
@@ -1764,4 +1776,103 @@ message TaxEvalFileAccuracy {
   int32 matched = 5;
   TaxEvalClassAccuracy deductibility = 6;
   TaxEvalClassAccuracy tax_category = 7;
+}
+
+// ============================================================================
+// ML Smart Capabilities (Pro tier)
+// ============================================================================
+
+message DetectRecurringTransactionsRequest {
+  string user_id = 1;
+  bool force_refresh = 2; // If true, bypass cache and recompute from scratch
+}
+
+message DetectRecurringTransactionsResponse {
+  repeated DetectedRecurringPattern patterns = 1;
+  int32 transaction_count_analyzed = 2;  // How many transactions were analyzed
+  int32 processing_time_ms = 3;
+}
+
+message DetectSpendingAnomaliesRequest {
+  string user_id = 1;
+  google.protobuf.Timestamp start_date = 2;  // Optional: filter anomalies by date range
+  google.protobuf.Timestamp end_date = 3;    // Optional
+}
+
+message DetectSpendingAnomaliesResponse {
+  repeated MLDetectedAnomaly anomalies = 1;
+  int32 processing_time_ms = 2;
+}
+
+message GetSpendingForecastRequest {
+  string user_id = 1;
+  string category = 2;     // Optional: specific category; empty = all categories
+  int32 months_ahead = 3;  // 1-6, default 3
+}
+
+message GetSpendingForecastResponse {
+  repeated MLSpendingForecast forecasts = 1;
+  int32 processing_time_ms = 2;
+}
+
+message TriggerModelTrainingRequest {
+  string training_type = 1; // "lora", "recurring", "anomaly" — which pipeline to trigger
+}
+
+message TriggerModelTrainingResponse {
+  string job_id = 1;
+  string status = 2;        // "queued", "started", "failed"
+  string message = 3;
+}
+
+// ============================================================================
+// Admin operations
+// ============================================================================
+
+message GetMyAdminStatusRequest {}
+
+message GetMyAdminStatusResponse {
+  bool is_admin = 1;
+}
+
+message AdminUserSummary {
+  string uid = 1;
+  string email = 2;
+  string display_name = 3;
+  string photo_url = 4;
+  SubscriptionTier subscription_tier = 5;
+  SubscriptionStatus subscription_status = 6;
+  bool is_admin = 7;
+  bool disabled = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp last_sign_in_at = 10;
+}
+
+message ListAllUsersRequest {
+  int32 page_size = 1;       // Default 200, max 1000
+  string page_token = 2;     // Firebase nextPageToken
+}
+
+message ListAllUsersResponse {
+  repeated AdminUserSummary users = 1;
+  string next_page_token = 2;
+}
+
+message SetUserTierRequest {
+  string user_id = 1;
+  SubscriptionTier tier = 2;
+  SubscriptionStatus status = 3; // Optional: defaults to ACTIVE for PRO, UNSPECIFIED for FREE
+}
+
+message SetUserTierResponse {
+  AdminUserSummary user = 1;
+}
+
+message SetUserAdminRequest {
+  string user_id = 1;
+  bool is_admin = 2;
+}
+
+message SetUserAdminResponse {
+  AdminUserSummary user = 1;
 }

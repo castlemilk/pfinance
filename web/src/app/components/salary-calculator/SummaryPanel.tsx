@@ -153,28 +153,32 @@ export function SummaryPanel({
                 </div>
               </div>
 
-              {/* Salary Package (if applicable) */}
+              {/* Salary Package breakdown (if applicable) */}
               {salarySacrificeCalculation.totalSalarySacrifice > 0 && (
                 <div className="space-y-2">
                   <h4 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
-                    Salary Package
+                    Take-home Breakdown
                   </h4>
                   <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800 space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span>Package Card</span>
+                      <span className="text-muted-foreground">Direct pay</span>
+                      <span className="font-medium">
+                        {formatCurrency(
+                          breakdown.netIncome -
+                          convertToFrequency(salarySacrificeCalculation.totalSalarySacrifice, breakdown.frequency)
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Salary packaged</span>
                       <span className="font-medium text-blue-600 dark:text-blue-400">
-                        +{formatCurrency(convertToFrequency(salarySacrificeCalculation.totalSalarySacrifice, breakdown.frequency))}
+                        {formatCurrency(convertToFrequency(salarySacrificeCalculation.totalSalarySacrifice, breakdown.frequency))}
                       </span>
                     </div>
                     <Separator />
                     <div className="flex justify-between font-medium">
-                      <span>Effective Income</span>
-                      <span>
-                        {formatCurrency(
-                          breakdown.netIncome + 
-                          convertToFrequency(salarySacrificeCalculation.totalSalarySacrifice, breakdown.frequency)
-                        )}
-                      </span>
+                      <span>Total Take-home</span>
+                      <span>{formatCurrency(breakdown.netIncome)}</span>
                     </div>
                   </div>
                 </div>

@@ -1,7 +1,7 @@
 # PFinance Makefile
 # ==================
 
-.PHONY: help dev dev-memory dev-firebase dev-backend dev-backend-memory dev-backend-firebase dev-backend-seed dev-backend-firebase-seed dev-frontend stop restart status test test-unit test-e2e test-e2e-ui test-e2e-headed test-e2e-report test-integration test-watch test-all proto generate build lint format type-check logs clean setup install health ports check-ports check-port-backend check-port-frontend kill-port-backend kill-port-frontend seed-data seed-data-auth check-firebase-creds deploy-indexes ko-build ko-run pre-push install-hooks ci-local ci-fast ci-backend ci-frontend
+.PHONY: help dev dev-memory dev-firebase dev-backend dev-backend-memory dev-backend-firebase dev-backend-seed dev-backend-firebase-seed dev-frontend stop restart status test test-unit test-e2e test-e2e-ui test-e2e-headed test-e2e-report test-integration test-watch test-all proto generate build lint format type-check logs clean setup install health ports check-ports check-port-backend check-port-frontend kill-port-backend kill-port-frontend seed-data seed-data-auth check-firebase-creds deploy-indexes ko-build ko-run pre-push install-hooks ci-local ci-fast ci-backend ci-frontend taxeval
 
 define kill_pids_in_project_by_port
 for pid in $$(lsof -ti:$(1) 2>/dev/null); do \
@@ -122,6 +122,7 @@ dev-backend: check-port-backend
 	export ALGOLIA_APP_ID=$$(grep ALGOLIA_APP_ID .env 2>/dev/null | cut -d= -f2-) && \
 	export ALGOLIA_SEARCH_KEY=$$(grep ALGOLIA_SEARCH_KEY .env 2>/dev/null | cut -d= -f2-) && \
 	export ALGOLIA_INDEX_NAME=$$(grep ALGOLIA_INDEX_NAME .env 2>/dev/null | cut -d= -f2- || echo "pfinance") && \
+	export ADMIN_EMAILS=$$(grep ADMIN_EMAILS .env 2>/dev/null | cut -d= -f2- || echo "ben.ebsworth@gmail.com") && \
 	go run cmd/server/main.go
 
 dev-backend-memory: check-port-backend
@@ -136,6 +137,7 @@ dev-backend-memory: check-port-backend
 	export STRIPE_WEBHOOK_SECRET=$$(grep STRIPE_WEBHOOK_SECRET .env 2>/dev/null | cut -d= -f2-) && \
 	export STRIPE_PRODUCT_ID=$$(grep STRIPE_PRODUCT_ID .env 2>/dev/null | cut -d= -f2-) && \
 	export STRIPE_PRICE_ID=$$(grep STRIPE_PRICE_ID .env 2>/dev/null | cut -d= -f2-) && \
+	export ADMIN_EMAILS=$$(grep ADMIN_EMAILS .env 2>/dev/null | cut -d= -f2- || echo "ben.ebsworth@gmail.com") && \
 	go run cmd/server/main.go
 
 dev-backend-firebase: check-port-backend
@@ -154,6 +156,7 @@ dev-backend-firebase: check-port-backend
 	export ALGOLIA_APP_ID=$$(grep ALGOLIA_APP_ID .env 2>/dev/null | cut -d= -f2-) && \
 	export ALGOLIA_SEARCH_KEY=$$(grep ALGOLIA_SEARCH_KEY .env 2>/dev/null | cut -d= -f2-) && \
 	export ALGOLIA_INDEX_NAME=$$(grep ALGOLIA_INDEX_NAME .env 2>/dev/null | cut -d= -f2- || echo "pfinance") && \
+	export ADMIN_EMAILS=$$(grep ADMIN_EMAILS .env 2>/dev/null | cut -d= -f2- || echo "ben.ebsworth@gmail.com") && \
 	go run cmd/server/main.go
 
 dev-frontend: check-port-frontend
@@ -351,6 +354,7 @@ build: build-backend build-frontend
 build-backend: generate
 	@echo "🏗️  Building backend..."
 	@cd backend && go build -o server cmd/server/main.go
+	@cd backend && go build -o taxeval cmd/taxeval/main.go
 
 build-frontend: generate
 	@echo "🏗️  Building frontend..."
@@ -599,8 +603,21 @@ ci-frontend:
 	@cd web && npm run type-check && npm run lint && npm test -- --passWithNoTests --maxWorkers=2
 
 # ===================
-# Health Checks
+# Tax Evaluation
 # ===================
+
+taxeval:
+	@echo "📊 Running tax eval..."
+	@cd backend && \
+	export GEMINI_API_KEY=$$(grep -m1 'GEMINI_API_KEY\|GEMINI_API_TOKEN' $(CURDIR)/.env 2>/dev/null | cut -d= -f2- || echo "$$GEMINI_API_KEY") && \
+	go run ./cmd/taxeval \
+		--dataset $(CURDIR)/tax25 \
+		--method gemini \
+		--concurrency 3 \
+		--fy 2024-25 \
+		--occupation "software engineer" \
+		--output $(CURDIR)/taxeval-results.json \
+		--report $(CURDIR)/taxeval-report.json
 
 health:
 	@echo "🏥 Health check:"

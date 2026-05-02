@@ -1074,6 +1074,99 @@ message CategoryDelta {
 }
 
 // ============================================================================
+// ML-Detected Recurring Patterns
+// ============================================================================
+
+// RecurrenceType classifies what kind of recurring charge this is
+enum RecurrenceType {
+  RECURRENCE_TYPE_UNSPECIFIED = 0;
+  RECURRENCE_TYPE_SUBSCRIPTION = 1;  // Fixed amount, monthly/yearly (Netflix, Spotify)
+  RECURRENCE_TYPE_SALARY = 2;        // Credit, fortnightly/monthly, large consistent
+  RECURRENCE_TYPE_RENT = 3;          // Debit, monthly, large fixed, "rent"/"transfer"
+  RECURRENCE_TYPE_UTILITY = 4;       // Debit, monthly/quarterly, variable amount
+  RECURRENCE_TYPE_INSURANCE = 5;     // Debit, monthly/yearly, fixed amount
+  RECURRENCE_TYPE_OTHER = 6;
+}
+
+// RecurrencePeriod classifies the detected period
+enum RecurrencePeriod {
+  RECURRENCE_PERIOD_UNSPECIFIED = 0;
+  RECURRENCE_PERIOD_WEEKLY = 1;
+  RECURRENCE_PERIOD_FORTNIGHTLY = 2;
+  RECURRENCE_PERIOD_MONTHLY = 3;
+  RECURRENCE_PERIOD_QUARTERLY = 4;
+  RECURRENCE_PERIOD_YEARLY = 5;
+}
+
+// DetectedRecurringPattern represents an ML-detected recurring transaction pattern
+message DetectedRecurringPattern {
+  string id = 1;
+  string description = 2;             // Representative description from cluster
+  string category = 3;                // Detected expense category
+  RecurrenceType recurrence_type = 4; // subscription/salary/rent/utility/insurance/other
+  RecurrencePeriod period = 5;        // weekly/fortnightly/monthly/quarterly/yearly
+  double median_amount = 6;
+  int64 median_amount_cents = 7;
+  double amount_trend = 8;            // Positive = increasing over time (linear regression slope)
+  bool is_fixed_amount = 9;           // True if amount coefficient of variation < 5%
+  google.protobuf.Timestamp next_expected_date = 10;
+  google.protobuf.Timestamp last_seen_date = 11;
+  float confidence = 12;              // 0.0-1.0
+  bool anomaly_flag = 13;             // True if last occurrence was missed or amount changed significantly
+  repeated string transaction_ids = 14; // References to underlying expense IDs
+}
+
+// ============================================================================
+// ML Spending Anomalies
+// ============================================================================
+
+// MLAnomalyType categorizes ML-detected spending anomalies
+enum MLAnomalyType {
+  ML_ANOMALY_TYPE_UNSPECIFIED = 0;
+  ML_ANOMALY_TYPE_NEW_CATEGORY = 1;           // First transaction in a new category
+  ML_ANOMALY_TYPE_LARGE_TRANSACTION = 2;      // Amount >> user's typical for category
+  ML_ANOMALY_TYPE_HIGH_MONTHLY_SPENDING = 3;  // Monthly total above usual range
+}
+
+// MLAnomalySeverity indicates how unusual the detected anomaly is
+enum MLAnomalySeverity {
+  ML_ANOMALY_SEVERITY_UNSPECIFIED = 0;
+  ML_ANOMALY_SEVERITY_INFO = 1;     // New category, slightly above average — app feed only
+  ML_ANOMALY_SEVERITY_WARNING = 2;  // >2σ — push notification
+  ML_ANOMALY_SEVERITY_ALERT = 3;    // >3σ or recurring payment missed — push with emphasis
+}
+
+// MLDetectedAnomaly represents an anomaly detected by the ML service
+message MLDetectedAnomaly {
+  string id = 1;
+  MLAnomalyType type = 2;
+  MLAnomalySeverity severity = 3;
+  string message = 4;                 // Human-readable description
+  string transaction_id = 5;          // Related expense ID (if single-txn anomaly)
+  string category = 6;                // Affected category
+  double amount = 7;
+  int64 amount_cents = 8;
+  double z_score = 9;                 // Statistical z-score (0 if not applicable)
+  google.protobuf.Timestamp detected_at = 10;
+}
+
+// ============================================================================
+// ML Spending Forecasts
+// ============================================================================
+
+// MLSpendingForecast represents a per-category spending forecast from the ML service
+message MLSpendingForecast {
+  string month = 1;                    // YYYY-MM format
+  string category = 2;                 // Expense category
+  double predicted = 3;
+  int64 predicted_cents = 4;
+  double lower_bound = 5;
+  int64 lower_bound_cents = 6;
+  double upper_bound = 7;
+  int64 upper_bound_cents = 8;
+}
+
+// ============================================================================
 // Bank Statement Parsing
 // ============================================================================
 

@@ -33,11 +33,17 @@ type FinanceService struct {
 	algolia       *search.AlgoliaClient                 // nil if Algolia is not configured
 	storageBucket *gcsstorage.BucketHandle              // nil if GCS is not configured
 	fcmClient     *fcmmessaging.Client                  // nil if FCM is not configured
+	smartClient   *extraction.SmartClient               // nil if ML smart capabilities not configured
 }
 
 // SetAlgoliaClient sets the Algolia search client for full-text search.
 func (s *FinanceService) SetAlgoliaClient(c *search.AlgoliaClient) {
 	s.algolia = c
+}
+
+// SetSmartClient sets the ML smart capabilities client for recurring detection, anomalies, and forecasting.
+func (s *FinanceService) SetSmartClient(c *extraction.SmartClient) {
+	s.smartClient = c
 }
 
 func NewFinanceService(store store.Store, stripe *StripeClient, firebaseAuth *auth.FirebaseAuth) *FinanceService {

@@ -31,8 +31,10 @@ import {
   Bot,
   Landmark,
   ClipboardCheck,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthWithAdminContext';
+import { financeClient } from '@/lib/financeService';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ThemeToggle } from './ThemeToggle';
@@ -149,6 +151,27 @@ export default function SidebarNav() {
   const { isPro, isFree, loading: subscriptionLoading } = useSubscription();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check admin status once when user is loaded so we can show the admin link.
+  useEffect(() => {
+    if (loading || !user) {
+      setIsAdmin(false);
+      return;
+    }
+    let cancelled = false;
+    financeClient
+      .getMyAdminStatus({})
+      .then((res) => {
+        if (!cancelled) setIsAdmin(res.isAdmin);
+      })
+      .catch(() => {
+        if (!cancelled) setIsAdmin(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, loading]);
 
   const isPersonal = pathname.startsWith('/personal');
   const isShared = pathname.startsWith('/shared');
@@ -276,6 +299,19 @@ export default function SidebarNav() {
             </Button>
           </Link>
         ))}
+
+        {isPersonal && isAdmin && (
+          <Link href="/admin">
+            <Button
+              variant={pathname === '/admin' ? 'secondary' : 'ghost'}
+              className="w-full justify-start"
+              size="sm"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span className="ml-2">Admin</span>
+            </Button>
+          </Link>
+        )}
 
         {isShared && sharedNavItems.map((item) => {
           // Don't filter out nav items while loading - only when we know there's no user

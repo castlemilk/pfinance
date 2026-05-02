@@ -1,0 +1,90 @@
+{
+  "files_with_ground_truth": 3,
+  "files_evaluated": 3,
+  "extraction": {
+    "expected_total": 17,
+    "extracted_total": 20,
+    "matched_count": 17,
+    "precision": 0.85,
+    "recall": 1,
+    "f1": 0.9189189189189189
+  },
+  "deductibility": {
+    "total": 17,
+    "correct": 14,
+    "incorrect": 3,
+    "accuracy": 0.8235294117647058
+  },
+  "tax_category": {
+    "total": 3,
+    "correct": 2,
+    "incorrect": 1,
+    "accuracy": 0.6666666666666666
+  },
+  "amount_accuracy": {
+    "total": 17,
+    "exact_matches": 17,
+    "close_matches": 17,
+    "mean_abs_error": 0,
+    "mean_pct_error": 0
+  },
+  "per_file": [
+    {
+      "filename": "0tw9btgf.pdf",
+      "relative_path": "0tw9btgf.pdf",
+      "expected_transactions": 1,
+      "extracted_transactions": 1,
+      "matched": 1,
+      "deductibility": {
+        "total": 1,
+        "correct": 1,
+        "incorrect": 0,
+        "accuracy": 1
+      },
+      "tax_category": {
+        "total": 1,
+        "correct": 1,
+        "incorrect": 0,
+        "accuracy": 1
+      }
+    },
+    {
+      "filename": "rates.pdf",
+      "relative_path": "rates.pdf",
+      "expected_transactions": 3,
+      "extracted_transactions": 6,
+      "matched": 3,
+      "deductibility": {
+        "total": 3,
+        "correct": 1,
+        "incorrect": 2,
+        "accuracy": 0.3333333333333333
+      },
+      "tax_category": {
+        "total": 1,
+        "correct": 1,
+        "incorrect": 0,
+        "accuracy": 1
+      }
+    },
+    {
+      "filename": "westpac-oct-24.pdf",
+      "relative_path": "statements/westpac-oct-24.pdf",
+      "expected_transactions": 13,
+      "extracted_transactions": 13,
+      "matched": 13,
+      "deductibility": {
+        "total": 13,
+        "correct": 12,
+        "incorrect": 1,
+        "accuracy": 0.9230769230769231
+      },
+      "tax_category": {
+        "total": 1,
+        "correct": 0,
+        "incorrect": 1,
+        "accuracy": 0
+      }
+    }
+  ]
+}

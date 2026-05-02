@@ -124,17 +124,23 @@ func (c *TaxGeminiClassifier) ClassifyBatch(ctx context.Context, expenses []*pfi
 	prompt := fmt.Sprintf(`You are an Australian tax deduction classifier. Classify each expense for tax deductibility under ATO rules.
 %s%s
 ATO Deduction Categories:
-- D1: Work-related travel (NOT regular commuting)
-- D2: Uniform, laundry, dry-cleaning (must be occupation-specific or protective)
-- D3: Self-education (must maintain/improve skills for CURRENT employment)
-- D4: Other work-related (tools, phone, subscriptions used for work)
-- D5: Home office (67c/hr fixed rate or actual cost method)
-- D6: Car expenses (85c/km or logbook method, only work trips)
-- D10: Cost of managing tax affairs (tax agent fees, accounting software)
+- D1: Work-related travel (NOT regular commuting — flights, accommodation, meals while travelling for work)
+- D2: Uniform, laundry, dry-cleaning (must be occupation-specific or protective clothing)
+- D3: Self-education (courses, conferences, books, subscriptions that maintain/improve skills for CURRENT employment)
+- D4: Other work-related expenses (professional subscriptions, union fees, tools of trade NOT used at home office)
+- D5: Home office expenses (monitor, desk, chair, keyboard, mouse, internet, electricity, stationery, printer ink, and ANY equipment/furniture primarily used in a home office setup — use D5 for tech workers who work from home)
+- D6: Car expenses (85c/km or logbook method, only work-related trips — NOT commuting)
+- D10: Cost of managing tax affairs (tax agent fees, accounting software like Xero/MYOB/QuickBooks)
 - D15: Gifts and donations (must be to DGR-registered organisations, $2+ to claim)
 - INCOME_PROTECTION: Income protection insurance premiums
 - OTHER: Other deductions not in above categories
 - NOT_DEDUCTIBLE: Personal expenses, not claimable
+
+D4 vs D5 decision guide (IMPORTANT):
+- D5 if the item is used IN or FOR a home office (monitors, desks, chairs, internet, electricity, computer peripherals, home office furniture)
+- D4 if the item is a professional tool/subscription NOT specific to home office (professional memberships, union fees, phone plans used on the go, cloud/hosting services for side projects)
+- For software engineers/developers working from home: monitors, keyboards, mice, webcams, internet = D5. GitHub, cloud hosting, domain names, IDE subscriptions = D4.
+- Phone plans: D4 if primarily mobile/on-the-go; D5 if bundled with home internet
 
 Key rules:
 - Personal groceries, dining, entertainment are NOT deductible
@@ -142,6 +148,7 @@ Key rules:
 - Work phone/internet may be partially deductible (work %% only)
 - Home office items may be partially deductible if also used personally
 - Education must relate to CURRENT job, not a new career
+- Cloud services (AWS, GCP, DigitalOcean, Supabase) for personal/side projects are NOT deductible; only if directly for current employment
 
 Classify each expense. Return JSON only:
 {"results": [{"expense_id": "...", "is_deductible": true/false, "ato_category": "D1|D2|D3|D4|D5|D6|D10|D15|INCOME_PROTECTION|OTHER|NOT_DEDUCTIBLE", "deductible_percentage": 0.0-1.0, "confidence": 0.0-1.0, "reasoning": "brief explanation", "field_confidences": {"is_deductible": 0.0-1.0, "ato_category": 0.0-1.0, "deductible_percentage": 0.0-1.0}}]}

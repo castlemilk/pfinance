@@ -62,6 +62,10 @@ func LocalDevInterceptor() connect.UnaryInterceptorFunc {
 				Status: pfinancev1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE,
 			})
 
+			// In local dev, treat the user as admin so the admin UI is reachable.
+			// Production still gates by ADMIN_EMAILS / custom claim.
+			ctx = WithAdmin(ctx, &AdminInfo{IsAdmin: true})
+
 			return next(ctx, req)
 		}
 	}

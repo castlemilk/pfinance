@@ -156,9 +156,14 @@ func main() {
 		log.Println("⚠️  ALGOLIA_APP_ID or ALGOLIA_SEARCH_KEY not set, using store-based search")
 	}
 
+	// Initialize ML smart capabilities client (recurring, anomaly, forecast)
+	smartClient := extraction.NewSmartClient(mlServiceURL)
+	log.Printf("✅ ML smart capabilities enabled (service: %s)", mlServiceURL)
+
 	// Create the finance service
 	financeService := service.NewFinanceService(storeImpl, stripeClient, firebaseAuth)
 	financeService.SetTaxClassificationPipeline(taxPipeline)
+	financeService.SetSmartClient(smartClient)
 	if algoliaClient != nil {
 		financeService.SetAlgoliaClient(algoliaClient)
 	}
