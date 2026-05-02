@@ -80,17 +80,24 @@ func main() {
 		storeImpl = store.NewFirestoreStore(firestoreClient)
 	}
 
-	// Initialize extraction service if ML service URL is configured
+	// Initialize extraction service if ML service URL is configured.
+	// DISABLE_ML_SERVICE=true forces Gemini-only mode (used when Modal is
+	// down or for cost reasons). When disabled, the self-hosted fallback
+	// is removed from the chain so Gemini is the exclusive path.
 	mlServiceURL := os.Getenv("ML_SERVICE_URL")
 	if mlServiceURL == "" {
 		// Default to 7B Modal endpoint for production-quality extraction
 		mlServiceURL = "https://ben-ebsworth--pfinance-extraction-7b-web-app.modal.run"
 	}
+	enableML := os.Getenv("DISABLE_ML_SERVICE") != "true"
+	if !enableML {
+		log.Println("⚠️  ML self-hosted extraction disabled (DISABLE_ML_SERVICE=true) — Gemini only")
+	}
 
 	extractionSvc := extraction.NewExtractionService(extraction.Config{
 		MLServiceURL:     mlServiceURL,
 		GeminiAPIKey:     os.Getenv("GEMINI_API_KEY"),
-		EnableML:         true,
+		EnableML:         enableML,
 		EnableValidation: os.Getenv("GEMINI_API_KEY") != "",
 	})
 	// Wire user-specific merchant lookups into extraction

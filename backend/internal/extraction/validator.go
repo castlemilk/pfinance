@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"net/http"
 	"strings"
@@ -262,6 +263,13 @@ Rules:
 	// Extract JSON from response
 	var result GeminiResponse
 	if err := extractJSON(text, &result); err != nil {
+		// Log a snippet of the raw text so we can diagnose what Gemini
+		// actually returned (refusal text, plain prose, truncated JSON, etc).
+		preview := text
+		if len(preview) > 400 {
+			preview = preview[:400] + "…"
+		}
+		log.Printf("[gemini] parse failure; raw response head: %q", preview)
 		return nil, fmt.Errorf("parse Gemini result: %w", err)
 	}
 
