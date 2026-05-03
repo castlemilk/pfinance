@@ -1,144 +1,27 @@
 name: Deploy Production
 
+# All production deploys (frontend + backend) now run on Cuttlefish:
+#   - pfinance-deploy         → Vercel prod (auto on push to main)
+#   - pfinance-backend-deploy → Cloud Run prod (auto on push to main)
+# Both run on the local Cuttlefish agent — zero GitHub Actions minutes,
+# zero Vercel build minutes (prebuilt deploys).
+#
+# Manual one-offs that stayed out of CI:
+#   - Firestore index deploys: `make deploy-indexes` (rare, schema-bound)
+#
+# This workflow is kept as a manual-dispatch escape hatch in case Cuttlefish
+# is down. To use it, add the deploy jobs back from git history
+# (commit 722e719 has the last full version).
+
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
-concurrency:
-  group: production-deploy
-  cancel-in-progress: false
-
-env:
-  PROJECT_ID: pfinance-app-1748773335
-  REGION: us-central1
-  SERVICE_NAME: pfinance-backend
-  KO_DOCKER_REPO: gcr.io/pfinance-app-1748773335/pfinance-backend
-  WORKLOAD_IDENTITY_PROVIDER: projects/859800863588/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-  SERVICE_ACCOUNT: github-actions@pfinance-app-1748773335.iam.gserviceaccount.com
-
 jobs:
-  # ===========================================
-  # 1. Build & Push Backend (ko)
-  # ===========================================
-  build-backend:
+  noop:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    outputs:
-      image: ${{ steps.build.outputs.image }}
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ env.SERVICE_ACCOUNT }}
-
-      - uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ env.PROJECT_ID }}
-
-      - run: gcloud auth configure-docker
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-          cache: true
-          cache-dependency-path: backend/go.sum
-
-      - uses: ko-build/setup-ko@v0.9
-
-      - uses: bufbuild/buf-setup-action@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Generate proto
-        run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-          go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
-          export PATH=$PATH:$(go env GOPATH)/bin
-          cd proto && buf generate --template buf.gen.go.yaml
-
-      - name: Build & Push with ko
-        id: build
-        run: |
-          cd backend
-          IMAGE=$(ko build ./cmd/server --bare --tags=${{ github.sha }})
-          echo "image=$IMAGE" >> $GITHUB_OUTPUT
-          echo "Built and pushed: $IMAGE"
-
-  # ===========================================
-  # 2. Deploy Backend (Cloud Run)
-  # ===========================================
-  deploy-backend:
-    needs: build-backend
-    runs-on: ubuntu-latest
-    environment:
-      name: Production
-    permissions:
-      contents: read
-      id-token: write
-    outputs:
-      api_url: ${{ steps.deploy.outputs.url }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ env.SERVICE_ACCOUNT }}
-
-      - uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ env.PROJECT_ID }}
-
-      - name: Deploy to Cloud Run
-        id: deploy
-        run: |
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image ${{ needs.build-backend.outputs.image }} \
-            --region ${{ env.REGION }} \
-            --platform managed \
-            --allow-unauthenticated \
-            --port 8111 \
-            --memory 512Mi \
-            --min-instances 0 \
-            --max-instances 5 \
-            --timeout 900 \
-            --set-env-vars "GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }},STRIPE_PRICE_ID=${{ secrets.STRIPE_PRICE_ID }},STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }},ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }},ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }},ALGOLIA_INDEX_NAME=pfinance,ADMIN_EMAILS=ben.ebsworth@gmail.com,DISABLE_ML_SERVICE=true" \
-            --quiet
-
-          URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} --region ${{ env.REGION }} --format 'value(status.url)')
-          echo "url=$URL" >> $GITHUB_OUTPUT
-          echo "Backend deployed to: $URL"
-
-  # ===========================================
-  # 3. Deploy Frontend (Vercel) — moved to Cuttlefish
-  # ===========================================
-  # Frontend prod deploy now runs in Cuttlefish workflow `pfinance-deploy`
-  # (project `pfinance`, workflow id 00aafea6-a92e-436e-a16d-906211a81b1a).
-  # Triggered automatically on push to main via the Cuttlefish GitHub App
-  # mapping for castlemilk/pfinance. Uses local runner; zero Vercel build
-  # minutes (vercel deploy --prebuilt).
-
-  # ===========================================
-  # 4. Deploy Firebase Indexes
-  # ===========================================
-  firebase:
-    needs: deploy-backend
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ env.SERVICE_ACCOUNT }}
-      - name: Deploy indexes
-        run: |
-          npm i -g firebase-tools
-          firebase deploy --only firestore:indexes --project ${{ env.PROJECT_ID }}
+      - run: |
+          echo "Production deploys live in Cuttlefish."
+          echo "  pfinance-deploy:         https://api.cuttlefish.sh (Vercel)"
+          echo "  pfinance-backend-deploy: https://api.cuttlefish.sh (Cloud Run)"
+          echo "Manual indexes: make deploy-indexes"
