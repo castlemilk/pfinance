@@ -739,46 +739,90 @@ select:focus {
    ============================================ */
 
 @media print {
-  /* Hide elements that shouldn't be printed */
-  header, footer, nav, button, .no-print {
+  /* Hide chrome that doesn't belong in a printed report. The salary
+     calculator opts into print mode by setting `.print-salary-report`
+     on <body> while window.print() runs (see SalaryCalculator). */
+  header, footer, nav, button, .no-print,
+  [data-no-print="true"] {
     display: none !important;
   }
 
-  /* Ensure the calculator takes up the full page */
+  /* Reset background; many of the app's surfaces use OKLCH which can
+     render unexpectedly on physical paper. */
   body {
-    background-color: white;
+    background: white !important;
+    color: black !important;
     margin: 0;
     padding: 0;
   }
 
-  /* Set paper size */
   @page {
     size: A4;
-    margin: 1cm;
+    margin: 14mm 12mm;
   }
 
-  /* Ensure colors and backgrounds print properly */
+  /* Honour designed colours on paper-friendly elements. */
   * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
-  /* Make the calculator fit on the page */
-  .SalaryCalculator {
+  /* When the calculator triggers a print, hide every painted pixel
+     in the document and re-show only the printable region. The
+     visibility trick works regardless of how deep .print-root is. */
+  body.print-salary-report * {
+    visibility: hidden !important;
+  }
+  body.print-salary-report .print-root,
+  body.print-salary-report .print-root * {
+    visibility: visible !important;
+  }
+  body.print-salary-report .print-root {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  /* Hide elements explicitly opted out of print. Use display so they
+     reclaim no layout — visibility:hidden alone would leave gaps. */
+  body.print-salary-report [data-no-print="true"] {
+    display: none !important;
+  }
+
+  /* Tabs: collapse trigger UI and force-show every panel
+     so a single print contains weekly/fortnightly/monthly/annual. */
+  body.print-salary-report [role="tablist"] {
+    display: none !important;
+  }
+  body.print-salary-report [role="tabpanel"] {
+    display: block !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin-bottom: 1rem;
+  }
+
+  /* Avoid splitting cards across pages where possible. */
+  .salary-print-card,
+  [data-print-block] {
     page-break-inside: avoid;
     break-inside: avoid;
   }
 
-  /* Ensure text is readable */
-  p, h1, h2, h3, h4, h5, h6, span, div {
-    color: black !important;
-  }
+  /* Show print-only header (rendered inside the calculator). */
+  .print-only { display: block !important; }
 
-  /* Make sure charts print properly */
+  /* Charts/SVGs: keep them legible. */
   svg {
     max-width: 100%;
     height: auto !important;
   }
+}
+
+/* Hide the print-only header during normal (screen) viewing. */
+@media screen {
+  .print-only { display: none !important; }
 }
 
 /* ============================================

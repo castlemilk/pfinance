@@ -31,12 +31,22 @@ import { PresetSelector, Preset, PresetType } from './PresetSelector';
 import { TaxYearSelector } from './TaxYearSelector';
 import dynamic from 'next/dynamic';
 import { toAnnualAmount } from './utils';
+import { Download, Printer, Share2 } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import {
+  buildSalaryReportText,
+  buildShareUrl,
+  decodeSharePayload,
+  defaultReportFilename,
+  generateSalaryPdf,
+} from './report';
 
 const SalaryBreakdownChart = dynamic(() => import('../SalaryBreakdownChart'), { ssr: false });
 
 export function SalaryCalculatorNew() {
   const { taxConfig, updateTaxConfig, addIncome, updateIncome, incomes } = useFinance();
   const { user } = useAuth();
+  const { toast } = useToast();
   const calculatorRef = useRef<HTMLDivElement>(null);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const stateSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -365,94 +375,195 @@ export function SalaryCalculatorNew() {
 
   // Load calculator state from URL parameters
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const calculatorParam = urlParams.get('calculator');
+    if (typeof window === 'undefined') return;
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const calculatorParam = urlParams.get('calculator');
+      if (!calculatorParam) return;
 
-        if (calculatorParam) {
-          const decodedData = JSON.parse(atob(calculatorParam));
+      const decoded = decodeSharePayload(calculatorParam) as
+        | (Record<string, unknown> & {
+            salary?: string;
+            frequency?: SalaryFormData['frequency'];
+            taxSettings?: TaxSettings;
+            country?: typeof taxConfig.country;
+            taxYear?: TaxYear;
+            taxCategory?: TaxCategory;
+            salarySacrifices?: SalarySacrificeEntry[];
+            overtimeEntries?: OvertimeEntry[];
+            fringeBenefits?: FringeBenefitEntry[];
+          })
+        | null;
+      if (!decoded) return;
 
-          form.setValue('salary', decodedData.salary);
-          form.setValue('frequency', decodedData.frequency);
+      if (decoded.salary !== undefined) form.setValue('salary', decoded.salary);
+      if (decoded.frequency)            form.setValue('frequency', decoded.frequency);
+      if (decoded.taxSettings)          setTaxSettings(decoded.taxSettings);
+      if (decoded.taxYear)              setTaxYear(decoded.taxYear);
+      if (decoded.taxCategory)          setTaxCategory(decoded.taxCategory);
+      if (Array.isArray(decoded.salarySacrifices)) setSalarySacrifices(decoded.salarySacrifices);
+      if (Array.isArray(decoded.overtimeEntries))  setOvertimeEntries(decoded.overtimeEntries);
+      if (Array.isArray(decoded.fringeBenefits))   setFringeBenefits(decoded.fringeBenefits);
 
-          if (decodedData.taxSettings) {
-            setTaxSettings(decodedData.taxSettings);
-          }
-
-          if (decodedData.country && decodedData.country !== taxConfig.country) {
-            updateTaxConfig({ country: decodedData.country });
-          }
-
-          // Clean URL
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      } catch (error) {
-        console.error('Error loading shared calculator:', error);
+      if (decoded.country && decoded.country !== taxConfig.country) {
+        updateTaxConfig({ country: decoded.country });
       }
+
+      // Clean URL once we've consumed the payload.
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } catch (error) {
+      console.error('Error loading shared calculator:', error);
     }
   }, [form, taxConfig.country, updateTaxConfig]);
 
-  // Export handlers
-  const handleDownload = async () => {
-    if (!calculatorRef.current) return;
+  // ── Export handlers ─────────────────────────────────────────────
+  const buildReportInput = useCallback(() => ({
+    generatedAt: new Date(),
+    userName: user?.displayName ?? null,
+    userEmail: user?.email ?? null,
+    taxCountry: taxConfig.country,
+    taxYear,
+    taxCategory,
+    breakdowns: calculations.breakdowns,
+    taxSettings,
+    salarySacrificeCalculation: calculations.salarySacrificeCalculation,
+    salarySacrifices,
+    overtimeEntries,
+    fringeBenefits,
+    superannuation: calculations.superannuation,
+    studentLoanRate: calculations.studentLoanRate,
+  }), [
+    user, taxConfig.country, taxYear, taxCategory,
+    calculations.breakdowns, calculations.salarySacrificeCalculation,
+    calculations.superannuation, calculations.studentLoanRate,
+    taxSettings, salarySacrifices, overtimeEntries, fringeBenefits,
+  ]);
 
+  const handleDownload = useCallback(async () => {
     try {
-      const [{ jsPDF }, { default: html2canvas }] = await Promise.all([
-        import('jspdf'),
-        import('html2canvas'),
-      ]);
-      const canvas = await html2canvas(calculatorRef.current, {
-        scale: 2,
-        logging: false,
-        useCORS: true,
+      const input = buildReportInput();
+      const blob = await generateSalaryPdf(input);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = defaultReportFilename(input.generatedAt);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // Revoke a tick later so Safari has a chance to start the download.
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast({
+        title: 'Salary report downloaded',
+        description: a.download,
       });
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`salary-report-${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
+      toast({
+        title: 'Download failed',
+        description: error instanceof Error ? error.message : 'Could not generate PDF',
+        variant: 'destructive',
+      });
     }
-  };
+  }, [buildReportInput, toast]);
 
-  const handleShareLink = () => {
+  const handleShareLink = useCallback(async () => {
     try {
-      const shareData = {
+      const input = buildReportInput();
+      const text = buildSalaryReportText(input);
+      const url = buildShareUrl({
+        origin: window.location.origin,
+        pathname: window.location.pathname,
         salary: watchedSalary,
         frequency: watchedFrequency,
         taxSettings,
-        country: taxConfig.country,
+        taxCountry: taxConfig.country,
+        taxYear,
+        taxCategory,
+        salarySacrifices,
+        overtimeEntries,
+        fringeBenefits,
+      });
+
+      // Native share (mobile, supported desktop browsers) gets the rich
+      // text + a return URL so a tap re-opens the calculator.
+      const nav = window.navigator as Navigator & {
+        share?: (data: ShareData) => Promise<void>;
+        canShare?: (data: ShareData) => boolean;
+      };
+      const sharePayload: ShareData = {
+        title: 'My salary breakdown',
+        text,
+        url,
       };
 
-      const encodedData = btoa(JSON.stringify(shareData));
-      const shareableUrl = `${window.location.origin}${window.location.pathname}?calculator=${encodedData}`;
+      if (nav.share && (!nav.canShare || nav.canShare(sharePayload))) {
+        await nav.share(sharePayload);
+        return;
+      }
 
-      navigator.clipboard.writeText(shareableUrl);
-      alert('Link copied to clipboard!');
+      // Clipboard fallback. Copy the formatted text + URL so it pastes
+      // cleanly into iMessage / Slack / email.
+      await navigator.clipboard.writeText(`${text}\n\nOpen in calculator: ${url}`);
+      toast({
+        title: 'Copied to clipboard',
+        description: 'Salary summary and shareable link are ready to paste.',
+      });
     } catch (error) {
+      // AbortError = user cancelled the share sheet; not a failure.
+      if (error instanceof DOMException && error.name === 'AbortError') return;
       console.error('Error creating share link:', error);
+      toast({
+        title: 'Share failed',
+        description: error instanceof Error ? error.message : 'Could not share',
+        variant: 'destructive',
+      });
     }
-  };
+  }, [
+    buildReportInput, watchedSalary, watchedFrequency, taxSettings,
+    taxConfig.country, taxYear, taxCategory,
+    salarySacrifices, overtimeEntries, fringeBenefits, toast,
+  ]);
 
-  const handlePrint = () => {
+  // Print: temporarily mark <body> so the print stylesheet hides the
+  // app shell and reveals the print-only header.
+  const handlePrint = useCallback(() => {
+    if (typeof document === 'undefined') return;
+    const body = document.body;
+    body.classList.add('print-salary-report');
+    const cleanup = () => {
+      body.classList.remove('print-salary-report');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    // Belt-and-braces: some browsers don't fire afterprint reliably.
+    setTimeout(cleanup, 5000);
     window.print();
-  };
+  }, []);
+
+  const printGeneratedAt = new Date();
+  const printUserLine = [user?.displayName, user?.email].filter(Boolean).join(' · ');
 
   return (
-    <div className="flex flex-col space-y-6" ref={calculatorRef}>
+    <div className="flex flex-col space-y-6 print-root" ref={calculatorRef}>
+      {/* Print-only report header. Hidden on screen via globals.css. */}
+      <div className="print-only">
+        <div style={{ borderBottom: '1px solid #111', paddingBottom: 8, marginBottom: 16 }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#000' }}>
+            Salary Report
+          </div>
+          <div style={{ fontSize: 11, color: '#444', marginTop: 4 }}>
+            {printGeneratedAt.toLocaleDateString('en-AU', {
+              year: 'numeric', month: 'long', day: 'numeric',
+            })}
+            {printUserLine ? ` · ${printUserLine}` : ''}
+            {' · '}Tax year {taxYear}
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column - Inputs */}
-        <div className="space-y-6">
+        {/* Left Column - Inputs (hidden in printed report) */}
+        <div className="space-y-6" data-no-print="true">
           {/* Preset and Tax Year Selectors */}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <PresetSelector
@@ -630,18 +741,21 @@ export function SalaryCalculatorNew() {
             </div>
           </div>
         </CardContent>
-        <CardFooter className="flex justify-between flex-wrap gap-2">
+        <CardFooter className="flex justify-between flex-wrap gap-2" data-no-print="true">
           <span className="text-sm text-muted-foreground">
             Tax Year: {taxYear}
           </span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleDownload}>
+              <Download className="h-4 w-4" aria-hidden="true" />
               Download
             </Button>
             <Button variant="outline" size="sm" onClick={handleShareLink}>
+              <Share2 className="h-4 w-4" aria-hidden="true" />
               Share
             </Button>
             <Button variant="outline" size="sm" onClick={handlePrint}>
+              <Printer className="h-4 w-4" aria-hidden="true" />
               Print
             </Button>
           </div>
