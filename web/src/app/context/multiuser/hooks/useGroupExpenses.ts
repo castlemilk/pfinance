@@ -6,7 +6,9 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { User } from 'firebase/auth';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { financeClient } from '@/lib/financeService';
+import { db } from '@/lib/firebase';
 import { 
   Expense,
   ExpenseAllocation,
@@ -100,18 +102,42 @@ export function useGroupExpenses({ user, activeGroup }: UseGroupExpensesOptions)
     refreshGroupExpenses().finally(() => setLoading(false));
   }, [activeGroup, refreshGroupExpenses]);
 
-  // Set up polling for real-time updates on shared pages
+  // Real-time updates via Firestore listener — replaces a 5s polling loop
+  // that hammered listExpenses every 5 seconds while on /shared pages.
+  // Backend writes to the `groupExpenses` collection (see backend
+  // internal/store/firestore.go ListExpenses); we listen on
+  // `where(GroupId == activeGroup.id)` and call the existing RPC refresh
+  // ONLY when Firestore reports an actual change. Under steady state
+  // (no changes) this is zero round-trips — was 720 RPCs/hour before.
   useEffect(() => {
-    if (!activeGroup || typeof window === 'undefined') return;
+    if (!activeGroup || typeof window === 'undefined' || !db) return;
 
     const isSharedPage = window.location.pathname.startsWith('/shared');
     if (!isSharedPage) return;
 
-    const intervalId = setInterval(() => {
-      refreshGroupExpenses();
-    }, 5000);
+    const q = query(
+      collection(db, 'groupExpenses'),
+      where('GroupId', '==', activeGroup.id),
+    );
 
-    return () => clearInterval(intervalId);
+    // Skip the very first snapshot — it's just the current state, which the
+    // dedicated load-on-group-change effect above has already fetched.
+    let firstSnapshot = true;
+    const unsubscribe = onSnapshot(
+      q,
+      () => {
+        if (firstSnapshot) {
+          firstSnapshot = false;
+          return;
+        }
+        refreshGroupExpenses();
+      },
+      (err) => console.error('groupExpenses listener error:', err),
+    );
+
+    return () => {
+      unsubscribe();
+    };
   }, [activeGroup, refreshGroupExpenses]);
 
   const addGroupExpense = useCallback(async (
