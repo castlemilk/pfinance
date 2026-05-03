@@ -115,43 +115,13 @@ jobs:
           echo "Backend deployed to: $URL"
 
   # ===========================================
-  # 3. Deploy Frontend (Vercel)
+  # 3. Deploy Frontend (Vercel) — moved to Cuttlefish
   # ===========================================
-  deploy-frontend:
-    needs: deploy-backend
-    runs-on: ubuntu-latest
-    environment:
-      name: Production
-      url: https://pfinance.dev
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
-
-      - name: Install Vercel CLI
-        run: npm i -g vercel@latest
-
-      - name: Deploy to Vercel
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: team_xE5DMN3hIo8aPqyHNkBybg8r
-          VERCEL_PROJECT_ID: prj_TakUttZsa4fdddSwfVp08YFfyAdF
-          API_URL: ${{ needs.deploy-backend.outputs.api_url }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          # Pull latest environment variables and project config
-          vercel pull --yes --environment=production --token=$VERCEL_TOKEN
-
-          # Build with the dynamic API URL from Terraform
-          GEMINI_API_KEY=$GEMINI_API_KEY OPENAI_API_KEY=$OPENAI_API_KEY vercel build --prod --token=$VERCEL_TOKEN
-
-          # Deploy using the build artifacts and injecting env vars
-          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN --env NEXT_PUBLIC_API_URL=$API_URL --env NEXT_PUBLIC_DEV_MODE=false --env GEMINI_API_KEY=$GEMINI_API_KEY --env OPENAI_API_KEY=$OPENAI_API_KEY
+  # Frontend prod deploy now runs in Cuttlefish workflow `pfinance-deploy`
+  # (project `pfinance`, workflow id 00aafea6-a92e-436e-a16d-906211a81b1a).
+  # Triggered automatically on push to main via the Cuttlefish GitHub App
+  # mapping for castlemilk/pfinance. Uses local runner; zero Vercel build
+  # minutes (vercel deploy --prebuilt).
 
   # ===========================================
   # 4. Deploy Firebase Indexes
