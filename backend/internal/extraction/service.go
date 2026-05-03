@@ -109,6 +109,13 @@ func (s *ExtractionService) SetMerchantLookup(lookup MerchantLookup) {
 	s.merchantLookup = lookup
 }
 
+// SetJobPublisher wires an external publisher (e.g. Firestore) into the job
+// store. Every Create/Update fires the publisher in addition to the in-memory
+// write — the existing GetJob RPC path is unchanged.
+func (s *ExtractionService) SetJobPublisher(p JobPublisher) {
+	s.jobStore.SetPublisher(p)
+}
+
 // StartWarmupScheduler pings the ML service every interval to prevent cold starts.
 // Modal's serverless containers shut down after 60s of inactivity; a regular
 // health-check keeps the container warm so the first real request isn't delayed

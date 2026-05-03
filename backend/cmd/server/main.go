@@ -10,6 +10,7 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"connectrpc.com/connect"
+	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 	"github.com/castlemilk/pfinance/backend/gen/pfinance/v1/pfinancev1connect"
 	"github.com/castlemilk/pfinance/backend/internal/auth"
 	"github.com/castlemilk/pfinance/backend/internal/extraction"
@@ -44,6 +45,7 @@ func main() {
 
 	var storeImpl store.Store
 	var firebaseAuth *auth.FirebaseAuth
+	var firestoreClient *firestore.Client // nil in memory-store mode; used for job-state mirroring below
 
 	if useMemoryStore {
 		log.Println("Using in-memory store for local development")
@@ -60,7 +62,8 @@ func main() {
 			projectID = "pfinance-app-1748773335"
 		}
 
-		firestoreClient, err := firestore.NewClient(ctx, projectID)
+		var err error
+		firestoreClient, err = firestore.NewClient(ctx, projectID)
 		if err != nil {
 			log.Fatalf("Failed to create Firestore client: %v", err)
 		}
@@ -108,8 +111,39 @@ func main() {
 	// Wire statement store for two-phase extraction dedup
 	extractionSvc.SetStatementStore(storeImpl)
 
+	// Mirror job state to Firestore so the frontend can listen via
+	// onSnapshot instead of polling getExtractionJob every 1.5s. The
+	// in-memory store remains the RPC source of truth; Firestore is a
+	// passive sink for real-time UI updates. Errors are logged and
+	// non-fatal — the existing GetExtractionJob RPC always works.
+	// Skipped in memory-store / local mode where there is no Firestore.
+	if firestoreClient != nil {
+		fsClient := firestoreClient
+		extractionSvc.SetJobPublisher(func(job *pfinancev1.ExtractionJob) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if _, err := fsClient.Collection("extractionJobs").Doc(job.Id).Set(ctx, job); err != nil {
+				log.Printf("[extraction] failed to publish job %s to Firestore: %v", job.Id, err)
+			}
+		})
+	}
+
 	service.SetExtractionService(extractionSvc)
 	log.Printf("✅ Document extraction enabled (ML service: %s)", mlServiceURL)
+
+	// Mirror tax-eval job state to Firestore (same pattern as extraction
+	// jobs above) so the eval-progress UI listens via onSnapshot instead of
+	// polling getTaxEvalJob every 2s.
+	if firestoreClient != nil {
+		fsClient := firestoreClient
+		service.SetTaxEvalJobPublisher(func(job *pfinancev1.TaxEvalJob) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if _, err := fsClient.Collection("taxEvalJobs").Doc(job.Id).Set(ctx, job); err != nil {
+				log.Printf("[taxeval] failed to publish job %s to Firestore: %v", job.Id, err)
+			}
+		})
+	}
 
 	// Keep the Modal ML container warm with a periodic health-check ping.
 	// Modal shuts containers down after 60s of inactivity; pinging every 45s

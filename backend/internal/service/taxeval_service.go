@@ -19,18 +19,33 @@ import (
 
 // taxEvalJobStore manages in-memory async tax eval jobs.
 type taxEvalJobStore struct {
-	mu   sync.RWMutex
-	jobs map[string]*pfinancev1.TaxEvalJob
+	mu      sync.RWMutex
+	jobs    map[string]*pfinancev1.TaxEvalJob
+	publish func(job *pfinancev1.TaxEvalJob) // optional; mirrors state to Firestore
 }
 
 var evalJobs = &taxEvalJobStore{
 	jobs: make(map[string]*pfinancev1.TaxEvalJob),
 }
 
+// SetTaxEvalJobPublisher installs a publisher that mirrors every Create/Update
+// to an external sink (Firestore). The frontend listens via onSnapshot instead
+// of polling getTaxEvalJob every 2s. Errors are the publisher's responsibility
+// to log; the in-memory store update never blocks on the publisher.
+func SetTaxEvalJobPublisher(p func(job *pfinancev1.TaxEvalJob)) {
+	evalJobs.mu.Lock()
+	defer evalJobs.mu.Unlock()
+	evalJobs.publish = p
+}
+
 func (s *taxEvalJobStore) create(job *pfinancev1.TaxEvalJob) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.jobs[job.Id] = job
+	publish := s.publish
+	s.mu.Unlock()
+	if publish != nil {
+		publish(job)
+	}
 }
 
 func (s *taxEvalJobStore) get(id string) (*pfinancev1.TaxEvalJob, bool) {
@@ -42,8 +57,12 @@ func (s *taxEvalJobStore) get(id string) (*pfinancev1.TaxEvalJob, bool) {
 
 func (s *taxEvalJobStore) update(job *pfinancev1.TaxEvalJob) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.jobs[job.Id] = job
+	publish := s.publish
+	s.mu.Unlock()
+	if publish != nil {
+		publish(job)
+	}
 }
 
 // RunTaxEval starts an async tax evaluation job.

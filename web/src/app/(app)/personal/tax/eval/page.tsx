@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -371,40 +373,54 @@ export default function TaxEvalPage() {
   const [job, setJob] = useState<TaxEvalJob | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const unsubRef = useRef<(() => void) | null>(null);
 
-  const stopPolling = useCallback(() => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
+  const stopWatching = useCallback(() => {
+    if (unsubRef.current) {
+      unsubRef.current();
+      unsubRef.current = null;
     }
   }, []);
 
-  const pollJob = useCallback(async (jobId: string) => {
-    try {
-      const res = await financeClient.getTaxEvalJob({ jobId });
-      if (res.job) {
-        setJob(res.job);
-        if (res.job.status === 'completed' || res.job.status === 'failed') {
-          stopPolling();
+  // Subscribe to job state via Firestore. The backend mirrors every
+  // taxEvalJobStore update to taxEvalJobs/{jobId} (see backend cmd/server
+  // main.go SetTaxEvalJobPublisher), so we get push updates instead of
+  // polling getTaxEvalJob every 2s.
+  const watchJob = useCallback((jobId: string) => {
+    stopWatching();
+    if (!db) {
+      setError('Firestore not configured — cannot watch job');
+      setRunning(false);
+      return;
+    }
+    const ref = doc(db, 'taxEvalJobs', jobId);
+    unsubRef.current = onSnapshot(
+      ref,
+      (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data() as TaxEvalJob;
+        setJob(data);
+        if (data.status === 'completed' || data.status === 'failed') {
+          stopWatching();
           setRunning(false);
-          if (res.job.status === 'failed') {
-            setError(res.job.errorMessage || 'Job failed');
+          if (data.status === 'failed') {
+            setError(data.errorMessage || 'Job failed');
           }
         }
-      }
-    } catch (err: unknown) {
-      stopPolling();
-      setRunning(false);
-      setError(err instanceof Error ? err.message : 'Failed to poll job');
-    }
-  }, [stopPolling]);
+      },
+      (err) => {
+        stopWatching();
+        setRunning(false);
+        setError(err.message || 'Failed to watch job');
+      },
+    );
+  }, [stopWatching]);
 
   const startEval = useCallback(async () => {
     setError(null);
     setJob(null);
     setRunning(true);
-    stopPolling();
+    stopWatching();
 
     try {
       const res = await financeClient.runTaxEval({
@@ -421,16 +437,12 @@ export default function TaxEvalPage() {
         return;
       }
 
-      // Initial poll
-      await pollJob(jobId);
-
-      // Start polling interval
-      pollRef.current = setInterval(() => pollJob(jobId), 2000);
+      watchJob(jobId);
     } catch (err: unknown) {
       setRunning(false);
       setError(err instanceof Error ? err.message : 'Failed to start eval');
     }
-  }, [datasetPath, method, occupation, concurrency, pollJob, stopPolling]);
+  }, [datasetPath, method, occupation, concurrency, watchJob, stopWatching]);
 
   return (
     <ProFeatureGate feature="Tax Eval Dashboard">
