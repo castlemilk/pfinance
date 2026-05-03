@@ -1,7 +1,9 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { financeClient } from '@/lib/financeService';
+import { db } from '@/lib/firebase';
 import type { Notification, NotificationPreferences } from '@/gen/pfinance/v1/types_pb';
 import { useAuth } from './AuthWithAdminContext';
 
@@ -25,15 +27,6 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 // ============================================================================
-// Polling intervals
-// ============================================================================
-
-// Default: poll every 60 seconds
-const POLL_INTERVAL_MS = 60_000;
-// When FCM push is active, poll infrequently as a safety net
-const POLL_INTERVAL_PUSH_MS = 300_000; // 5 minutes
-
-// ============================================================================
 // Provider Component
 // ============================================================================
 
@@ -44,23 +37,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
-  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isAuthenticated = !!user;
   const userId = user?.uid || '';
 
   // ── Fetch unread count ─────────────────────────────────────────────────
+  // No-op: unread count is maintained by the Firestore onSnapshot listener
+  // below. This is retained on the public API surface for callers that
+  // expect a manual refresh hook (e.g. after an action they took elsewhere)
+  // but the listener already pushes updates in real-time.
 
   const refreshUnreadCount = useCallback(async () => {
-    if (!isAuthenticated || !userId) return;
-
-    try {
-      const response = await financeClient.getUnreadNotificationCount({ userId });
-      setUnreadCount(response.count);
-    } catch (e) {
-      console.error('[NotificationContext] Failed to fetch unread count:', e);
-    }
-  }, [isAuthenticated, userId]);
+    // intentionally empty — see useEffect with onSnapshot below
+  }, []);
 
   // ── Load full notification list ────────────────────────────────────────
 
@@ -165,9 +154,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [isAuthenticated, userId, preferences]);
 
-  // ── Poll unread count ──────────────────────────────────────────────────
-  // Uses a longer interval when FCM push is active (push delivers updates
-  // in real-time, polling is just a safety net).
+  // ── Real-time unread count via Firestore listener ──────────────────────
+  // Replaces a 60s polling loop that kept a Cloud Run instance permanently
+  // alive (~$65/mo for one Chrome tab). The backend writes to the
+  // `notifications` collection (see backend internal/store/firestore.go);
+  // we listen on `where(UserId == userId AND IsRead == false)` and count
+  // the snapshot size client-side. Zero backend round-trips, instant
+  // updates when a notification is created or marked read.
 
   useEffect(() => {
     if (!isAuthenticated || !userId) {
@@ -178,39 +171,30 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Initial fetch
-    refreshUnreadCount();
     loadPreferences();
 
-    // Determine polling interval: if FCM push is registered, poll infrequently
-    let interval = POLL_INTERVAL_MS;
-    try {
-      if (localStorage.getItem('pfinance_fcm_token')) {
-        interval = POLL_INTERVAL_PUSH_MS;
-      }
-    } catch {
-      // localStorage unavailable (SSR/incognito)
+    if (!db) {
+      // Firestore not configured (e.g. SSR build without env vars). Skip
+      // listener; the action handlers still work via RPC.
+      return;
     }
 
-    // Set up polling
-    pollIntervalRef.current = setInterval(() => {
-      refreshUnreadCount();
-    }, interval);
+    const q = query(
+      collection(db, 'notifications'),
+      where('UserId', '==', userId),
+      where('IsRead', '==', false),
+    );
 
-    // Listen for foreground FCM push messages — refresh immediately
-    const handleFCMMessage = () => {
-      refreshUnreadCount();
-    };
-    window.addEventListener('fcm-foreground-message', handleFCMMessage);
+    const unsubscribe = onSnapshot(
+      q,
+      (snap) => setUnreadCount(snap.size),
+      (err) => console.error('[NotificationContext] Firestore listener error:', err),
+    );
 
     return () => {
-      window.removeEventListener('fcm-foreground-message', handleFCMMessage);
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
+      unsubscribe();
     };
-  }, [isAuthenticated, userId, refreshUnreadCount, loadPreferences]);
+  }, [isAuthenticated, userId, loadPreferences]);
 
   // ── Context value ──────────────────────────────────────────────────────
 
