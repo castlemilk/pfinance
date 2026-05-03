@@ -40,7 +40,8 @@ import { useFinance } from '../context/FinanceContext';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { financeClient, DocumentType } from '@/lib/financeService';
 import { ExtractionMethod, ExtractionStatus } from '@/gen/pfinance/v1/types_pb';
-import type { ExtractedTransaction, StatementMetadata } from '@/gen/pfinance/v1/types_pb';
+import type { ExtractedTransaction, ExtractionJob, StatementMetadata } from '@/gen/pfinance/v1/types_pb';
+import { watchExtractionJob } from '@/lib/watchExtractionJob';
 import { ExpenseCategory } from '../types';
 import { ExpenseFrequency as ProtoExpenseFrequency } from '@/gen/pfinance/v1/types_pb';
 import { compressImage, readFileAsDataUrl, base64ToUint8Array } from '../utils/imageCompression';
@@ -641,39 +642,23 @@ export function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini, 
   };
 
   async function pollExtractionJob(jobId: string): Promise<{ transactions: ExtractedTransaction[]; statementMetadata?: StatementMetadata } | null> {
-    // Adaptive polling: start fast (500ms), ramp up to 2s after the first few polls.
-    // Receipt extractions typically complete in 3-5s; bank statements in 8-15s.
-    const pollIntervals = [500, 500, 750, 1000, 1250, 1500, 2000]; // ms per poll index
-    const maxPollMs = 90_000;
-    const startTime = Date.now();
-    let pollIndex = 0;
-
-    while (Date.now() - startTime < maxPollMs) {
-      if (cancelledRef.current) return null;
-
-      const interval = pollIntervals[Math.min(pollIndex, pollIntervals.length - 1)];
-      await new Promise((resolve) => setTimeout(resolve, interval));
-      pollIndex++;
-
-      try {
-        const jobResp = await financeClient.getExtractionJob({ jobId });
-        if (jobResp.job?.status === ExtractionStatus.COMPLETED && jobResp.job.result) {
-          return {
-            transactions: jobResp.job.result.transactions,
-            statementMetadata: jobResp.job.result.statementMetadata,
-          };
-        }
-        if (jobResp.job?.status === ExtractionStatus.FAILED) {
-          throw new Error(jobResp.job.errorMessage || 'Extraction failed');
-        }
-      } catch (pollErr) {
-        if (pollErr instanceof Error && (pollErr.message.includes('Extraction failed') || pollErr.message.includes('failed'))) {
-          throw pollErr;
-        }
-        console.error('Poll error:', pollErr);
-      }
+    // Push-based: subscribe to extractionJobs/{jobId} via Firestore. Backend
+    // mirrors every JobStore update there (see backend cmd/server/main.go
+    // SetJobPublisher) so we get the result the moment it's written. No
+    // polling, no kept-warm Cloud Run instances.
+    try {
+      const job = await watchExtractionJob(jobId, {
+        isCancelled: () => cancelledRef.current,
+      });
+      if (!job.result) return null;
+      return {
+        transactions: job.result.transactions,
+        statementMetadata: job.result.statementMetadata,
+      };
+    } catch (err) {
+      if (err instanceof Error && err.message === 'cancelled') return null;
+      throw err;
     }
-    throw new Error('Extraction timed out');
   }
 
   function updateFileStatus(id: string, status: BulkFile['status'], error?: string) {

@@ -31,6 +31,7 @@ import { checkForDuplicates, type DuplicateMatch } from '@/lib/checkDuplicates';
 import { ExpenseCategory, ExpenseFrequency } from '../types';
 import { financeClient, DocumentType } from '@/lib/financeService';
 import { ExtractionMethod, ExtractionStatus } from '@/gen/pfinance/v1/types_pb';
+import { watchExtractionJob } from '@/lib/watchExtractionJob';
 import type { FieldConfidence } from '@/gen/pfinance/v1/types_pb';
 import { ConfidenceBadge } from '@/components/ui/confidence-badge';
 import { FieldConfidenceDetail } from './FieldConfidenceDetail';
@@ -657,28 +658,13 @@ export default function SmartExpenseEntry() {
 
         // Handle async processing (multi-page PDF)
         if (response.status === ExtractionStatus.PROCESSING && response.jobId) {
-          // Poll for completion
-          const pollJob = async () => {
-            const maxPolls = 60; // 1.5s * 60 = 90s max
-            for (let i = 0; i < maxPolls; i++) {
-              await new Promise(resolve => setTimeout(resolve, 1500));
-              try {
-                const jobResp = await financeClient.getExtractionJob({ jobId: response.jobId });
-                if (jobResp.job?.status === ExtractionStatus.COMPLETED && jobResp.job.result) {
-                  return jobResp.job.result;
-                }
-                if (jobResp.job?.status === ExtractionStatus.FAILED) {
-                  throw new Error(jobResp.job.errorMessage || 'Extraction failed');
-                }
-              } catch (pollErr) {
-                console.error('Poll error:', pollErr);
-              }
-            }
-            throw new Error('Extraction timed out');
-          };
-
+          // Push-based via Firestore listener (was 1.5s polling).
           try {
-            const asyncResult = await pollJob();
+            const job = await watchExtractionJob(response.jobId);
+            if (!job.result) {
+              throw new Error('Extraction completed without result');
+            }
+            const asyncResult = job.result;
             if (asyncResult.transactions.length > 0) {
               const tx = asyncResult.transactions[0];
               const categoryName = mapProtoCategory(tx.suggestedCategory);
