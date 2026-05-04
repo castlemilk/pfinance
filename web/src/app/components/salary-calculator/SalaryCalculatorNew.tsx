@@ -34,11 +34,15 @@ import { toAnnualAmount } from './utils';
 import { Download, Printer, Share2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import {
+  buildSalaryReportViewModel,
   buildSalaryReportText,
   buildShareUrl,
   decodeSharePayload,
   defaultReportFilename,
   generateSalaryPdf,
+  type ReportInput,
+  type ReportMetricTone,
+  type ReportSection,
 } from './report';
 
 const SalaryBreakdownChart = dynamic(() => import('../SalaryBreakdownChart'), { ssr: false });
@@ -385,25 +389,45 @@ export function SalaryCalculatorNew() {
         | (Record<string, unknown> & {
             salary?: string;
             frequency?: SalaryFormData['frequency'];
+            salaryInputMode?: SalaryFormData['salaryInputMode'];
+            voluntarySuper?: string;
+            packagingCap?: number;
+            isProratedHours?: boolean;
+            proratedHours?: string;
+            proratedFrequency?: SalaryFormData['proratedFrequency'];
             taxSettings?: TaxSettings;
             country?: typeof taxConfig.country;
             taxYear?: TaxYear;
             taxCategory?: TaxCategory;
+            studentLoanBalance?: number;
             salarySacrifices?: SalarySacrificeEntry[];
             overtimeEntries?: OvertimeEntry[];
             fringeBenefits?: FringeBenefitEntry[];
+            novatedLeases?: NovatedLeaseEntry[];
+            deductions?: DeductionsData;
+            familyBenefits?: FamilyBenefitsData;
           })
         | null;
       if (!decoded) return;
 
       if (decoded.salary !== undefined) form.setValue('salary', decoded.salary);
       if (decoded.frequency)            form.setValue('frequency', decoded.frequency);
+      if (decoded.salaryInputMode)      form.setValue('salaryInputMode', decoded.salaryInputMode);
+      if (decoded.voluntarySuper !== undefined) form.setValue('voluntarySuper', decoded.voluntarySuper);
+      if (decoded.packagingCap !== undefined)   form.setValue('packagingCap', decoded.packagingCap);
+      if (decoded.isProratedHours !== undefined) form.setValue('isProratedHours', decoded.isProratedHours);
+      if (decoded.proratedHours !== undefined) form.setValue('proratedHours', decoded.proratedHours);
+      if (decoded.proratedFrequency)    form.setValue('proratedFrequency', decoded.proratedFrequency);
       if (decoded.taxSettings)          setTaxSettings(decoded.taxSettings);
       if (decoded.taxYear)              setTaxYear(decoded.taxYear);
       if (decoded.taxCategory)          setTaxCategory(decoded.taxCategory);
+      if (decoded.studentLoanBalance !== undefined) setStudentLoanBalance(decoded.studentLoanBalance);
       if (Array.isArray(decoded.salarySacrifices)) setSalarySacrifices(decoded.salarySacrifices);
       if (Array.isArray(decoded.overtimeEntries))  setOvertimeEntries(decoded.overtimeEntries);
       if (Array.isArray(decoded.fringeBenefits))   setFringeBenefits(decoded.fringeBenefits);
+      if (Array.isArray(decoded.novatedLeases))    setNovatedLeases(decoded.novatedLeases);
+      if (decoded.deductions)            setDeductions(decoded.deductions);
+      if (decoded.familyBenefits)        setFamilyBenefits(decoded.familyBenefits);
 
       if (decoded.country && decoded.country !== taxConfig.country) {
         updateTaxConfig({ country: decoded.country });
@@ -426,17 +450,37 @@ export function SalaryCalculatorNew() {
     taxCategory,
     breakdowns: calculations.breakdowns,
     taxSettings,
+    salaryInputMode: watchedInputMode,
+    salaryInputFrequency: watchedFrequency,
+    isProratedHours,
+    proratedHours,
+    proratedFrequency,
     salarySacrificeCalculation: calculations.salarySacrificeCalculation,
     salarySacrifices,
     overtimeEntries,
     fringeBenefits,
+    novatedLeases,
+    deductions,
+    familyBenefits,
     superannuation: calculations.superannuation,
+    taxableIncome: calculations.taxableIncome,
+    medicareLevy: calculations.medicareLevy,
+    voluntarySuperContribution: calculations.voluntarySuperContribution,
+    voluntarySuperTaxSavings: calculations.voluntarySuperTaxSavings,
+    baseRemainingCap: calculations.baseRemainingCap,
+    remainingConcessionalCap: calculations.remainingConcessionalCap,
+    studentLoanBalance,
     studentLoanRate: calculations.studentLoanRate,
   }), [
     user, taxConfig.country, taxYear, taxCategory,
     calculations.breakdowns, calculations.salarySacrificeCalculation,
-    calculations.superannuation, calculations.studentLoanRate,
-    taxSettings, salarySacrifices, overtimeEntries, fringeBenefits,
+    calculations.superannuation, calculations.taxableIncome,
+    calculations.medicareLevy, calculations.voluntarySuperContribution,
+    calculations.voluntarySuperTaxSavings, calculations.baseRemainingCap,
+    calculations.remainingConcessionalCap, calculations.studentLoanRate,
+    taxSettings, watchedInputMode, watchedFrequency, isProratedHours,
+    proratedHours, proratedFrequency, salarySacrifices, overtimeEntries,
+    fringeBenefits, novatedLeases, deductions, familyBenefits, studentLoanBalance,
   ]);
 
   const handleDownload = useCallback(async () => {
@@ -475,13 +519,23 @@ export function SalaryCalculatorNew() {
         pathname: window.location.pathname,
         salary: watchedSalary,
         frequency: watchedFrequency,
+        salaryInputMode: watchedInputMode,
+        voluntarySuper,
+        packagingCap,
+        isProratedHours,
+        proratedHours,
+        proratedFrequency,
         taxSettings,
         taxCountry: taxConfig.country,
         taxYear,
         taxCategory,
+        studentLoanBalance,
         salarySacrifices,
         overtimeEntries,
         fringeBenefits,
+        novatedLeases,
+        deductions,
+        familyBenefits,
       });
 
       // Native share (mobile, supported desktop browsers) gets the rich
@@ -521,7 +575,10 @@ export function SalaryCalculatorNew() {
   }, [
     buildReportInput, watchedSalary, watchedFrequency, taxSettings,
     taxConfig.country, taxYear, taxCategory,
-    salarySacrifices, overtimeEntries, fringeBenefits, toast,
+    watchedInputMode, voluntarySuper, packagingCap, isProratedHours,
+    proratedHours, proratedFrequency, studentLoanBalance,
+    salarySacrifices, overtimeEntries, fringeBenefits, novatedLeases,
+    deductions, familyBenefits, toast,
   ]);
 
   // Print: temporarily mark <body> so the print stylesheet hides the
@@ -540,56 +597,42 @@ export function SalaryCalculatorNew() {
     window.print();
   }, []);
 
-  const printGeneratedAt = new Date();
-  const printUserLine = [user?.displayName, user?.email].filter(Boolean).join(' · ');
+  const printReportInput = useMemo(() => buildReportInput(), [buildReportInput]);
 
   return (
-    <div className="flex flex-col space-y-6 print-root" ref={calculatorRef}>
-      {/* Print-only report header. Hidden on screen via globals.css. */}
-      <div className="print-only">
-        <div style={{ borderBottom: '1px solid #111', paddingBottom: 8, marginBottom: 16 }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#000' }}>
-            Salary Report
-          </div>
-          <div style={{ fontSize: 11, color: '#444', marginTop: 4 }}>
-            {printGeneratedAt.toLocaleDateString('en-AU', {
-              year: 'numeric', month: 'long', day: 'numeric',
-            })}
-            {printUserLine ? ` · ${printUserLine}` : ''}
-            {' · '}Tax year {taxYear}
-          </div>
-        </div>
-      </div>
+    <div className="print-root" ref={calculatorRef}>
+      <SalaryPrintReport input={printReportInput} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column - Inputs (hidden in printed report) */}
-        <div className="space-y-6" data-no-print="true">
-          {/* Preset and Tax Year Selectors */}
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <PresetSelector
-              currentPreset={currentPreset}
-              onPresetSelect={handlePresetSelect}
-            />
-            <TaxYearSelector
-              value={taxYear}
-              onChange={setTaxYear}
-            />
-          </div>
-
-          {/* Persistence status — only when signed in. */}
-          {user && (
-            <div className="text-xs text-muted-foreground">
-              {saveError ? (
-                <span className="text-red-500">Couldn&apos;t save: {saveError}</span>
-              ) : savedAt ? (
-                <span>Saved to your account · {savedAt.toLocaleTimeString()}</span>
-              ) : stateLoaded ? (
-                <span>Changes will save automatically</span>
-              ) : (
-                <span>Loading your saved settings…</span>
-              )}
+      <div className="salary-screen-content flex flex-col space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Column - Inputs (hidden in printed report) */}
+          <div className="space-y-6" data-no-print="true">
+            {/* Preset and Tax Year Selectors */}
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <PresetSelector
+                currentPreset={currentPreset}
+                onPresetSelect={handlePresetSelect}
+              />
+              <TaxYearSelector
+                value={taxYear}
+                onChange={setTaxYear}
+              />
             </div>
-          )}
+
+            {/* Persistence status — only when signed in. */}
+            {user && (
+              <div className="text-xs text-muted-foreground">
+                {saveError ? (
+                  <span className="text-red-500">Couldn&apos;t save: {saveError}</span>
+                ) : savedAt ? (
+                  <span>Saved to your account · {savedAt.toLocaleTimeString()}</span>
+                ) : stateLoaded ? (
+                  <span>Changes will save automatically</span>
+                ) : (
+                  <span>Loading your saved settings…</span>
+                )}
+              </div>
+            )}
 
           {/* Income Card */}
           <Card>
@@ -748,7 +791,7 @@ export function SalaryCalculatorNew() {
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleDownload}>
               <Download className="h-4 w-4" aria-hidden="true" />
-              Download
+              Download PDF
             </Button>
             <Button variant="outline" size="sm" onClick={handleShareLink}>
               <Share2 className="h-4 w-4" aria-hidden="true" />
@@ -756,11 +799,111 @@ export function SalaryCalculatorNew() {
             </Button>
             <Button variant="outline" size="sm" onClick={handlePrint}>
               <Printer className="h-4 w-4" aria-hidden="true" />
-              Print
+              Save as PDF
             </Button>
           </div>
         </CardFooter>
       </Card>
+      </div>
     </div>
   );
+}
+
+function SalaryPrintReport({ input }: { input: ReportInput }) {
+  const model = buildSalaryReportViewModel(input);
+  const annualSection = model.detailSections.find(section => section.title === 'Annual breakdown');
+  const secondarySections = model.detailSections.filter(section => section.title !== 'Annual breakdown');
+
+  return (
+    <section className="salary-print-report" data-testid="salary-print-report">
+      <header className="salary-print-header">
+        <div>
+          <p className="salary-print-kicker">PFinance</p>
+          <h1>{model.title}</h1>
+          <p className="salary-print-meta">
+            Generated {model.generatedDate} · {model.taxSystemLabel} · {model.taxYear}
+          </p>
+          {model.preparedFor && (
+            <p className="salary-print-prepared">Prepared for {model.preparedFor}</p>
+          )}
+        </div>
+        <div className="salary-print-rate">
+          <span>Effective tax</span>
+          <strong>{model.effectiveTaxRate}</strong>
+        </div>
+      </header>
+
+      <div className="salary-print-hero">
+        <div className="salary-print-hero-main">
+          <span>Annual take-home pay</span>
+          <strong>{model.heroCards[0]?.value}</strong>
+        </div>
+        <div className="salary-print-metrics">
+          {model.heroCards.slice(1).map((metric) => (
+            <div key={metric.label} className={`salary-print-metric ${toneClass(metric.tone)}`}>
+              <span>{metric.label}</span>
+              <strong>{metric.value}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="salary-print-columns">
+        {annualSection && <PrintSection section={annualSection} />}
+        <PrintSection
+          section={{
+            title: 'Take-home by pay frequency',
+            rows: model.frequencyRows,
+          }}
+        />
+      </div>
+
+      {secondarySections.length > 0 && (
+        <div className="salary-print-section-grid">
+          {secondarySections.map((section) => (
+            <PrintSection key={section.title} section={section} compact />
+          ))}
+        </div>
+      )}
+
+      <footer className="salary-print-footer">
+        <strong>Total package value: {model.totalPackageValue}</strong>
+        <span>
+          Estimate only. Tax settings and thresholds can change; confirm details before making financial decisions.
+        </span>
+      </footer>
+    </section>
+  );
+}
+
+function PrintSection({ section, compact = false }: { section: ReportSection; compact?: boolean }) {
+  return (
+    <section className={compact ? 'salary-print-section compact' : 'salary-print-section'}>
+      <h2>{section.title}</h2>
+      <div className="salary-print-rows">
+        {section.rows.map((row) => (
+          <div key={`${section.title}-${row.label}-${row.value}`} className="salary-print-row">
+            <div>
+              <span>{row.label}</span>
+              {row.note && <em>{row.note}</em>}
+            </div>
+            <strong className={toneClass(row.tone)}>{row.value}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function toneClass(tone?: ReportMetricTone): string {
+  switch (tone) {
+    case 'positive':
+      return 'tone-positive';
+    case 'negative':
+      return 'tone-negative';
+    case 'accent':
+      return 'tone-accent';
+    default:
+      return 'tone-neutral';
+  }
 }

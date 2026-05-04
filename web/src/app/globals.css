@@ -791,6 +791,242 @@ select:focus {
     display: none !important;
   }
 
+  body.print-salary-report .salary-screen-content {
+    display: none !important;
+  }
+
+  body.print-salary-report .print-root > :not(.salary-print-report) {
+    display: none !important;
+  }
+
+  body.print-salary-report .salary-print-report {
+    display: block !important;
+    visibility: visible !important;
+    width: 100% !important;
+    color: #3d2d22 !important;
+    background: #f8f2e7 !important;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+    font-size: 10pt !important;
+    line-height: 1.35 !important;
+  }
+
+  body.print-salary-report .salary-print-report * {
+    visibility: visible !important;
+  }
+
+  .salary-print-header {
+    display: flex !important;
+    justify-content: space-between;
+    gap: 16mm;
+    align-items: flex-start;
+    padding: 8mm;
+    margin-bottom: 6mm;
+    color: #fff7e9 !important;
+    background: #3d2d22 !important;
+    border-left: 4mm solid #e88e32;
+    border-radius: 4mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .salary-print-kicker {
+    margin: 0 0 2mm;
+    color: #fde8be !important;
+    font-size: 8pt;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .salary-print-header h1 {
+    margin: 0;
+    color: #fff7e9 !important;
+    font-size: 26pt;
+    line-height: 1;
+    font-weight: 800;
+  }
+
+  .salary-print-meta,
+  .salary-print-prepared {
+    margin: 3mm 0 0;
+    color: #ead2b1 !important;
+    font-size: 9pt;
+  }
+
+  .salary-print-rate {
+    min-width: 32mm;
+    padding: 4mm;
+    text-align: right;
+    background: #fde8be !important;
+    color: #3d2d22 !important;
+    border-radius: 3mm;
+  }
+
+  .salary-print-rate span,
+  .salary-print-hero-main span,
+  .salary-print-metric span {
+    display: block;
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .salary-print-rate strong {
+    display: block;
+    margin-top: 1mm;
+    font-size: 20pt;
+    line-height: 1;
+  }
+
+  .salary-print-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: 4mm;
+    margin-bottom: 6mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .salary-print-hero-main,
+  .salary-print-metric,
+  .salary-print-section,
+  .salary-print-footer {
+    background: #fffbf2 !important;
+    border: 0.25mm solid #ddcfbc;
+    border-radius: 3mm;
+    box-shadow: none !important;
+  }
+
+  .salary-print-hero-main {
+    padding: 7mm;
+  }
+
+  .salary-print-hero-main span,
+  .salary-print-metric span {
+    color: #7e664e !important;
+  }
+
+  .salary-print-hero-main strong {
+    display: block;
+    margin-top: 3mm;
+    color: #688458 !important;
+    font-size: 30pt;
+    line-height: 1;
+    font-weight: 800;
+  }
+
+  .salary-print-metrics {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2mm;
+  }
+
+  .salary-print-metric {
+    padding: 4mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .salary-print-metric strong {
+    display: block;
+    margin-top: 1.5mm;
+    font-size: 13pt;
+    line-height: 1.1;
+  }
+
+  .salary-print-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 4mm;
+    align-items: start;
+    margin-bottom: 5mm;
+  }
+
+  .salary-print-section-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4mm;
+    margin-bottom: 5mm;
+  }
+
+  .salary-print-section {
+    padding: 4.5mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .salary-print-section.compact {
+    padding: 4mm;
+  }
+
+  .salary-print-section h2 {
+    margin: 0 0 3mm;
+    color: #3d2d22 !important;
+    font-size: 12pt;
+    line-height: 1.1;
+    font-weight: 800;
+  }
+
+  .salary-print-rows {
+    display: grid;
+    gap: 1.8mm;
+  }
+
+  .salary-print-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 4mm;
+    align-items: flex-start;
+    padding-bottom: 1.8mm;
+    border-bottom: 0.2mm solid #eadfce;
+  }
+
+  .salary-print-row:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .salary-print-row span,
+  .salary-print-row strong {
+    font-size: 9pt;
+  }
+
+  .salary-print-row em {
+    display: block;
+    margin-top: 0.8mm;
+    color: #7e664e !important;
+    font-size: 7.5pt;
+    font-style: normal;
+  }
+
+  .salary-print-row strong {
+    white-space: nowrap;
+    text-align: right;
+  }
+
+  .salary-print-footer {
+    display: flex !important;
+    justify-content: space-between;
+    gap: 8mm;
+    align-items: center;
+    padding: 4mm;
+    color: #3d2d22 !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .salary-print-footer span {
+    color: #7e664e !important;
+    font-size: 8pt;
+    text-align: right;
+  }
+
+  .tone-positive { color: #688458 !important; }
+  .tone-negative { color: #ae5339 !important; }
+  .tone-accent { color: #e88e32 !important; }
+  .tone-neutral { color: #3d2d22 !important; }
+
   /* Tabs: collapse trigger UI and force-show every panel
      so a single print contains weekly/fortnightly/monthly/annual. */
   body.print-salary-report [role="tablist"] {
@@ -822,7 +1058,10 @@ select:focus {
 
 /* Hide the print-only header during normal (screen) viewing. */
 @media screen {
-  .print-only { display: none !important; }
+  .print-only,
+  .salary-print-report {
+    display: none !important;
+  }
 }
 
 /* ============================================

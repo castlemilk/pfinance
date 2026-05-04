@@ -95,6 +95,168 @@ test.describe('Salary Calculator Calculations', () => {
   });
 });
 
+test.describe('Salary Calculator Export', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/personal/income');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(500);
+  });
+
+  test('renders a dedicated print report for Save as PDF', async ({ page }, testInfo) => {
+    await page.getByPlaceholder(/enter your gross salary/i).fill('120000');
+    await expect(page.getByRole('button', { name: /Download PDF/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Save as PDF/i })).toBeVisible();
+
+    await page.evaluate(() => {
+      window.print = () => undefined;
+    });
+    await page.getByRole('button', { name: /Save as PDF/i }).click();
+    await page.emulateMedia({ media: 'print' });
+    await page.evaluate(() => {
+      document.body.classList.add('print-salary-report');
+    });
+
+    const printReport = page.getByTestId('salary-print-report');
+    await expect(printReport).toBeVisible();
+    await expect(printReport.getByRole('heading', { name: 'Salary Report' })).toBeVisible();
+    await expect(printReport.getByText(/Annual take-home pay/i)).toBeVisible();
+    await expect(page.locator('.salary-screen-content')).toBeHidden();
+
+    await page.screenshot({
+      path: testInfo.outputPath('salary-print-report.png'),
+      fullPage: true,
+    });
+  });
+
+  test('renders configured options in the print report', async ({ page }, testInfo) => {
+    const payload = {
+      salary: '95000',
+      frequency: 'monthly',
+      salaryInputMode: 'net',
+      voluntarySuper: '2600',
+      packagingCap: 15900,
+      isProratedHours: true,
+      proratedHours: '30',
+      proratedFrequency: 'weekly',
+      country: 'australia',
+      taxYear: '2024-25',
+      taxCategory: 'non-resident',
+      taxSettings: {
+        includeSuper: true,
+        superRate: 11.5,
+        includeMedicare: true,
+        medicareExemption: false,
+        includeSeniorOffset: false,
+        includeStudentLoan: true,
+        studentLoanRate: 0,
+        includeDependentChildren: false,
+        includeSpouse: false,
+        includePrivateHealth: true,
+        includeVoluntarySuper: true,
+      },
+      studentLoanBalance: 45000,
+      salarySacrifices: [
+        {
+          id: 's1',
+          description: 'Meal card',
+          amount: '1000',
+          frequency: 'monthly',
+          isTaxDeductible: true,
+        },
+      ],
+      overtimeEntries: [
+        {
+          id: 'o1',
+          hours: '5',
+          rate: '80',
+          frequency: 'weekly',
+          includeSuper: true,
+        },
+      ],
+      fringeBenefits: [
+        {
+          id: 'f1',
+          description: 'Car allowance',
+          amount: '500',
+          frequency: 'monthly',
+          type: 'taxable',
+          reportable: true,
+        },
+      ],
+      novatedLeases: [
+        {
+          id: 'lease-1',
+          description: 'EV lease',
+          amount: '500',
+          frequency: 'fortnightly',
+          isPreTax: true,
+        },
+      ],
+      deductions: {
+        annualDeductions: 3200,
+        capitalGains: 1500,
+        dividends: 900,
+        frankingCredits: 250,
+        businessIncome: 5000,
+        businessLoss: 1200,
+        includesGST: true,
+        otherIncome: 600,
+        otherTaxOffsets: 300,
+      },
+      familyBenefits: {
+        isCouple: true,
+        spouseIncome: 45000,
+        children: [
+          {
+            id: 'child-1',
+            age: 3,
+            inChildcare: true,
+            childcareType: 'centre',
+            weeklyHours: 40,
+            weeklyCost: 500,
+          },
+        ],
+        childSupportReceived: 1200,
+        childSupportPaid: 600,
+      },
+    };
+    const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');
+
+    await page.goto(`/personal/income?calculator=${encodeURIComponent(encoded)}`);
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.getByRole('button', { name: /Save as PDF/i })).toBeVisible();
+
+    await page.evaluate(() => {
+      window.print = () => undefined;
+    });
+    await page.getByRole('button', { name: /Save as PDF/i }).click();
+    await page.emulateMedia({ media: 'print' });
+    await page.evaluate(() => {
+      document.body.classList.add('print-salary-report');
+    });
+
+    const printReport = page.getByTestId('salary-print-report');
+    await expect(printReport.getByRole('heading', { name: 'Enabled settings' })).toBeVisible();
+    await expect(printReport.getByText('Take-home pay', { exact: true })).toBeVisible();
+    await expect(printReport.getByText('30 hours / Weekly')).toBeVisible();
+    await expect(printReport.getByText('Non-Resident', { exact: true })).toBeVisible();
+    await expect(printReport.getByText('Private health insurance')).toBeVisible();
+    await expect(printReport.getByRole('heading', { name: 'Calculator inputs' })).toBeHidden();
+    await expect(printReport.getByRole('heading', { name: 'Tax settings' })).toBeHidden();
+    await expect(printReport.getByText('EV lease')).toBeVisible();
+    await expect(printReport.getByText('Annual deductions')).toBeVisible();
+    await expect(printReport.getByText('Business income includes GST')).toBeVisible();
+    await expect(printReport.getByText('Child 1 care')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Summary' })).toBeHidden();
+    await expect(page.getByRole('heading', { name: 'Income Breakdown' })).toBeHidden();
+
+    await page.screenshot({
+      path: testInfo.outputPath('salary-print-report-configured.png'),
+      fullPage: true,
+    });
+  });
+});
+
 test.describe('Part-time / Pro-rata Settings', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/personal/income');
