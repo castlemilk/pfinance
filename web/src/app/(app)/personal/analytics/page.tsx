@@ -30,6 +30,21 @@ import { UpgradePrompt } from '../../../components/ProFeatureGate';
 import { AlertCircle, FileSearch } from 'lucide-react';
 import { useFinance } from '../../../context/FinanceContext';
 
+const expenseCategories = [
+  'Food',
+  'Housing',
+  'Transportation',
+  'Entertainment',
+  'Healthcare',
+  'Utilities',
+  'Shopping',
+  'Education',
+  'Travel',
+  'Other',
+] as const;
+
+type ExpenseCategoryName = (typeof expenseCategories)[number];
+
 function isSubscriptionError(message: string): boolean {
   const lower = message.toLowerCase();
   return lower.includes('pro subscription') ||
@@ -52,6 +67,16 @@ function ErrorBanner({ message }: { message: string }) {
 
 function LoadingSkeleton() {
   return <Skeleton className="h-[400px] w-full" />;
+}
+
+function toTrendChartData(
+  series: Array<{ date: string; value: number; valueCents: bigint; label: string }>
+) {
+  return series.map((pt) => ({
+    date: pt.date,
+    value: pt.valueCents !== BigInt(0) ? Number(pt.valueCents) / 100 : pt.value,
+    label: pt.label,
+  }));
 }
 
 // ============================================================================
@@ -121,80 +146,117 @@ function HeatmapTab() {
 function TrendsTab() {
   const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('week');
   const [periods, setPeriods] = useState(12);
+  const [category, setCategory] = useState<ExpenseCategoryName>('Food');
 
   const { expenseSeries, incomeSeries, trendSlope, trendRSquared, loading, error } =
     useSpendingTrends(granularity, periods);
+  const {
+    expenseSeries: categoryExpenseSeries,
+    trendSlope: categoryTrendSlope,
+    trendRSquared: categoryTrendRSquared,
+    loading: categoryLoading,
+    error: categoryError,
+  } = useSpendingTrends(granularity, periods, category);
 
-  const chartData = useMemo(
-    () =>
-      expenseSeries.map((pt) => ({
-        date: pt.date,
-        value: pt.valueCents !== BigInt(0) ? Number(pt.valueCents) / 100 : pt.value,
-        label: pt.label,
-      })),
-    [expenseSeries]
-  );
+  const chartData = useMemo(() => toTrendChartData(expenseSeries), [expenseSeries]);
 
-  const incomeData = useMemo(
-    () =>
-      incomeSeries.map((pt) => ({
-        date: pt.date,
-        value: pt.valueCents !== BigInt(0) ? Number(pt.valueCents) / 100 : pt.value,
-        label: pt.label,
-      })),
-    [incomeSeries]
+  const incomeData = useMemo(() => toTrendChartData(incomeSeries), [incomeSeries]);
+  const categoryChartData = useMemo(
+    () => toTrendChartData(categoryExpenseSeries),
+    [categoryExpenseSeries]
   );
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <div>
-          <CardTitle>Spending Trends</CardTitle>
-          <CardDescription>Track spending patterns over time</CardDescription>
-        </div>
-        <div className="flex items-center gap-2">
-          <Select value={granularity} onValueChange={(v) => setGranularity(v as typeof granularity)}>
-            <SelectTrigger className="w-24">
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div>
+            <CardTitle>Spending Trends</CardTitle>
+            <CardDescription>Track spending patterns over time</CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={granularity} onValueChange={(v) => setGranularity(v as typeof granularity)}>
+              <SelectTrigger className="w-24" aria-label="Trend granularity">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="day">Daily</SelectItem>
+                <SelectItem value="week">Weekly</SelectItem>
+                <SelectItem value="month">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={String(periods)} onValueChange={(v) => setPeriods(Number(v))}>
+              <SelectTrigger className="w-24" aria-label="Trend period count">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="6">6 periods</SelectItem>
+                <SelectItem value="12">12 periods</SelectItem>
+                <SelectItem value="24">24 periods</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {error && <ErrorBanner message={error} />}
+          {loading && <LoadingSkeleton />}
+          {!loading && !error && chartData.length > 0 && (
+            <div className="h-[400px]">
+              <LazySpendingTrendChart
+                expenseSeries={chartData}
+                incomeSeries={incomeData}
+                trendSlope={trendSlope}
+                trendRSquared={trendRSquared}
+              />
+            </div>
+          )}
+          {!loading && !error && chartData.length === 0 && (
+            <div className="h-[400px] flex items-center justify-center text-muted-foreground text-sm">
+              No trend data available.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div>
+            <CardTitle role="heading" aria-level={3}>Category Spend Over Time</CardTitle>
+            <CardDescription>Isolate one category across the same period range</CardDescription>
+          </div>
+          <Select value={category} onValueChange={(v) => setCategory(v as ExpenseCategoryName)}>
+            <SelectTrigger className="w-40" aria-label="Category trend category">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="day">Daily</SelectItem>
-              <SelectItem value="week">Weekly</SelectItem>
-              <SelectItem value="month">Monthly</SelectItem>
+              {expenseCategories.map((cat) => (
+                <SelectItem key={cat} value={cat}>
+                  {cat}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
-          <Select value={String(periods)} onValueChange={(v) => setPeriods(Number(v))}>
-            <SelectTrigger className="w-24">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="6">6 periods</SelectItem>
-              <SelectItem value="12">12 periods</SelectItem>
-              <SelectItem value="24">24 periods</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {error && <ErrorBanner message={error} />}
-        {loading && <LoadingSkeleton />}
-        {!loading && !error && chartData.length > 0 && (
-          <div className="h-[400px]">
-            <LazySpendingTrendChart
-              expenseSeries={chartData}
-              incomeSeries={incomeData}
-              trendSlope={trendSlope}
-              trendRSquared={trendRSquared}
-            />
-          </div>
-        )}
-        {!loading && !error && chartData.length === 0 && (
-          <div className="h-[400px] flex items-center justify-center text-muted-foreground text-sm">
-            No trend data available.
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardHeader>
+        <CardContent>
+          {categoryError && <ErrorBanner message={categoryError} />}
+          {categoryLoading && <LoadingSkeleton />}
+          {!categoryLoading && !categoryError && categoryChartData.length > 0 && (
+            <div className="h-[320px]">
+              <LazySpendingTrendChart
+                expenseSeries={categoryChartData}
+                trendSlope={categoryTrendSlope}
+                trendRSquared={categoryTrendRSquared}
+              />
+            </div>
+          )}
+          {!categoryLoading && !categoryError && categoryChartData.length === 0 && (
+            <div className="h-[320px] flex items-center justify-center text-muted-foreground text-sm">
+              No category trend data available.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

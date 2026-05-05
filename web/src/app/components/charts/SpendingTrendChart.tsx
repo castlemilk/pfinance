@@ -154,9 +154,8 @@ function TrendChart({
     const firstDate = parsedExpenses[0].date.getTime();
     const lastDate = parsedExpenses[parsedExpenses.length - 1].date.getTime();
     const firstValue = parsedExpenses[0].value;
-    // Simple linear: y = firstValue + slope * (daysDiff)
-    const daysDiff = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
-    const lastValue = firstValue + trendSlope * daysDiff;
+    const periodDiff = parsedExpenses.length - 1;
+    const lastValue = firstValue + trendSlope * periodDiff;
     return [
       { date: parsedExpenses[0].date, value: firstValue },
       { date: parsedExpenses[parsedExpenses.length - 1].date, value: lastValue },
