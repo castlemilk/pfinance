@@ -40,6 +40,116 @@ func effectiveDollars(amountCents int64, amountDollars float64) float64 {
 	return amountDollars
 }
 
+type analyticsPeriodInfo struct {
+	start time.Time
+	end   time.Time
+	label string
+}
+
+func buildTrendPeriods(anchor time.Time, granularity pfinancev1.Granularity, periods int32) []analyticsPeriodInfo {
+	periodInfos := make([]analyticsPeriodInfo, periods)
+	for i := int32(0); i < periods; i++ {
+		offset := periods - 1 - i
+		var ps, pe time.Time
+		var label string
+		switch granularity {
+		case pfinancev1.Granularity_GRANULARITY_DAY:
+			ps = time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 0, 0, 0, 0, anchor.Location()).AddDate(0, 0, -int(offset))
+			pe = ps.Add(24*time.Hour - time.Second)
+			label = ps.Format("2006-01-02")
+		case pfinancev1.Granularity_GRANULARITY_WEEK:
+			weekStart := time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 0, 0, 0, 0, anchor.Location())
+			weekStart = weekStart.AddDate(0, 0, -int(weekStart.Weekday()))
+			ps = weekStart.AddDate(0, 0, -int(offset)*7)
+			pe = ps.AddDate(0, 0, 6)
+			pe = time.Date(pe.Year(), pe.Month(), pe.Day(), 23, 59, 59, 0, pe.Location())
+			label = ps.Format("Jan 02")
+		default:
+			ps = time.Date(anchor.Year(), anchor.Month(), 1, 0, 0, 0, 0, anchor.Location()).AddDate(0, -int(offset), 0)
+			pe = ps.AddDate(0, 1, -1)
+			pe = time.Date(pe.Year(), pe.Month(), pe.Day(), 23, 59, 59, 0, pe.Location())
+			label = ps.Format("Jan 2006")
+		}
+		periodInfos[i] = analyticsPeriodInfo{start: ps, end: pe, label: label}
+	}
+	return periodInfos
+}
+
+func categoryComparisonBounds(anchor time.Time, period string) (currentStart, currentEnd, prevStart, prevEnd time.Time) {
+	switch period {
+	case "week":
+		daysFromSunday := int(anchor.Weekday())
+		currentStart = time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 0, 0, 0, 0, anchor.Location()).AddDate(0, 0, -daysFromSunday)
+		currentEnd = currentStart.AddDate(0, 0, 6)
+		currentEnd = time.Date(currentEnd.Year(), currentEnd.Month(), currentEnd.Day(), 23, 59, 59, 0, currentEnd.Location())
+		prevStart = currentStart.AddDate(0, 0, -7)
+		prevEnd = currentStart.AddDate(0, 0, -1)
+		prevEnd = time.Date(prevEnd.Year(), prevEnd.Month(), prevEnd.Day(), 23, 59, 59, 0, prevEnd.Location())
+	case "quarter":
+		month := anchor.Month()
+		quarterStartMonth := time.Month(((int(month)-1)/3)*3 + 1)
+		currentStart = time.Date(anchor.Year(), quarterStartMonth, 1, 0, 0, 0, 0, anchor.Location())
+		currentEnd = currentStart.AddDate(0, 3, -1)
+		currentEnd = time.Date(currentEnd.Year(), currentEnd.Month(), currentEnd.Day(), 23, 59, 59, 0, currentEnd.Location())
+		prevStart = currentStart.AddDate(0, -3, 0)
+		prevEnd = currentStart.AddDate(0, 0, -1)
+		prevEnd = time.Date(prevEnd.Year(), prevEnd.Month(), prevEnd.Day(), 23, 59, 59, 0, prevEnd.Location())
+	case "year":
+		currentStart = time.Date(anchor.Year(), time.January, 1, 0, 0, 0, 0, anchor.Location())
+		currentEnd = time.Date(anchor.Year(), time.December, 31, 23, 59, 59, 0, anchor.Location())
+		prevStart = time.Date(anchor.Year()-1, time.January, 1, 0, 0, 0, 0, anchor.Location())
+		prevEnd = time.Date(anchor.Year()-1, time.December, 31, 23, 59, 59, 0, anchor.Location())
+	default: // "month"
+		currentStart = time.Date(anchor.Year(), anchor.Month(), 1, 0, 0, 0, 0, anchor.Location())
+		currentEnd = currentStart.AddDate(0, 1, -1)
+		currentEnd = time.Date(currentEnd.Year(), currentEnd.Month(), currentEnd.Day(), 23, 59, 59, 0, currentEnd.Location())
+		prevStart = currentStart.AddDate(0, -1, 0)
+		prevEnd = currentStart.AddDate(0, 0, -1)
+		prevEnd = time.Date(prevEnd.Year(), prevEnd.Month(), prevEnd.Day(), 23, 59, 59, 0, prevEnd.Location())
+	}
+	return currentStart, currentEnd, prevStart, prevEnd
+}
+
+func latestExpenseDate(expenses []*pfinancev1.Expense, category pfinancev1.ExpenseCategory) (time.Time, bool) {
+	var latest time.Time
+	found := false
+	for _, expense := range expenses {
+		if expense.Date == nil {
+			continue
+		}
+		if category != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED && expense.Category != category {
+			continue
+		}
+		date := expense.Date.AsTime()
+		if !found || date.After(latest) {
+			latest = date
+			found = true
+		}
+	}
+	return latest, found
+}
+
+func latestIncomeDate(incomes []*pfinancev1.Income) (time.Time, bool) {
+	var latest time.Time
+	found := false
+	for _, income := range incomes {
+		if income.Date == nil {
+			continue
+		}
+		date := income.Date.AsTime()
+		if !found || date.After(latest) {
+			latest = date
+			found = true
+		}
+	}
+	return latest, found
+}
+
+func hasExpenseForCategory(expenses []*pfinancev1.Expense, category pfinancev1.ExpenseCategory) bool {
+	_, ok := latestExpenseDate(expenses, category)
+	return ok
+}
+
 // ============================================================================
 // Analytics Handlers
 // ============================================================================
@@ -145,39 +255,7 @@ func (s *FinanceService) GetSpendingTrends(ctx context.Context, req *connect.Req
 		periods = 6
 	}
 
-	now := time.Now()
-
-	// Pre-compute period boundaries for all periods (oldest first)
-	type periodInfo struct {
-		start time.Time
-		end   time.Time
-		label string
-	}
-	periodInfos := make([]periodInfo, periods)
-	for i := int32(0); i < periods; i++ {
-		offset := periods - 1 - i
-		var ps, pe time.Time
-		var label string
-		switch granularity {
-		case pfinancev1.Granularity_GRANULARITY_DAY:
-			ps = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).AddDate(0, 0, -int(offset))
-			pe = ps.Add(24*time.Hour - time.Second)
-			label = ps.Format("2006-01-02")
-		case pfinancev1.Granularity_GRANULARITY_WEEK:
-			weekStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-			weekStart = weekStart.AddDate(0, 0, -int(weekStart.Weekday()))
-			ps = weekStart.AddDate(0, 0, -int(offset)*7)
-			pe = ps.AddDate(0, 0, 6)
-			pe = time.Date(pe.Year(), pe.Month(), pe.Day(), 23, 59, 59, 0, pe.Location())
-			label = ps.Format("Jan 02")
-		default:
-			ps = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).AddDate(0, -int(offset), 0)
-			pe = ps.AddDate(0, 1, -1)
-			pe = time.Date(pe.Year(), pe.Month(), pe.Day(), 23, 59, 59, 0, pe.Location())
-			label = ps.Format("Jan 2006")
-		}
-		periodInfos[i] = periodInfo{start: ps, end: pe, label: label}
-	}
+	periodInfos := buildTrendPeriods(time.Now(), granularity, periods)
 
 	// Single fetch for the entire date range (oldest start → newest end) instead of N+1 queries
 	overallStart := periodInfos[0].start
@@ -189,6 +267,43 @@ func (s *FinanceService) GetSpendingTrends(ctx context.Context, req *connect.Req
 	allIncomes, _, err := s.store.ListIncomes(ctx, userID, req.Msg.GroupId, &overallStart, &overallEnd, 10000, "")
 	if err != nil {
 		return nil, auth.WrapStoreError("list incomes", err)
+	}
+
+	hasCurrentWindowData := hasExpenseForCategory(allExpenses, req.Msg.Category) || len(allIncomes) > 0
+	if req.Msg.Category != pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED {
+		hasCurrentWindowData = hasExpenseForCategory(allExpenses, req.Msg.Category)
+	}
+	if !hasCurrentWindowData {
+		historicalExpenses, _, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, nil, nil, 10000, "")
+		if err != nil {
+			return nil, auth.WrapStoreError("list historical expenses", err)
+		}
+		historicalIncomes, _, err := s.store.ListIncomes(ctx, userID, req.Msg.GroupId, nil, nil, 10000, "")
+		if err != nil {
+			return nil, auth.WrapStoreError("list historical incomes", err)
+		}
+
+		anchor, hasAnchor := latestExpenseDate(historicalExpenses, req.Msg.Category)
+		if req.Msg.Category == pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED {
+			if incomeAnchor, ok := latestIncomeDate(historicalIncomes); ok && (!hasAnchor || incomeAnchor.After(anchor)) {
+				anchor = incomeAnchor
+				hasAnchor = true
+			}
+		}
+
+		if hasAnchor {
+			periodInfos = buildTrendPeriods(anchor, granularity, periods)
+			overallStart = periodInfos[0].start
+			overallEnd = periodInfos[len(periodInfos)-1].end
+			allExpenses, _, err = s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &overallStart, &overallEnd, 10000, "")
+			if err != nil {
+				return nil, auth.WrapStoreError("list anchored expenses", err)
+			}
+			allIncomes, _, err = s.store.ListIncomes(ctx, userID, req.Msg.GroupId, &overallStart, &overallEnd, 10000, "")
+			if err != nil {
+				return nil, auth.WrapStoreError("list anchored incomes", err)
+			}
+		}
 	}
 
 	// In-memory bucketing by period
@@ -287,35 +402,7 @@ func (s *FinanceService) GetCategoryComparison(ctx context.Context, req *connect
 		period = "month"
 	}
 
-	now := time.Now()
-	var currentStart, currentEnd, prevStart, prevEnd time.Time
-
-	switch period {
-	case "week":
-		daysFromSunday := int(now.Weekday())
-		currentStart = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).AddDate(0, 0, -daysFromSunday)
-		currentEnd = currentStart.AddDate(0, 0, 6)
-		currentEnd = time.Date(currentEnd.Year(), currentEnd.Month(), currentEnd.Day(), 23, 59, 59, 0, currentEnd.Location())
-		prevStart = currentStart.AddDate(0, 0, -7)
-		prevEnd = currentStart.AddDate(0, 0, -1)
-		prevEnd = time.Date(prevEnd.Year(), prevEnd.Month(), prevEnd.Day(), 23, 59, 59, 0, prevEnd.Location())
-	case "quarter":
-		month := now.Month()
-		quarterStartMonth := time.Month(((int(month)-1)/3)*3 + 1)
-		currentStart = time.Date(now.Year(), quarterStartMonth, 1, 0, 0, 0, 0, now.Location())
-		currentEnd = currentStart.AddDate(0, 3, -1)
-		currentEnd = time.Date(currentEnd.Year(), currentEnd.Month(), currentEnd.Day(), 23, 59, 59, 0, currentEnd.Location())
-		prevStart = currentStart.AddDate(0, -3, 0)
-		prevEnd = currentStart.AddDate(0, 0, -1)
-		prevEnd = time.Date(prevEnd.Year(), prevEnd.Month(), prevEnd.Day(), 23, 59, 59, 0, prevEnd.Location())
-	default: // "month"
-		currentStart = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
-		currentEnd = currentStart.AddDate(0, 1, -1)
-		currentEnd = time.Date(currentEnd.Year(), currentEnd.Month(), currentEnd.Day(), 23, 59, 59, 0, currentEnd.Location())
-		prevStart = currentStart.AddDate(0, -1, 0)
-		prevEnd = currentStart.AddDate(0, 0, -1)
-		prevEnd = time.Date(prevEnd.Year(), prevEnd.Month(), prevEnd.Day(), 23, 59, 59, 0, prevEnd.Location())
-	}
+	currentStart, currentEnd, prevStart, prevEnd := categoryComparisonBounds(time.Now(), period)
 
 	// Fetch current period expenses
 	currentExpenses, _, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &currentStart, &currentEnd, 10000, "")
@@ -327,6 +414,24 @@ func (s *FinanceService) GetCategoryComparison(ctx context.Context, req *connect
 	prevExpenses, _, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &prevStart, &prevEnd, 10000, "")
 	if err != nil {
 		return nil, auth.WrapStoreError("list previous expenses", err)
+	}
+
+	if len(currentExpenses) == 0 && len(prevExpenses) == 0 {
+		historicalExpenses, _, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, nil, nil, 10000, "")
+		if err != nil {
+			return nil, auth.WrapStoreError("list historical expenses", err)
+		}
+		if anchor, ok := latestExpenseDate(historicalExpenses, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED); ok {
+			currentStart, currentEnd, prevStart, prevEnd = categoryComparisonBounds(anchor, period)
+			currentExpenses, _, err = s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &currentStart, &currentEnd, 10000, "")
+			if err != nil {
+				return nil, auth.WrapStoreError("list anchored current expenses", err)
+			}
+			prevExpenses, _, err = s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &prevStart, &prevEnd, 10000, "")
+			if err != nil {
+				return nil, auth.WrapStoreError("list anchored previous expenses", err)
+			}
+		}
 	}
 
 	// Group by category

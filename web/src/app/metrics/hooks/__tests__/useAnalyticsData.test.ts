@@ -1,11 +1,12 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { useHeatmapData } from '../useAnalyticsData';
+import { useCategoryComparison, useHeatmapData } from '../useAnalyticsData';
 import { ExpenseCategory } from '@/gen/pfinance/v1/types_pb';
 import { financeClient } from '@/lib/financeService';
 
 jest.mock('@/lib/financeService', () => ({
   financeClient: {
     getDailyAggregates: jest.fn(),
+    getCategoryComparison: jest.fn(),
   },
 }));
 
@@ -80,5 +81,28 @@ describe('useHeatmapData', () => {
       },
     ]);
     expect(result.current.data?.maxValue).toBe(42);
+  });
+});
+
+describe('useCategoryComparison', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('requests the selected comparison period from the analytics API', async () => {
+    (financeClient.getCategoryComparison as jest.Mock).mockResolvedValue({
+      categories: [],
+    });
+
+    renderHook(() => useCategoryComparison(false, 'year'));
+
+    await waitFor(() =>
+      expect(financeClient.getCategoryComparison).toHaveBeenCalledWith(
+        expect.objectContaining({
+          currentPeriod: 'year',
+          includeBudgets: false,
+        })
+      )
+    );
   });
 });
