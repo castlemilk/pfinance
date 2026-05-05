@@ -338,7 +338,12 @@ export function useSpendingTrends(
 // Hook 3: useCategoryComparison
 // ============================================================================
 
-export function useCategoryComparison(includeBudgets: boolean) {
+export type CategoryComparisonPeriod = 'week' | 'month' | 'quarter' | 'year';
+
+export function useCategoryComparison(
+  includeBudgets: boolean,
+  currentPeriod: CategoryComparisonPeriod = 'month'
+) {
   const [data, setData] = useState<RadarAxis[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -350,7 +355,7 @@ export function useCategoryComparison(includeBudgets: boolean) {
       const response = await financeClient.getCategoryComparison({
         userId: '',
         groupId: '',
-        currentPeriod: 'month',
+        currentPeriod,
         includeBudgets,
       });
 
@@ -394,7 +399,7 @@ export function useCategoryComparison(includeBudgets: boolean) {
     } finally {
       setLoading(false);
     }
-  }, [includeBudgets]);
+  }, [includeBudgets, currentPeriod]);
 
   useEffect(() => {
     fetchData();

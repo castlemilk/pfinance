@@ -2,6 +2,19 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AnalyticsPage from '../page';
 
+const mockUseCategoryComparison = jest.fn((_includeBudgets?: boolean, _period?: string) => ({
+  data: [
+    {
+      category: 'Food',
+      currentValue: 320,
+      previousValue: 240,
+      maxValue: 320,
+    },
+  ],
+  loading: false,
+  error: null,
+}));
+
 jest.mock('../../../../components/ProFeatureGate', () => ({
   ProFeatureGate: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   UpgradePrompt: ({ feature }: { feature: string }) => <div>{feature} requires Pro</div>,
@@ -34,11 +47,8 @@ jest.mock('../../../../metrics/hooks/useAnalyticsData', () => ({
     loading: false,
     error: null,
   }),
-  useCategoryComparison: () => ({
-    data: [],
-    loading: false,
-    error: null,
-  }),
+  useCategoryComparison: (includeBudgets: boolean, period: string) =>
+    mockUseCategoryComparison(includeBudgets, period),
   useAnomalies: () => ({
     data: [],
     totalAnomalousSpend: 0,
@@ -76,6 +86,10 @@ jest.mock('../../../../metrics/hooks/useExtractionMetrics', () => ({
 }));
 
 describe('AnalyticsPage', () => {
+  beforeEach(() => {
+    mockUseCategoryComparison.mockClear();
+  });
+
   it('includes a dedicated category spend over time view', async () => {
     const user = userEvent.setup();
     render(<AnalyticsPage />);
@@ -85,5 +99,15 @@ describe('AnalyticsPage', () => {
     expect(
       screen.getByRole('heading', { name: 'Category Spend Over Time' })
     ).toBeInTheDocument();
+  });
+
+  it('shows category analysis by default using a yearly comparison period', async () => {
+    const user = userEvent.setup();
+    render(<AnalyticsPage />);
+
+    await user.click(screen.getByRole('tab', { name: 'Categories' }));
+
+    expect(screen.getByTestId('radar-chart')).toBeInTheDocument();
+    expect(mockUseCategoryComparison).toHaveBeenCalledWith(true, 'year');
   });
 });

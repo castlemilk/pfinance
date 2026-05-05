@@ -24,6 +24,7 @@ import {
   useAnomalies,
   useCashFlowForecast,
   useWaterfallData,
+  type CategoryComparisonPeriod,
 } from '../../../metrics/hooks/useAnalyticsData';
 import { useExtractionMetrics } from '../../../metrics/hooks/useExtractionMetrics';
 import { UpgradePrompt } from '../../../components/ProFeatureGate';
@@ -266,7 +267,8 @@ function TrendsTab() {
 
 function CategoriesTab() {
   const [includeBudgets, setIncludeBudgets] = useState(true);
-  const { data, loading, error } = useCategoryComparison(includeBudgets);
+  const [period, setPeriod] = useState<CategoryComparisonPeriod>('year');
+  const { data, loading, error } = useCategoryComparison(includeBudgets, period);
 
   return (
     <Card>
@@ -275,12 +277,24 @@ function CategoriesTab() {
           <CardTitle>Category Comparison</CardTitle>
           <CardDescription>Compare spending across categories vs previous period</CardDescription>
         </div>
-        <button
-          onClick={() => setIncludeBudgets(!includeBudgets)}
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {includeBudgets ? 'Hide budgets' : 'Show budgets'}
-        </button>
+        <div className="flex items-center gap-2">
+          <Select value={period} onValueChange={(v) => setPeriod(v as CategoryComparisonPeriod)}>
+            <SelectTrigger className="w-28" aria-label="Category comparison period">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="month">Month</SelectItem>
+              <SelectItem value="quarter">Quarter</SelectItem>
+              <SelectItem value="year">Year</SelectItem>
+            </SelectContent>
+          </Select>
+          <button
+            onClick={() => setIncludeBudgets(!includeBudgets)}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {includeBudgets ? 'Hide budgets' : 'Show budgets'}
+          </button>
+        </div>
       </CardHeader>
       <CardContent>
         {error && <ErrorBanner message={error} />}

@@ -146,6 +146,9 @@ test.describe('Advanced Analytics', () => {
 
     await page.getByRole('tab', { name: 'Categories' }).click();
     await expect(page.getByText('Category Comparison')).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Category comparison period' })).toBeVisible();
+    await expect(page.getByText('No category data available.')).toBeHidden();
+    await expect(page.getByText('Food').first()).toBeVisible();
 
     await page.getByRole('tab', { name: 'Anomalies' }).click();
     await expect(page.getByText('No anomalies detected. Your spending looks normal!')).toBeVisible();
