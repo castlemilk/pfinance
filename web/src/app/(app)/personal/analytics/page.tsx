@@ -80,6 +80,14 @@ function toTrendChartData(
   }));
 }
 
+function trendWindowLabel(
+  granularity: 'day' | 'week' | 'month',
+  periods: number
+): string {
+  const unit = periods === 1 ? granularity : `${granularity}s`;
+  return `${periods} ${unit}`;
+}
+
 // ============================================================================
 // Tab: Heatmap
 // ============================================================================
@@ -148,6 +156,7 @@ function TrendsTab() {
   const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('week');
   const [periods, setPeriods] = useState(12);
   const [category, setCategory] = useState<ExpenseCategoryName>('Food');
+  const trendWindowOptions = [6, 12, 24];
 
   const { expenseSeries, incomeSeries, trendSlope, trendRSquared, loading, error } =
     useSpendingTrends(granularity, periods);
@@ -175,27 +184,35 @@ function TrendsTab() {
             <CardTitle>Spending Trends</CardTitle>
             <CardDescription>Track spending patterns over time</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
-            <Select value={granularity} onValueChange={(v) => setGranularity(v as typeof granularity)}>
-              <SelectTrigger className="w-24" aria-label="Trend granularity">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="day">Daily</SelectItem>
-                <SelectItem value="week">Weekly</SelectItem>
-                <SelectItem value="month">Monthly</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={String(periods)} onValueChange={(v) => setPeriods(Number(v))}>
-              <SelectTrigger className="w-24" aria-label="Trend period count">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="6">6 periods</SelectItem>
-                <SelectItem value="12">12 periods</SelectItem>
-                <SelectItem value="24">24 periods</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="space-y-1">
+              <span className="block text-xs font-medium text-muted-foreground">Granularity</span>
+              <Select value={granularity} onValueChange={(v) => setGranularity(v as typeof granularity)}>
+                <SelectTrigger className="w-24" aria-label="Trend granularity">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="day">Daily</SelectItem>
+                  <SelectItem value="week">Weekly</SelectItem>
+                  <SelectItem value="month">Monthly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <span className="block text-xs font-medium text-muted-foreground">Time window</span>
+              <Select value={String(periods)} onValueChange={(v) => setPeriods(Number(v))}>
+                <SelectTrigger className="w-28" aria-label="Trend time window">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {trendWindowOptions.map((option) => (
+                    <SelectItem key={option} value={String(option)}>
+                      {trendWindowLabel(granularity, option)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -277,17 +294,20 @@ function CategoriesTab() {
           <CardTitle>Category Comparison</CardTitle>
           <CardDescription>Compare spending across categories vs previous period</CardDescription>
         </div>
-        <div className="flex items-center gap-2">
-          <Select value={period} onValueChange={(v) => setPeriod(v as CategoryComparisonPeriod)}>
-            <SelectTrigger className="w-28" aria-label="Category comparison period">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="month">Month</SelectItem>
-              <SelectItem value="quarter">Quarter</SelectItem>
-              <SelectItem value="year">Year</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="space-y-1">
+            <span className="block text-xs font-medium text-muted-foreground">Time window</span>
+            <Select value={period} onValueChange={(v) => setPeriod(v as CategoryComparisonPeriod)}>
+              <SelectTrigger className="w-28" aria-label="Category comparison time window">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="month">Month</SelectItem>
+                <SelectItem value="quarter">Quarter</SelectItem>
+                <SelectItem value="year">Year</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <button
             onClick={() => setIncludeBudgets(!includeBudgets)}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
