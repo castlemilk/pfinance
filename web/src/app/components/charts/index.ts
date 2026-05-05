@@ -3,6 +3,7 @@ export { default as LazyExpenseSankey } from './LazyExpenseSankey';
 export { default as LazySalaryBreakdownChart } from './LazySalaryBreakdownChart';
 export { default as LazySpendingHeatmap } from './LazySpendingHeatmap';
 export { default as LazySpendingTrendChart } from './LazySpendingTrendChart';
+export { default as LazyCategoryStackedTrendChart } from './LazyCategoryStackedTrendChart';
 export { default as LazyCategoryRadarChart } from './LazyCategoryRadarChart';
 export { default as LazyAnomalyScatterPlot } from './LazyAnomalyScatterPlot';
 export { default as LazyCashFlowForecast } from './LazyCashFlowForecast';

@@ -24,6 +24,23 @@ const mockUseCategoryComparison = jest.fn((_includeBudgets?: boolean, _period?: 
   error: null,
 }));
 
+const mockUseCategorySpendingTrends = jest.fn((_granularity?: string, _periods?: number) => ({
+  points: [
+    {
+      date: '2026-05-01',
+      label: 'May 1',
+      total: 72,
+      categories: {
+        Food: 42,
+        Transportation: 30,
+      },
+    },
+  ],
+  categories: ['Food', 'Transportation'],
+  loading: false,
+  error: null,
+}));
+
 jest.mock('../../../../components/ProFeatureGate', () => ({
   ProFeatureGate: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   UpgradePrompt: ({ feature }: { feature: string }) => <div>{feature} requires Pro</div>,
@@ -36,6 +53,7 @@ jest.mock('../../../../context/FinanceContext', () => ({
 jest.mock('../../../../components/charts', () => ({
   LazySpendingHeatmap: () => <div data-testid="heatmap-chart" />,
   LazySpendingTrendChart: () => <div data-testid="trend-chart" />,
+  LazyCategoryStackedTrendChart: () => <div data-testid="category-stacked-chart" />,
   LazyCategoryRadarChart: () => <div data-testid="radar-chart" />,
   LazyAnomalyScatterPlot: () => <div data-testid="anomaly-chart" />,
   LazyCashFlowForecast: () => <div data-testid="forecast-chart" />,
@@ -50,6 +68,8 @@ jest.mock('../../../../metrics/hooks/useAnalyticsData', () => ({
   }),
   useSpendingTrends: (granularity: string, periods: number, category?: string) =>
     mockUseSpendingTrends(granularity, periods, category),
+  useCategorySpendingTrends: (granularity: string, periods: number) =>
+    mockUseCategorySpendingTrends(granularity, periods),
   useCategoryComparison: (includeBudgets: boolean, period: string) =>
     mockUseCategoryComparison(includeBudgets, period),
   useAnomalies: () => ({
@@ -110,6 +130,7 @@ describe('AnalyticsPage', () => {
 
   beforeEach(() => {
     mockUseSpendingTrends.mockClear();
+    mockUseCategorySpendingTrends.mockClear();
     mockUseCategoryComparison.mockClear();
   });
 
@@ -122,6 +143,8 @@ describe('AnalyticsPage', () => {
     expect(
       screen.getByRole('heading', { name: 'Category Spend Over Time' })
     ).toBeInTheDocument();
+    expect(screen.getByTestId('category-stacked-chart')).toBeInTheDocument();
+    expect(mockUseCategorySpendingTrends).toHaveBeenCalledWith('week', 12);
   });
 
   it('lets users change the category trend time window', async () => {
@@ -135,7 +158,7 @@ describe('AnalyticsPage', () => {
     await user.click(screen.getByRole('combobox', { name: 'Trend time window' }));
     await user.click(screen.getByRole('option', { name: '24 weeks' }));
 
-    expect(mockUseSpendingTrends).toHaveBeenCalledWith('week', 24, 'Food');
+    expect(mockUseCategorySpendingTrends).toHaveBeenCalledWith('week', 24);
   });
 
   it('shows category analysis by default using a yearly comparison period', async () => {

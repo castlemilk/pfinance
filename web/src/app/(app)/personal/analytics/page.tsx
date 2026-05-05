@@ -12,6 +12,7 @@ import { ProFeatureGate } from '../../../components/ProFeatureGate';
 import {
   LazySpendingHeatmap,
   LazySpendingTrendChart,
+  LazyCategoryStackedTrendChart,
   LazyCategoryRadarChart,
   LazyAnomalyScatterPlot,
   LazyCashFlowForecast,
@@ -20,6 +21,7 @@ import {
 import {
   useHeatmapData,
   useSpendingTrends,
+  useCategorySpendingTrends,
   useCategoryComparison,
   useAnomalies,
   useCashFlowForecast,
@@ -30,21 +32,6 @@ import { useExtractionMetrics } from '../../../metrics/hooks/useExtractionMetric
 import { UpgradePrompt } from '../../../components/ProFeatureGate';
 import { AlertCircle, FileSearch } from 'lucide-react';
 import { useFinance } from '../../../context/FinanceContext';
-
-const expenseCategories = [
-  'Food',
-  'Housing',
-  'Transportation',
-  'Entertainment',
-  'Healthcare',
-  'Utilities',
-  'Shopping',
-  'Education',
-  'Travel',
-  'Other',
-] as const;
-
-type ExpenseCategoryName = (typeof expenseCategories)[number];
 
 function isSubscriptionError(message: string): boolean {
   const lower = message.toLowerCase();
@@ -155,27 +142,20 @@ function HeatmapTab() {
 function TrendsTab() {
   const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('week');
   const [periods, setPeriods] = useState(12);
-  const [category, setCategory] = useState<ExpenseCategoryName>('Food');
   const trendWindowOptions = [6, 12, 24];
 
   const { expenseSeries, incomeSeries, trendSlope, trendRSquared, loading, error } =
     useSpendingTrends(granularity, periods);
   const {
-    expenseSeries: categoryExpenseSeries,
-    trendSlope: categoryTrendSlope,
-    trendRSquared: categoryTrendRSquared,
-    loading: categoryLoading,
-    error: categoryError,
-  } = useSpendingTrends(granularity, periods, category);
+    points: categoryTrendPoints,
+    categories: categoryTrendCategories,
+    loading: categoryTrendLoading,
+    error: categoryTrendError,
+  } = useCategorySpendingTrends(granularity, periods);
 
   const chartData = useMemo(() => toTrendChartData(expenseSeries), [expenseSeries]);
 
   const incomeData = useMemo(() => toTrendChartData(incomeSeries), [incomeSeries]);
-  const categoryChartData = useMemo(
-    () => toTrendChartData(categoryExpenseSeries),
-    [categoryExpenseSeries]
-  );
-
   return (
     <div className="space-y-4">
       <Card>
@@ -240,34 +220,21 @@ function TrendsTab() {
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <div>
             <CardTitle role="heading" aria-level={3}>Category Spend Over Time</CardTitle>
-            <CardDescription>Isolate one category across the same period range</CardDescription>
+            <CardDescription>Stack every category across the selected time window</CardDescription>
           </div>
-          <Select value={category} onValueChange={(v) => setCategory(v as ExpenseCategoryName)}>
-            <SelectTrigger className="w-40" aria-label="Category trend category">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {expenseCategories.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </CardHeader>
         <CardContent>
-          {categoryError && <ErrorBanner message={categoryError} />}
-          {categoryLoading && <LoadingSkeleton />}
-          {!categoryLoading && !categoryError && categoryChartData.length > 0 && (
+          {categoryTrendError && <ErrorBanner message={categoryTrendError} />}
+          {categoryTrendLoading && <LoadingSkeleton />}
+          {!categoryTrendLoading && !categoryTrendError && categoryTrendPoints.length > 0 && categoryTrendCategories.length > 0 && (
             <div className="h-[320px]">
-              <LazySpendingTrendChart
-                expenseSeries={categoryChartData}
-                trendSlope={categoryTrendSlope}
-                trendRSquared={categoryTrendRSquared}
+              <LazyCategoryStackedTrendChart
+                points={categoryTrendPoints}
+                categories={categoryTrendCategories}
               />
             </div>
           )}
-          {!categoryLoading && !categoryError && categoryChartData.length === 0 && (
+          {!categoryTrendLoading && !categoryTrendError && (categoryTrendPoints.length === 0 || categoryTrendCategories.length === 0) && (
             <div className="h-[320px] flex items-center justify-center text-muted-foreground text-sm">
               No category trend data available.
             </div>

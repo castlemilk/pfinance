@@ -7,6 +7,7 @@ import { TimestampSchema } from '@bufbuild/protobuf/wkt';
 import { financeClient } from '@/lib/financeService';
 import type {
   DailyAggregate,
+  Expense,
   TimeSeriesDataPoint,
   CategorySpending,
   SpendingAnomaly,
@@ -23,6 +24,7 @@ import {
 import type {
   HeatmapDay,
   HeatmapData,
+  CategoryStackedTrendPoint,
   RadarAxis,
   AnomalyPoint,
   ForecastSeries,
@@ -54,6 +56,10 @@ function startOfLocalDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+function endOfLocalDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+}
+
 function dateKeysInRange(startDate: Date, endDate: Date): string[] {
   const start = startOfLocalDay(startDate);
   const end = startOfLocalDay(endDate);
@@ -65,6 +71,56 @@ function dateKeysInRange(startDate: Date, endDate: Date): string[] {
     keys.push(localDateKey(cursor));
   }
   return keys;
+}
+
+interface TrendPeriod {
+  start: Date;
+  end: Date;
+  label: string;
+}
+
+function formatShortDate(date: Date): string {
+  return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+}
+
+function buildTrendPeriods(
+  anchor: Date,
+  granularity: 'day' | 'week' | 'month',
+  periods: number
+): TrendPeriod[] {
+  return Array.from({ length: periods }, (_, index) => {
+    const offset = periods - 1 - index;
+
+    if (granularity === 'day') {
+      const start = startOfLocalDay(anchor);
+      start.setDate(start.getDate() - offset);
+      return {
+        start,
+        end: endOfLocalDay(start),
+        label: localDateKey(start),
+      };
+    }
+
+    if (granularity === 'week') {
+      const start = startOfLocalDay(anchor);
+      start.setDate(start.getDate() - start.getDay() - offset * 7);
+      const end = endOfLocalDay(start);
+      end.setDate(end.getDate() + 6);
+      return {
+        start,
+        end,
+        label: formatShortDate(start),
+      };
+    }
+
+    const start = new Date(anchor.getFullYear(), anchor.getMonth() - offset, 1);
+    const end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
+    return {
+      start,
+      end,
+      label: start.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+    };
+  });
 }
 
 /**
@@ -114,6 +170,19 @@ function categoryFromString(cat: string): ExpenseCategory {
   };
   return mapping[upper] ?? ExpenseCategory.UNSPECIFIED;
 }
+
+const categoryOrder: ExpenseCategory[] = [
+  ExpenseCategory.FOOD,
+  ExpenseCategory.HOUSING,
+  ExpenseCategory.TRANSPORTATION,
+  ExpenseCategory.ENTERTAINMENT,
+  ExpenseCategory.HEALTHCARE,
+  ExpenseCategory.UTILITIES,
+  ExpenseCategory.SHOPPING,
+  ExpenseCategory.EDUCATION,
+  ExpenseCategory.TRAVEL,
+  ExpenseCategory.OTHER,
+];
 
 /**
  * Prefer cents value (converted to dollars) over the legacy double field.
@@ -335,7 +404,141 @@ export function useSpendingTrends(
 }
 
 // ============================================================================
-// Hook 3: useCategoryComparison
+// Hook 3: useCategorySpendingTrends
+// ============================================================================
+
+export interface CategorySpendingTrendsData {
+  points: CategoryStackedTrendPoint[];
+  categories: string[];
+}
+
+function expenseDate(expense: Expense): Date | null {
+  if (!expense.date) return null;
+  return new Date(Number(expense.date.seconds) * 1000 + Math.floor(expense.date.nanos / 1_000_000));
+}
+
+function findExpensePeriodIndex(date: Date, periods: TrendPeriod[]): number {
+  return periods.findIndex((period) => date >= period.start && date <= period.end);
+}
+
+function latestExpenseDate(expenses: Expense[]): Date | null {
+  let latest: Date | null = null;
+  for (const expense of expenses) {
+    const date = expenseDate(expense);
+    if (date && (!latest || date > latest)) {
+      latest = date;
+    }
+  }
+  return latest;
+}
+
+async function listAllExpenses(): Promise<Expense[]> {
+  const expenses: Expense[] = [];
+  let pageToken = '';
+
+  do {
+    const response = await financeClient.listExpenses({
+      userId: '',
+      groupId: '',
+      pageSize: 10000,
+      pageToken,
+    });
+    expenses.push(...response.expenses);
+    pageToken = response.nextPageToken;
+  } while (pageToken);
+
+  return expenses;
+}
+
+export function useCategorySpendingTrends(
+  granularity: 'day' | 'week' | 'month',
+  periods: number
+) {
+  const [data, setData] = useState<CategorySpendingTrendsData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const expenses = await listAllExpenses();
+      const currentPeriods = buildTrendPeriods(new Date(), granularity, periods);
+      const hasCurrentWindowData = expenses.some((expense) => {
+        const date = expenseDate(expense);
+        return date ? findExpensePeriodIndex(date, currentPeriods) !== -1 : false;
+      });
+      const anchor = hasCurrentWindowData ? new Date() : latestExpenseDate(expenses) ?? new Date();
+      const trendPeriods = buildTrendPeriods(anchor, granularity, periods);
+
+      const totalsByCategory = new Map<string, number>();
+      const points = trendPeriods.map((period) => ({
+        date: localDateKey(period.start),
+        label: period.label,
+        total: 0,
+        categories: {} as Record<string, number>,
+      }));
+
+      for (const category of categoryOrder) {
+        const label = categoryToString(category);
+        for (const point of points) {
+          point.categories[label] = 0;
+        }
+      }
+
+      for (const expense of expenses) {
+        const date = expenseDate(expense);
+        if (!date) continue;
+        const periodIndex = findExpensePeriodIndex(date, trendPeriods);
+        if (periodIndex === -1) continue;
+
+        const category = categoryToString(expense.category);
+        const amount = centsOrFallback(expense.amountCents, expense.amount);
+        points[periodIndex].categories[category] =
+          (points[periodIndex].categories[category] ?? 0) + amount;
+        points[periodIndex].total += amount;
+        totalsByCategory.set(category, (totalsByCategory.get(category) ?? 0) + amount);
+      }
+
+      const activeCategories = categoryOrder
+        .map(categoryToString)
+        .filter((category) => (totalsByCategory.get(category) ?? 0) > 0);
+
+      setData({
+        categories: activeCategories,
+        points: points.map((point) => ({
+          ...point,
+          categories: Object.fromEntries(
+            activeCategories.map((category) => [category, point.categories[category] ?? 0])
+          ),
+        })),
+      });
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to fetch category spending trends'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [granularity, periods]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  return {
+    points: data?.points ?? [],
+    categories: data?.categories ?? [],
+    loading,
+    error,
+    refetch: fetchData,
+  };
+}
+
+// ============================================================================
+// Hook 4: useCategoryComparison
 // ============================================================================
 
 export type CategoryComparisonPeriod = 'week' | 'month' | 'quarter' | 'year';
