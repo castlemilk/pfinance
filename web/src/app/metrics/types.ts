@@ -478,6 +478,16 @@ export interface RadarAxis {
 }
 
 /**
+ * One point in a stacked category spending trend.
+ */
+export interface CategoryStackedTrendPoint {
+  date: string;
+  label: string;
+  total: number;
+  categories: Record<string, number>;
+}
+
+/**
  * Anomaly point for scatter plot visualization
  */
 export interface AnomalyPoint {

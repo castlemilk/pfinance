@@ -71,6 +71,35 @@ test.describe('Advanced Analytics', () => {
       });
     });
 
+    await page.route('**/pfinance.v1.FinanceService/ListExpenses', async (route) => {
+      await fulfillConnect(route, {
+        expenses: [
+          {
+            id: 'food-1',
+            description: 'Groceries',
+            amount: 48,
+            category: 1,
+            date: '2026-04-20T10:00:00Z',
+          },
+          {
+            id: 'transport-1',
+            description: 'Train',
+            amount: 22,
+            category: 3,
+            date: '2026-04-27T10:00:00Z',
+          },
+          {
+            id: 'shopping-1',
+            description: 'Supplies',
+            amount: 35,
+            category: 7,
+            date: '2026-05-04T10:00:00Z',
+          },
+        ],
+        nextPageToken: '',
+      });
+    });
+
     await page.route('**/pfinance.v1.FinanceService/GetCategoryComparison', async (route) => {
       await fulfillConnect(route, {
         categories: [
@@ -143,7 +172,11 @@ test.describe('Advanced Analytics', () => {
     await expect(page.getByText('Spending Trends')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Category Spend Over Time' })).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'Trend time window' })).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Category trend category' })).toBeVisible();
+    const trendsPanel = page.getByRole('tabpanel', { name: 'Trends' });
+    await expect(trendsPanel.getByText('No category trend data available.')).toBeHidden();
+    await expect(trendsPanel.getByText('Food').first()).toBeVisible();
+    await expect(trendsPanel.getByText('Transportation').first()).toBeVisible();
+    await expect(trendsPanel.getByText('Shopping').first()).toBeVisible();
     await page.getByRole('combobox', { name: 'Trend time window' }).click();
     await page.getByRole('option', { name: '24 weeks' }).click();
     await expect(page.getByRole('combobox', { name: 'Trend time window' })).toContainText('24 weeks');
