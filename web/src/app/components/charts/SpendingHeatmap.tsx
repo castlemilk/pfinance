@@ -65,6 +65,11 @@ function toDateKey(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+function dateFromKey(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 /**
  * Transform flat HeatmapDay[] into weekly bin data for HeatmapRect.
  * Each "bin" is a week column, containing up to 7 day entries.
@@ -76,9 +81,12 @@ function transformToBinData(days: HeatmapDay[]): HeatmapBinData[] {
   const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date));
 
   // Determine the start of the first week (Sunday)
-  const firstDate = new Date(sorted[0].date);
+  const firstDate = dateFromKey(sorted[0].date);
+  const lastDate = dateFromKey(sorted[sorted.length - 1].date);
   const startOfWeek = new Date(firstDate);
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+  const endOfWeek = new Date(lastDate);
+  endOfWeek.setDate(endOfWeek.getDate() + (6 - endOfWeek.getDay()));
 
   // Build a map for quick lookup
   const dayMap = new Map<string, HeatmapDay>();
@@ -86,14 +94,14 @@ function transformToBinData(days: HeatmapDay[]): HeatmapBinData[] {
     dayMap.set(d.date, d);
   }
 
-  // Build 52 weeks of bins
   const bins: HeatmapBinData[] = [];
   const current = new Date(startOfWeek);
+  let week = 0;
 
-  for (let week = 0; week < 53; week++) {
+  while (current <= endOfWeek) {
     const weekBins: HeatmapBin[] = [];
     for (let day = 0; day < 7; day++) {
-      const dateStr = current.toISOString().split('T')[0];
+      const dateStr = toDateKey(current);
       const entry = dayMap.get(dateStr);
       weekBins.push({
         bin: day,
@@ -105,6 +113,7 @@ function transformToBinData(days: HeatmapDay[]): HeatmapBinData[] {
       current.setDate(current.getDate() + 1);
     }
     bins.push({ bin: week, bins: weekBins });
+    week++;
   }
 
   return bins;

@@ -43,6 +43,30 @@ function timestampFromDate(date: Date): Timestamp {
   });
 }
 
+function localDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function startOfLocalDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function dateKeysInRange(startDate: Date, endDate: Date): string[] {
+  const start = startOfLocalDay(startDate);
+  const end = startOfLocalDay(endDate);
+
+  if (start > end) return [];
+
+  const keys: string[] = [];
+  for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+    keys.push(localDateKey(cursor));
+  }
+  return keys;
+}
+
 /**
  * Convert an ExpenseCategory enum value to a human-readable string.
  * e.g. ExpenseCategory.FOOD (whose key is "FOOD") -> "Food"
@@ -197,8 +221,9 @@ export function useHeatmapData(startDate: Date, endDate: Date) {
         endDate: timestampFromDate(endDate),
       });
 
-      const days: HeatmapDay[] = response.aggregates.map(
-        (agg: DailyAggregate) => ({
+      const aggregateByDate = new Map<string, HeatmapDay>();
+      for (const agg of response.aggregates as DailyAggregate[]) {
+        aggregateByDate.set(agg.date, {
           date: agg.date,
           value: centsOrFallback(agg.totalAmountCents, agg.totalAmount),
           count: agg.transactionCount,
@@ -207,7 +232,17 @@ export function useHeatmapData(startDate: Date, endDate: Date) {
             amount: centsOrFallback(ca.amountCents, ca.amount),
             count: ca.count,
           })),
-        })
+        });
+      }
+
+      const days: HeatmapDay[] = dateKeysInRange(startDate, endDate).map(
+        (date) =>
+          aggregateByDate.get(date) ?? {
+            date,
+            value: 0,
+            count: 0,
+            categories: [],
+          }
       );
 
       const maxValue =
