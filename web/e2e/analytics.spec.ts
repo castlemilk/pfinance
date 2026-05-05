@@ -142,11 +142,18 @@ test.describe('Advanced Analytics', () => {
     await page.getByRole('tab', { name: 'Trends' }).click();
     await expect(page.getByText('Spending Trends')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Category Spend Over Time' })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Trend time window' })).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'Category trend category' })).toBeVisible();
+    await page.getByRole('combobox', { name: 'Trend time window' }).click();
+    await page.getByRole('option', { name: '24 weeks' }).click();
+    await expect(page.getByRole('combobox', { name: 'Trend time window' })).toContainText('24 weeks');
 
     await page.getByRole('tab', { name: 'Categories' }).click();
     await expect(page.getByText('Category Comparison')).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Category comparison period' })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Category comparison time window' })).toBeVisible();
+    await page.getByRole('combobox', { name: 'Category comparison time window' }).click();
+    await page.getByRole('option', { name: 'Quarter' }).click();
+    await expect(page.getByRole('combobox', { name: 'Category comparison time window' })).toContainText('Quarter');
     await expect(page.getByText('No category data available.')).toBeHidden();
     await expect(page.getByText('Food').first()).toBeVisible();
 
