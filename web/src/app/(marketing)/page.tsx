@@ -10,16 +10,14 @@ import {
   WebsiteJsonLd,
   SoftwareApplicationJsonLd,
 } from '@/components/seo/JsonLd';
+import { createSeoMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createSeoMetadata({
   title: 'PFinance - Take Control of Your Personal Finances',
   description: 'Track expenses, manage budgets, and collaborate with your household. Beautiful visualizations, AI-powered insights, and multi-user support.',
-  openGraph: {
-    title: 'PFinance - Take Control of Your Personal Finances',
-    description: 'Track expenses, manage budgets, and collaborate with your household. Beautiful visualizations, AI-powered insights, and multi-user support.',
-    type: 'website',
-  },
-};
+  path: '/',
+  imageAlt: 'PFinance dashboard and personal finance tools',
+});
 
 export default function LandingPage() {
   return (

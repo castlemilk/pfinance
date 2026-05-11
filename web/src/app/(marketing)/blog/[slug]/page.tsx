@@ -29,6 +29,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const post = getPostBySlug(slug);
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pfinance.app';
+  const image = post?.image || '/og-image.png';
 
   if (!post) {
     return {
@@ -49,7 +50,7 @@ export async function generateMetadata({
       type: 'article',
       publishedTime: post.date,
       authors: [post.author.name],
-      images: post.image ? [{ url: post.image, width: 1200, height: 630, alt: post.title }] : [],
+      images: [{ url: image, width: 1200, height: 630, alt: post.title }],
       tags: post.tags,
       url: `${siteUrl}/blog/${slug}/`,
     },
@@ -57,7 +58,7 @@ export async function generateMetadata({
       card: 'summary_large_image',
       title: post.title,
       description: post.description,
-      images: post.image ? [post.image] : [],
+      images: [image],
     },
   };
 }

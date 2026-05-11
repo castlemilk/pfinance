@@ -200,7 +200,7 @@ export function IncomeSection({
           {/* Pro-rata Hours Settings */}
           {isProratedHours && (
             <div className="p-4 bg-muted/30 rounded-lg border space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label className="text-sm">Hours worked</Label>
                   <Input

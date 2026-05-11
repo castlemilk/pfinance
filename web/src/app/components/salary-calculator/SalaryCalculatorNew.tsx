@@ -603,10 +603,10 @@ export function SalaryCalculatorNew() {
     <div className="print-root" ref={calculatorRef}>
       <SalaryPrintReport input={printReportInput} />
 
-      <div className="salary-screen-content flex flex-col space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="salary-screen-content flex min-w-0 flex-col space-y-6">
+        <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2">
           {/* Left Column - Inputs (hidden in printed report) */}
-          <div className="space-y-6" data-no-print="true">
+          <div className="min-w-0 space-y-6" data-no-print="true">
             {/* Preset and Tax Year Selectors */}
             <div className="flex items-center justify-between flex-wrap gap-2">
               <PresetSelector
@@ -689,7 +689,7 @@ export function SalaryCalculatorNew() {
         </div>
 
         {/* Right Column - Summary */}
-        <div>
+        <div className="min-w-0">
           <SummaryPanel
             breakdowns={calculations.breakdowns}
             taxSettings={taxSettings}
@@ -709,8 +709,8 @@ export function SalaryCalculatorNew() {
           <CardTitle>Income Breakdown</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col md:flex-row gap-6">
-            <div className="w-full md:w-1/2">
+          <div className="flex min-w-0 flex-col gap-6 md:flex-row">
+            <div className="min-w-0 w-full md:w-1/2">
               <SalaryBreakdownChart
                 grossIncome={calculations.totalAnnualIncome}
                 tax={calculations.incomeTax}
@@ -723,7 +723,7 @@ export function SalaryCalculatorNew() {
                 salarySacrifice={calculations.salarySacrificeCalculation.nonTaxDeductibleSacrifice}
               />
             </div>
-            <div className="w-full md:w-1/2 space-y-4">
+            <div className="min-w-0 w-full space-y-4 md:w-1/2">
               {/* Tax Band Visualization */}
               <div className="rounded-lg border p-4">
                 <h3 className="text-sm font-medium mb-3">Tax Brackets</h3>
@@ -784,20 +784,20 @@ export function SalaryCalculatorNew() {
             </div>
           </div>
         </CardContent>
-        <CardFooter className="flex justify-between flex-wrap gap-2" data-no-print="true">
+        <CardFooter className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between" data-no-print="true">
           <span className="text-sm text-muted-foreground">
             Tax Year: {taxYear}
           </span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleDownload}>
+          <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto">
+            <Button variant="outline" size="sm" onClick={handleDownload} className="w-full justify-center sm:w-auto">
               <Download className="h-4 w-4" aria-hidden="true" />
               Download PDF
             </Button>
-            <Button variant="outline" size="sm" onClick={handleShareLink}>
+            <Button variant="outline" size="sm" onClick={handleShareLink} className="w-full justify-center sm:w-auto">
               <Share2 className="h-4 w-4" aria-hidden="true" />
               Share
             </Button>
-            <Button variant="outline" size="sm" onClick={handlePrint}>
+            <Button variant="outline" size="sm" onClick={handlePrint} className="w-full justify-center sm:w-auto">
               <Printer className="h-4 w-4" aria-hidden="true" />
               Save as PDF
             </Button>

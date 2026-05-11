@@ -29,20 +29,20 @@ interface AppLayoutProps {
 export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <ChatHistoryProvider>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen overflow-x-clip bg-background">
         <FirebaseInitBanner />
         <SidebarNav />
 
         {/* Main Content Area */}
         <div className={cn(
           "lg:pl-64", // Account for sidebar width on desktop
-          "min-h-screen"
+          "min-h-screen min-w-0"
         )}>
           {/* Mobile Header Spacer - matches h-14 mobile header bar */}
           <div className="h-14 lg:hidden" />
 
           {/* Page Content */}
-          <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+          <main className="mx-auto w-full max-w-7xl min-w-0 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
             <Breadcrumbs />
             {children}
           </main>

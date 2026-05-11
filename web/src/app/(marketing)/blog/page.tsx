@@ -2,15 +2,14 @@ import { Metadata } from 'next';
 import { getAllPosts, getFeaturedPosts } from '@/lib/blog';
 import BlogHeader from '@/components/blog/BlogHeader';
 import BlogCard from '@/components/blog/BlogCard';
+import { createSeoMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createSeoMetadata({
   title: 'Blog - Personal Finance Tips & Guides',
-  description: 'Learn how to manage your money better with our expert guides on budgeting, saving, investing, and more.',
-  openGraph: {
-    title: 'PFinance Blog - Personal Finance Tips & Guides',
-    description: 'Learn how to manage your money better with our expert guides on budgeting, saving, investing, and more.',
-  },
-};
+  description: 'Learn how to manage your money better with guides on budgeting, receipts, income, household costs, and tax-ready records.',
+  path: '/blog',
+  imageAlt: 'PFinance personal finance blog',
+});
 
 export default function BlogPage() {
   const allPosts = getAllPosts();

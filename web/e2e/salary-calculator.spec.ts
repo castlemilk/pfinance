@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 /**
  * Salary Calculator E2E Tests
@@ -6,11 +6,18 @@ import { test, expect } from '@playwright/test';
  * These tests verify the salary calculator component functionality.
  */
 
+test.describe.configure({ mode: 'serial' });
+test.setTimeout(60_000);
+
+async function gotoIncome(page: Page, query = '') {
+  await page.goto(`/personal/income${query}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  await expect(page.getByRole('heading', { name: 'Income Management' })).toBeVisible();
+}
+
 test.describe('Salary Calculator', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to income page which contains the salary calculator
-    await page.goto('/personal/income');
-    await page.waitForLoadState('domcontentloaded');
+    await gotoIncome(page);
     await page.waitForTimeout(500);
   });
 
@@ -59,10 +66,32 @@ test.describe('Salary Calculator', () => {
   });
 });
 
+test.describe('App shell layout quality', () => {
+  test('uses a single page h1 on the income route', async ({ page }) => {
+    await gotoIncome(page);
+
+    const headings = await page.getByRole('heading', { level: 1 }).allTextContents();
+    expect(headings.map((heading) => heading.trim()).filter(Boolean)).toEqual(['Income Management']);
+  });
+
+  test('does not horizontally overflow on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoIncome(page);
+
+    const overflow = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      bodyScrollWidth: document.body.scrollWidth,
+    }));
+
+    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+    expect(overflow.bodyScrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+  });
+});
+
 test.describe('Salary Calculator Calculations', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/personal/income');
-    await page.waitForLoadState('domcontentloaded');
+    await gotoIncome(page);
     await page.waitForTimeout(500);
   });
 
@@ -97,8 +126,7 @@ test.describe('Salary Calculator Calculations', () => {
 
 test.describe('Salary Calculator Export', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/personal/income');
-    await page.waitForLoadState('domcontentloaded');
+    await gotoIncome(page);
     await page.waitForTimeout(500);
   });
 
@@ -222,8 +250,7 @@ test.describe('Salary Calculator Export', () => {
     };
     const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');
 
-    await page.goto(`/personal/income?calculator=${encodeURIComponent(encoded)}`);
-    await page.waitForLoadState('domcontentloaded');
+    await gotoIncome(page, `?calculator=${encodeURIComponent(encoded)}`);
     await expect(page.getByRole('button', { name: /Save as PDF/i })).toBeVisible();
 
     await page.evaluate(() => {
@@ -259,8 +286,7 @@ test.describe('Salary Calculator Export', () => {
 
 test.describe('Part-time / Pro-rata Settings', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/personal/income');
-    await page.waitForLoadState('domcontentloaded');
+    await gotoIncome(page);
     await page.waitForTimeout(500);
   });
 
@@ -270,28 +296,16 @@ test.describe('Part-time / Pro-rata Settings', () => {
   });
 
   test('should expand hours input when part-time is enabled', async ({ page }) => {
-    // Find and click the part-time toggle
-    const partTimeSwitch = page.getByRole('switch').first();
+    const partTimeSwitch = page.getByRole('switch', { name: /Pro-rata \/ Part-time hours/i });
+    await expect(partTimeSwitch).toBeVisible();
+    await expect(async () => {
+      if ((await partTimeSwitch.getAttribute('aria-checked')) !== 'true') {
+        await partTimeSwitch.click();
+      }
+      await expect(partTimeSwitch).toHaveAttribute('aria-checked', 'true');
+    }).toPass({ timeout: 15_000 });
 
-    if (await partTimeSwitch.isVisible()) {
-      await partTimeSwitch.click();
-
-      // Should show hours input after enabling
-      await page.waitForTimeout(500);
-
-      // Scroll down to reveal potential hours input
-      await page.evaluate(() => window.scrollBy(0, 200));
-      await page.waitForTimeout(300);
-
-      // Look for hours-related input or FTE-related content
-      const hoursInput = page.getByPlaceholder(/hours/i);
-      const fteContent = page.getByText(/hours per week/i);
-
-      // Either should be visible when pro-rata is enabled
-      const hoursVisible = await hoursInput.isVisible().catch(() => false);
-      const fteVisible = await fteContent.isVisible().catch(() => false);
-
-      expect(hoursVisible || fteVisible).toBeTruthy();
-    }
+    await expect(page.getByText('Hours worked')).toBeVisible();
+    await expect(page.getByText(/Pro-rata salary/i)).toBeVisible();
   });
 });

@@ -1,29 +1,24 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { Github, Twitter, Linkedin } from 'lucide-react';
 
 const footerLinks = {
   product: [
-    { label: 'Features', href: '/#features' },
+    { label: 'Receipt Scanner', href: '/features/receipt-scanner' },
+    { label: 'Statement Import', href: '/features/bank-statement-import' },
+    { label: 'Household Budgeting', href: '/features/household-budgeting' },
     { label: 'Pricing', href: '/#pricing' },
-    { label: 'Dashboard', href: '/personal/income/' },
   ],
   resources: [
     { label: 'Blog', href: '/blog' },
-    { label: 'Documentation', href: '/blog' },
-    { label: 'Help Center', href: '/blog' },
+    { label: 'Australian Salary Calculator', href: '/tools/australian-salary-calculator' },
+    { label: 'Budget Calculator', href: '/tools/budget-calculator' },
+    { label: 'Spreadsheets vs Apps', href: '/compare/spreadsheets-vs-finance-app' },
   ],
   legal: [
     { label: 'Privacy Policy', href: '/privacy' },
     { label: 'Terms of Service', href: '/terms' },
   ],
 };
-
-const socialLinks = [
-  { icon: Github, href: 'https://github.com', label: 'GitHub' },
-  { icon: Twitter, href: 'https://twitter.com', label: 'Twitter' },
-  { icon: Linkedin, href: 'https://linkedin.com', label: 'LinkedIn' },
-];
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -60,25 +55,6 @@ export default function Footer() {
             <p className="text-sm text-muted-foreground leading-relaxed mb-4">
               Take control of your finances with intelligent tracking, beautiful insights, and collaborative tools.
             </p>
-            {/* Social Links - embossed circular buttons */}
-            <div className="flex items-center gap-3">
-              {socialLinks.map((social) => (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-all duration-200"
-                  style={{
-                    background: 'linear-gradient(180deg, color-mix(in oklch, var(--muted) 100%, white 8%) 0%, var(--muted) 100%)',
-                    boxShadow: 'inset 0 1px 0 color-mix(in oklch, white 10%, transparent), 0 2px 4px rgba(0,0,0,0.06)',
-                  }}
-                  aria-label={social.label}
-                >
-                  <social.icon className="w-4 h-4" />
-                </a>
-              ))}
-            </div>
           </div>
 
           {/* Product Links */}

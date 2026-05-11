@@ -47,9 +47,6 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "PFinance" }],
   creator: "PFinance",
-  alternates: {
-    canonical: "/",
-  },
   openGraph: {
     type: "website",
     locale: "en_US",

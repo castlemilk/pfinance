@@ -219,7 +219,7 @@ export default function SidebarNav() {
               height={40}
               className="rounded-lg group-hover:scale-105 transition-transform"
             />
-            <h1 className="text-2xl font-bold group-hover:text-primary transition-colors">PFinance</h1>
+            <span className="text-2xl font-bold group-hover:text-primary transition-colors">PFinance</span>
           </Link>
           <div className="flex items-center gap-1">
             <NotificationCenter />
@@ -229,6 +229,7 @@ export default function SidebarNav() {
                 size="icon"
                 onClick={closeMobileMenu}
                 className="lg:hidden"
+                aria-label="Close navigation"
               >
                 <X className="w-5 h-5" />
               </Button>
@@ -408,6 +409,7 @@ export default function SidebarNav() {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 shrink-0"
+                aria-label="Sign out"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -447,6 +449,7 @@ export default function SidebarNav() {
           size="icon"
           onClick={() => setIsMobileMenuOpen(true)}
           className="shrink-0"
+          aria-label="Open navigation"
         >
           <Menu className="w-5 h-5" />
         </Button>
@@ -465,6 +468,7 @@ export default function SidebarNav() {
           variant="ghost"
           size="icon"
           className="ml-auto text-muted-foreground hover:text-primary"
+          aria-label="Open search"
           onClick={() => {
             // NOTE: This synthetic KeyboardEvent is coupled to the CommandPalette's keydown listener.
             // If the CommandPalette's shortcut detection changes, this dispatch must be updated too.

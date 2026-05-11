@@ -242,6 +242,7 @@ export function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini, 
   // Editing state
   const [editingTxId, setEditingTxId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<{ description?: string; amount?: string; date?: string }>({});
+  const [showFailedDetails, setShowFailedDetails] = useState(false);
 
   const cancelledRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1718,8 +1719,6 @@ export function BulkUploadDialog({ open, onOpenChange, useGemini, setUseGemini, 
   }
 
   // ── Step: Done ───────────────────────────────────────
-
-  const [showFailedDetails, setShowFailedDetails] = useState(false);
 
   function renderDoneStep() {
     const hasFailed = (importResult?.failed ?? 0) > 0;

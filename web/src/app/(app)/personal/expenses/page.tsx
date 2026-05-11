@@ -5,7 +5,6 @@ import { useCallback } from 'react';
 import SmartExpenseEntry from '../../../components/SmartExpenseEntry';
 import ExpenseList from '../../../components/ExpenseList';
 import ExpenseVisualization from '../../../components/ExpenseVisualization';
-import TransactionImport from '../../../components/TransactionImport';
 
 export default function PersonalExpensesPage() {
   const searchParams = useSearchParams();
@@ -31,8 +30,6 @@ export default function PersonalExpensesPage() {
       </div>
 
       <ExpenseList filterDate={filterDate} onClearFilter={filterDate ? handleClearFilter : undefined} />
-
-      <TransactionImport />
     </div>
   );
 }

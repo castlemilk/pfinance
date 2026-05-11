@@ -48,22 +48,9 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
     ? impersonatedUser as unknown as User
     : actualUser;
 
-  // Debug logging
-  console.log('[AuthContext] State:', {
-    loading,
-    actualUser: actualUser?.uid || null,
-    effectiveUser: effectiveUser?.uid || null,
-    isAdminMode,
-    hasImpersonatedUser: !!impersonatedUser,
-    authInitialized: !!auth,
-  });
-
   useEffect(() => {
-    console.log('[AuthContext] useEffect - setting up auth listener, auth initialized:', !!auth);
-
     // Skip auth setup if Firebase is not initialized
     if (!auth) {
-      console.log('[AuthContext] Firebase not initialized, setting loading=false');
       setLoading(false);
       return;
     }
@@ -75,12 +62,10 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
     // Set persistence to local (survives browser restarts)
     setPersistence(auth, browserLocalPersistence)
       .then(() => {
-        console.log('[AuthContext] Persistence set, subscribing to auth state');
         // TypeScript needs reassurance that auth is still not null in async callback
         if (!auth) return;
 
         unsubscribe = onAuthStateChanged(auth, (user) => {
-          console.log('[AuthContext] onAuthStateChanged:', user?.uid || 'no user');
           listenerFiredRef.current = true;
           if (safetyTimeout) {
             clearTimeout(safetyTimeout);
@@ -160,7 +145,6 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (isAdminMode && impersonatedUser) {
-      console.log('[Admin Mode] Simulated sign in for:', email);
       return;
     }
     if (!auth) throw new Error('Firebase auth not initialized');
@@ -169,7 +153,6 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
 
   const signUp = useCallback(async (email: string, password: string, displayName: string) => {
     if (isAdminMode && impersonatedUser) {
-      console.log('[Admin Mode] Simulated sign up for:', email);
       return;
     }
     if (!auth) throw new Error('Firebase auth not initialized');
@@ -181,7 +164,6 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = useCallback(async (): Promise<void> => {
     if (isAdminMode && impersonatedUser) {
-      console.log('[Admin Mode] Simulated Google sign in');
       return;
     }
     if (!auth) {
@@ -205,7 +187,6 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     if (isAdminMode && impersonatedUser) {
-      console.log('[Admin Mode] Simulated logout for:', impersonatedUser.email);
       return;
     }
     if (!auth) throw new Error('Firebase auth not initialized');

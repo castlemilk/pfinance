@@ -3,6 +3,7 @@ interface OrganizationJsonLdProps {
   url?: string;
   logo?: string;
   description?: string;
+  sameAs?: string[];
 }
 
 export function OrganizationJsonLd({
@@ -10,6 +11,7 @@ export function OrganizationJsonLd({
   url = 'https://pfinance.app',
   logo = 'https://pfinance.app/logo.png',
   description = 'Personal finance tracking and budget management application',
+  sameAs,
 }: OrganizationJsonLdProps) {
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -18,10 +20,7 @@ export function OrganizationJsonLd({
     url,
     logo,
     description,
-    sameAs: [
-      'https://twitter.com/pfinanceapp',
-      'https://github.com/pfinance',
-    ],
+    ...(sameAs && sameAs.length > 0 ? { sameAs } : {}),
   };
 
   return (
@@ -121,12 +120,14 @@ interface WebsiteJsonLdProps {
   name?: string;
   url?: string;
   description?: string;
+  searchUrlTemplate?: string;
 }
 
 export function WebsiteJsonLd({
   name = 'PFinance',
   url = 'https://pfinance.app',
   description = 'Personal finance tracking and budget management application',
+  searchUrlTemplate,
 }: WebsiteJsonLdProps) {
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -134,14 +135,16 @@ export function WebsiteJsonLd({
     name,
     url,
     description,
-    potentialAction: {
+    ...(searchUrlTemplate ? {
+      potentialAction: {
       '@type': 'SearchAction',
       target: {
         '@type': 'EntryPoint',
-        urlTemplate: `${url}/blog?q={search_term_string}`,
+        urlTemplate: searchUrlTemplate,
       },
       'query-input': 'required name=search_term_string',
-    },
+      },
+    } : {}),
   };
 
   return (
@@ -161,6 +164,10 @@ interface SoftwareApplicationJsonLdProps {
     price: number;
     priceCurrency: string;
   };
+  aggregateRating?: {
+    ratingValue: string;
+    ratingCount: string;
+  };
 }
 
 export function SoftwareApplicationJsonLd({
@@ -169,6 +176,7 @@ export function SoftwareApplicationJsonLd({
   applicationCategory = 'FinanceApplication',
   operatingSystem = 'Web',
   offers = { price: 0, priceCurrency: 'USD' },
+  aggregateRating,
 }: SoftwareApplicationJsonLdProps) {
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -182,11 +190,13 @@ export function SoftwareApplicationJsonLd({
       price: offers.price,
       priceCurrency: offers.priceCurrency,
     },
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: '4.9',
-      ratingCount: '1000',
-    },
+    ...(aggregateRating ? {
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: aggregateRating.ratingValue,
+        ratingCount: aggregateRating.ratingCount,
+      },
+    } : {}),
   };
 
   return (
