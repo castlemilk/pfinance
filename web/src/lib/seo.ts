@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 const SITE_NAME = 'PFinance';
-const DEFAULT_SITE_URL = 'https://pfinance.app';
+const DEFAULT_SITE_URL = 'https://pfinance.dev';
 const DEFAULT_OG_IMAGE = '/og-image.png';
 
 export function getSiteUrl(): string {

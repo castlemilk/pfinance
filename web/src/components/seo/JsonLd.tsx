@@ -8,8 +8,8 @@ interface OrganizationJsonLdProps {
 
 export function OrganizationJsonLd({
   name = 'PFinance',
-  url = 'https://pfinance.app',
-  logo = 'https://pfinance.app/logo.png',
+  url = 'https://pfinance.dev',
+  logo = 'https://pfinance.dev/logo.png',
   description = 'Personal finance tracking and budget management application',
   sameAs,
 }: OrganizationJsonLdProps) {
@@ -66,7 +66,7 @@ export function BlogPostJsonLd({
       name: 'PFinance',
       logo: {
         '@type': 'ImageObject',
-        url: 'https://pfinance.app/logo.png',
+        url: 'https://pfinance.dev/logo.png',
       },
     },
     mainEntityOfPage: {
@@ -125,7 +125,7 @@ interface WebsiteJsonLdProps {
 
 export function WebsiteJsonLd({
   name = 'PFinance',
-  url = 'https://pfinance.app',
+  url = 'https://pfinance.dev',
   description = 'Personal finance tracking and budget management application',
   searchUrlTemplate,
 }: WebsiteJsonLdProps) {

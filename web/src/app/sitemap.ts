@@ -3,7 +3,7 @@ import { getAllPosts } from '@/lib/blog';
 import { discoveryPages } from '@/lib/marketing-pages';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pfinance.app';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pfinance.dev';
 
   const staticPages: MetadataRoute.Sitemap = [
     {

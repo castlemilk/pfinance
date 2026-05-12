@@ -1,4 +1,5 @@
 import { render } from '@testing-library/react';
+import robots from '@/app/robots';
 import sitemap from '@/app/sitemap';
 import { metadata as rootMetadata } from '@/app/layout';
 import { metadata as homeMetadata } from '../page';
@@ -17,6 +18,8 @@ import {
   SoftwareApplicationJsonLd,
   WebsiteJsonLd,
 } from '@/components/seo/JsonLd';
+
+const publicOrigin = 'https://pfinance.dev';
 
 function canonicalPath(metadata: typeof homeMetadata): string | undefined {
   return metadata.alternates?.canonical?.toString();
@@ -37,6 +40,7 @@ function scriptJson(container: HTMLElement): Record<string, unknown> {
 describe('marketing SEO routes', () => {
   it('does not force every route to use the home page canonical', () => {
     expect(rootMetadata.alternates?.canonical).toBeUndefined();
+    expect(rootMetadata.metadataBase?.toString()).toBe(`${publicOrigin}/`);
   });
 
   it('defines canonical URLs and social images for the core public pages', () => {
@@ -69,8 +73,11 @@ describe('marketing SEO routes', () => {
   });
 
   it('includes every public discovery page in the sitemap', () => {
-    const paths = sitemap().map((entry) => new URL(entry.url).pathname);
+    const entries = sitemap();
+    const paths = entries.map((entry) => new URL(entry.url).pathname);
+    const origins = new Set(entries.map((entry) => new URL(entry.url).origin));
 
+    expect(origins).toEqual(new Set([publicOrigin]));
     expect(paths).toEqual(expect.arrayContaining([
       '/',
       '/blog',
@@ -84,6 +91,10 @@ describe('marketing SEO routes', () => {
       '/tools/budget-calculator',
       '/compare/spreadsheets-vs-finance-app',
     ]));
+  });
+
+  it('points robots.txt at the public sitemap domain', () => {
+    expect(robots().sitemap).toBe(`${publicOrigin}/sitemap.xml`);
   });
 });
 
@@ -106,6 +117,14 @@ describe('marketing JSON-LD trust signals', () => {
     const { container } = render(<OrganizationJsonLd />);
     const json = scriptJson(container);
 
+    expect(json.url).toBe(publicOrigin);
     expect(json.sameAs).toBeUndefined();
+  });
+
+  it('uses the production domain for website JSON-LD by default', () => {
+    const { container } = render(<WebsiteJsonLd />);
+    const json = scriptJson(container);
+
+    expect(json.url).toBe(publicOrigin);
   });
 });

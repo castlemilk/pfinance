@@ -28,7 +28,7 @@ export async function generateMetadata({
 }: BlogPostPageProps): Promise<Metadata> {
   const { slug } = await params;
   const post = getPostBySlug(slug);
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pfinance.app';
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pfinance.dev';
   const image = post?.image || '/og-image.png';
 
   if (!post) {
@@ -72,7 +72,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   }
 
   const relatedPosts = getRelatedPosts(slug, 3);
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pfinance.app';
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pfinance.dev';
   const postUrl = `${siteUrl}/blog/${slug}/`;
 
   // Dynamic import of MDX content
