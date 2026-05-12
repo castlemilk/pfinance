@@ -511,7 +511,7 @@ deploy-backend:
 	@cd backend && ./scripts/deploy.sh
 
 deploy-frontend:
-	@echo "🚀 Deploying frontend to Firebase Hosting..."
+	@echo "🚀 Deploying frontend to Vercel with prebuilt output..."
 	@cd web && npm run deploy
 
 deploy: deploy-backend deploy-frontend

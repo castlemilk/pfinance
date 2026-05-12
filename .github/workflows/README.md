@@ -21,7 +21,7 @@ PR opened/updated          Push to main
 ├─────────────┤         ├─────────────┤
 │ Vercel      │         │ Vercel      │
 │ Cloud Run   │         │ Cloud Run   │
-│ (per PR)    │         │ Firebase    │
+│ (per PR)    │         │ Firestore   │
 └─────────────┘         └─────────────┘
 ```
 
@@ -46,8 +46,8 @@ PR opened/updated          Push to main
 
 # Or locally:
 make deploy-backend    # Cloud Run
-cd web && vercel --prod  # Vercel
-make deploy-indexes    # Firebase
+cd web && npm run deploy  # Vercel prebuilt: pull, local build, deploy --prebuilt
+make deploy-indexes    # Firestore indexes
 ```
 
 ## Required Secrets
