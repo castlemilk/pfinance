@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useCallback, useMemo, useState } from 'react';
-import { AreaClosed, Bar, Line, LinePath } from '@visx/shape';
+import React, { useCallback, useId, useMemo, useState } from 'react';
+import { AreaClosed, Line, LinePath } from '@visx/shape';
 import { curveMonotoneX } from '@visx/curve';
 import { AxisBottom, AxisLeft } from '@visx/axis';
 import { GridRows } from '@visx/grid';
@@ -9,7 +9,6 @@ import { scaleLinear, scaleTime } from '@visx/scale';
 import { Group } from '@visx/group';
 import { defaultStyles, TooltipWithBounds, useTooltip } from '@visx/tooltip';
 import { ParentSize } from '@visx/responsive';
-import { localPoint } from '@visx/event';
 import { bisector } from 'd3-array';
 
 import { createAnalyticsCurrencyContext } from '@/app/components/analytics/formatting';
@@ -97,16 +96,40 @@ function confidenceCopy(rSquared: number | undefined): string | null {
   return 'The direction is tentative because spending varies widely.';
 }
 
+function spendingTrendSummary(
+  expenseSeries: readonly DataPoint[],
+  trendSlope: number | undefined,
+  formatMoney: AnalyticsCurrencyContext['formatMoney']
+): string {
+  const values = parsePoints(expenseSeries).map((point) => point.value);
+  const fitted =
+    trendSlope == null || values.length < 2
+      ? null
+      : fittedTrendEndpoints(values, trendSlope);
+  if (!fitted || trendSlope == null) {
+    return 'Add more spending history to estimate a direction.';
+  }
+  if (trendSlope === 0) return 'Spending is broadly steady per period.';
+  const direction = trendSlope > 0 ? 'rising' : 'falling';
+  return `Spending is ${direction} by ${formatMoney(
+    Math.abs(trendSlope)
+  )} per period.`;
+}
+
 function TrendChart({
   expenseSeries,
   incomeSeries,
   trendSlope,
-  trendRSquared,
+  trendSummary,
   formatMoney = DEFAULT_FORMATTERS.formatMoney,
   formatDate = DEFAULT_FORMATTERS.formatDate,
   width,
   height,
-}: SpendingTrendChartProps & { width: number; height: number }) {
+}: SpendingTrendChartProps & {
+  width: number;
+  height: number;
+  trendSummary: string;
+}) {
   const {
     tooltipData,
     tooltipLeft,
@@ -116,6 +139,8 @@ function TrendChart({
     hideTooltip,
   } = useTooltip<TooltipData>();
   const [keyboardIndex, setKeyboardIndex] = useState(0);
+  const [selectedStatus, setSelectedStatus] = useState('');
+  const statusId = useId();
 
   const innerWidth = Math.max(1, width - MARGIN.left - MARGIN.right);
   const innerHeight = Math.max(1, height - MARGIN.top - MARGIN.bottom);
@@ -211,26 +236,19 @@ function TrendChart({
   );
   const renderedYDomain = yScale.domain();
 
-  const trendSummary = useMemo(() => {
-    if (!fitted || trendSlope == null) {
-      return 'Add more spending history to estimate a direction.';
-    }
-    if (trendSlope === 0) {
-      return 'Spending is broadly steady per period.';
-    }
-    const direction = trendSlope > 0 ? 'rising' : 'falling';
-    return `Spending is ${direction} by ${formatMoney(
-      Math.abs(trendSlope)
-    )} per period.`;
-  }, [fitted, formatMoney, trendSlope]);
-  const patternSummary = confidenceCopy(trendRSquared);
-
   const showPointTooltip = useCallback(
     (point: ParsedPoint) => {
       const time = point.date.getTime();
       const expense = expenseMap.get(time);
       const income = incomeMap.get(time);
       const displayValue = expense ?? income ?? point.value;
+      const statusValues = [
+        expense != null ? `Expenses ${formatMoney(expense)}` : null,
+        income != null ? `Income ${formatMoney(income)}` : null,
+      ].filter((value): value is string => value != null);
+      setSelectedStatus(
+        `${formatDate(point.date)}. ${statusValues.join('. ')}.`
+      );
       showTooltip({
         tooltipData: {
           date: point.date,
@@ -242,7 +260,7 @@ function TrendChart({
         tooltipTop: yScale(displayValue) + MARGIN.top,
       });
     },
-    [expenseMap, incomeMap, showTooltip, xScale, yScale]
+    [expenseMap, formatDate, formatMoney, incomeMap, showTooltip, xScale, yScale]
   );
 
   const handleFocus = useCallback(() => {
@@ -251,10 +269,18 @@ function TrendChart({
     showPointTooltip(timeline[0]);
   }, [showPointTooltip, timeline]);
   const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent<SVGRectElement>) => {
+    (event: React.KeyboardEvent<HTMLButtonElement>) => {
       if (timeline.length === 0) return;
       if (event.key === 'Escape') {
         hideTooltip();
+        setSelectedStatus('');
+        return;
+      }
+      if (event.key === 'Home' || event.key === 'End') {
+        event.preventDefault();
+        const nextIndex = event.key === 'Home' ? 0 : timeline.length - 1;
+        setKeyboardIndex(nextIndex);
+        showPointTooltip(timeline[nextIndex]);
         return;
       }
       if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
@@ -268,11 +294,10 @@ function TrendChart({
     [hideTooltip, keyboardIndex, showPointTooltip, timeline]
   );
 
-  const handleTooltip = useCallback(
-    (event: React.TouchEvent<SVGRectElement> | React.MouseEvent<SVGRectElement>) => {
+  const showClosestAtX = useCallback(
+    (localX: number) => {
       if (timeline.length === 0) return;
-      const point = localPoint(event) ?? { x: MARGIN.left };
-      const targetDate = xScale.invert(point.x - MARGIN.left);
+      const targetDate = xScale.invert(localX);
       const index = bisectDate(timeline, targetDate, 1);
       const previous = timeline[index - 1];
       const next = timeline[index];
@@ -287,6 +312,26 @@ function TrendChart({
     },
     [showPointTooltip, timeline, xScale]
   );
+  const handleMouseMove = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      const bounds = event.currentTarget.getBoundingClientRect();
+      showClosestAtX(event.clientX - bounds.left);
+    },
+    [showClosestAtX]
+  );
+  const handleTouchMove = useCallback(
+    (event: React.TouchEvent<HTMLButtonElement>) => {
+      const touch = event.touches[0];
+      if (!touch) return;
+      const bounds = event.currentTarget.getBoundingClientRect();
+      showClosestAtX(touch.clientX - bounds.left);
+    },
+    [showClosestAtX]
+  );
+  const clearSelection = useCallback(() => {
+    hideTooltip();
+    setSelectedStatus('');
+  }, [hideTooltip]);
 
   if (allPoints.length === 0) {
     return (
@@ -297,7 +342,7 @@ function TrendChart({
   }
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="relative h-full w-full">
       <svg
         width={width}
         height={height}
@@ -410,23 +455,6 @@ function TrendChart({
             })}
           />
 
-          <Bar
-            data-testid="spending-chart-overlay"
-            x={0}
-            y={0}
-            width={innerWidth}
-            height={innerHeight}
-            fill="transparent"
-            tabIndex={0}
-            aria-label="Explore spending values. Use the left and right arrow keys to move between periods."
-            onFocus={handleFocus}
-            onKeyDown={handleKeyDown}
-            onTouchStart={handleTooltip}
-            onTouchMove={handleTooltip}
-            onMouseMove={handleTooltip}
-            onMouseLeave={hideTooltip}
-          />
-
           {tooltipOpen && tooltipData && (
             <>
               <Line
@@ -451,12 +479,30 @@ function TrendChart({
         </Group>
       </svg>
 
-      <p
-        data-testid="spending-trend-summary"
-        className="mt-2 text-xs text-muted-foreground"
+      <button
+        type="button"
+        data-testid="spending-chart-overlay"
+        className="absolute cursor-crosshair rounded-sm bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        style={{
+          left: MARGIN.left,
+          top: MARGIN.top,
+          width: innerWidth,
+          height: innerHeight,
+        }}
+        aria-label="Explore spending values. Use left and right arrows to move between dates; Home and End jump to the first and last date."
+        aria-describedby={statusId}
+        onFocus={handleFocus}
+        onBlur={clearSelection}
+        onKeyDown={handleKeyDown}
+        onTouchStart={handleTouchMove}
+        onTouchMove={handleTouchMove}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={clearSelection}
       >
-        {trendSummary}
-        {patternSummary ? ` ${patternSummary}` : ''}
+        <span className="sr-only">Explore spending chart values</span>
+      </button>
+      <p id={statusId} role="status" aria-live="polite" className="sr-only">
+        {selectedStatus}
       </p>
 
       {tooltipOpen && tooltipData && (
@@ -481,18 +527,52 @@ function TrendChart({
 }
 
 export default function SpendingTrendChart(props: SpendingTrendChartProps) {
+  const formatMoney = props.formatMoney ?? DEFAULT_FORMATTERS.formatMoney;
+  const formatDate = props.formatDate ?? DEFAULT_FORMATTERS.formatDate;
+  const trendSummary = spendingTrendSummary(
+    props.expenseSeries,
+    props.trendSlope,
+    formatMoney
+  );
+  const patternSummary = confidenceCopy(props.trendRSquared);
+
   return (
-    <ParentSize>
-      {({ width, height }) => {
-        if (width < 10) return null;
-        return (
-          <TrendChart
-            {...props}
-            width={width}
-            height={Math.max(height, 250)}
-          />
-        );
-      }}
-    </ParentSize>
+    <div
+      data-testid="spending-chart-layout"
+      className="flex h-full min-h-0 flex-col"
+    >
+      <div
+        data-testid="spending-chart-plot"
+        className="relative min-h-0 flex-1"
+      >
+        <ParentSize>
+          {({ width, height }) => {
+            if (width < 10 || height < 10) return null;
+            return (
+              <TrendChart
+                {...props}
+                formatMoney={formatMoney}
+                formatDate={formatDate}
+                trendSummary={trendSummary}
+                width={width}
+                height={height}
+              />
+            );
+          }}
+        </ParentSize>
+      </div>
+      <div
+        data-testid="spending-chart-footer"
+        className="shrink-0 pt-2"
+      >
+        <p
+          data-testid="spending-trend-summary"
+          className="text-xs text-muted-foreground"
+        >
+          {trendSummary}
+          {patternSummary ? ` ${patternSummary}` : ''}
+        </p>
+      </div>
+    </div>
   );
 }

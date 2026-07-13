@@ -1,14 +1,16 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
 import CashFlowForecast from '../CashFlowForecast';
 import type { ForecastSeries } from '@/app/metrics/types';
+
+let mockParentSize = { width: 640, height: 320 };
 
 jest.mock('@visx/responsive', () => ({
   ParentSize: ({
     children,
   }: {
     children: (size: { width: number; height: number }) => React.ReactNode;
-  }) => children({ width: 640, height: 320 }),
+  }) => children(mockParentSize),
 }));
 
 jest.mock('d3-array', () => ({
@@ -42,6 +44,7 @@ describe('CashFlowForecast', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-07-13T00:00:00.000Z'));
+    mockParentSize = { width: 640, height: 320 };
   });
 
   afterEach(() => {
@@ -68,7 +71,7 @@ describe('CashFlowForecast', () => {
         ]}
         incomeForecast={[
           forecastPoint('2026-07-20', 600, 550, 650, true),
-          forecastPoint('2026-08-01', 700, 600, 800, true),
+          forecastPoint('2026-07-21', 700, 600, 800, true),
         ]}
         expenseForecast={[
           forecastPoint('2026-07-20', 200, -9000, 9000, false),
@@ -187,17 +190,34 @@ describe('CashFlowForecast', () => {
         expenseForecast={[forecastPoint('2026-07-25', 40, 0, 0, false)]}
         netForecast={[]}
         formatMoney={(value) => `value ${value}`}
+        formatDate={(value) => {
+          const date = typeof value === 'string' ? new Date(value) : value;
+          return `day ${date.toISOString().slice(0, 10)}`;
+        }}
       />
     );
 
     const overlay = screen.getByTestId('forecast-chart-overlay');
+    expect(overlay).toHaveAttribute('type', 'button');
+    expect(screen.getByTestId('forecast-summary')).toHaveTextContent(
+      'Latest forecast values: Income value 100 on day 2026-07-20; Expenses value 40 on day 2026-07-25.'
+    );
     fireEvent.focus(overlay);
     expect(screen.getByText('Income: value 100')).toBeInTheDocument();
     expect(screen.queryByText(/^Expenses:/)).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'day 2026-07-20. Income value 100.'
+    );
 
     fireEvent.keyDown(overlay, { key: 'ArrowRight' });
     expect(screen.getByText('Expenses: value 40')).toBeInTheDocument();
     expect(screen.queryByText(/^Income:/)).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'day 2026-07-25. Expenses value 40.'
+    );
+
+    fireEvent.blur(overlay);
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
   });
 
   it('keeps history and forecast points on their semantic sides of Today', () => {
@@ -244,5 +264,125 @@ describe('CashFlowForecast', () => {
     expect(screen.getByTestId('forecast-summary')).toHaveTextContent(
       'History from day 2026-07-01 to day 2026-07-10.'
     );
+    const legend = within(screen.getByTestId('forecast-legend'));
+    expect(legend.getByText('Income')).toBeInTheDocument();
+    expect(legend.getByText('Expenses')).toBeInTheDocument();
+    expect(legend.queryByText('Net')).not.toBeInTheDocument();
+    expect(legend.getByText('Solid lines: history')).toBeInTheDocument();
+    expect(legend.queryByText('Dashed lines: forecast')).not.toBeInTheDocument();
+    expect(
+      legend.queryByText('Shading: expected range where available')
+    ).not.toBeInTheDocument();
+  });
+
+  it('only advertises the rendered income forecast series and line style', () => {
+    render(
+      <CashFlowForecast
+        incomeForecast={[
+          forecastPoint('2026-07-20', 100, 0, 0, false),
+          forecastPoint('2026-07-21', 110, 0, 0, false),
+        ]}
+        expenseForecast={[]}
+        netForecast={[]}
+      />
+    );
+
+    const legend = within(screen.getByTestId('forecast-legend'));
+    expect(legend.getByText('Income')).toBeInTheDocument();
+    expect(legend.queryByText('Expenses')).not.toBeInTheDocument();
+    expect(legend.queryByText('Net')).not.toBeInTheDocument();
+    expect(legend.queryByText('Solid lines: history')).not.toBeInTheDocument();
+    expect(legend.getByText('Dashed lines: forecast')).toBeInTheDocument();
+    expect(
+      legend.queryByText('Shading: expected range where available')
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not bridge a missing UTC calendar day with confidence shading', () => {
+    render(
+      <CashFlowForecast
+        incomeForecast={[
+          forecastPoint('2026-07-20', 100, 80, 120, true),
+          forecastPoint('2026-07-22', 120, 100, 140, true),
+        ]}
+        expenseForecast={[]}
+        netForecast={[]}
+      />
+    );
+
+    expect(screen.queryByTestId('income-confidence-band')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Shading: expected range where available')
+    ).not.toBeInTheDocument();
+  });
+
+  it('refreshes the UTC Today boundary after midnight without remounting', () => {
+    jest.setSystemTime(new Date('2026-07-13T23:59:00.000Z'));
+    render(
+      <CashFlowForecast
+        incomeHistory={[
+          { date: '2026-07-13', label: '13 Jul', value: 80 },
+          { date: '2026-07-14', label: '14 Jul', value: 90 },
+        ]}
+        incomeForecast={[
+          forecastPoint('2026-07-14', 100, 0, 0, false),
+          forecastPoint('2026-07-15', 110, 0, 0, false),
+        ]}
+        expenseForecast={[]}
+        netForecast={[]}
+      />
+    );
+
+    expect(screen.getByTestId('today-marker')).toHaveAttribute(
+      'data-date',
+      '2026-07-13T00:00:00.000Z'
+    );
+    expect(screen.getByTestId('income-history-line')).toHaveAttribute(
+      'data-end-date',
+      '2026-07-13T00:00:00.000Z'
+    );
+    expect(screen.getByTestId('income-forecast-line')).toHaveAttribute(
+      'data-start-date',
+      '2026-07-14T00:00:00.000Z'
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(2 * 60 * 1000);
+    });
+
+    expect(screen.getByTestId('today-marker')).toHaveAttribute(
+      'data-date',
+      '2026-07-14T00:00:00.000Z'
+    );
+    expect(screen.getByTestId('income-history-line')).toHaveAttribute(
+      'data-end-date',
+      '2026-07-14T00:00:00.000Z'
+    );
+    expect(screen.getByTestId('income-forecast-line')).toHaveAttribute(
+      'data-start-date',
+      '2026-07-15T00:00:00.000Z'
+    );
+  });
+
+  it('reserves legend and summary space outside a bounded responsive plot', () => {
+    mockParentSize = { width: 480, height: 120 };
+    render(
+      <CashFlowForecast
+        incomeForecast={[forecastPoint('2026-07-20', 100, 0, 0, false)]}
+        expenseForecast={[]}
+        netForecast={[]}
+      />
+    );
+
+    const layout = screen.getByTestId('forecast-chart-layout');
+    const plot = screen.getByTestId('forecast-chart-plot');
+    const footer = screen.getByTestId('forecast-chart-footer');
+    expect(layout).toHaveClass('flex', 'h-full', 'min-h-0', 'flex-col');
+    expect(plot).toHaveClass('relative', 'min-h-0', 'flex-1');
+    expect(footer).toHaveClass('shrink-0');
+    expect(plot).not.toContainElement(footer);
+    expect(
+      screen.getByRole('img', { name: /cash flow history and forecast/i })
+    ).toHaveAttribute('height', '120');
   });
 });

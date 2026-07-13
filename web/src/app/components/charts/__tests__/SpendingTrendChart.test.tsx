@@ -2,12 +2,14 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import SpendingTrendChart from '../SpendingTrendChart';
 
+let mockParentSize = { width: 640, height: 320 };
+
 jest.mock('@visx/responsive', () => ({
   ParentSize: ({
     children,
   }: {
     children: (size: { width: number; height: number }) => React.ReactNode;
-  }) => children({ width: 640, height: 320 }),
+  }) => children(mockParentSize),
 }));
 
 jest.mock('d3-array', () => ({
@@ -23,6 +25,10 @@ jest.mock('d3-array', () => ({
 }));
 
 describe('SpendingTrendChart', () => {
+  beforeEach(() => {
+    mockParentSize = { width: 640, height: 320 };
+  });
+
   it('renders the fitted trend without clipping and uses caller-owned formatters everywhere', () => {
     const formatMoney = jest.fn((value: number, compact?: boolean) =>
       compact ? `compact ${value.toFixed(1)}` : `credits ${value.toFixed(1)}`
@@ -110,15 +116,50 @@ describe('SpendingTrendChart', () => {
         ]}
         incomeSeries={[{ date: '2026-07-08', value: 80 }]}
         formatMoney={(value) => `value ${value}`}
+        formatDate={(value) => {
+          const date = typeof value === 'string' ? new Date(value) : value;
+          return `day ${date.toISOString().slice(0, 10)}`;
+        }}
       />
     );
 
     const overlay = screen.getByTestId('spending-chart-overlay');
+    expect(overlay).toHaveAttribute('type', 'button');
     fireEvent.focus(overlay);
     expect(screen.getByText('Expenses: value 10')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'day 2026-07-01. Expenses value 10.'
+    );
 
     fireEvent.keyDown(overlay, { key: 'ArrowRight' });
     expect(screen.getByText('Income: value 80')).toBeInTheDocument();
     expect(screen.queryByText(/^Expenses:/)).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'day 2026-07-08. Income value 80.'
+    );
+
+    fireEvent.blur(overlay);
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  });
+
+  it('reserves footer space outside a bounded responsive plot region', () => {
+    mockParentSize = { width: 480, height: 120 };
+    render(
+      <SpendingTrendChart
+        expenseSeries={[{ date: '2026-07-01', value: 10 }]}
+      />
+    );
+
+    const layout = screen.getByTestId('spending-chart-layout');
+    const plot = screen.getByTestId('spending-chart-plot');
+    const footer = screen.getByTestId('spending-chart-footer');
+    expect(layout).toHaveClass('flex', 'h-full', 'min-h-0', 'flex-col');
+    expect(plot).toHaveClass('relative', 'min-h-0', 'flex-1');
+    expect(footer).toHaveClass('shrink-0');
+    expect(plot).not.toContainElement(footer);
+    expect(screen.getByRole('img', { name: /spending over time/i })).toHaveAttribute(
+      'height',
+      '120'
+    );
   });
 });

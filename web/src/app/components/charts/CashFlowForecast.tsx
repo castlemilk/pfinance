@@ -1,7 +1,13 @@
 'use client';
 
-import React, { useCallback, useMemo, useState } from 'react';
-import { Bar, Line, LinePath } from '@visx/shape';
+import React, {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+} from 'react';
+import { Line, LinePath } from '@visx/shape';
 import { curveMonotoneX } from '@visx/curve';
 import { AxisBottom, AxisLeft } from '@visx/axis';
 import { GridRows } from '@visx/grid';
@@ -9,7 +15,6 @@ import { scaleLinear, scaleTime } from '@visx/scale';
 import { Group } from '@visx/group';
 import { defaultStyles, TooltipWithBounds, useTooltip } from '@visx/tooltip';
 import { ParentSize } from '@visx/responsive';
-import { localPoint } from '@visx/event';
 import { bisector } from 'd3-array';
 
 import { createAnalyticsCurrencyContext } from '@/app/components/analytics/formatting';
@@ -38,6 +43,11 @@ interface ParsedHistoryPoint {
   value: number;
 }
 
+interface ParsedForecastResult {
+  data: ForecastSeries[];
+  confidenceSequenceValid: boolean;
+}
+
 interface TooltipMetric {
   value: number;
   lower: number;
@@ -60,6 +70,12 @@ interface SeriesConfig {
   label: string;
   data: ForecastSeries[];
   color: string;
+  confidenceSequenceValid: boolean;
+}
+
+interface ConfidenceSeries {
+  config: SeriesConfig;
+  runs: ForecastSeries[][];
 }
 
 interface TimelinePoint {
@@ -67,8 +83,29 @@ interface TimelinePoint {
   value: number;
 }
 
+interface ForecastModel {
+  incomeHistory: ParsedHistoryPoint[];
+  expenseHistory: ParsedHistoryPoint[];
+  incomeForecast: ForecastSeries[];
+  expenseForecast: ForecastSeries[];
+  netForecast: ForecastSeries[];
+  seriesConfigs: SeriesConfig[];
+  confidenceSeries: ConfidenceSeries[];
+  historyDates: Date[];
+  futureDates: Date[];
+  hasData: boolean;
+  hasIncome: boolean;
+  hasExpenses: boolean;
+  hasNet: boolean;
+  hasHistory: boolean;
+  hasForecast: boolean;
+  hasConfidenceArea: boolean;
+  summary: string;
+}
+
 const DEFAULT_FORMATTERS = createAnalyticsCurrencyContext(undefined);
 const MARGIN = { top: 22, right: 16, bottom: 40, left: 64 } as const;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const tooltipStyles: React.CSSProperties = {
   ...defaultStyles,
@@ -84,6 +121,39 @@ const tooltipStyles: React.CSSProperties = {
 
 const bisectTimeline = bisector<TimelinePoint, Date>((point) => point.date).left;
 
+function utcDayStart(date: Date): Date {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
+}
+
+function useUtcToday(): Date {
+  const [today, setToday] = useState(() => utcDayStart(new Date()));
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    let timer: number | undefined;
+
+    const schedule = () => {
+      const now = new Date();
+      const nextMidnight = utcDayStart(
+        new Date(now.getTime() + DAY_MS)
+      ).getTime();
+      timer = window.setTimeout(() => {
+        setToday(utcDayStart(new Date()));
+        schedule();
+      }, Math.max(1, nextMidnight - now.getTime()));
+    };
+
+    schedule();
+    return () => {
+      if (timer != null) window.clearTimeout(timer);
+    };
+  }, []);
+
+  return today;
+}
+
 function parseHistory(points: readonly ForecastHistoryPoint[]): ParsedHistoryPoint[] {
   return points
     .map((point) => ({
@@ -98,31 +168,45 @@ function parseHistory(points: readonly ForecastHistoryPoint[]): ParsedHistoryPoi
     .sort((left, right) => left.date.getTime() - right.date.getTime());
 }
 
-function parseForecast(points: readonly ForecastSeries[]): ForecastSeries[] {
-  return points
-    .map((point) => {
-      const date = new Date(point.date.getTime());
-      const hasBounds =
-        point.hasBounds &&
-        Number.isFinite(point.lowerBound) &&
-        Number.isFinite(point.upperBound);
-      return {
-        ...point,
-        date,
-        lowerBound: hasBounds
-          ? Math.min(point.lowerBound, point.upperBound)
-          : 0,
-        upperBound: hasBounds
-          ? Math.max(point.lowerBound, point.upperBound)
-          : 0,
-        hasBounds,
-      };
-    })
-    .filter(
-      (point) =>
-        Number.isFinite(point.date.getTime()) && Number.isFinite(point.predicted)
-    )
-    .sort((left, right) => left.date.getTime() - right.date.getTime());
+function parseForecast(
+  points: readonly ForecastSeries[],
+  today: Date
+): ParsedForecastResult {
+  const data: ForecastSeries[] = [];
+  let confidenceSequenceValid = true;
+  let previousInputTime: number | null = null;
+
+  for (const point of points) {
+    const time = point.date instanceof Date ? point.date.getTime() : Number.NaN;
+    if (!Number.isFinite(time) || !Number.isFinite(point.predicted)) {
+      confidenceSequenceValid = false;
+      continue;
+    }
+    if (previousInputTime != null && time <= previousInputTime) {
+      confidenceSequenceValid = false;
+    }
+    previousInputTime = time;
+
+    if (time <= today.getTime()) continue;
+    const hasBounds =
+      point.hasBounds &&
+      Number.isFinite(point.lowerBound) &&
+      Number.isFinite(point.upperBound);
+    data.push({
+      ...point,
+      date: new Date(time),
+      lowerBound: hasBounds
+        ? Math.min(point.lowerBound, point.upperBound)
+        : 0,
+      upperBound: hasBounds
+        ? Math.max(point.lowerBound, point.upperBound)
+        : 0,
+      hasBounds,
+    });
+  }
+
+  data.sort((left, right) => left.date.getTime() - right.date.getTime());
+  return { data, confidenceSequenceValid };
 }
 
 function paddedValueDomain(values: readonly number[]): readonly [number, number] {
@@ -139,24 +223,36 @@ function paddedValueDomain(values: readonly number[]): readonly [number, number]
   return [minimum - padding, maximum + padding];
 }
 
-function boundedRuns(
-  points: readonly ForecastSeries[],
-  today: Date
-): ForecastSeries[][] {
+function utcCalendarDayNumber(date: Date): number {
+  return (
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) /
+    DAY_MS
+  );
+}
+
+function boundedRuns(config: SeriesConfig, today: Date): ForecastSeries[][] {
+  if (!config.confidenceSequenceValid) return [];
+
   const runs: ForecastSeries[][] = [];
   let current: ForecastSeries[] = [];
-
   const flush = () => {
     if (current.length >= 2) runs.push(current);
     current = [];
   };
 
-  for (const point of points) {
-    if (point.date.getTime() > today.getTime() && point.hasBounds) {
-      current.push(point);
-    } else {
+  for (const point of config.data) {
+    if (point.date.getTime() <= today.getTime() || !point.hasBounds) {
+      flush();
+      continue;
+    }
+    const previous = current.at(-1);
+    if (
+      previous &&
+      utcCalendarDayNumber(point.date) - utcCalendarDayNumber(previous.date) !== 1
+    ) {
       flush();
     }
+    current.push(point);
   }
   flush();
   return runs;
@@ -172,17 +268,120 @@ function toTooltipMetric(point: ForecastSeries | undefined): TooltipMetric | und
   };
 }
 
-function ForecastChart({
-  incomeForecast,
-  expenseForecast,
-  netForecast,
-  incomeHistory,
-  expenseHistory,
-  formatMoney = DEFAULT_FORMATTERS.formatMoney,
-  formatDate = DEFAULT_FORMATTERS.formatDate,
+function buildForecastModel(
+  props: CashFlowForecastProps,
+  today: Date,
+  formatMoney: AnalyticsCurrencyContext['formatMoney'],
+  formatDate: AnalyticsCurrencyContext['formatDate']
+): ForecastModel {
+  const incomeHistory = parseHistory(props.incomeHistory ?? []).filter(
+    (point) => point.date.getTime() <= today.getTime()
+  );
+  const expenseHistory = parseHistory(props.expenseHistory ?? []).filter(
+    (point) => point.date.getTime() <= today.getTime()
+  );
+  const incomeResult = parseForecast(props.incomeForecast, today);
+  const expenseResult = parseForecast(props.expenseForecast, today);
+  const netResult = parseForecast(props.netForecast, today);
+
+  const seriesConfigs: SeriesConfig[] = [
+    {
+      key: 'income',
+      label: 'Income',
+      data: incomeResult.data,
+      color: 'var(--chart-2)',
+      confidenceSequenceValid: incomeResult.confidenceSequenceValid,
+    },
+    {
+      key: 'expenses',
+      label: 'Expenses',
+      data: expenseResult.data,
+      color: 'var(--chart-1)',
+      confidenceSequenceValid: expenseResult.confidenceSequenceValid,
+    },
+    {
+      key: 'net',
+      label: 'Net',
+      data: netResult.data,
+      color: 'var(--primary)',
+      confidenceSequenceValid: netResult.confidenceSequenceValid,
+    },
+  ];
+  const confidenceSeries = seriesConfigs.map((config) => ({
+    config,
+    runs: boundedRuns(config, today),
+  }));
+  const historyDates = [...incomeHistory, ...expenseHistory].map(
+    (point) => point.date
+  );
+  const futureDates = seriesConfigs.flatMap((config) =>
+    config.data.map((point) => point.date)
+  );
+  const hasHistory = historyDates.length > 0;
+  const hasForecast = futureDates.length > 0;
+  const hasConfidenceArea = confidenceSeries.some(({ runs }) => runs.length > 0);
+
+  let summary = 'No cash flow history or forecast is available.';
+  if (hasForecast) {
+    const latestValues = seriesConfigs.flatMap((config) => {
+      const latest = config.data.at(-1);
+      return latest
+        ? [
+            `${config.label} ${formatMoney(latest.predicted)} on ${formatDate(
+              latest.date
+            )}`,
+          ]
+        : [];
+    });
+    summary = `Latest forecast values: ${latestValues.join('; ')}.`;
+  } else if (hasHistory) {
+    const firstHistory = new Date(
+      Math.min(...historyDates.map((date) => date.getTime()))
+    );
+    const lastHistory = new Date(
+      Math.max(...historyDates.map((date) => date.getTime()))
+    );
+    summary = `History from ${formatDate(firstHistory)} to ${formatDate(
+      lastHistory
+    )}. Add forecast data to see what may come next.`;
+  }
+
+  return {
+    incomeHistory,
+    expenseHistory,
+    incomeForecast: incomeResult.data,
+    expenseForecast: expenseResult.data,
+    netForecast: netResult.data,
+    seriesConfigs,
+    confidenceSeries,
+    historyDates,
+    futureDates,
+    hasData: hasHistory || hasForecast,
+    hasIncome: incomeHistory.length > 0 || incomeResult.data.length > 0,
+    hasExpenses: expenseHistory.length > 0 || expenseResult.data.length > 0,
+    hasNet: netResult.data.length > 0,
+    hasHistory,
+    hasForecast,
+    hasConfidenceArea,
+    summary,
+  };
+}
+
+function ForecastPlot({
+  model,
+  today,
+  formatMoney,
+  formatDate,
   width,
   height,
-}: CashFlowForecastProps & { width: number; height: number }) {
+}: {
+  model: ForecastModel;
+  today: Date;
+  formatMoney: AnalyticsCurrencyContext['formatMoney'];
+  formatDate: AnalyticsCurrencyContext['formatDate'];
+  width: number;
+  height: number;
+}) {
   const {
     tooltipData,
     tooltipLeft,
@@ -192,142 +391,23 @@ function ForecastChart({
     hideTooltip,
   } = useTooltip<TooltipData>();
   const [keyboardIndex, setKeyboardIndex] = useState(0);
-  const today = useMemo(() => new Date(), []);
+  const [selectedStatus, setSelectedStatus] = useState('');
+  const statusId = useId();
 
   const innerWidth = Math.max(1, width - MARGIN.left - MARGIN.right);
   const innerHeight = Math.max(1, height - MARGIN.top - MARGIN.bottom);
-
-  const parsedIncomeHistory = useMemo(
-    () =>
-      parseHistory(incomeHistory ?? []).filter(
-        (point) => point.date.getTime() <= today.getTime()
-      ),
-    [incomeHistory, today]
-  );
-  const parsedExpenseHistory = useMemo(
-    () =>
-      parseHistory(expenseHistory ?? []).filter(
-        (point) => point.date.getTime() <= today.getTime()
-      ),
-    [expenseHistory, today]
-  );
-  const parsedIncomeForecast = useMemo(
-    () =>
-      parseForecast(incomeForecast).filter(
-        (point) => point.date.getTime() > today.getTime()
-      ),
-    [incomeForecast, today]
-  );
-  const parsedExpenseForecast = useMemo(
-    () =>
-      parseForecast(expenseForecast).filter(
-        (point) => point.date.getTime() > today.getTime()
-      ),
-    [expenseForecast, today]
-  );
-  const parsedNetForecast = useMemo(
-    () =>
-      parseForecast(netForecast).filter(
-        (point) => point.date.getTime() > today.getTime()
-      ),
-    [netForecast, today]
-  );
-
-  const incomeHistoryMap = useMemo(
-    () =>
-      new Map(
-        parsedIncomeHistory.map((point) => [point.date.getTime(), point] as const)
-      ),
-    [parsedIncomeHistory]
-  );
-  const expenseHistoryMap = useMemo(
-    () =>
-      new Map(
-        parsedExpenseHistory.map((point) => [point.date.getTime(), point] as const)
-      ),
-    [parsedExpenseHistory]
-  );
-  const incomeForecastMap = useMemo(
-    () =>
-      new Map(
-        parsedIncomeForecast.map((point) => [point.date.getTime(), point] as const)
-      ),
-    [parsedIncomeForecast]
-  );
-  const expenseForecastMap = useMemo(
-    () =>
-      new Map(
-        parsedExpenseForecast.map((point) => [point.date.getTime(), point] as const)
-      ),
-    [parsedExpenseForecast]
-  );
-  const netForecastMap = useMemo(
-    () =>
-      new Map(
-        parsedNetForecast.map((point) => [point.date.getTime(), point] as const)
-      ),
-    [parsedNetForecast]
-  );
-
-  const seriesConfigs: SeriesConfig[] = useMemo(
-    () => [
-      {
-        key: 'income',
-        label: 'Income',
-        data: parsedIncomeForecast,
-        color: 'var(--chart-2)',
-      },
-      {
-        key: 'expenses',
-        label: 'Expenses',
-        data: parsedExpenseForecast,
-        color: 'var(--chart-1)',
-      },
-      {
-        key: 'net',
-        label: 'Net',
-        data: parsedNetForecast,
-        color: 'var(--primary)',
-      },
-    ],
-    [parsedExpenseForecast, parsedIncomeForecast, parsedNetForecast]
-  );
-  const hasConfidenceArea = useMemo(
-    () =>
-      seriesConfigs.some(
-        (config) => boundedRuns(config.data, today).length > 0
-      ),
-    [seriesConfigs, today]
-  );
-
-  const historyDates = useMemo(
-    () =>
-      [...parsedIncomeHistory, ...parsedExpenseHistory].map((point) => point.date),
-    [parsedExpenseHistory, parsedIncomeHistory]
-  );
-  const futureDates = useMemo(
-    () =>
-      [
-        ...parsedIncomeForecast,
-        ...parsedExpenseForecast,
-        ...parsedNetForecast,
-      ].map((point) => point.date),
-    [parsedExpenseForecast, parsedIncomeForecast, parsedNetForecast]
-  );
-  const hasData = historyDates.length > 0 || futureDates.length > 0;
-
   const xDomain = useMemo(() => {
-    if (historyDates.length > 0 && futureDates.length > 0) {
-      return forecastDomain(historyDates, futureDates, today);
+    if (model.historyDates.length > 0 && model.futureDates.length > 0) {
+      return forecastDomain(model.historyDates, model.futureDates, today);
     }
-    if (historyDates.length > 0) {
-      return forecastDomain(historyDates, [today], today);
+    if (model.historyDates.length > 0) {
+      return forecastDomain(model.historyDates, [today], today);
     }
-    if (futureDates.length > 0) {
-      return forecastDomain([today], futureDates, today);
+    if (model.futureDates.length > 0) {
+      return forecastDomain([today], model.futureDates, today);
     }
     return forecastDomain([], [], today);
-  }, [futureDates, historyDates, today]);
+  }, [model.futureDates, model.historyDates, today]);
   const xScale = useMemo(
     () =>
       scaleTime<number>({
@@ -339,17 +419,17 @@ function ForecastChart({
 
   const allValues = useMemo(() => {
     const values = [
-      ...parsedIncomeHistory.map((point) => point.value),
-      ...parsedExpenseHistory.map((point) => point.value),
+      ...model.incomeHistory.map((point) => point.value),
+      ...model.expenseHistory.map((point) => point.value),
     ];
-    for (const config of seriesConfigs) {
+    for (const config of model.seriesConfigs) {
       for (const point of config.data) {
         values.push(point.predicted);
         if (point.hasBounds) values.push(point.lowerBound, point.upperBound);
       }
     }
     return values;
-  }, [parsedExpenseHistory, parsedIncomeHistory, seriesConfigs]);
+  }, [model.expenseHistory, model.incomeHistory, model.seriesConfigs]);
   const valueDomain = useMemo(() => paddedValueDomain(allValues), [allValues]);
   const yScale = useMemo(
     () =>
@@ -364,15 +444,15 @@ function ForecastChart({
 
   const timeline = useMemo(() => {
     const byTime = new Map<number, TimelinePoint>();
-    for (const point of parsedIncomeHistory) {
+    for (const point of model.incomeHistory) {
       byTime.set(point.date.getTime(), { date: point.date, value: point.value });
     }
-    for (const point of parsedExpenseHistory) {
+    for (const point of model.expenseHistory) {
       if (!byTime.has(point.date.getTime())) {
         byTime.set(point.date.getTime(), { date: point.date, value: point.value });
       }
     }
-    for (const config of seriesConfigs) {
+    for (const config of model.seriesConfigs) {
       for (const point of config.data) {
         if (!byTime.has(point.date.getTime())) {
           byTime.set(point.date.getTime(), {
@@ -385,48 +465,43 @@ function ForecastChart({
     return [...byTime.values()].sort(
       (left, right) => left.date.getTime() - right.date.getTime()
     );
-  }, [parsedExpenseHistory, parsedIncomeHistory, seriesConfigs]);
+  }, [model.expenseHistory, model.incomeHistory, model.seriesConfigs]);
 
-  const forecastSummary = useMemo(() => {
-    if (futureDates.length > 0) {
-      const horizon = new Date(
-        Math.max(...futureDates.map((date) => date.getTime()))
-      );
-      const parts: string[] = [];
-      const latestIncome = parsedIncomeForecast.at(-1);
-      const latestExpenses = parsedExpenseForecast.at(-1);
-      const latestNet = parsedNetForecast.at(-1);
-      if (latestIncome) parts.push(`income ${formatMoney(latestIncome.predicted)}`);
-      if (latestExpenses) {
-        parts.push(`expenses ${formatMoney(latestExpenses.predicted)}`);
-      }
-      if (latestNet) parts.push(`net ${formatMoney(latestNet.predicted)}`);
-      return `Forecast through ${formatDate(horizon)}${
-        parts.length > 0 ? `: ${parts.join(', ')}` : ''
-      }.`;
-    }
-
-    if (historyDates.length > 0) {
-      const firstHistory = new Date(
-        Math.min(...historyDates.map((date) => date.getTime()))
-      );
-      const lastHistory = new Date(
-        Math.max(...historyDates.map((date) => date.getTime()))
-      );
-      return `History from ${formatDate(firstHistory)} to ${formatDate(
-        lastHistory
-      )}. Add forecast data to see what may come next.`;
-    }
-    return 'No cash flow history or forecast is available.';
-  }, [
-    formatDate,
-    formatMoney,
-    futureDates,
-    historyDates,
-    parsedExpenseForecast,
-    parsedIncomeForecast,
-    parsedNetForecast,
-  ]);
+  const incomeHistoryMap = useMemo(
+    () =>
+      new Map(
+        model.incomeHistory.map((point) => [point.date.getTime(), point] as const)
+      ),
+    [model.incomeHistory]
+  );
+  const expenseHistoryMap = useMemo(
+    () =>
+      new Map(
+        model.expenseHistory.map((point) => [point.date.getTime(), point] as const)
+      ),
+    [model.expenseHistory]
+  );
+  const incomeForecastMap = useMemo(
+    () =>
+      new Map(
+        model.incomeForecast.map((point) => [point.date.getTime(), point] as const)
+      ),
+    [model.incomeForecast]
+  );
+  const expenseForecastMap = useMemo(
+    () =>
+      new Map(
+        model.expenseForecast.map((point) => [point.date.getTime(), point] as const)
+      ),
+    [model.expenseForecast]
+  );
+  const netForecastMap = useMemo(
+    () =>
+      new Map(
+        model.netForecast.map((point) => [point.date.getTime(), point] as const)
+      ),
+    [model.netForecast]
+  );
 
   const showTooltipForDate = useCallback(
     (date: Date) => {
@@ -454,6 +529,12 @@ function ForecastChart({
       const firstMetric = income ?? expenses ?? net;
       if (!firstMetric) return;
 
+      const statusParts = [
+        income ? `Income ${formatMoney(income.value)}` : null,
+        expenses ? `Expenses ${formatMoney(expenses.value)}` : null,
+        net ? `Net ${formatMoney(net.value)}` : null,
+      ].filter((value): value is string => value != null);
+      setSelectedStatus(`${formatDate(date)}. ${statusParts.join('. ')}.`);
       showTooltip({
         tooltipData: { date, isForecast, income, expenses, net },
         tooltipLeft: xScale(date) + MARGIN.left,
@@ -463,6 +544,8 @@ function ForecastChart({
     [
       expenseForecastMap,
       expenseHistoryMap,
+      formatDate,
+      formatMoney,
       incomeForecastMap,
       incomeHistoryMap,
       netForecastMap,
@@ -483,10 +566,18 @@ function ForecastChart({
     showTooltipForDate(timeline[focusIndex].date);
   }, [focusIndex, showTooltipForDate, timeline]);
   const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent<SVGRectElement>) => {
+    (event: React.KeyboardEvent<HTMLButtonElement>) => {
       if (timeline.length === 0) return;
       if (event.key === 'Escape') {
         hideTooltip();
+        setSelectedStatus('');
+        return;
+      }
+      if (event.key === 'Home' || event.key === 'End') {
+        event.preventDefault();
+        const nextIndex = event.key === 'Home' ? 0 : timeline.length - 1;
+        setKeyboardIndex(nextIndex);
+        showTooltipForDate(timeline[nextIndex].date);
         return;
       }
       if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
@@ -499,11 +590,10 @@ function ForecastChart({
     },
     [hideTooltip, keyboardIndex, showTooltipForDate, timeline]
   );
-  const handleTooltip = useCallback(
-    (event: React.TouchEvent<SVGRectElement> | React.MouseEvent<SVGRectElement>) => {
+  const showClosestAtX = useCallback(
+    (localX: number) => {
       if (timeline.length === 0) return;
-      const point = localPoint(event) ?? { x: MARGIN.left };
-      const targetDate = xScale.invert(point.x - MARGIN.left);
+      const targetDate = xScale.invert(localX);
       const index = bisectTimeline(timeline, targetDate, 1);
       const previous = timeline[index - 1];
       const next = timeline[index];
@@ -518,8 +608,28 @@ function ForecastChart({
     },
     [showTooltipForDate, timeline, xScale]
   );
+  const handleMouseMove = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      const bounds = event.currentTarget.getBoundingClientRect();
+      showClosestAtX(event.clientX - bounds.left);
+    },
+    [showClosestAtX]
+  );
+  const handleTouchMove = useCallback(
+    (event: React.TouchEvent<HTMLButtonElement>) => {
+      const touch = event.touches[0];
+      if (!touch) return;
+      const bounds = event.currentTarget.getBoundingClientRect();
+      showClosestAtX(touch.clientX - bounds.left);
+    },
+    [showClosestAtX]
+  );
+  const clearSelection = useCallback(() => {
+    hideTooltip();
+    setSelectedStatus('');
+  }, [hideTooltip]);
 
-  if (!hasData) {
+  if (!model.hasData) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
         No data available for forecast chart.
@@ -528,13 +638,13 @@ function ForecastChart({
   }
 
   const todayX = xScale(today);
-  const incomeHistoryStart = parsedIncomeHistory.at(0)?.date.toISOString();
-  const incomeHistoryEnd = parsedIncomeHistory.at(-1)?.date.toISOString();
-  const expenseHistoryStart = parsedExpenseHistory.at(0)?.date.toISOString();
-  const expenseHistoryEnd = parsedExpenseHistory.at(-1)?.date.toISOString();
+  const incomeHistoryStart = model.incomeHistory.at(0)?.date.toISOString();
+  const incomeHistoryEnd = model.incomeHistory.at(-1)?.date.toISOString();
+  const expenseHistoryStart = model.expenseHistory.at(0)?.date.toISOString();
+  const expenseHistoryEnd = model.expenseHistory.at(-1)?.date.toISOString();
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="relative h-full w-full">
       <svg
         width={width}
         height={height}
@@ -546,7 +656,7 @@ function ForecastChart({
         data-y-domain-max={renderedYDomain[1]}
       >
         <title>Cash flow history and forecast</title>
-        <desc>{forecastSummary}</desc>
+        <desc>{model.summary}</desc>
         <Group left={MARGIN.left} top={MARGIN.top}>
           <GridRows
             scale={yScale}
@@ -557,8 +667,8 @@ function ForecastChart({
             numTicks={5}
           />
 
-          {seriesConfigs.flatMap((config) =>
-            boundedRuns(config.data, today).map((run) => {
+          {model.confidenceSeries.flatMap(({ config, runs }) =>
+            runs.map((run) => {
               const upper = run.map(
                 (point, index) =>
                   `${index === 0 ? 'M' : 'L'} ${xScale(point.date)} ${yScale(
@@ -576,7 +686,7 @@ function ForecastChart({
                   key={`${config.key}-${run[0].date.getTime()}`}
                   data-testid={`${config.key}-confidence-band`}
                   data-start-date={run[0].date.toISOString()}
-                  data-end-date={run[run.length - 1].date.toISOString()}
+                  data-end-date={run.at(-1)?.date.toISOString()}
                   d={`${upper.join(' ')} ${lower.join(' ')} Z`}
                   fill={config.color}
                   fillOpacity={0.1}
@@ -585,12 +695,12 @@ function ForecastChart({
             })
           )}
 
-          {parsedIncomeHistory.length > 0 && (
+          {model.incomeHistory.length > 0 && (
             <LinePath
               data-testid="income-history-line"
               data-start-date={incomeHistoryStart}
               data-end-date={incomeHistoryEnd}
-              data={parsedIncomeHistory}
+              data={model.incomeHistory}
               x={(point) => xScale(point.date) ?? 0}
               y={(point) => yScale(point.value) ?? 0}
               curve={curveMonotoneX}
@@ -599,12 +709,12 @@ function ForecastChart({
               strokeOpacity={0.72}
             />
           )}
-          {parsedExpenseHistory.length > 0 && (
+          {model.expenseHistory.length > 0 && (
             <LinePath
               data-testid="expenses-history-line"
               data-start-date={expenseHistoryStart}
               data-end-date={expenseHistoryEnd}
-              data={parsedExpenseHistory}
+              data={model.expenseHistory}
               x={(point) => xScale(point.date) ?? 0}
               y={(point) => yScale(point.value) ?? 0}
               curve={curveMonotoneX}
@@ -614,13 +724,13 @@ function ForecastChart({
             />
           )}
 
-          {seriesConfigs.map((config) =>
+          {model.seriesConfigs.map((config) =>
             config.data.length > 0 ? (
               <LinePath
                 key={config.key}
                 data-testid={`${config.key}-forecast-line`}
                 data-start-date={config.data[0].date.toISOString()}
-                data-end-date={config.data[config.data.length - 1].date.toISOString()}
+                data-end-date={config.data.at(-1)?.date.toISOString()}
                 data={config.data}
                 x={(point) => xScale(point.date) ?? 0}
                 y={(point) => yScale(point.predicted) ?? 0}
@@ -632,7 +742,7 @@ function ForecastChart({
             ) : null
           )}
 
-          <g data-testid="today-marker">
+          <g data-testid="today-marker" data-date={today.toISOString()}>
             <Line
               from={{ x: todayX, y: 0 }}
               to={{ x: todayX, y: innerHeight }}
@@ -681,23 +791,6 @@ function ForecastChart({
             })}
           />
 
-          <Bar
-            data-testid="forecast-chart-overlay"
-            x={0}
-            y={0}
-            width={innerWidth}
-            height={innerHeight}
-            fill="transparent"
-            tabIndex={0}
-            aria-label="Explore cash flow values. Use the left and right arrow keys to move between dates."
-            onFocus={handleFocus}
-            onKeyDown={handleKeyDown}
-            onTouchStart={handleTooltip}
-            onTouchMove={handleTooltip}
-            onMouseMove={handleTooltip}
-            onMouseLeave={hideTooltip}
-          />
-
           {tooltipOpen && tooltipData && (
             <Line
               from={{ x: (tooltipLeft ?? 0) - MARGIN.left, y: 0 }}
@@ -711,33 +804,30 @@ function ForecastChart({
         </Group>
       </svg>
 
-      <div
-        aria-label="Chart legend"
-        className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
+      <button
+        type="button"
+        data-testid="forecast-chart-overlay"
+        className="absolute cursor-crosshair rounded-sm bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        style={{
+          left: MARGIN.left,
+          top: MARGIN.top,
+          width: innerWidth,
+          height: innerHeight,
+        }}
+        aria-label="Explore cash flow values. Use left and right arrows to move between dates; Home and End jump to the first and last date."
+        aria-describedby={statusId}
+        onFocus={handleFocus}
+        onBlur={clearSelection}
+        onKeyDown={handleKeyDown}
+        onTouchStart={handleTouchMove}
+        onTouchMove={handleTouchMove}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={clearSelection}
       >
-        {seriesConfigs.map((config) => (
-          <span
-            key={config.key}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-          >
-            <span
-              aria-hidden="true"
-              style={{
-                width: 12,
-                height: 2,
-                display: 'inline-block',
-                backgroundColor: config.color,
-              }}
-            />
-            {config.label}
-          </span>
-        ))}
-        <span>Solid lines: history</span>
-        <span>Dashed lines: forecast</span>
-        {hasConfidenceArea && <span>Shading: expected range where available</span>}
-      </div>
-      <p data-testid="forecast-summary" className="mt-2 text-xs text-foreground">
-        {forecastSummary}
+        <span className="sr-only">Explore cash flow chart values</span>
+      </button>
+      <p id={statusId} role="status" aria-live="polite" className="sr-only">
+        {selectedStatus}
       </p>
 
       {tooltipOpen && tooltipData && (
@@ -774,18 +864,112 @@ function ForecastChart({
 }
 
 export default function CashFlowForecast(props: CashFlowForecastProps) {
+  const {
+    incomeForecast,
+    expenseForecast,
+    netForecast,
+    incomeHistory,
+    expenseHistory,
+    formatMoney: formatMoneyProp,
+    formatDate: formatDateProp,
+  } = props;
+  const today = useUtcToday();
+  const formatMoney = formatMoneyProp ?? DEFAULT_FORMATTERS.formatMoney;
+  const formatDate = formatDateProp ?? DEFAULT_FORMATTERS.formatDate;
+  const model = useMemo(
+    () =>
+      buildForecastModel(
+        {
+          incomeForecast,
+          expenseForecast,
+          netForecast,
+          incomeHistory,
+          expenseHistory,
+        },
+        today,
+        formatMoney,
+        formatDate
+      ),
+    [
+      expenseForecast,
+      expenseHistory,
+      formatDate,
+      formatMoney,
+      incomeForecast,
+      incomeHistory,
+      netForecast,
+      today,
+    ]
+  );
+  const availableSeries = model.seriesConfigs.filter((config) => {
+    if (config.key === 'income') return model.hasIncome;
+    if (config.key === 'expenses') return model.hasExpenses;
+    return model.hasNet;
+  });
+
   return (
-    <ParentSize>
-      {({ width, height }) => {
-        if (width < 10) return null;
-        return (
-          <ForecastChart
-            {...props}
-            width={width}
-            height={Math.max(height, 280)}
-          />
-        );
-      }}
-    </ParentSize>
+    <div
+      data-testid="forecast-chart-layout"
+      className="flex h-full min-h-0 flex-col"
+    >
+      <div
+        data-testid="forecast-chart-plot"
+        className="relative min-h-0 flex-1"
+      >
+        <ParentSize>
+          {({ width, height }) => {
+            if (width < 10 || height < 10) return null;
+            return (
+              <ForecastPlot
+                model={model}
+                today={today}
+                formatMoney={formatMoney}
+                formatDate={formatDate}
+                width={width}
+                height={height}
+              />
+            );
+          }}
+        </ParentSize>
+      </div>
+      <div
+        data-testid="forecast-chart-footer"
+        className="shrink-0 pt-2"
+      >
+        {model.hasData && (
+          <div
+            data-testid="forecast-legend"
+            aria-label="Chart legend"
+            className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
+          >
+            {availableSeries.map((config) => (
+              <span
+                key={config.key}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 12,
+                    height: 2,
+                    display: 'inline-block',
+                    backgroundColor: config.color,
+                  }}
+                />
+                {config.label}
+              </span>
+            ))}
+            {model.hasHistory && <span>Solid lines: history</span>}
+            {model.hasForecast && <span>Dashed lines: forecast</span>}
+            {model.hasConfidenceArea && (
+              <span>Shading: expected range where available</span>
+            )}
+          </div>
+        )}
+        <p data-testid="forecast-summary" className="mt-2 text-xs text-foreground">
+          {model.summary}
+        </p>
+      </div>
+    </div>
   );
 }
