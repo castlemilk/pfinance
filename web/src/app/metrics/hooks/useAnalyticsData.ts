@@ -15,10 +15,12 @@ import type {
 import { ExpenseCategory, Granularity } from '@/gen/pfinance/v1/types_pb';
 import {
   analyticsCategoryLabel,
+  analyticsTimestampDate,
   checkedCentsToDollars,
   mapAnomalyResponse,
   mapCashFlowForecastResponse,
   mapCategoryComparisonResponse,
+  mapSpendingTrendsResponse,
   mapWaterfallResponse,
 } from '../analyticsMappers';
 import type {
@@ -348,12 +350,7 @@ export function useSpendingTrends(
       });
       if (!isCurrentRequest(requestId)) return;
 
-      setData({
-        expenseSeries: response.expenseSeries,
-        incomeSeries: response.incomeSeries,
-        trendSlope: response.trendSlope,
-        trendRSquared: response.trendRSquared,
-      });
+      setData(mapSpendingTrendsResponse(response));
     } catch (caughtError) {
       if (!isCurrentRequest(requestId)) return;
       setError(errorMessage(caughtError, 'Failed to fetch spending trends'));
@@ -391,11 +388,7 @@ export interface CategorySpendingTrendsData {
 }
 
 function expenseDate(expense: Expense): Date | null {
-  if (!expense.date) return null;
-  const milliseconds =
-    Number(expense.date.seconds) * 1_000 + expense.date.nanos / 1_000_000;
-  const date = new Date(milliseconds);
-  return Number.isNaN(date.getTime()) ? null : date;
+  return analyticsTimestampDate(expense.date);
 }
 
 function findExpensePeriodIndex(date: Date, periods: TrendPeriod[]): number {

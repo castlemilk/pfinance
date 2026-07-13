@@ -9,14 +9,17 @@ import type {
   GetAnalyticsOverviewResponse,
   GetCashFlowForecastResponse,
   GetCategoryComparisonResponse,
+  GetSpendingTrendsResponse,
   GetWaterfallDataResponse,
 } from '@/gen/pfinance/v1/finance_service_pb';
 import {
+  analyticsTimestampDate,
   checkedCentsToDollars,
   mapAnalyticsOverviewResponse,
   mapAnomalyResponse,
   mapCashFlowForecastResponse,
   mapCategoryComparisonResponse,
+  mapSpendingTrendsResponse,
   mapWaterfallResponse,
 } from '../analyticsMappers';
 
@@ -81,6 +84,21 @@ function validForecastResponse(
 }
 
 describe('analytics response mappers', () => {
+  describe('analyticsTimestampDate', () => {
+    it.each([-1, 1_000_000_000, 0.5])(
+      'rejects invalid timestamp nanos (%s)',
+      (nanos) => {
+        expect(
+          analyticsTimestampDate(
+            response<
+              NonNullable<GetAnalyticsOverviewResponse['currentStart']>
+            >({ seconds: BigInt(100), nanos })
+          )
+        ).toBeNull();
+      }
+    );
+  });
+
   describe('checkedCentsToDollars', () => {
     it.each([
       BigInt(Number.MAX_SAFE_INTEGER) + BigInt(1),
@@ -261,6 +279,124 @@ describe('analytics response mappers', () => {
                 currentSpendCents: BigInt(0),
               },
             ],
+          })
+        )
+      ).toThrow(RangeError);
+    });
+  });
+
+  describe('mapSpendingTrendsResponse', () => {
+    it('copies both series, maps cents-first values, and preserves safe negatives', () => {
+      const source = response<GetSpendingTrendsResponse>({
+        expenseSeries: [
+          {
+            date: '2026-07-01',
+            label: 'Expense',
+            value: 999,
+            valueCents: BigInt(-1_234),
+          },
+        ],
+        incomeSeries: [
+          {
+            date: '2026-07-01',
+            label: 'Income',
+            value: -12.5,
+            valueCents: BigInt(0),
+          },
+        ],
+        trendSlope: -1.25,
+        trendRSquared: 0.75,
+      });
+      const originalExpense = { ...source.expenseSeries[0] };
+      const originalIncome = { ...source.incomeSeries[0] };
+
+      const mapped = mapSpendingTrendsResponse(source);
+
+      expect(mapped).toEqual({
+        expenseSeries: [
+          {
+            date: '2026-07-01',
+            label: 'Expense',
+            value: -12.34,
+            valueCents: BigInt(-1_234),
+          },
+        ],
+        incomeSeries: [
+          {
+            date: '2026-07-01',
+            label: 'Income',
+            value: -12.5,
+            valueCents: BigInt(0),
+          },
+        ],
+        trendSlope: -1.25,
+        trendRSquared: 0.75,
+      });
+      expect(mapped.expenseSeries).not.toBe(source.expenseSeries);
+      expect(mapped.incomeSeries).not.toBe(source.incomeSeries);
+      expect(mapped.expenseSeries[0]).not.toBe(source.expenseSeries[0]);
+      expect(mapped.incomeSeries[0]).not.toBe(source.incomeSeries[0]);
+      expect(source.expenseSeries[0]).toEqual(originalExpense);
+      expect(source.incomeSeries[0]).toEqual(originalIncome);
+    });
+
+    it('rejects unsafe cents in either trend series', () => {
+      expect(() =>
+        mapSpendingTrendsResponse(
+          response<GetSpendingTrendsResponse>({
+            expenseSeries: [],
+            incomeSeries: [
+              {
+                date: '2026-07-01',
+                label: 'Unsafe',
+                value: 0,
+                valueCents:
+                  BigInt(Number.MAX_SAFE_INTEGER) + BigInt(1),
+              },
+            ],
+            trendSlope: 0,
+            trendRSquared: 1,
+          })
+        )
+      ).toThrow(RangeError);
+    });
+
+    it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+      'rejects a non-finite legacy trend value (%s)',
+      (value) => {
+        expect(() =>
+          mapSpendingTrendsResponse(
+            response<GetSpendingTrendsResponse>({
+              expenseSeries: [
+                {
+                  date: '2026-07-01',
+                  label: 'Poisoned',
+                  value,
+                  valueCents: BigInt(0),
+                },
+              ],
+              incomeSeries: [],
+              trendSlope: 0,
+              trendRSquared: 1,
+            })
+          )
+        ).toThrow(RangeError);
+      }
+    );
+
+    it.each([
+      ['trendSlope', Number.NaN],
+      ['trendRSquared', Number.POSITIVE_INFINITY],
+      ['trendRSquared', Number.NEGATIVE_INFINITY],
+    ] as const)('rejects non-finite %s', (field, value) => {
+      expect(() =>
+        mapSpendingTrendsResponse(
+          response<GetSpendingTrendsResponse>({
+            expenseSeries: [],
+            incomeSeries: [],
+            trendSlope: 0,
+            trendRSquared: 1,
+            [field]: value,
           })
         )
       ).toThrow(RangeError);

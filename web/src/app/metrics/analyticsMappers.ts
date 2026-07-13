@@ -4,6 +4,7 @@ import type {
   GetAnalyticsOverviewResponse,
   GetCashFlowForecastResponse,
   GetCategoryComparisonResponse,
+  GetSpendingTrendsResponse,
   GetWaterfallDataResponse,
 } from '@/gen/pfinance/v1/finance_service_pb';
 import type {
@@ -83,7 +84,7 @@ function timestampMilliseconds(timestamp?: Timestamp): number | null {
   const nanos = timestamp.nanos;
   if (
     !Number.isFinite(seconds) ||
-    !Number.isFinite(nanos) ||
+    !Number.isInteger(nanos) ||
     nanos < 0 ||
     nanos >= 1_000_000_000
   ) {
@@ -99,14 +100,13 @@ function timestampMilliseconds(timestamp?: Timestamp): number | null {
   return Number.isNaN(date.getTime()) ? null : date.getTime();
 }
 
-function nullableTimestampDate(timestamp?: Timestamp): Date | null {
+export function analyticsTimestampDate(timestamp?: Timestamp): Date | null {
   const milliseconds = timestampMilliseconds(timestamp);
   return milliseconds === null ? null : new Date(milliseconds);
 }
 
 function timestampDateOrEpoch(timestamp?: Timestamp): Date {
-  const milliseconds = timestampMilliseconds(timestamp);
-  return new Date(milliseconds ?? EPOCH_MILLISECONDS);
+  return analyticsTimestampDate(timestamp) ?? new Date(EPOCH_MILLISECONDS);
 }
 
 function strictUtcCalendarDate(value: string): Date {
@@ -202,10 +202,10 @@ export function mapAnalyticsOverviewResponse(
   response: GetAnalyticsOverviewResponse
 ): AnalyticsOverviewData {
   return {
-    currentStart: nullableTimestampDate(response.currentStart),
-    currentEnd: nullableTimestampDate(response.currentEnd),
-    previousStart: nullableTimestampDate(response.previousStart),
-    previousEnd: nullableTimestampDate(response.previousEnd),
+    currentStart: analyticsTimestampDate(response.currentStart),
+    currentEnd: analyticsTimestampDate(response.currentEnd),
+    previousStart: analyticsTimestampDate(response.previousStart),
+    previousEnd: analyticsTimestampDate(response.previousEnd),
     currentIncome: checkedCentsToDollars(response.currentIncomeCents),
     currentExpense: checkedCentsToDollars(response.currentExpenseCents),
     currentNet: checkedCentsToDollars(response.currentNetCents),
@@ -261,6 +261,24 @@ export function mapCategoryComparisonResponse(
       allowance: checkedCentsToDollars(budget.allowanceCents),
       currentSpend: checkedCentsToDollars(budget.currentSpendCents),
     })),
+  };
+}
+
+function mapTrendPoint(point: TimeSeriesDataPoint): TimeSeriesDataPoint {
+  return {
+    ...point,
+    value: checkedCentsToDollars(point.valueCents, point.value),
+  };
+}
+
+export function mapSpendingTrendsResponse(
+  response: GetSpendingTrendsResponse
+) {
+  return {
+    expenseSeries: response.expenseSeries.map(mapTrendPoint),
+    incomeSeries: response.incomeSeries.map(mapTrendPoint),
+    trendSlope: checkedFiniteNumber(response.trendSlope),
+    trendRSquared: checkedFiniteNumber(response.trendRSquared),
   };
 }
 

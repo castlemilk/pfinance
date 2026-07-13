@@ -532,6 +532,34 @@ describe('analytics hook mapping', () => {
     }
   );
 
+  it.each([-1, 1_000_000_000, 0.5])(
+    'ignores an expense with invalid timestamp nanos (%s)',
+    async (nanos) => {
+      listExpenses.mockResolvedValue({
+        expenses: [
+          {
+            id: 'invalid-timestamp',
+            amount: 10,
+            amountCents: BigInt(1_000),
+            category: ExpenseCategory.FOOD,
+            date: { seconds: BigInt(1_700_000_000), nanos },
+          },
+        ],
+        nextPageToken: '',
+      });
+
+      const { result } = renderHook(() =>
+        useCategorySpendingTrends('day', 1, personalScope)
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.categories).toEqual([]);
+      expect(result.current.points).toHaveLength(1);
+      expect(result.current.points[0].total).toBe(0);
+      expect(result.current.error).toBeNull();
+    }
+  );
+
   it('rejects incomplete category traversal when a page token repeats', async () => {
     listExpenses
       .mockResolvedValueOnce({
@@ -587,6 +615,42 @@ describe('analytics hook mapping', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.data).toBeNull();
+    expect(result.current.error).toBe(
+      'Analytics data contains an unsafe monetary value'
+    );
+  });
+
+  it('rejects poisoned spending trends without committing raw series or metrics', async () => {
+    getSpendingTrends.mockResolvedValue({
+      expenseSeries: [
+        {
+          date: '2026-07-01',
+          label: 'Unsafe',
+          value: 0,
+          valueCents: BigInt(Number.MAX_SAFE_INTEGER) + BigInt(1),
+        },
+      ],
+      incomeSeries: [
+        {
+          date: '2026-07-01',
+          label: 'Poisoned',
+          value: Number.NaN,
+          valueCents: BigInt(0),
+        },
+      ],
+      trendSlope: Number.NaN,
+      trendRSquared: Number.POSITIVE_INFINITY,
+    });
+
+    const { result } = renderHook(() =>
+      useSpendingTrends('month', 4, undefined, personalScope)
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.expenseSeries).toEqual([]);
+    expect(result.current.incomeSeries).toEqual([]);
+    expect(result.current.trendSlope).toBe(0);
+    expect(result.current.trendRSquared).toBe(0);
     expect(result.current.error).toBe(
       'Analytics data contains an unsafe monetary value'
     );
