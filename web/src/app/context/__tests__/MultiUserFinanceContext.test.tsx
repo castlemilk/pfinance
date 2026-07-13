@@ -58,6 +58,78 @@ const createMockUser = (uid: string, email: string, displayName: string) => ({
   providerId: ''
 } as any);
 
+const createAuthValue = (uid: string) => {
+  const user = createMockUser(uid, `${uid}@example.com`, uid);
+  return {
+    user,
+    loading: false,
+    signIn: jest.fn(),
+    signUp: jest.fn(),
+    signInWithGoogle: jest.fn(),
+    logout: jest.fn(),
+    isImpersonating: false,
+    actualUser: user,
+    subscriptionTier: SubscriptionTier.FREE,
+    subscriptionStatus: SubscriptionStatus.UNSPECIFIED,
+    subscriptionLoading: false,
+    refreshSubscription: jest.fn(),
+  };
+};
+
+const createMockGroup = (id: string, name: string, ownerId = 'user123') => ({
+  id,
+  name,
+  description: `${name} description`,
+  memberIds: [ownerId],
+  members: [{
+    userId: ownerId,
+    email: `${ownerId}@example.com`,
+    displayName: ownerId,
+    role: 4,
+    joinedAt: timestampFromDate(new Date()),
+  }],
+  ownerId,
+  createdAt: timestampFromDate(new Date()),
+  updatedAt: timestampFromDate(new Date()),
+  settings: {
+    currency: 'USD',
+    allowMemberInvites: true,
+    autoApproveExpenses: true,
+    defaultSplitMethod: 'equal',
+  },
+});
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(resolvePromise => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
+function GroupStateProbe() {
+  const { groups, activeGroup, setActiveGroup, refreshGroups } = useMultiUserFinance();
+
+  return (
+    <div>
+      <div data-testid="probe-active-group">{activeGroup?.name ?? 'none'}</div>
+      <div data-testid="probe-groups">{groups.map(group => group.name).join(',')}</div>
+      {groups.map(group => (
+        <button
+          key={group.id}
+          data-testid={`select-${group.id}`}
+          onClick={() => setActiveGroup(group)}
+        >
+          {group.name}
+        </button>
+      ))}
+      <button data-testid="refresh-groups" onClick={() => void refreshGroups()}>
+        Refresh
+      </button>
+    </div>
+  );
+}
+
 // Test component that uses the multi-user finance context
 function TestComponent() {
   const { 
@@ -127,11 +199,110 @@ function TestComponent() {
 describe('MultiUserFinanceContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    window.localStorage.clear();
     
     // Default mock implementations
     (financeClient.listGroups as jest.Mock).mockResolvedValue({ groups: [] });
     (financeClient.listExpenses as jest.Mock).mockResolvedValue({ expenses: [] });
     (financeClient.listIncomes as jest.Mock).mockResolvedValue({ incomes: [] });
+  });
+
+  it('restores persisted group B when group A is listed first', async () => {
+    mockUseAuth.mockReturnValue(createAuthValue('user123'));
+    window.localStorage.setItem('pfinance-active-group-user123', 'group-b');
+    (financeClient.listGroups as jest.Mock).mockResolvedValue({
+      groups: [createMockGroup('group-a', 'Group A'), createMockGroup('group-b', 'Group B')],
+    });
+
+    render(<MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>);
+
+    await waitFor(() => expect(screen.getByTestId('probe-active-group')).toHaveTextContent('Group B'));
+  });
+
+  it.each([
+    ['missing preference', null],
+    ['stale preference', 'missing-group'],
+  ])('falls back to group A for a %s', async (_case, persistedId) => {
+    mockUseAuth.mockReturnValue(createAuthValue('user123'));
+    if (persistedId) {
+      window.localStorage.setItem('pfinance-active-group-user123', persistedId);
+    }
+    (financeClient.listGroups as jest.Mock).mockResolvedValue({
+      groups: [createMockGroup('group-a', 'Group A'), createMockGroup('group-b', 'Group B')],
+    });
+
+    render(<MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>);
+
+    await waitFor(() => expect(screen.getByTestId('probe-active-group')).toHaveTextContent('Group A'));
+  });
+
+  it('persists an explicit selection under the authenticated user key', async () => {
+    mockUseAuth.mockReturnValue(createAuthValue('user123'));
+    (financeClient.listGroups as jest.Mock).mockResolvedValue({
+      groups: [createMockGroup('group-a', 'Group A'), createMockGroup('group-b', 'Group B')],
+    });
+
+    render(<MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>);
+    await waitFor(() => expect(screen.getByTestId('select-group-b')).toBeInTheDocument());
+    await act(async () => {
+      screen.getByTestId('select-group-b').click();
+    });
+
+    expect(window.localStorage.getItem('pfinance-active-group-user123')).toBe('group-b');
+  });
+
+  it('replaces the active group object with refreshed data', async () => {
+    mockUseAuth.mockReturnValue(createAuthValue('user123'));
+    (financeClient.listGroups as jest.Mock)
+      .mockResolvedValueOnce({
+        groups: [createMockGroup('group-a', 'Group A'), createMockGroup('group-b', 'Group B')],
+      })
+      .mockResolvedValueOnce({
+        groups: [createMockGroup('group-b', 'Group B refreshed'), createMockGroup('group-a', 'Group A')],
+      });
+
+    render(<MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>);
+    await waitFor(() => expect(screen.getByTestId('select-group-b')).toBeInTheDocument());
+    await act(async () => {
+      screen.getByTestId('select-group-b').click();
+    });
+    await act(async () => {
+      screen.getByTestId('refresh-groups').click();
+    });
+
+    await waitFor(() => expect(screen.getByTestId('probe-active-group')).toHaveTextContent('Group B refreshed'));
+  });
+
+  it('ignores a deferred user-A response after switching to user B with the same group ID', async () => {
+    const userAResponse = deferred<{ groups: ReturnType<typeof createMockGroup>[] }>();
+    (financeClient.listGroups as jest.Mock).mockImplementation(({ userId }) => {
+      if (userId === 'user-a') return userAResponse.promise;
+      return Promise.resolve({ groups: [createMockGroup('shared-group', 'User B Group', 'user-b')] });
+    });
+    mockUseAuth.mockReturnValue(createAuthValue('user-a'));
+
+    const { rerender } = render(
+      <MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>
+    );
+    await waitFor(() => expect(financeClient.listGroups).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-a' })
+    ));
+
+    mockUseAuth.mockReturnValue(createAuthValue('user-b'));
+    rerender(<MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>);
+    await waitFor(() => expect(financeClient.listGroups).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-b' })
+    ));
+
+    await act(async () => {
+      userAResponse.resolve({ groups: [createMockGroup('shared-group', 'User A Group', 'user-a')] });
+      await userAResponse.promise;
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('probe-active-group')).toHaveTextContent('User B Group');
+      expect(screen.getByTestId('probe-groups')).toHaveTextContent('User B Group');
+    });
   });
 
   it('provides multi-user finance context when user is not authenticated', async () => {
