@@ -1,16 +1,32 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
+
 import { firebaseInitError } from '@/lib/firebase';
 
+const subscribeToFirebaseInitError = () => () => undefined;
+const getFirebaseInitError = () => firebaseInitError;
+const getServerFirebaseInitError = () => null;
+
 export function FirebaseInitBanner() {
-  if (!firebaseInitError) return null;
+  const initError = useSyncExternalStore(
+    subscribeToFirebaseInitError,
+    getFirebaseInitError,
+    getServerFirebaseInitError
+  );
+
+  if (!initError) return null;
 
   return (
     <div
       role="alert"
-      className="fixed top-0 left-0 right-0 z-[9999] bg-destructive text-destructive-foreground p-3 text-center text-sm"
+      aria-atomic="true"
+      className="pointer-events-none fixed inset-x-0 bottom-3 z-[60] flex justify-center px-3 sm:bottom-4 sm:px-4"
     >
-      <strong>Connection Error:</strong> {firebaseInitError}
+      <p className="max-w-xl rounded-md border border-destructive/50 bg-background/95 px-3 py-2 text-sm text-foreground shadow-lg backdrop-blur-sm">
+        <strong className="font-semibold text-destructive">Connection issue.</strong>{' '}
+        <span>{initError}</span>
+      </p>
     </div>
   );
 }

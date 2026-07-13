@@ -4,7 +4,6 @@ import { ReactNode } from 'react';
 import SidebarNav from './SidebarNav';
 import Breadcrumbs from './Breadcrumbs';
 import DebugPanel from './DebugPanel';
-import { FirebaseInitBanner } from './FirebaseInitBanner';
 import { cn } from '@/lib/utils';
 import { Bot } from 'lucide-react';
 import {
@@ -30,7 +29,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <ChatHistoryProvider>
       <div className="min-h-screen overflow-x-clip bg-background">
-        <FirebaseInitBanner />
         <SidebarNav />
 
         {/* Main Content Area */}
