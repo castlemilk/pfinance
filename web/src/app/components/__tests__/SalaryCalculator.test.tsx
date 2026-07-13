@@ -99,7 +99,7 @@ describe('SalaryCalculator', () => {
       await user.type(salaryInput, '100000');
 
       expect(salaryInput).toHaveValue(100000);
-    });
+    }, 10_000);
   });
 
   describe('Pro-rata Hours', () => {

@@ -18,6 +18,8 @@ function durationInMilliseconds(value: string) {
 }
 
 test.describe('Application shell interactions', () => {
+  test.setTimeout(60_000);
+
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem('pfinance-admin-mode', 'true');

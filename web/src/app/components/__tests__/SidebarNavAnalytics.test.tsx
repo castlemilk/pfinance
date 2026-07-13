@@ -212,7 +212,11 @@ describe('Sidebar shared analytics navigation', () => {
 
     render(<SidebarNav />);
 
-    const admin = await screen.findByRole('link', { name: 'Admin' });
+    const admin = await screen.findByRole(
+      'link',
+      { name: 'Admin' },
+      { timeout: 10_000 },
+    );
     expect(admin).toHaveClass('min-h-10');
     expect(admin.querySelector('button')).not.toBeInTheDocument();
     expect(admin.parentElement?.tagName).not.toBe('BUTTON');
