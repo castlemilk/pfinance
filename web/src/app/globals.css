@@ -417,11 +417,11 @@
     @apply scroll-smooth;
   }
 
-  /* Enhanced focus styles with amber glow */
+  /* Palette-aware focus treatment */
   :focus-visible {
     @apply outline-2 outline-offset-2;
-    outline-color: oklch(0.75 0.17 55);
-    box-shadow: 0 0 0 3px oklch(0.75 0.17 55 / 20%);
+    outline-color: var(--ring);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 20%, transparent);
   }
 
   /* Smooth transitions for theme changes */
@@ -441,6 +441,8 @@
     *, *::before, *::after {
       transition-duration: 0.01ms !important;
       animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
     }
   }
 }
@@ -720,18 +722,18 @@
    INPUT ENHANCEMENTS
    ============================================ */
 
-/* Terminal-style inputs with amber focus */
+/* Palette-aware input focus */
 input:focus,
 textarea:focus,
 select:focus {
-  border-color: oklch(0.75 0.17 55) !important;
-  box-shadow: 0 0 0 3px oklch(0.75 0.17 55 / 15%) !important;
+  border-color: var(--ring) !important;
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 15%, transparent) !important;
 }
 
-.dark input,
-.dark textarea,
-.dark select {
-  caret-color: oklch(0.75 0.17 55);  /* Amber cursor */
+input,
+textarea,
+select {
+  caret-color: var(--ring);
 }
 
 /* ============================================

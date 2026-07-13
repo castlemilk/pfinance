@@ -230,7 +230,53 @@ describe('Sidebar shared analytics navigation', () => {
 
     const upgrade = screen.getByRole('link', { name: 'Upgrade to Pro' });
     expect(upgrade).toHaveClass('min-h-10');
+    expect(upgrade).toHaveClass(
+      'border-primary/40',
+      'bg-primary/15',
+      'text-foreground'
+    );
+    expect(upgrade.className).not.toMatch(/amber|orange|gradient/i);
     expect(upgrade.querySelector('button')).not.toBeInTheDocument();
     expect(upgrade.parentElement?.tagName).not.toBe('BUTTON');
+  });
+
+  it('uses palette tokens for Pro and impersonation identity surfaces', () => {
+    mockUsePathname.mockReturnValue('/personal');
+    jest.mocked(useAuth).mockReturnValue({
+      user: {
+        uid: 'user-1',
+        email: 'person@example.com',
+        displayName: 'Person',
+        photoURL: null,
+      },
+      loading: false,
+      logout: jest.fn(),
+      isImpersonating: true,
+    } as unknown as ReturnType<typeof useAuth>);
+
+    render(<SidebarNav />);
+
+    const proBadge = screen.getByText('Pro', {
+      selector: '[data-slot="badge"]',
+    });
+    const testUserBadge = screen.getByText('Test User', {
+      selector: '[data-slot="badge"]',
+    });
+    const account = screen.getByRole('link', {
+      name: /^Person Pro Test User$/,
+    });
+    const avatar = account.querySelector('.ring-primary');
+
+    for (const badge of [proBadge, testUserBadge]) {
+      expect(badge).toHaveClass(
+        'border-primary/30',
+        'bg-primary/10',
+        'text-foreground'
+      );
+      expect(badge.className).not.toMatch(/amber|orange/i);
+    }
+    expect(avatar).not.toBeNull();
+    expect(avatar).toHaveClass('ring-primary');
+    expect(avatar?.className).not.toMatch(/amber|orange/i);
   });
 });

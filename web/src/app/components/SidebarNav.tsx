@@ -417,7 +417,7 @@ export default function SidebarNav() {
               >
                 <Avatar className={cn(
                   "w-8 h-8",
-                  isImpersonating && "ring-2 ring-amber-500 ring-offset-2 ring-offset-background"
+                  isImpersonating && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                 )}>
                   {user.photoURL && (
                     <AvatarImage src={user.photoURL} alt={user.displayName || 'User'} />
@@ -431,13 +431,19 @@ export default function SidebarNav() {
                     {user.displayName || user.email}
                   </p>
                   {!subscriptionLoading && isPro && (
-                    <Badge variant="default" className="text-xs bg-amber-500/90 hover:bg-amber-500">
+                    <Badge
+                      variant="outline"
+                      className="border-primary/30 bg-primary/10 text-xs text-foreground"
+                    >
                       <Crown className="w-3 h-3 mr-0.5" />
                       Pro
                     </Badge>
                   )}
                   {isImpersonating && (
-                    <Badge variant="secondary" className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/50">
+                    <Badge
+                      variant="outline"
+                      className="border-primary/30 bg-primary/10 text-xs text-foreground"
+                    >
                       Test User
                     </Badge>
                   )}
@@ -456,9 +462,9 @@ export default function SidebarNav() {
             {!subscriptionLoading && isFree && user && (
               <Button
                 asChild
-                variant="default"
+                variant="outline"
                 size="sm"
-                className="min-h-10 w-full gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+                className="min-h-10 w-full gap-2 border-primary/40 bg-primary/15 text-foreground transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out hover:bg-primary/25 motion-reduce:transition-none"
               >
                 <Link href="/personal/billing/">
                   <Crown className="w-4 h-4" />

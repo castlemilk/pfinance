@@ -1,5 +1,22 @@
 import { expect, test } from '@playwright/test';
 
+async function openMobileNavigationIfNeeded(
+  page: import('@playwright/test').Page
+) {
+  const opener = page.getByRole('button', { name: 'Open navigation' });
+  if (await opener.isVisible()) {
+    await opener.click();
+    await expect(
+      page.getByRole('dialog', { name: 'Mobile navigation' })
+    ).toBeVisible();
+  }
+}
+
+function durationInMilliseconds(value: string) {
+  const numericValue = Number.parseFloat(value);
+  return value.endsWith('ms') ? numericValue : numericValue * 1000;
+}
+
 test.describe('Application shell interactions', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
@@ -13,6 +30,12 @@ test.describe('Application shell interactions', () => {
           photoURL: null,
         })
       );
+      if (!window.localStorage.getItem('pfinance-theme')) {
+        window.localStorage.setItem('pfinance-theme', 'light');
+      }
+      if (!window.localStorage.getItem('pfinance-palette')) {
+        window.localStorage.setItem('pfinance-palette', 'amber-terminal');
+      }
     });
 
     await page.goto('/personal', { waitUntil: 'domcontentloaded' });
@@ -113,6 +136,203 @@ test.describe('Application shell interactions', () => {
       const box = await target.boundingBox();
       expect(box).not.toBeNull();
       expect(box!.height).toBeGreaterThanOrEqual(40);
+    }
+  });
+
+  test('theme and palette radio state persists across reloads', async ({
+    page,
+  }) => {
+    await openMobileNavigationIfNeeded(page);
+
+    const themeTrigger = page.getByRole('button', {
+      name: 'Current theme: Light. Change theme',
+    });
+    await themeTrigger.click();
+    const lightTheme = page.getByRole('menuitemradio', { name: 'Light' });
+    const darkTheme = page.getByRole('menuitemradio', { name: 'Dark' });
+    await expect(lightTheme).toHaveAttribute('aria-checked', 'true');
+    await expect(darkTheme).toHaveAttribute('aria-checked', 'false');
+    await darkTheme.click();
+
+    await expect(page.locator('html')).toHaveClass(/\bdark\b/);
+    expect(
+      await page.evaluate(() => localStorage.getItem('pfinance-theme'))
+    ).toBe('dark');
+
+    const paletteTrigger = page.getByRole('button', {
+      name: 'Current color palette: Amber Terminal. Change palette',
+    });
+    await paletteTrigger.click();
+    const amberPalette = page.getByRole('menuitemradio', {
+      name: 'Amber Terminal',
+    });
+    const retroPalette = page.getByRole('menuitemradio', {
+      name: 'Soft Retro Chic',
+    });
+    await expect(amberPalette).toHaveAttribute('aria-checked', 'true');
+    await expect(retroPalette).toHaveAttribute('aria-checked', 'false');
+    await retroPalette.click();
+
+    await expect(page.locator('html')).toHaveAttribute(
+      'data-palette',
+      'retro-chic'
+    );
+    expect(
+      await page.evaluate(() => localStorage.getItem('pfinance-palette'))
+    ).toBe('retro-chic');
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('main')).toBeVisible();
+    await expect(
+      page.getByText('UI Rollout Tester', { exact: true })
+    ).toHaveCount(1, { timeout: 20_000 });
+    await openMobileNavigationIfNeeded(page);
+
+    await expect(
+      page.getByRole('button', {
+        name: 'Current theme: Dark. Change theme',
+      })
+    ).toBeVisible();
+    await page
+      .getByRole('button', {
+        name: 'Current theme: Dark. Change theme',
+      })
+      .click();
+    await expect(
+      page.getByRole('menuitemradio', { name: 'Dark' })
+    ).toHaveAttribute('aria-checked', 'true');
+    await page.keyboard.press('Escape');
+
+    await page
+      .getByRole('button', {
+        name: 'Current color palette: Soft Retro Chic. Change palette',
+      })
+      .click();
+    await expect(
+      page.getByRole('menuitemradio', { name: 'Soft Retro Chic' })
+    ).toHaveAttribute('aria-checked', 'true');
+  });
+
+  test('reduced motion collapses global animation and scrolling', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+
+    const styles = await page.evaluate(() => {
+      const probe = document.createElement('div');
+      probe.style.animationDuration = '1s';
+      probe.style.animationIterationCount = 'infinite';
+      probe.style.transitionDuration = '1s';
+      document.body.append(probe);
+      const probeStyle = getComputedStyle(probe);
+      const result = {
+        animationDuration: probeStyle.animationDuration,
+        animationIterationCount: probeStyle.animationIterationCount,
+        scrollBehavior: getComputedStyle(document.documentElement)
+          .scrollBehavior,
+        transitionDuration: probeStyle.transitionDuration,
+      };
+      probe.remove();
+      return result;
+    });
+
+    expect(durationInMilliseconds(styles.animationDuration)).toBeCloseTo(0.01);
+    expect(styles.animationIterationCount).toBe('1');
+    expect(styles.scrollBehavior).toBe('auto');
+    expect(durationInMilliseconds(styles.transitionDuration)).toBeCloseTo(0.01);
+  });
+
+  test('palette focus ring follows the alternate palette token', async ({
+    page,
+  }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('pfinance-palette', 'midcentury');
+    });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('html')).toHaveAttribute(
+      'data-palette',
+      'midcentury'
+    );
+
+    await page.keyboard.press('Tab');
+    const skipLink = page.getByRole('link', { name: 'Skip to main content' });
+    await expect(skipLink).toBeFocused();
+
+    const focusColors = await skipLink.evaluate((element) => {
+      const probe = document.createElement('input');
+      probe.style.caretColor = 'var(--ring)';
+      probe.style.outlineColor = 'var(--ring)';
+      document.body.append(probe);
+      const probeStyles = getComputedStyle(probe);
+      const elementStyles = getComputedStyle(element);
+      const result = {
+        boxShadow: elementStyles.boxShadow,
+        caretColor: probeStyles.caretColor,
+        expectedOutlineColor: probeStyles.outlineColor,
+        outlineColor: elementStyles.outlineColor,
+      };
+      probe.remove();
+      return result;
+    });
+
+    expect(focusColors.outlineColor, JSON.stringify(focusColors)).toBe(
+      focusColors.expectedOutlineColor
+    );
+    expect(focusColors.boxShadow, JSON.stringify(focusColors)).not.toBe(
+      'none'
+    );
+    expect(focusColors.caretColor).toBe(focusColors.expectedOutlineColor);
+  });
+
+  test('audited theme and palette touch targets are at least 40px', async ({
+    page,
+  }) => {
+    await openMobileNavigationIfNeeded(page);
+
+    const assertTouchSize = async (
+      locator: import('@playwright/test').Locator
+    ) => {
+      await locator.evaluate(async (element) => {
+        const menu = element.closest('[role="menu"]');
+        if (menu) {
+          await Promise.allSettled(
+            menu.getAnimations({ subtree: true }).map(({ finished }) => finished)
+          );
+        }
+      });
+      const box = await locator.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.width).toBeGreaterThanOrEqual(40);
+      expect(box!.height).toBeGreaterThanOrEqual(40);
+    };
+
+    const themeTrigger = page.getByRole('button', {
+      name: /^Current theme:/,
+    });
+    const paletteTrigger = page.getByRole('button', {
+      name: /^Current color palette:/,
+    });
+    await assertTouchSize(themeTrigger);
+    await assertTouchSize(paletteTrigger);
+
+    await themeTrigger.click();
+    for (const name of ['Light', 'Dark', 'System']) {
+      await assertTouchSize(
+        page.getByRole('menuitemradio', { name })
+      );
+    }
+    await page.keyboard.press('Escape');
+
+    await paletteTrigger.click();
+    for (const name of [
+      'Amber Terminal',
+      'Soft Retro Chic',
+      'Mint & Peach',
+      'Terracotta & Sage',
+    ]) {
+      await assertTouchSize(
+        page.getByRole('menuitemradio', { name })
+      );
     }
   });
 });

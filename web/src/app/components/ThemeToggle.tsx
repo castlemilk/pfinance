@@ -7,33 +7,43 @@ import {
   Sun,
   Moon,
   Monitor,
-  SunMoon
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+const themeOptions = [
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'system', label: 'System', icon: Monitor },
+] as const;
+
+const themeLabels = {
+  light: 'Light',
+  dark: 'Dark',
+  system: 'System',
+} as const;
+
+function ThemeGlyph({
+  className,
+  theme,
+}: {
+  className?: string;
+  theme: keyof typeof themeLabels;
+}) {
+  if (theme === 'light') return <Sun className={className} />;
+  if (theme === 'dark') return <Moon className={className} />;
+  return <Monitor className={className} />;
+}
+
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-
-  const getThemeIcon = () => {
-    switch (theme) {
-      case 'light':
-        return Sun;
-      case 'dark':
-        return Moon;
-      case 'system':
-        return Monitor;
-      default:
-        return SunMoon;
-    }
-  };
-
-  const ThemeIcon = getThemeIcon();
+  const reduceMotion = useReducedMotion();
 
   return (
     <DropdownMenu>
@@ -41,30 +51,35 @@ export function ThemeToggle() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-9 w-9 rounded-full bg-background/50 backdrop-blur-sm border border-border/50 hover:bg-accent/50 transition-all duration-300 group glow-hover"
+          aria-label={`Current theme: ${themeLabels[theme]}. Change theme`}
+          className="group relative h-10 w-10 min-h-10 min-w-10 rounded-full border border-border/50 bg-background/50 backdrop-blur-sm transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out hover:bg-accent/50 glow-hover motion-reduce:transition-none"
         >
-          <AnimatePresence mode="wait">
+          <AnimatePresence initial={false} mode="wait">
             <motion.div
               key={theme}
-              initial={{ scale: 0.5, rotate: -90, opacity: 0 }}
+              initial={reduceMotion
+                ? false
+                : { scale: 0.25, rotate: -90, opacity: 0 }}
               animate={{ scale: 1, rotate: 0, opacity: 1 }}
-              exit={{ scale: 0.5, rotate: 90, opacity: 0 }}
-              transition={{
-                type: "spring",
-                stiffness: 300,
-                damping: 20,
-                duration: 0.3
-              }}
+              exit={reduceMotion
+                ? undefined
+                : { scale: 0.25, rotate: 90, opacity: 0 }}
+              transition={reduceMotion
+                ? { duration: 0 }
+                : { type: 'spring', duration: 0.3, bounce: 0 }}
               className="absolute inset-0 flex items-center justify-center"
             >
-              <ThemeIcon className="h-4 w-4 transition-colors group-hover:text-primary" />
+              <ThemeGlyph
+                theme={theme}
+                className="h-4 w-4 transition-colors group-hover:text-primary"
+              />
             </motion.div>
           </AnimatePresence>
 
-          {/* Amber phosphor glow effect */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-          <span className="sr-only">Toggle theme</span>
+          <div
+            aria-hidden="true"
+            className="palette-control-glow pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,var(--glow-color)_0%,transparent_70%)] opacity-0 transition-opacity duration-150 group-hover:opacity-20 motion-reduce:transition-none"
+          />
         </Button>
       </DropdownMenuTrigger>
 
@@ -72,50 +87,24 @@ export function ThemeToggle() {
         align="end"
         className="min-w-[140px] bg-background/95 backdrop-blur-sm border border-border/50"
       >
-        <DropdownMenuItem
-          onClick={() => setTheme('light')}
-          className="flex items-center gap-2 cursor-pointer"
+        <DropdownMenuRadioGroup
+          value={theme}
+          onValueChange={(value) =>
+            setTheme(value as (typeof themeOptions)[number]['value'])
+          }
         >
-          <Sun className="h-4 w-4" />
-          <span>Light</span>
-          {theme === 'light' && (
-            <motion.div
-              layoutId="theme-indicator"
-              className="ml-auto h-2 w-2 rounded-full bg-primary"
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            />
-          )}
-        </DropdownMenuItem>
-
-        <DropdownMenuItem
-          onClick={() => setTheme('dark')}
-          className="flex items-center gap-2 cursor-pointer"
-        >
-          <Moon className="h-4 w-4" />
-          <span>Dark</span>
-          {theme === 'dark' && (
-            <motion.div
-              layoutId="theme-indicator"
-              className="ml-auto h-2 w-2 rounded-full bg-primary"
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            />
-          )}
-        </DropdownMenuItem>
-
-        <DropdownMenuItem
-          onClick={() => setTheme('system')}
-          className="flex items-center gap-2 cursor-pointer"
-        >
-          <Monitor className="h-4 w-4" />
-          <span>System</span>
-          {theme === 'system' && (
-            <motion.div
-              layoutId="theme-indicator"
-              className="ml-auto h-2 w-2 rounded-full bg-primary"
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            />
-          )}
-        </DropdownMenuItem>
+          {themeOptions.map(({ value, label, icon: Icon }) => (
+            <DropdownMenuRadioItem
+              key={value}
+              value={value}
+              aria-label={label}
+              className="min-h-10 cursor-pointer gap-2"
+            >
+              <Icon className="h-4 w-4" />
+              <span>{label}</span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -124,26 +113,29 @@ export function ThemeToggle() {
 // Simple toggle version (for compact spaces)
 export function SimpleThemeToggle() {
   const { actualTheme, toggleTheme } = useTheme();
+  const reduceMotion = useReducedMotion();
 
   return (
     <Button
       variant="ghost"
       size="icon"
       onClick={toggleTheme}
-      className="relative h-9 w-9 rounded-full bg-background/50 backdrop-blur-sm border border-border/50 hover:bg-accent/50 transition-all duration-300 group overflow-hidden glow-hover"
+      aria-label={`Current theme: ${actualTheme === 'dark' ? 'Dark' : 'Light'}. Switch theme`}
+      className="group relative h-10 w-10 min-h-10 min-w-10 overflow-hidden rounded-full border border-border/50 bg-background/50 backdrop-blur-sm transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out hover:bg-accent/50 glow-hover motion-reduce:transition-none"
     >
-      <AnimatePresence mode="wait">
+      <AnimatePresence initial={false} mode="wait">
         <motion.div
           key={actualTheme}
-          initial={{ y: actualTheme === 'dark' ? -20 : 20, opacity: 0 }}
+          initial={reduceMotion
+            ? false
+            : { y: actualTheme === 'dark' ? -20 : 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          exit={{ y: actualTheme === 'dark' ? 20 : -20, opacity: 0 }}
-          transition={{
-            type: "spring",
-            stiffness: 300,
-            damping: 25,
-            duration: 0.3
-          }}
+          exit={reduceMotion
+            ? undefined
+            : { y: actualTheme === 'dark' ? 20 : -20, opacity: 0 }}
+          transition={reduceMotion
+            ? { duration: 0 }
+            : { type: 'spring', duration: 0.3, bounce: 0 }}
           className="absolute inset-0 flex items-center justify-center"
         >
           {actualTheme === 'dark' ? (
@@ -154,14 +146,16 @@ export function SimpleThemeToggle() {
         </motion.div>
       </AnimatePresence>
 
-      {/* Amber phosphor gradient */}
       <motion.div
-        className="absolute inset-0 rounded-full bg-gradient-to-r from-amber-500/20 via-orange-400/20 to-amber-500/20"
-        animate={{ rotate: actualTheme === 'dark' ? 180 : 0 }}
-        transition={{ duration: 0.5, ease: "easeInOut" }}
+        aria-hidden="true"
+        className="palette-control-glow pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,var(--glow-color)_0%,transparent_70%)] opacity-20"
+        animate={reduceMotion
+          ? { rotate: 0 }
+          : { rotate: actualTheme === 'dark' ? 180 : 0 }}
+        transition={reduceMotion
+          ? { duration: 0 }
+          : { duration: 0.5, ease: 'easeInOut' }}
       />
-
-      <span className="sr-only">Toggle theme</span>
     </Button>
   );
 }

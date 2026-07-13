@@ -191,4 +191,36 @@ describe('EnhancedGroupSelector', () => {
     expect(settings).toHaveClass('min-h-10', 'min-w-10');
     expect(memberBadge).toHaveClass('min-h-10', 'min-w-10');
   });
+
+  it('keeps audited member and owner badges on palette tokens', async () => {
+    const user = userEvent.setup();
+    renderSelector();
+
+    const memberBadge = screen.getByRole('status', {
+      name: '2 members in active group',
+    });
+    expect(memberBadge).toHaveClass(
+      'border-primary/30',
+      'bg-primary/10',
+      'text-foreground'
+    );
+    expect(memberBadge.className).not.toMatch(/amber|orange/i);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Active finance group: Home' })
+    );
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Manage current group' })
+    );
+
+    const ownerBadge = within(
+      screen.getByRole('dialog', { name: 'Home' })
+    ).getByText('Owner', { selector: '[data-slot="badge"]' });
+    expect(ownerBadge).toHaveClass(
+      'border-primary/30',
+      'bg-primary/10',
+      'text-foreground'
+    );
+    expect(ownerBadge.className).not.toMatch(/amber|orange/i);
+  });
 });
