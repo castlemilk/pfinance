@@ -38,32 +38,86 @@ interface UseGroupIncomesReturn {
   refreshGroupIncomes: () => Promise<void>;
 }
 
+interface IncomeCollectionState {
+  sessionKey: string | null;
+  incomes: GroupIncome[];
+  loading: boolean;
+  error: string | null;
+}
+
+function groupSessionKey(userId: string | null, groupId: string | null): string | null {
+  return userId && groupId ? JSON.stringify([userId, groupId]) : null;
+}
+
 export function useGroupIncomes({ user, activeGroup }: UseGroupIncomesOptions): UseGroupIncomesReturn {
-  const [groupIncomes, setGroupIncomes] = useState<GroupIncome[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  
-  const isLoadingRef = useRef(false);
-  const lastActiveGroupIdRef = useRef<string | null>(null);
+  const userId = user?.uid ?? null;
+  const groupId = activeGroup?.id ?? null;
+  const sessionKey = groupSessionKey(userId, groupId);
+  const [collectionState, setCollectionState] = useState<IncomeCollectionState>({
+    sessionKey: null,
+    incomes: [],
+    loading: false,
+    error: null,
+  });
+
+  const committedSessionKeyRef = useRef<string | null>(null);
+  const requestSequenceRef = useRef(0);
+  const latestRequestRef = useRef<{ sessionKey: string; sequence: number } | null>(null);
+
+  const commitMutationIfCurrent = useCallback((
+    requestSessionKey: string | null,
+    update: (incomes: GroupIncome[]) => GroupIncome[]
+  ) => {
+    if (!requestSessionKey || committedSessionKeyRef.current !== requestSessionKey) return false;
+
+    requestSequenceRef.current += 1;
+    latestRequestRef.current = null;
+    setCollectionState(previous => {
+      if (
+        committedSessionKeyRef.current !== requestSessionKey
+        || previous.sessionKey !== requestSessionKey
+      ) {
+        return previous;
+      }
+      return {
+        ...previous,
+        incomes: update(previous.incomes),
+        loading: false,
+        error: null,
+      };
+    });
+    return true;
+  }, []);
 
   const refreshGroupIncomes = useCallback(async () => {
-    if (!user || !activeGroup) {
-      setGroupIncomes([]);
-      return;
-    }
-    
-    if (isLoadingRef.current) {
-      return;
-    }
-    isLoadingRef.current = true;
+    const requestSessionKey = sessionKey;
+    if (
+      !userId
+      || !groupId
+      || !requestSessionKey
+      || committedSessionKeyRef.current !== requestSessionKey
+    ) return;
+
+    const sequence = ++requestSequenceRef.current;
+    latestRequestRef.current = { sessionKey: requestSessionKey, sequence };
+    const isCurrentRequest = () => (
+      committedSessionKeyRef.current === requestSessionKey
+      && latestRequestRef.current?.sessionKey === requestSessionKey
+      && latestRequestRef.current.sequence === sequence
+    );
+
+    setCollectionState(previous => previous.sessionKey === requestSessionKey
+      ? { ...previous, loading: true }
+      : { sessionKey: requestSessionKey, incomes: [], loading: true, error: null });
 
     try {
       const response = await financeClient.listIncomes({
-        userId: user.uid,
-        groupId: activeGroup.id,
+        userId,
+        groupId,
         pageSize: 1000,
       });
-      setGroupIncomes(response.incomes.map(i => ({
+      if (!isCurrentRequest()) return;
+      const incomes = response.incomes.map(i => ({
         id: i.id,
         groupId: i.groupId,
         userId: i.userId,
@@ -71,35 +125,64 @@ export function useGroupIncomes({ user, activeGroup }: UseGroupIncomesOptions): 
         amount: centsToAmount(i.amountCents, i.amount),
         frequency: protoToIncomeFrequency[i.frequency],
         date: i.date ? timestampDate(i.date) : new Date(),
-      })));
-      setError(null);
+      }));
+      setCollectionState({
+        sessionKey: requestSessionKey,
+        incomes,
+        loading: true,
+        error: null,
+      });
     } catch (err) {
+      if (!isCurrentRequest()) return;
       console.error('Failed to load group incomes:', err);
       if (err instanceof Error) {
-        setError(err.message);
+        setCollectionState(previous => previous.sessionKey === requestSessionKey
+          ? { ...previous, error: err.message }
+          : previous);
       }
     } finally {
-      isLoadingRef.current = false;
+      if (isCurrentRequest()) {
+        setCollectionState(previous => previous.sessionKey === requestSessionKey
+          ? { ...previous, loading: false }
+          : previous);
+      }
     }
-  }, [user, activeGroup]);
+  }, [groupId, sessionKey, userId]);
 
-  // Load incomes when active group changes
+  // Bind all visible income state to the committed user/group session.
   useEffect(() => {
-    const groupId = activeGroup?.id ?? null;
-    if (groupId === lastActiveGroupIdRef.current) {
+    const effectSessionKey = sessionKey;
+    committedSessionKeyRef.current = effectSessionKey;
+    latestRequestRef.current = null;
+
+    if (!effectSessionKey) {
+      setCollectionState({ sessionKey: null, incomes: [], loading: false, error: null });
       return;
     }
-    lastActiveGroupIdRef.current = groupId;
-    
-    setLoading(true);
-    refreshGroupIncomes().finally(() => setLoading(false));
-  }, [activeGroup, refreshGroupIncomes]);
+
+    setCollectionState({
+      sessionKey: effectSessionKey,
+      incomes: [],
+      loading: true,
+      error: null,
+    });
+    void refreshGroupIncomes();
+
+    return () => {
+      if (committedSessionKeyRef.current === effectSessionKey) {
+        committedSessionKeyRef.current = null;
+        latestRequestRef.current = null;
+      }
+    };
+  }, [refreshGroupIncomes, sessionKey]);
 
   const addGroupIncome = useCallback(async (
     groupId: string, 
     income: Omit<GroupIncome, 'id' | 'date' | 'groupId' | 'userId'>
   ): Promise<string> => {
     if (!user) throw new Error('User must be authenticated');
+    const requestSessionKey = committedSessionKeyRef.current;
+    const targetSessionKey = groupSessionKey(user.uid, groupId);
 
     const response = await financeClient.createIncome({
       userId: user.uid,
@@ -113,22 +196,26 @@ export function useGroupIncomes({ user, activeGroup }: UseGroupIncomesOptions): 
     });
 
     if (response.income) {
-      setGroupIncomes(prev => [...prev, {
-        id: response.income!.id,
-        groupId: response.income!.groupId,
-        userId: response.income!.userId,
-        source: response.income!.source,
-        amount: centsToAmount(response.income!.amountCents, response.income!.amount),
-        frequency: income.frequency,
-        date: response.income!.date ? timestampDate(response.income!.date) : new Date(),
-      }]);
+      if (requestSessionKey === targetSessionKey) {
+        const didCommit = commitMutationIfCurrent(requestSessionKey, incomes => [...incomes, {
+          id: response.income!.id,
+          groupId: response.income!.groupId,
+          userId: response.income!.userId,
+          source: response.income!.source,
+          amount: centsToAmount(response.income!.amountCents, response.income!.amount),
+          frequency: income.frequency,
+          date: response.income!.date ? timestampDate(response.income!.date) : new Date(),
+        }]);
+        if (didCommit) await refreshGroupIncomes();
+      }
       return response.income.id;
     }
     throw new Error('Failed to create income');
-  }, [user]);
+  }, [commitMutationIfCurrent, refreshGroupIncomes, user]);
 
   const updateGroupIncome = useCallback(async (incomeId: string, updates: Partial<GroupIncome>): Promise<void> => {
     if (!user) throw new Error('User must be authenticated');
+    const requestSessionKey = committedSessionKeyRef.current;
 
     await financeClient.updateIncome({
       incomeId,
@@ -138,17 +225,30 @@ export function useGroupIncomes({ user, activeGroup }: UseGroupIncomesOptions): 
       frequency: updates.frequency ? incomeFrequencyToProto[updates.frequency] : undefined,
     });
 
-    setGroupIncomes(prev => prev.map(i => 
+    const didCommit = commitMutationIfCurrent(requestSessionKey, incomes => incomes.map(i =>
       i.id === incomeId ? { ...i, ...updates } : i
     ));
-  }, [user]);
+    if (didCommit) await refreshGroupIncomes();
+  }, [commitMutationIfCurrent, refreshGroupIncomes, user]);
 
   const deleteGroupIncome = useCallback(async (incomeId: string): Promise<void> => {
     if (!user) throw new Error('User must be authenticated');
+    const requestSessionKey = committedSessionKeyRef.current;
 
     await financeClient.deleteIncome({ incomeId });
-    setGroupIncomes(prev => prev.filter(i => i.id !== incomeId));
-  }, [user]);
+    const didCommit = commitMutationIfCurrent(
+      requestSessionKey,
+      incomes => incomes.filter(i => i.id !== incomeId)
+    );
+    if (didCommit) await refreshGroupIncomes();
+  }, [commitMutationIfCurrent, refreshGroupIncomes, user]);
+
+  const stateMatchesSession = collectionState.sessionKey === sessionKey;
+  const groupIncomes = stateMatchesSession ? collectionState.incomes : [];
+  const loading = sessionKey
+    ? !stateMatchesSession || collectionState.loading
+    : false;
+  const error = stateMatchesSession ? collectionState.error : null;
 
   return {
     groupIncomes,

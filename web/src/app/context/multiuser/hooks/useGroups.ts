@@ -33,6 +33,11 @@ interface GroupState {
   activeGroup: FinanceGroup | null;
 }
 
+interface UserSession {
+  userId: string;
+  generation: number;
+}
+
 const ACTIVE_GROUP_STORAGE_PREFIX = 'pfinance-active-group-';
 
 function getPersistedActiveGroupId(userId: string): string | null {
@@ -70,12 +75,12 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const currentUserIdRef = useRef<string | null>(userId);
+  const sessionRef = useRef<UserSession | null>(null);
+  const sessionGenerationRef = useRef(0);
   const groupStateRef = useRef<GroupState>(groupState);
   const mutationGenerationRef = useRef(0);
   const requestSequenceRef = useRef(0);
   const latestRequestRef = useRef<{ userId: string; sequence: number } | null>(null);
-  currentUserIdRef.current = userId;
 
   const commitGroupState = useCallback((nextState: GroupState) => {
     groupStateRef.current = nextState;
@@ -84,23 +89,25 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
 
   const refreshGroups = useCallback(async () => {
     const requestUserId = userId;
-    if (!requestUserId) {
-      if (currentUserIdRef.current === null) {
-        commitGroupState({ userId: null, groups: [], activeGroup: null });
-      }
-      return;
-    }
+    const requestSession = sessionRef.current;
+    if (!requestUserId || requestSession?.userId !== requestUserId) return;
 
     const sequence = ++requestSequenceRef.current;
     const mutationGeneration = mutationGenerationRef.current;
     latestRequestRef.current = { userId: requestUserId, sequence };
 
-    const isCurrentRequest = () => (
-      currentUserIdRef.current === requestUserId
+    const isLatestRequest = () => (
+      sessionRef.current === requestSession
       && latestRequestRef.current?.userId === requestUserId
       && latestRequestRef.current.sequence === sequence
+    );
+
+    const isCurrentRequest = () => (
+      isLatestRequest()
       && mutationGenerationRef.current === mutationGeneration
     );
+
+    setLoading(true);
 
     try {
       const response = await financeClient.listGroups({
@@ -133,12 +140,19 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
       if (!isCurrentRequest()) return;
       console.error('[useGroups] refreshGroups: Failed to load groups:', err);
       setError(err instanceof Error ? err.message : 'Failed to load groups');
+    } finally {
+      if (isLatestRequest()) setLoading(false);
     }
   }, [commitGroupState, userId]);
 
   // Bind all visible group state to the current authenticated user.
   useEffect(() => {
     const effectUserId = userId;
+    const session = effectUserId
+      ? { userId: effectUserId, generation: ++sessionGenerationRef.current }
+      : null;
+    sessionRef.current = session;
+    latestRequestRef.current = null;
     commitGroupState({ userId: effectUserId, groups: [], activeGroup: null });
     setError(null);
 
@@ -147,17 +161,20 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
       return;
     }
 
-    setLoading(true);
-    refreshGroups().finally(() => {
-      if (currentUserIdRef.current === effectUserId) {
-        setLoading(false);
+    void refreshGroups();
+
+    return () => {
+      if (sessionRef.current === session) {
+        sessionRef.current = null;
+        latestRequestRef.current = null;
       }
-    });
+    };
   }, [commitGroupState, userId, refreshGroups]);
 
   const setActiveGroup = useCallback((group: FinanceGroup | null) => {
     const selectionUserId = userId;
-    if (!selectionUserId || currentUserIdRef.current !== selectionUserId) return;
+    const selectionSession = sessionRef.current;
+    if (!selectionUserId || selectionSession?.userId !== selectionUserId) return;
 
     persistActiveGroupId(selectionUserId, group?.id ?? null);
     const previous = groupStateRef.current;
@@ -171,6 +188,7 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
   const createGroup = useCallback(async (name: string, description?: string): Promise<string> => {
     const requestUserId = userId;
     if (!requestUserId) throw new Error('User must be authenticated');
+    const requestSession = sessionRef.current;
 
     const response = await financeClient.createGroup({
       ownerId: requestUserId,
@@ -180,7 +198,7 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
 
     if (response.group) {
       const newGroup = mapProtoGroupToLocal(response.group);
-      if (currentUserIdRef.current === requestUserId) {
+      if (sessionRef.current === requestSession && requestSession?.userId === requestUserId) {
         const previous = groupStateRef.current;
         if (previous.userId === requestUserId) {
           mutationGenerationRef.current += 1;
@@ -192,15 +210,19 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
             activeGroup,
           });
         }
+        // Reconcile groups that may have been hidden by an in-flight initial
+        // request invalidated by the optimistic mutation above.
+        await refreshGroups();
       }
       return newGroup.id;
     }
     throw new Error('Failed to create group');
-  }, [commitGroupState, userId]);
+  }, [commitGroupState, refreshGroups, userId]);
 
   const updateGroup = useCallback(async (groupId: string, name: string, description?: string): Promise<void> => {
     const requestUserId = userId;
     if (!requestUserId) throw new Error('User must be authenticated');
+    const requestSession = sessionRef.current;
 
     const response = await financeClient.updateGroup({
       groupId,
@@ -208,11 +230,16 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
       description: description || '',
     });
 
-    if (response.group && currentUserIdRef.current === requestUserId) {
+    if (
+      response.group
+      && sessionRef.current === requestSession
+      && requestSession?.userId === requestUserId
+    ) {
       const updatedGroup = mapProtoGroupToLocal(response.group);
       const previous = groupStateRef.current;
       if (previous.userId === requestUserId) {
         mutationGenerationRef.current += 1;
+        setLoading(false);
         const activeGroup = previous.activeGroup?.id === groupId
           ? updatedGroup
           : previous.activeGroup;
@@ -226,38 +253,41 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
     }
   }, [commitGroupState, userId]);
 
-  const removeGroupFromState = useCallback((requestUserId: string, groupId: string) => {
-    if (currentUserIdRef.current !== requestUserId) return;
+  const removeGroupFromState = useCallback((requestSession: UserSession | null, groupId: string) => {
+    if (!requestSession || sessionRef.current !== requestSession) return;
 
     const previous = groupStateRef.current;
-    if (previous.userId !== requestUserId) return;
+    if (previous.userId !== requestSession.userId) return;
 
     mutationGenerationRef.current += 1;
+    setLoading(false);
     const groups = previous.groups.filter(group => group.id !== groupId);
     const activeGroup = previous.activeGroup?.id === groupId
       ? groups[0] ?? null
       : previous.activeGroup ?? groups[0] ?? null;
-    persistActiveGroupId(requestUserId, activeGroup?.id ?? null);
+    persistActiveGroupId(requestSession.userId, activeGroup?.id ?? null);
     commitGroupState({ ...previous, groups, activeGroup });
   }, [commitGroupState]);
 
   const deleteGroup = useCallback(async (groupId: string): Promise<void> => {
     const requestUserId = userId;
     if (!requestUserId) throw new Error('User must be authenticated');
+    const requestSession = sessionRef.current;
 
     await financeClient.deleteGroup({ groupId });
-    removeGroupFromState(requestUserId, groupId);
+    removeGroupFromState(requestSession, groupId);
   }, [removeGroupFromState, userId]);
 
   const leaveGroup = useCallback(async (groupId: string): Promise<void> => {
     const requestUserId = userId;
     if (!requestUserId) throw new Error('User must be authenticated');
+    const requestSession = sessionRef.current;
 
     await financeClient.removeFromGroup({
       groupId,
       userId: requestUserId,
     });
-    removeGroupFromState(requestUserId, groupId);
+    removeGroupFromState(requestSession, groupId);
   }, [removeGroupFromState, userId]);
 
   const stateBelongsToCurrentUser = groupState.userId === userId;

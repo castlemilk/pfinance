@@ -50,7 +50,8 @@ describe('FirebaseInitBanner', () => {
     expect(alert).toHaveClass(
       'fixed',
       'inset-x-0',
-      'bottom-3',
+      'bottom-20',
+      'md:bottom-4',
       'pointer-events-none'
     );
     expect(alert).not.toHaveClass('top-0');

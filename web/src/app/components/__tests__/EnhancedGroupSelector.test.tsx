@@ -148,6 +148,14 @@ describe('EnhancedGroupSelector', () => {
     expect(mockSetActiveGroup).toHaveBeenCalledWith(travelGroup);
   });
 
+  it('uses singular member copy for a one-person active group', () => {
+    renderSelector({ activeGroup: travelGroup });
+
+    expect(screen.getByRole('status', {
+      name: '1 member in active group',
+    })).toBeInTheDocument();
+  });
+
   it.each([
     ['uk', 'GBP'],
     ['australia', 'AUD'],

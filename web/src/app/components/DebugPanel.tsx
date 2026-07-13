@@ -57,7 +57,8 @@ export default function DebugPanel({ position = 'bottom-right' }: DebugPanelProp
 
   const positionClasses = {
     'bottom-left': 'bottom-4 left-4',
-    'bottom-right': 'bottom-4 right-4',
+    // Leave room for AppLayout's assistant launcher at the same corner.
+    'bottom-right': 'bottom-4 right-20 sm:bottom-6 sm:right-24',
     'top-left': 'top-4 left-4',
     'top-right': 'top-4 right-4',
   };

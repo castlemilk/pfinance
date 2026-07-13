@@ -46,9 +46,10 @@ test.describe('Application shell interactions', () => {
   });
 
   test('skip link moves keyboard focus to the app main content', async ({
+    browserName,
     page,
   }) => {
-    await page.keyboard.press('Tab');
+    await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
     const skipLink = page.getByRole('link', { name: 'Skip to main content' });
     await expect(skipLink).toBeFocused();
 
@@ -59,19 +60,38 @@ test.describe('Application shell interactions', () => {
 
   test('assistant opens as a named dialog with named 40px controls', async ({
     page,
-  }) => {
+  }, testInfo) => {
+    if (testInfo.project.name === 'chromium') {
+      await page.setViewportSize({ width: 700, height: 844 });
+    }
+
     const assistantTrigger = page.getByRole('button', {
       name: 'Open finance assistant',
     });
-    // The dev-only mobile DebugPanel overlaps this production-absent pointer target.
-    // Keyboard activation keeps the mobile fixture representative and accessible.
-    if (await page.getByRole('button', { name: 'Open navigation' }).isVisible()) {
-      await assistantTrigger.focus();
-      await expect(assistantTrigger).toBeFocused();
-      await page.keyboard.press('Enter');
-    } else {
-      await assistantTrigger.click();
+    const debugTrigger = page.getByRole('button', { name: 'Debug' });
+    const assistantBox = await assistantTrigger.boundingBox();
+    const debugBox = await debugTrigger.boundingBox();
+    expect(assistantBox).not.toBeNull();
+    expect(debugBox).not.toBeNull();
+    expect(assistantBox!.x - (debugBox!.x + debugBox!.width))
+      .toBeGreaterThanOrEqual(8);
+
+    const firebaseNotice = page
+      .getByRole('alert')
+      .filter({ hasText: 'Firebase configuration is missing' });
+    if (await firebaseNotice.count() === 1) {
+      const noticeBox = await firebaseNotice.locator('p').boundingBox();
+      expect(noticeBox).not.toBeNull();
+      const overlapsAssistant = !(
+        noticeBox!.x + noticeBox!.width <= assistantBox!.x
+        || noticeBox!.x >= assistantBox!.x + assistantBox!.width
+        || noticeBox!.y + noticeBox!.height <= assistantBox!.y
+        || noticeBox!.y >= assistantBox!.y + assistantBox!.height
+      );
+      expect(overlapsAssistant).toBe(false);
     }
+
+    await assistantTrigger.click();
 
     const dialog = page.getByRole('dialog', { name: 'Finance Assistant' });
     await expect(dialog).toBeVisible();
@@ -90,8 +110,10 @@ test.describe('Application shell interactions', () => {
     for (const control of controls) {
       const box = await control.boundingBox();
       expect(box).not.toBeNull();
-      expect(box!.width).toBeGreaterThanOrEqual(40);
-      expect(box!.height).toBeGreaterThanOrEqual(40);
+      // Browser transforms can report a nominal 40px target a few
+      // ten-thousandths below 40 due to device-pixel rounding.
+      expect(box!.width).toBeGreaterThanOrEqual(39.99);
+      expect(box!.height).toBeGreaterThanOrEqual(39.99);
       expect(
         await control.evaluate((element) =>
           getComputedStyle(element).transitionProperty

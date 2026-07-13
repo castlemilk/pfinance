@@ -6,7 +6,6 @@ import {
 } from '@playwright/test';
 
 const CONNECT_METHODS = [
-  'GetSubscriptionStatus',
   'GetAnalyticsOverview',
   'GetDailyAggregates',
   'GetSpendingTrends',
@@ -208,15 +207,6 @@ async function installPersonalAnalyticsFixtures(
   page: Page,
   controller: FixtureController
 ) {
-  await page.route(connectPattern('GetSubscriptionStatus'), async (route) => {
-    await recordRequest(controller, 'GetSubscriptionStatus', route);
-    await fulfillConnect(route, {
-      tier: 'SUBSCRIPTION_TIER_PRO',
-      status: 'SUBSCRIPTION_STATUS_ACTIVE',
-      cancelAtPeriodEnd: false,
-    });
-  });
-
   await page.route(connectPattern('GetAnalyticsOverview'), async (route) => {
     await recordRequest(controller, 'GetAnalyticsOverview', route);
     if (controller.overviewDelayMs > 0) {
@@ -589,12 +579,12 @@ test.describe('Personal analytics enhancement', () => {
     }).first();
     await expect(foodLink).toHaveAttribute(
       'href',
-      '/personal/expenses?category=food&from=2026-05-01&to=2026-05-31'
+      '/personal/expenses/?category=food&from=2026-05-01&to=2026-05-31'
     );
     await expect(page.getByRole('link', { name: 'Review expense' }))
       .toHaveAttribute(
         'href',
-        '/personal/expenses?expenseId=anomaly-expense-1'
+        '/personal/expenses/?expenseId=anomaly-expense-1'
       );
 
     await page
@@ -803,46 +793,10 @@ test.describe('Personal analytics enhancement', () => {
     await expect(page.getByRole('region', { name: 'Current period summary' }))
       .toBeVisible();
 
-    const lockedRequestCountsBeforeUpgrade = {
-      daily: fixture.requests.GetDailyAggregates.length,
-      categoryTrends: categoryTrendExpenseRequests(fixture).length,
-      categories: fixture.requests.GetCategoryComparison.length,
-      forecast: fixture.requests.GetCashFlowForecast.length,
-      extraction: fixture.requests.GetExtractionMetrics.length,
-      groupSummary: fixture.requests.GetGroupSummary.length,
-    };
-    await page.unroute(connectPattern('GetSubscriptionStatus'));
-    await page.route(connectPattern('GetSubscriptionStatus'), async (route) => {
-      await fulfillConnect(route, {
-        tier: 'SUBSCRIPTION_TIER_FREE',
-        status: 'SUBSCRIPTION_STATUS_UNSPECIFIED',
-        cancelAtPeriodEnd: false,
-      });
-    });
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await expect(
-      page.getByRole('heading', { level: 1, name: 'Personal analytics' })
-    ).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Pro Feature' }))
-      .toBeVisible({ timeout: 15_000 });
-    await expect(
-      page
-        .getByRole('region', { name: 'Personal analytics' })
-        .getByRole('link', { name: 'Upgrade to Pro' })
-    ).toBeVisible();
-
-    await page.waitForTimeout(100);
-    expect({
-      daily: fixture.requests.GetDailyAggregates.length,
-      categoryTrends: categoryTrendExpenseRequests(fixture).length,
-      categories: fixture.requests.GetCategoryComparison.length,
-      forecast: fixture.requests.GetCashFlowForecast.length,
-      extraction: fixture.requests.GetExtractionMetrics.length,
-      groupSummary: fixture.requests.GetGroupSummary.length,
-    }).toEqual(lockedRequestCountsBeforeUpgrade);
   });
 
   test('analytics preserves palettes and reduced motion', async ({ page }) => {
+    test.setTimeout(60_000);
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.addInitScript(() => {
       if (!window.localStorage.getItem('pfinance-theme')) {

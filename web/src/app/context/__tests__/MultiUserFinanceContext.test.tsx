@@ -6,7 +6,13 @@ import { useAuth } from '../AuthWithAdminContext';
 
 import { financeClient } from '@/lib/financeService';
 import { timestampFromDate } from '@bufbuild/protobuf/wkt';
-import { SubscriptionTier, SubscriptionStatus } from '@/gen/pfinance/v1/types_pb';
+import {
+  ExpenseCategory,
+  ExpenseFrequency,
+  SplitType,
+  SubscriptionTier,
+  SubscriptionStatus,
+} from '@/gen/pfinance/v1/types_pb';
 
 // Mock financeService
 jest.mock('@/lib/financeService', () => ({
@@ -111,8 +117,12 @@ function GroupStateProbe() {
   const {
     groups,
     activeGroup,
+    groupExpenses,
+    groupIncomes,
     setActiveGroup,
     createGroup,
+    addGroupExpense,
+    addGroupIncome,
     updateGroup,
     deleteGroup,
     leaveGroup,
@@ -125,6 +135,12 @@ function GroupStateProbe() {
       <div data-testid="probe-loading">{loading ? 'loading' : 'loaded'}</div>
       <div data-testid="probe-active-group">{activeGroup?.name ?? 'none'}</div>
       <div data-testid="probe-groups">{groups.map(group => group.name).join(',')}</div>
+      <div data-testid="probe-group-expenses">
+        {groupExpenses.map(expense => expense.description).join(',')}
+      </div>
+      <div data-testid="probe-group-incomes">
+        {groupIncomes.map(income => income.source).join(',')}
+      </div>
       {groups.map(group => (
         <button
           key={group.id}
@@ -139,6 +155,31 @@ function GroupStateProbe() {
       </button>
       <button data-testid="probe-create-group" onClick={() => void createGroup('Created Group')}>
         Create
+      </button>
+      <button
+        data-testid="probe-add-group-expense"
+        onClick={() => activeGroup && void addGroupExpense(
+          activeGroup.id,
+          'Created expense',
+          12,
+          ExpenseCategory.FOOD,
+          ExpenseFrequency.ONCE,
+          activeGroup.ownerId,
+          SplitType.EQUAL,
+          []
+        )}
+      >
+        Add expense
+      </button>
+      <button
+        data-testid="probe-add-group-income"
+        onClick={() => activeGroup && void addGroupIncome(activeGroup.id, {
+          source: 'Created income',
+          amount: 34,
+          frequency: 'monthly',
+        })}
+      >
+        Add income
       </button>
       <button
         data-testid="probe-update-group"
@@ -273,9 +314,13 @@ describe('MultiUserFinanceContext', () => {
   });
 
   it('selects and persists a newly created group when no group is active', async () => {
+    const createdGroup = createMockGroup('created-group', 'Created Group');
     mockUseAuth.mockReturnValue(createAuthValue('user123'));
+    (financeClient.listGroups as jest.Mock)
+      .mockResolvedValueOnce({ groups: [] })
+      .mockResolvedValueOnce({ groups: [createdGroup] });
     (financeClient.createGroup as jest.Mock).mockResolvedValue({
-      group: createMockGroup('created-group', 'Created Group'),
+      group: createdGroup,
     });
 
     render(<MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>);
@@ -284,8 +329,10 @@ describe('MultiUserFinanceContext', () => {
       screen.getByTestId('probe-create-group').click();
     });
 
-    expect(screen.getByTestId('probe-active-group')).toHaveTextContent('Created Group');
-    expect(window.localStorage.getItem('pfinance-active-group-user123')).toBe('created-group');
+    await waitFor(() => {
+      expect(screen.getByTestId('probe-active-group')).toHaveTextContent('Created Group');
+      expect(window.localStorage.getItem('pfinance-active-group-user123')).toBe('created-group');
+    });
   });
 
   it('keeps the selected ID while replacing the group object after update', async () => {
@@ -407,14 +454,281 @@ describe('MultiUserFinanceContext', () => {
     });
   });
 
+  it('keeps dependent group data bound to the authenticated user through a same-ID switch', async () => {
+    const userAExpenses = deferred<{ expenses: any[] }>();
+    const userAIncomes = deferred<{ incomes: any[] }>();
+    const sharedGroupId = 'shared-group';
+    const userBExpense = {
+      id: 'expense-b',
+      groupId: sharedGroupId,
+      userId: 'user-b',
+      description: 'User B expense',
+    };
+    const userBIncome = {
+      id: 'income-b',
+      groupId: sharedGroupId,
+      userId: 'user-b',
+      source: 'User B income',
+      amount: 20,
+      amountCents: BigInt(2000),
+      frequency: 3,
+      date: timestampFromDate(new Date()),
+    };
+
+    (financeClient.listGroups as jest.Mock).mockImplementation(({ userId }) =>
+      Promise.resolve({
+        groups: [createMockGroup(sharedGroupId, `${userId} Group`, userId)],
+      })
+    );
+    (financeClient.listExpenses as jest.Mock).mockImplementation(({ userId }) =>
+      userId === 'user-a'
+        ? userAExpenses.promise
+        : Promise.resolve({ expenses: [userBExpense] })
+    );
+    (financeClient.listIncomes as jest.Mock).mockImplementation(({ userId }) =>
+      userId === 'user-a'
+        ? userAIncomes.promise
+        : Promise.resolve({ incomes: [userBIncome] })
+    );
+    mockUseAuth.mockReturnValue(createAuthValue('user-a'));
+
+    const { rerender } = render(
+      <MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>
+    );
+    await waitFor(() => {
+      expect(financeClient.listExpenses).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-a', groupId: sharedGroupId })
+      );
+      expect(financeClient.listIncomes).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-a', groupId: sharedGroupId })
+      );
+    });
+
+    mockUseAuth.mockReturnValue(createAuthValue('user-b'));
+    rerender(<MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>);
+
+    await waitFor(() => {
+      expect(financeClient.listExpenses).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-b', groupId: sharedGroupId })
+      );
+      expect(financeClient.listIncomes).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-b', groupId: sharedGroupId })
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('probe-group-expenses')).toHaveTextContent('User B expense');
+      expect(screen.getByTestId('probe-group-incomes')).toHaveTextContent('User B income');
+    });
+
+    await act(async () => {
+      userAExpenses.resolve({
+        expenses: [{
+          id: 'expense-a',
+          groupId: sharedGroupId,
+          userId: 'user-a',
+          description: 'User A expense',
+        }],
+      });
+      userAIncomes.resolve({
+        incomes: [{
+          id: 'income-a',
+          groupId: sharedGroupId,
+          userId: 'user-a',
+          source: 'User A income',
+          amount: 10,
+          amountCents: BigInt(1000),
+          frequency: 3,
+          date: timestampFromDate(new Date()),
+        }],
+      });
+      await Promise.all([userAExpenses.promise, userAIncomes.promise]);
+    });
+
+    expect(screen.getByTestId('probe-group-expenses')).toHaveTextContent('User B expense');
+    expect(screen.getByTestId('probe-group-expenses')).not.toHaveTextContent('User A expense');
+    expect(screen.getByTestId('probe-group-incomes')).toHaveTextContent('User B income');
+    expect(screen.getByTestId('probe-group-incomes')).not.toHaveTextContent('User A income');
+  });
+
+  it('reconciles existing dependent data when creates finish during initial loads', async () => {
+    const initialExpenses = deferred<{ expenses: any[] }>();
+    const initialIncomes = deferred<{ incomes: any[] }>();
+    const groupId = 'group-a';
+    const existingExpense = {
+      id: 'expense-existing',
+      groupId,
+      userId: 'user123',
+      description: 'Existing expense',
+    };
+    const createdExpense = {
+      id: 'expense-created',
+      groupId,
+      userId: 'user123',
+      description: 'Created expense',
+    };
+    const existingIncome = {
+      id: 'income-existing',
+      groupId,
+      userId: 'user123',
+      source: 'Existing income',
+      amount: 10,
+      amountCents: BigInt(1000),
+      frequency: 3,
+      date: timestampFromDate(new Date()),
+    };
+    const createdIncome = {
+      id: 'income-created',
+      groupId,
+      userId: 'user123',
+      source: 'Created income',
+      amount: 34,
+      amountCents: BigInt(3400),
+      frequency: 3,
+      date: timestampFromDate(new Date()),
+    };
+
+    mockUseAuth.mockReturnValue(createAuthValue('user123'));
+    (financeClient.listGroups as jest.Mock).mockResolvedValue({
+      groups: [createMockGroup(groupId, 'Group A')],
+    });
+    (financeClient.listExpenses as jest.Mock)
+      .mockReturnValueOnce(initialExpenses.promise)
+      .mockResolvedValueOnce({ expenses: [existingExpense, createdExpense] });
+    (financeClient.listIncomes as jest.Mock)
+      .mockReturnValueOnce(initialIncomes.promise)
+      .mockResolvedValueOnce({ incomes: [existingIncome, createdIncome] });
+    (financeClient.createExpense as jest.Mock).mockResolvedValue({
+      expense: createdExpense,
+    });
+    (financeClient.createIncome as jest.Mock).mockResolvedValue({
+      income: createdIncome,
+    });
+
+    render(<MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>);
+    await waitFor(() => expect(screen.getByTestId('probe-active-group')).toHaveTextContent('Group A'));
+    await waitFor(() => {
+      expect(financeClient.listExpenses).toHaveBeenCalledTimes(1);
+      expect(financeClient.listIncomes).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      screen.getByTestId('probe-add-group-expense').click();
+      screen.getByTestId('probe-add-group-income').click();
+    });
+
+    await waitFor(() => {
+      expect(financeClient.listExpenses).toHaveBeenCalledTimes(2);
+      expect(financeClient.listIncomes).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('probe-group-expenses'))
+        .toHaveTextContent('Existing expense,Created expense');
+      expect(screen.getByTestId('probe-group-incomes'))
+        .toHaveTextContent('Existing income,Created income');
+    });
+
+    await act(async () => {
+      initialExpenses.resolve({ expenses: [existingExpense] });
+      initialIncomes.resolve({ incomes: [existingIncome] });
+      await Promise.all([initialExpenses.promise, initialIncomes.promise]);
+    });
+
+    expect(screen.getByTestId('probe-group-expenses'))
+      .toHaveTextContent('Existing expense,Created expense');
+    expect(screen.getByTestId('probe-group-incomes'))
+      .toHaveTextContent('Existing income,Created income');
+  });
+
+  it('ignores dependent create completions from the previous user session', async () => {
+    const createdExpenseResponse = deferred<{ expense: any }>();
+    const createdIncomeResponse = deferred<{ income: any }>();
+    const sharedGroupId = 'shared-group';
+    const expenseFor = (userId: string) => ({
+      id: `expense-${userId}`,
+      groupId: sharedGroupId,
+      userId,
+      description: `${userId} expense`,
+    });
+    const incomeFor = (userId: string) => ({
+      id: `income-${userId}`,
+      groupId: sharedGroupId,
+      userId,
+      source: `${userId} income`,
+      amount: 10,
+      amountCents: BigInt(1000),
+      frequency: 3,
+      date: timestampFromDate(new Date()),
+    });
+
+    (financeClient.listGroups as jest.Mock).mockImplementation(({ userId }) =>
+      Promise.resolve({
+        groups: [createMockGroup(sharedGroupId, `${userId} Group`, userId)],
+      })
+    );
+    (financeClient.listExpenses as jest.Mock).mockImplementation(({ userId }) =>
+      Promise.resolve({ expenses: [expenseFor(userId)] })
+    );
+    (financeClient.listIncomes as jest.Mock).mockImplementation(({ userId }) =>
+      Promise.resolve({ incomes: [incomeFor(userId)] })
+    );
+    (financeClient.createExpense as jest.Mock).mockReturnValue(createdExpenseResponse.promise);
+    (financeClient.createIncome as jest.Mock).mockReturnValue(createdIncomeResponse.promise);
+    mockUseAuth.mockReturnValue(createAuthValue('user-a'));
+
+    const { rerender } = render(
+      <MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('probe-group-expenses')).toHaveTextContent('user-a expense');
+      expect(screen.getByTestId('probe-group-incomes')).toHaveTextContent('user-a income');
+    });
+
+    await act(async () => {
+      screen.getByTestId('probe-add-group-expense').click();
+      screen.getByTestId('probe-add-group-income').click();
+    });
+    await waitFor(() => {
+      expect(financeClient.createExpense).toHaveBeenCalledTimes(1);
+      expect(financeClient.createIncome).toHaveBeenCalledTimes(1);
+    });
+
+    mockUseAuth.mockReturnValue(createAuthValue('user-b'));
+    rerender(<MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>);
+    await waitFor(() => {
+      expect(screen.getByTestId('probe-group-expenses')).toHaveTextContent('user-b expense');
+      expect(screen.getByTestId('probe-group-incomes')).toHaveTextContent('user-b income');
+    });
+
+    await act(async () => {
+      createdExpenseResponse.resolve({ expense: {
+        ...expenseFor('user-a'),
+        id: 'created-expense-user-a',
+        description: 'Created expense',
+      } });
+      createdIncomeResponse.resolve({ income: {
+        ...incomeFor('user-a'),
+        id: 'created-income-user-a',
+        source: 'Created income',
+      } });
+      await Promise.all([createdExpenseResponse.promise, createdIncomeResponse.promise]);
+    });
+
+    expect(screen.getByTestId('probe-group-expenses')).toHaveTextContent('user-b expense');
+    expect(screen.getByTestId('probe-group-expenses')).not.toHaveTextContent('Created expense');
+    expect(screen.getByTestId('probe-group-incomes')).toHaveTextContent('user-b income');
+    expect(screen.getByTestId('probe-group-incomes')).not.toHaveTextContent('Created income');
+  });
+
   it('ignores a refresh started before a successful group creation', async () => {
     const staleRefresh = deferred<{ groups: ReturnType<typeof createMockGroup>[] }>();
+    const createdGroup = createMockGroup('created-group', 'Created Group');
     mockUseAuth.mockReturnValue(createAuthValue('user123'));
     (financeClient.listGroups as jest.Mock)
       .mockResolvedValueOnce({ groups: [] })
-      .mockReturnValueOnce(staleRefresh.promise);
+      .mockReturnValueOnce(staleRefresh.promise)
+      .mockResolvedValueOnce({ groups: [createdGroup] });
     (financeClient.createGroup as jest.Mock).mockResolvedValue({
-      group: createMockGroup('created-group', 'Created Group'),
+      group: createdGroup,
     });
 
     render(<MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>);
@@ -434,6 +748,47 @@ describe('MultiUserFinanceContext', () => {
     expect(screen.getByTestId('probe-active-group')).toHaveTextContent('Created Group');
     expect(screen.getByTestId('probe-groups')).toHaveTextContent('Created Group');
     expect(window.localStorage.getItem('pfinance-active-group-user123')).toBe('created-group');
+  });
+
+  it('reconciles existing groups when creation finishes during the initial load', async () => {
+    const initialGroups = deferred<{ groups: ReturnType<typeof createMockGroup>[] }>();
+    const reconciledGroups = deferred<{ groups: ReturnType<typeof createMockGroup>[] }>();
+    const existingGroup = createMockGroup('group-a', 'Group A');
+    const createdGroup = createMockGroup('created-group', 'Created Group');
+    mockUseAuth.mockReturnValue(createAuthValue('user123'));
+    (financeClient.listGroups as jest.Mock)
+      .mockReturnValueOnce(initialGroups.promise)
+      .mockReturnValueOnce(reconciledGroups.promise);
+    (financeClient.createGroup as jest.Mock).mockResolvedValue({
+      group: createdGroup,
+    });
+
+    render(<MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>);
+    await waitFor(() => expect(financeClient.listGroups).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      screen.getByTestId('probe-create-group').click();
+    });
+
+    await waitFor(() => expect(financeClient.listGroups).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId('probe-loading')).toHaveTextContent('loading');
+
+    await act(async () => {
+      reconciledGroups.resolve({ groups: [existingGroup, createdGroup] });
+      await reconciledGroups.promise;
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('probe-groups')).toHaveTextContent('Group A,Created Group');
+      expect(screen.getByTestId('probe-loading')).toHaveTextContent('loaded');
+    });
+
+    await act(async () => {
+      initialGroups.resolve({ groups: [existingGroup] });
+      await initialGroups.promise;
+    });
+
+    expect(screen.getByTestId('probe-groups')).toHaveTextContent('Group A,Created Group');
+    expect(screen.getByTestId('probe-loading')).toHaveTextContent('loaded');
   });
 
   it('ignores stale group data from a refresh started before a successful update', async () => {

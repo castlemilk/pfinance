@@ -220,7 +220,7 @@ export default function EnhancedGroupSelector() {
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Badge
                 role="status"
-                aria-label={`${activeGroup.members.length} members in active group`}
+                aria-label={`${activeGroup.members.length} member${activeGroup.members.length === 1 ? '' : 's'} in active group`}
                 variant="outline"
                 className="min-h-10 min-w-10 gap-1 border-primary/30 bg-primary/10 px-3 text-foreground"
               >
