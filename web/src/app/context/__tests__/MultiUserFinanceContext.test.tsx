@@ -407,6 +407,99 @@ describe('MultiUserFinanceContext', () => {
     });
   });
 
+  it('ignores a refresh started before a successful group creation', async () => {
+    const staleRefresh = deferred<{ groups: ReturnType<typeof createMockGroup>[] }>();
+    mockUseAuth.mockReturnValue(createAuthValue('user123'));
+    (financeClient.listGroups as jest.Mock)
+      .mockResolvedValueOnce({ groups: [] })
+      .mockReturnValueOnce(staleRefresh.promise);
+    (financeClient.createGroup as jest.Mock).mockResolvedValue({
+      group: createMockGroup('created-group', 'Created Group'),
+    });
+
+    render(<MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>);
+    await waitFor(() => expect(screen.getByTestId('probe-loading')).toHaveTextContent('loaded'));
+    await act(async () => {
+      screen.getByTestId('refresh-groups').click();
+    });
+    await waitFor(() => expect(financeClient.listGroups).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      screen.getByTestId('probe-create-group').click();
+    });
+
+    await act(async () => {
+      staleRefresh.resolve({ groups: [] });
+      await staleRefresh.promise;
+    });
+    expect(screen.getByTestId('probe-active-group')).toHaveTextContent('Created Group');
+    expect(screen.getByTestId('probe-groups')).toHaveTextContent('Created Group');
+    expect(window.localStorage.getItem('pfinance-active-group-user123')).toBe('created-group');
+  });
+
+  it('ignores stale group data from a refresh started before a successful update', async () => {
+    const staleGroup = createMockGroup('group-a', 'Group A stale');
+    const staleRefresh = deferred<{ groups: ReturnType<typeof createMockGroup>[] }>();
+    mockUseAuth.mockReturnValue(createAuthValue('user123'));
+    window.localStorage.setItem('pfinance-active-group-user123', 'group-a');
+    (financeClient.listGroups as jest.Mock)
+      .mockResolvedValueOnce({ groups: [staleGroup] })
+      .mockReturnValueOnce(staleRefresh.promise);
+    (financeClient.updateGroup as jest.Mock).mockResolvedValue({
+      group: createMockGroup('group-a', 'Group A updated'),
+    });
+
+    render(<MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>);
+    await waitFor(() => expect(screen.getByTestId('probe-active-group')).toHaveTextContent('Group A stale'));
+    await act(async () => {
+      screen.getByTestId('refresh-groups').click();
+    });
+    await waitFor(() => expect(financeClient.listGroups).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      screen.getByTestId('probe-update-group').click();
+    });
+
+    await act(async () => {
+      staleRefresh.resolve({ groups: [staleGroup] });
+      await staleRefresh.promise;
+    });
+    expect(screen.getByTestId('probe-active-group')).toHaveTextContent('Group A updated');
+    expect(screen.getByTestId('probe-groups')).toHaveTextContent('Group A updated');
+    expect(window.localStorage.getItem('pfinance-active-group-user123')).toBe('group-a');
+  });
+
+  it.each([
+    ['deletion', 'probe-delete-group'],
+    ['leave', 'probe-leave-group'],
+  ])('ignores a refresh started before a successful group %s', async (_case, actionId) => {
+    const staleGroup = createMockGroup('group-a', 'Group A');
+    const staleRefresh = deferred<{ groups: ReturnType<typeof createMockGroup>[] }>();
+    mockUseAuth.mockReturnValue(createAuthValue('user123'));
+    window.localStorage.setItem('pfinance-active-group-user123', 'group-a');
+    (financeClient.listGroups as jest.Mock)
+      .mockResolvedValueOnce({ groups: [staleGroup] })
+      .mockReturnValueOnce(staleRefresh.promise);
+    (financeClient.deleteGroup as jest.Mock).mockResolvedValue({});
+    (financeClient.removeFromGroup as jest.Mock).mockResolvedValue({});
+
+    render(<MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>);
+    await waitFor(() => expect(screen.getByTestId('probe-active-group')).toHaveTextContent('Group A'));
+    await act(async () => {
+      screen.getByTestId('refresh-groups').click();
+    });
+    await waitFor(() => expect(financeClient.listGroups).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      screen.getByTestId(actionId).click();
+    });
+
+    await act(async () => {
+      staleRefresh.resolve({ groups: [staleGroup] });
+      await staleRefresh.promise;
+    });
+    expect(screen.getByTestId('probe-active-group')).toHaveTextContent('none');
+    expect(screen.getByTestId('probe-groups')).toBeEmptyDOMElement();
+    expect(window.localStorage.getItem('pfinance-active-group-user123')).toBeNull();
+  });
+
   it('provides multi-user finance context when user is not authenticated', async () => {
     mockUseAuth.mockReturnValue({
       user: null,

@@ -72,6 +72,7 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
 
   const currentUserIdRef = useRef<string | null>(userId);
   const groupStateRef = useRef<GroupState>(groupState);
+  const mutationGenerationRef = useRef(0);
   const requestSequenceRef = useRef(0);
   const latestRequestRef = useRef<{ userId: string; sequence: number } | null>(null);
   currentUserIdRef.current = userId;
@@ -91,12 +92,14 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
     }
 
     const sequence = ++requestSequenceRef.current;
+    const mutationGeneration = mutationGenerationRef.current;
     latestRequestRef.current = { userId: requestUserId, sequence };
 
     const isCurrentRequest = () => (
       currentUserIdRef.current === requestUserId
       && latestRequestRef.current?.userId === requestUserId
       && latestRequestRef.current.sequence === sequence
+      && mutationGenerationRef.current === mutationGeneration
     );
 
     try {
@@ -180,6 +183,7 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
       if (currentUserIdRef.current === requestUserId) {
         const previous = groupStateRef.current;
         if (previous.userId === requestUserId) {
+          mutationGenerationRef.current += 1;
           const activeGroup = previous.activeGroup ?? newGroup;
           persistActiveGroupId(requestUserId, activeGroup.id);
           commitGroupState({
@@ -208,6 +212,7 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
       const updatedGroup = mapProtoGroupToLocal(response.group);
       const previous = groupStateRef.current;
       if (previous.userId === requestUserId) {
+        mutationGenerationRef.current += 1;
         const activeGroup = previous.activeGroup?.id === groupId
           ? updatedGroup
           : previous.activeGroup;
@@ -227,6 +232,7 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
     const previous = groupStateRef.current;
     if (previous.userId !== requestUserId) return;
 
+    mutationGenerationRef.current += 1;
     const groups = previous.groups.filter(group => group.id !== groupId);
     const activeGroup = previous.activeGroup?.id === groupId
       ? groups[0] ?? null
