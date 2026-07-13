@@ -164,21 +164,9 @@ func (s *FinanceService) GetDailyAggregates(ctx context.Context, req *connect.Re
 		return nil, err
 	}
 
-	// Verify group membership if groupID is set
-	if req.Msg.GroupId != "" {
-		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
-		if err != nil {
-			return nil, auth.WrapStoreError("get group", err)
-		}
-		if !auth.IsGroupMember(claims.UID, group) {
-			return nil, connect.NewError(connect.CodePermissionDenied,
-				fmt.Errorf("user is not a member of this group"))
-		}
-	}
-
-	userID := req.Msg.UserId
-	if userID == "" && req.Msg.GroupId == "" {
-		userID = claims.UID
+	scope, err := s.resolveAnalyticsScope(ctx, claims, req.Msg.UserId, req.Msg.GroupId)
+	if err != nil {
+		return nil, err
 	}
 
 	if req.Msg.StartDate == nil || req.Msg.EndDate == nil {
@@ -195,7 +183,7 @@ func (s *FinanceService) GetDailyAggregates(ctx context.Context, req *connect.Re
 			fmt.Errorf("date range must not exceed 366 days"))
 	}
 
-	aggregates, err := s.store.GetDailyAggregates(ctx, userID, req.Msg.GroupId, startDate, endDate)
+	aggregates, err := s.store.GetDailyAggregates(ctx, scope.userID, scope.groupID, startDate, endDate)
 	if err != nil {
 		return nil, auth.WrapStoreError("get daily aggregates", err)
 	}
@@ -229,20 +217,9 @@ func (s *FinanceService) GetSpendingTrends(ctx context.Context, req *connect.Req
 		return nil, err
 	}
 
-	if req.Msg.GroupId != "" {
-		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
-		if err != nil {
-			return nil, auth.WrapStoreError("get group", err)
-		}
-		if !auth.IsGroupMember(claims.UID, group) {
-			return nil, connect.NewError(connect.CodePermissionDenied,
-				fmt.Errorf("user is not a member of this group"))
-		}
-	}
-
-	userID := req.Msg.UserId
-	if userID == "" && req.Msg.GroupId == "" {
-		userID = claims.UID
+	scope, err := s.resolveAnalyticsScope(ctx, claims, req.Msg.UserId, req.Msg.GroupId)
+	if err != nil {
+		return nil, err
 	}
 
 	// Defaults
@@ -260,11 +237,11 @@ func (s *FinanceService) GetSpendingTrends(ctx context.Context, req *connect.Req
 	// Single fetch for the entire date range (oldest start → newest end) instead of N+1 queries
 	overallStart := periodInfos[0].start
 	overallEnd := periodInfos[len(periodInfos)-1].end
-	allExpenses, _, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &overallStart, &overallEnd, 10000, "")
+	allExpenses, _, err := s.store.ListExpenses(ctx, scope.userID, scope.groupID, &overallStart, &overallEnd, 10000, "")
 	if err != nil {
 		return nil, auth.WrapStoreError("list expenses", err)
 	}
-	allIncomes, _, err := s.store.ListIncomes(ctx, userID, req.Msg.GroupId, &overallStart, &overallEnd, 10000, "")
+	allIncomes, _, err := s.store.ListIncomes(ctx, scope.userID, scope.groupID, &overallStart, &overallEnd, 10000, "")
 	if err != nil {
 		return nil, auth.WrapStoreError("list incomes", err)
 	}
@@ -274,11 +251,11 @@ func (s *FinanceService) GetSpendingTrends(ctx context.Context, req *connect.Req
 		hasCurrentWindowData = hasExpenseForCategory(allExpenses, req.Msg.Category)
 	}
 	if !hasCurrentWindowData {
-		historicalExpenses, _, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, nil, nil, 10000, "")
+		historicalExpenses, _, err := s.store.ListExpenses(ctx, scope.userID, scope.groupID, nil, nil, 10000, "")
 		if err != nil {
 			return nil, auth.WrapStoreError("list historical expenses", err)
 		}
-		historicalIncomes, _, err := s.store.ListIncomes(ctx, userID, req.Msg.GroupId, nil, nil, 10000, "")
+		historicalIncomes, _, err := s.store.ListIncomes(ctx, scope.userID, scope.groupID, nil, nil, 10000, "")
 		if err != nil {
 			return nil, auth.WrapStoreError("list historical incomes", err)
 		}
@@ -295,11 +272,11 @@ func (s *FinanceService) GetSpendingTrends(ctx context.Context, req *connect.Req
 			periodInfos = buildTrendPeriods(anchor, granularity, periods)
 			overallStart = periodInfos[0].start
 			overallEnd = periodInfos[len(periodInfos)-1].end
-			allExpenses, _, err = s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &overallStart, &overallEnd, 10000, "")
+			allExpenses, _, err = s.store.ListExpenses(ctx, scope.userID, scope.groupID, &overallStart, &overallEnd, 10000, "")
 			if err != nil {
 				return nil, auth.WrapStoreError("list anchored expenses", err)
 			}
-			allIncomes, _, err = s.store.ListIncomes(ctx, userID, req.Msg.GroupId, &overallStart, &overallEnd, 10000, "")
+			allIncomes, _, err = s.store.ListIncomes(ctx, scope.userID, scope.groupID, &overallStart, &overallEnd, 10000, "")
 			if err != nil {
 				return nil, auth.WrapStoreError("list anchored incomes", err)
 			}
@@ -381,20 +358,9 @@ func (s *FinanceService) GetCategoryComparison(ctx context.Context, req *connect
 		return nil, err
 	}
 
-	if req.Msg.GroupId != "" {
-		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
-		if err != nil {
-			return nil, auth.WrapStoreError("get group", err)
-		}
-		if !auth.IsGroupMember(claims.UID, group) {
-			return nil, connect.NewError(connect.CodePermissionDenied,
-				fmt.Errorf("user is not a member of this group"))
-		}
-	}
-
-	userID := req.Msg.UserId
-	if userID == "" && req.Msg.GroupId == "" {
-		userID = claims.UID
+	scope, err := s.resolveAnalyticsScope(ctx, claims, req.Msg.UserId, req.Msg.GroupId)
+	if err != nil {
+		return nil, err
 	}
 
 	period := req.Msg.CurrentPeriod
@@ -405,29 +371,29 @@ func (s *FinanceService) GetCategoryComparison(ctx context.Context, req *connect
 	currentStart, currentEnd, prevStart, prevEnd := categoryComparisonBounds(time.Now(), period)
 
 	// Fetch current period expenses
-	currentExpenses, _, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &currentStart, &currentEnd, 10000, "")
+	currentExpenses, _, err := s.store.ListExpenses(ctx, scope.userID, scope.groupID, &currentStart, &currentEnd, 10000, "")
 	if err != nil {
 		return nil, auth.WrapStoreError("list current expenses", err)
 	}
 
 	// Fetch previous period expenses
-	prevExpenses, _, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &prevStart, &prevEnd, 10000, "")
+	prevExpenses, _, err := s.store.ListExpenses(ctx, scope.userID, scope.groupID, &prevStart, &prevEnd, 10000, "")
 	if err != nil {
 		return nil, auth.WrapStoreError("list previous expenses", err)
 	}
 
 	if len(currentExpenses) == 0 && len(prevExpenses) == 0 {
-		historicalExpenses, _, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, nil, nil, 10000, "")
+		historicalExpenses, _, err := s.store.ListExpenses(ctx, scope.userID, scope.groupID, nil, nil, 10000, "")
 		if err != nil {
 			return nil, auth.WrapStoreError("list historical expenses", err)
 		}
 		if anchor, ok := latestExpenseDate(historicalExpenses, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED); ok {
 			currentStart, currentEnd, prevStart, prevEnd = categoryComparisonBounds(anchor, period)
-			currentExpenses, _, err = s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &currentStart, &currentEnd, 10000, "")
+			currentExpenses, _, err = s.store.ListExpenses(ctx, scope.userID, scope.groupID, &currentStart, &currentEnd, 10000, "")
 			if err != nil {
 				return nil, auth.WrapStoreError("list anchored current expenses", err)
 			}
-			prevExpenses, _, err = s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &prevStart, &prevEnd, 10000, "")
+			prevExpenses, _, err = s.store.ListExpenses(ctx, scope.userID, scope.groupID, &prevStart, &prevEnd, 10000, "")
 			if err != nil {
 				return nil, auth.WrapStoreError("list anchored previous expenses", err)
 			}
@@ -458,7 +424,7 @@ func (s *FinanceService) GetCategoryComparison(ctx context.Context, req *connect
 	var budgetByCategory map[pfinancev1.ExpenseCategory]float64
 	if req.Msg.IncludeBudgets {
 		budgetByCategory = make(map[pfinancev1.ExpenseCategory]float64)
-		budgets, _, err := s.store.ListBudgets(ctx, userID, req.Msg.GroupId, false, 10000, "")
+		budgets, _, err := s.store.ListBudgets(ctx, scope.userID, scope.groupID, false, 10000, "")
 		if err != nil {
 			return nil, auth.WrapStoreError("list budgets", err)
 		}
@@ -517,20 +483,9 @@ func (s *FinanceService) DetectAnomalies(ctx context.Context, req *connect.Reque
 		return nil, err
 	}
 
-	if req.Msg.GroupId != "" {
-		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
-		if err != nil {
-			return nil, auth.WrapStoreError("get group", err)
-		}
-		if !auth.IsGroupMember(claims.UID, group) {
-			return nil, connect.NewError(connect.CodePermissionDenied,
-				fmt.Errorf("user is not a member of this group"))
-		}
-	}
-
-	userID := req.Msg.UserId
-	if userID == "" && req.Msg.GroupId == "" {
-		userID = claims.UID
+	scope, err := s.resolveAnalyticsScope(ctx, claims, req.Msg.UserId, req.Msg.GroupId)
+	if err != nil {
+		return nil, err
 	}
 
 	lookbackDays := req.Msg.LookbackDays
@@ -549,7 +504,7 @@ func (s *FinanceService) DetectAnomalies(ctx context.Context, req *connect.Reque
 	endDate := now
 
 	// Fetch expenses for lookback period
-	expenses, _, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &startDate, &endDate, 10000, "")
+	expenses, _, err := s.store.ListExpenses(ctx, scope.userID, scope.groupID, &startDate, &endDate, 10000, "")
 	if err != nil {
 		return nil, auth.WrapStoreError("list expenses", err)
 	}
@@ -724,20 +679,9 @@ func (s *FinanceService) GetCashFlowForecast(ctx context.Context, req *connect.R
 		return nil, err
 	}
 
-	if req.Msg.GroupId != "" {
-		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
-		if err != nil {
-			return nil, auth.WrapStoreError("get group", err)
-		}
-		if !auth.IsGroupMember(claims.UID, group) {
-			return nil, connect.NewError(connect.CodePermissionDenied,
-				fmt.Errorf("user is not a member of this group"))
-		}
-	}
-
-	userID := req.Msg.UserId
-	if userID == "" && req.Msg.GroupId == "" {
-		userID = claims.UID
+	scope, err := s.resolveAnalyticsScope(ctx, claims, req.Msg.UserId, req.Msg.GroupId)
+	if err != nil {
+		return nil, err
 	}
 
 	forecastDays := req.Msg.ForecastDays
@@ -750,11 +694,11 @@ func (s *FinanceService) GetCashFlowForecast(ctx context.Context, req *connect.R
 	historyEnd := now
 
 	// Fetch historical expenses and incomes
-	expenses, _, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &historyStart, &historyEnd, 10000, "")
+	expenses, _, err := s.store.ListExpenses(ctx, scope.userID, scope.groupID, &historyStart, &historyEnd, 10000, "")
 	if err != nil {
 		return nil, auth.WrapStoreError("list expenses", err)
 	}
-	incomes, _, err := s.store.ListIncomes(ctx, userID, req.Msg.GroupId, &historyStart, &historyEnd, 10000, "")
+	incomes, _, err := s.store.ListIncomes(ctx, scope.userID, scope.groupID, &historyStart, &historyEnd, 10000, "")
 	if err != nil {
 		return nil, auth.WrapStoreError("list incomes", err)
 	}
@@ -829,7 +773,7 @@ func (s *FinanceService) GetCashFlowForecast(ctx context.Context, req *connect.R
 	incomeStddev := math.Sqrt(incomeVariance / numDays)
 
 	// Fetch active recurring transactions
-	recurringTxns, _, err := s.store.ListRecurringTransactions(ctx, userID, req.Msg.GroupId,
+	recurringTxns, _, err := s.store.ListRecurringTransactions(ctx, scope.userID, scope.groupID,
 		pfinancev1.RecurringTransactionStatus_RECURRING_TRANSACTION_STATUS_ACTIVE,
 		false, false, 10000, "")
 	if err != nil {
@@ -952,20 +896,9 @@ func (s *FinanceService) GetWaterfallData(ctx context.Context, req *connect.Requ
 		return nil, err
 	}
 
-	if req.Msg.GroupId != "" {
-		group, err := s.store.GetGroup(ctx, req.Msg.GroupId)
-		if err != nil {
-			return nil, auth.WrapStoreError("get group", err)
-		}
-		if !auth.IsGroupMember(claims.UID, group) {
-			return nil, connect.NewError(connect.CodePermissionDenied,
-				fmt.Errorf("user is not a member of this group"))
-		}
-	}
-
-	userID := req.Msg.UserId
-	if userID == "" && req.Msg.GroupId == "" {
-		userID = claims.UID
+	scope, err := s.resolveAnalyticsScope(ctx, claims, req.Msg.UserId, req.Msg.GroupId)
+	if err != nil {
+		return nil, err
 	}
 
 	period := req.Msg.Period
@@ -1004,11 +937,11 @@ func (s *FinanceService) GetWaterfallData(ctx context.Context, req *connect.Requ
 	}
 
 	// Fetch incomes and expenses
-	incomesList, _, err := s.store.ListIncomes(ctx, userID, req.Msg.GroupId, &startDate, &endDate, 10000, "")
+	incomesList, _, err := s.store.ListIncomes(ctx, scope.userID, scope.groupID, &startDate, &endDate, 10000, "")
 	if err != nil {
 		return nil, auth.WrapStoreError("list incomes", err)
 	}
-	expensesList, _, err := s.store.ListExpenses(ctx, userID, req.Msg.GroupId, &startDate, &endDate, 10000, "")
+	expensesList, _, err := s.store.ListExpenses(ctx, scope.userID, scope.groupID, &startDate, &endDate, 10000, "")
 	if err != nil {
 		return nil, auth.WrapStoreError("list expenses", err)
 	}
@@ -1044,7 +977,7 @@ func (s *FinanceService) GetWaterfallData(ctx context.Context, req *connect.Requ
 
 	// 2. Tax (use user's configured rate, fallback to 25%)
 	estimatedTaxRate := 0.25
-	taxCfg, taxErr := s.store.GetTaxConfig(ctx, userID, req.Msg.GroupId)
+	taxCfg, taxErr := s.store.GetTaxConfig(ctx, scope.userID, scope.groupID)
 	if taxErr == nil && taxCfg != nil && taxCfg.TaxRate > 0 {
 		estimatedTaxRate = taxCfg.TaxRate / 100.0
 	}
