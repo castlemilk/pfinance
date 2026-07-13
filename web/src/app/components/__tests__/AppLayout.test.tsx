@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 import { render, screen } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server.node';
 
@@ -6,17 +6,24 @@ import RootLayout from '../../layout';
 import AuthLayout from '../../auth/layout';
 import NotFound from '../../not-found';
 import AppLayout from '../AppLayout';
+import AppSkeleton from '../skeletons/AppSkeleton';
 
 jest.mock('next/font/google', () => ({
   IBM_Plex_Mono: () => ({ variable: 'font-terminal' }),
   Space_Mono: () => ({ variable: 'font-terminal-mono' }),
 }));
 
-jest.mock('next/dynamic', () => () => {
-  const MockDynamicComponent = () => null;
-  MockDynamicComponent.displayName = 'MockDynamicComponent';
-  return MockDynamicComponent;
-});
+jest.mock('next/dynamic', () => ({
+  __esModule: true,
+  default: (
+    _loader: unknown,
+    options?: { loading?: () => ReactNode }
+  ) => {
+    const MockDynamicComponent = () => options?.loading?.() ?? null;
+    MockDynamicComponent.displayName = 'MockDynamicComponent';
+    return MockDynamicComponent;
+  },
+}));
 
 jest.mock('../../context/ThemeContext', () => ({
   ThemeProvider: ({ children }: PropsWithChildren) => children,
@@ -56,6 +63,7 @@ jest.mock('../DebugPanel', () => ({
 jest.mock('@/components/ui/sheet', () => ({
   Sheet: ({ children }: PropsWithChildren) => children,
   SheetTrigger: ({ children }: PropsWithChildren) => children,
+  SheetClose: ({ children }: PropsWithChildren) => children,
   SheetContent: ({ children }: PropsWithChildren) => children,
   SheetTitle: ({ children }: PropsWithChildren) => children,
   SheetDescription: ({ children }: PropsWithChildren) => children,
@@ -105,12 +113,45 @@ describe('App shell accessibility', () => {
     );
   });
 
+  it('announces a compact status while the assistant chunk loads', () => {
+    render(
+      <AppLayout>
+        <div>Page</div>
+      </AppLayout>
+    );
+
+    const status = screen.getByRole('status', {
+      name: 'Loading finance assistant',
+    });
+    expect(status).toHaveClass('min-h-20');
+    expect(status).toHaveAttribute('aria-live', 'polite');
+  });
+
+  it('provides a named 40px local close control for the assistant sheet', () => {
+    render(
+      <AppLayout>
+        <div>Page</div>
+      </AppLayout>
+    );
+
+    const close = screen.getByRole('button', { name: 'Close' });
+    expect(close).toHaveClass('min-h-10', 'min-w-10');
+  });
+
   it('provides the same focusable skip target on the auth surface', () => {
     render(
       <AuthLayout>
         <div>Sign in form</div>
       </AuthLayout>
     );
+
+    const main = screen.getByRole('main');
+    expect(main).toHaveAttribute('id', 'main-content');
+    expect(main).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('keeps the Suspense skeleton main target programmatically focusable', () => {
+    render(<AppSkeleton />);
 
     const main = screen.getByRole('main');
     expect(main).toHaveAttribute('id', 'main-content');

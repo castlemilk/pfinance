@@ -264,7 +264,8 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
           <button
             onClick={() => setShowConversations(!showConversations)}
             className="chat-action-pill min-h-10 min-w-10 justify-center px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            aria-label="Show chat history"
+            aria-label={showConversations ? 'Hide chat history' : 'Show chat history'}
+            aria-expanded={showConversations}
             title="Chat history"
           >
             <History className="w-3.5 h-3.5" />

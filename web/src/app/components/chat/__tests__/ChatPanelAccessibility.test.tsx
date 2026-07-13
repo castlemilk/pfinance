@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import { useChat } from '@ai-sdk/react';
 
@@ -151,6 +152,24 @@ describe('ChatPanel accessibility', () => {
 
     expect(screen.getByRole('button', { name: 'Stop' })).toHaveClass('min-h-10');
     expect(screen.getByRole('button', { name: 'Retry' })).toHaveClass('min-h-10');
+  });
+
+  it('announces whether chat history is expanded', async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    const showHistory = screen.getByRole('button', {
+      name: 'Show chat history',
+    });
+    expect(showHistory).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(showHistory);
+
+    const hideHistory = screen.getByRole('button', {
+      name: 'Hide chat history',
+    });
+    expect(hideHistory).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('Conversation list')).toBeInTheDocument();
   });
 
   it('uses instant auto-scroll when reduced motion is requested', async () => {

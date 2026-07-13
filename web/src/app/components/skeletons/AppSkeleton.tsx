@@ -46,7 +46,7 @@ export default function AppSkeleton() {
         </div>
 
         {/* Content area */}
-        <main id="main-content" className="flex-1 p-6">
+        <main id="main-content" tabIndex={-1} className="flex-1 p-6">
           {/* Page header */}
           <div className="mb-8">
             <Skeleton className="h-8 w-64 mb-2" />

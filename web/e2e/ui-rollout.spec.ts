@@ -48,6 +48,7 @@ test.describe('Application shell interactions', () => {
     ).toBeVisible();
 
     const controls = [
+      dialog.getByRole('button', { name: 'Close' }),
       dialog.getByRole('button', { name: 'Show chat history' }),
       dialog.getByRole('button', { name: 'Start new chat' }),
       dialog.getByRole('button', { name: 'Send message' }),

@@ -5,9 +5,10 @@ import SidebarNav from './SidebarNav';
 import Breadcrumbs from './Breadcrumbs';
 import DebugPanel from './DebugPanel';
 import { cn } from '@/lib/utils';
-import { Bot } from 'lucide-react';
+import { Bot, Loader2, X } from 'lucide-react';
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetTrigger,
   SheetTitle,
@@ -16,9 +17,26 @@ import {
 import dynamic from 'next/dynamic';
 import { ChatHistoryProvider } from '@/lib/chat/ChatHistoryContext';
 
+function ChatPanelLoadingFallback() {
+  return (
+    <div
+      role="status"
+      aria-label="Loading finance assistant"
+      aria-live="polite"
+      className="flex min-h-20 items-center justify-center gap-2 p-4 text-sm text-muted-foreground"
+    >
+      <Loader2
+        aria-hidden="true"
+        className="h-4 w-4 animate-spin motion-reduce:animate-none"
+      />
+      <span>Loading finance assistant...</span>
+    </div>
+  );
+}
+
 const ChatPanel = dynamic(
   () => import('./chat/ChatPanel').then(m => ({ default: m.ChatPanel })),
-  { ssr: false, loading: () => null }
+  { ssr: false, loading: ChatPanelLoadingFallback }
 );
 
 interface AppLayoutProps {
@@ -60,7 +78,20 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <Bot className="h-5 w-5 sm:h-6 sm:w-6" />
             </button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-full sm:w-[400px] md:w-[540px] p-0 gap-0">
+          <SheetContent
+            side="right"
+            showCloseButton={false}
+            className="w-full sm:w-[400px] md:w-[540px] p-0 gap-0"
+          >
+            <SheetClose asChild>
+              <button
+                type="button"
+                aria-label="Close"
+                className="absolute right-3 top-3 z-10 inline-flex min-h-10 min-w-10 items-center justify-center rounded-md text-muted-foreground transition-[color,background-color,box-shadow] hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 motion-reduce:transition-none"
+              >
+                <X aria-hidden="true" className="h-4 w-4" />
+              </button>
+            </SheetClose>
             <SheetTitle className="sr-only">Finance Assistant</SheetTitle>
             <SheetDescription className="sr-only">Chat with your financial data</SheetDescription>
             <ChatPanel compact />
