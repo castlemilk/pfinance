@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
+import { hydrateRoot } from 'react-dom/client';
+import { renderToString } from 'react-dom/server.node';
 import userEvent from '@testing-library/user-event';
 
 import { AnalyticsWorkspace } from '../AnalyticsWorkspace';
@@ -211,6 +213,43 @@ describe('AnalyticsWorkspace', () => {
     expect(screen.getByTestId('analytics-skeleton-geometry')).toBeInTheDocument();
     expect(mockOverview).not.toHaveBeenCalled();
     expect(mockUpgradePrompt).not.toHaveBeenCalled();
+  });
+
+  it('hydrates the loading shell before using a settled client subscription', async () => {
+    mockUseSubscription.mockReturnValue({
+      hasProAccess: false,
+      loading: true,
+    });
+    const container = document.createElement('div');
+    container.innerHTML = renderToString(
+      <AnalyticsWorkspace scope={personalScope} />
+    );
+    document.body.appendChild(container);
+
+    mockUseSubscription.mockReturnValue({
+      hasProAccess: true,
+      loading: false,
+    });
+    const onRecoverableError = jest.fn();
+    let root: ReturnType<typeof hydrateRoot> | undefined;
+
+    try {
+      await act(async () => {
+        root = hydrateRoot(
+          container,
+          <AnalyticsWorkspace scope={personalScope} />,
+          { onRecoverableError }
+        );
+      });
+
+      expect(onRecoverableError).not.toHaveBeenCalled();
+      expect(container).toHaveTextContent('Overview view');
+    } finally {
+      await act(async () => {
+        root?.unmount();
+      });
+      container.remove();
+    }
   });
 
   it('renders one upgrade prompt and mounts no analytics view when locked', () => {

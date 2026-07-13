@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 
 import { UpgradePrompt } from '@/app/components/ProFeatureGate';
 import { useFinance } from '@/app/context/FinanceContext';
@@ -30,6 +30,10 @@ import type {
 
 export type AnalyticsWorkspaceProps = Readonly<{ scope: AnalyticsScope }>;
 
+const subscribeToHydration = () => () => {};
+const getClientHydrationSnapshot = () => true;
+const getServerHydrationSnapshot = () => false;
+
 function ActiveAnalyticsView({
   view,
   ...props
@@ -57,6 +61,11 @@ function ActiveAnalyticsView({
 export function AnalyticsWorkspace({ scope }: AnalyticsWorkspaceProps) {
   const { taxConfig } = useFinance();
   const subscription = useSubscription();
+  const hasHydrated = useSyncExternalStore(
+    subscribeToHydration,
+    getClientHydrationSnapshot,
+    getServerHydrationSnapshot
+  );
   const [period, setPeriod] = useState<AnalyticsPeriod>('month');
   const [activeView, setActiveView] = useState<AnalyticsView>('overview');
   const currency = useMemo(
@@ -64,7 +73,7 @@ export function AnalyticsWorkspace({ scope }: AnalyticsWorkspaceProps) {
     [taxConfig.country]
   );
 
-  if (subscription.loading) {
+  if (!hasHydrated || subscription.loading) {
     return (
       <AnalyticsWorkspaceFrame scope={scope}>
         <AnalyticsChartSkeleton label="Loading analytics workspace" />
