@@ -1,3 +1,4 @@
+import { useLayoutEffect } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { GetGroupSummaryResponse } from '@/gen/pfinance/v1/finance_service_pb';
 import type { AnalyticsScope } from '@/app/components/analytics/types';
@@ -468,29 +469,94 @@ describe('useGroupAnalyticsSummary', () => {
     expect(getGroupSummary).toHaveBeenCalledTimes(1);
   });
 
-  it('does not reveal a prior success when the same key is re-enabled', async () => {
-    getGroupSummary.mockResolvedValueOnce(
-      response({ totalIncomeCents: BigInt(10_000) })
-    );
+  it('hides keyed success before passive effects when the same key is re-enabled', async () => {
+    const staleRequest = deferred<GetGroupSummaryResponse>();
     const freshRequest = deferred<GetGroupSummaryResponse>();
+    getGroupSummary
+      .mockResolvedValueOnce(response({ totalIncomeCents: BigInt(10_000) }))
+      .mockImplementationOnce(() => staleRequest.promise)
+      .mockImplementationOnce(() => freshRequest.promise);
+    const layoutSnapshots: Array<{
+      phase: string;
+      data: ReturnType<typeof useGroupAnalyticsSummary>['data'];
+      loading: boolean;
+      error: string | null;
+    }> = [];
 
-    const { result, rerender } = renderSummaryHook({
+    const { result, rerender } = renderHook(
+      ({ phase, ...hookProps }: HookProps & { phase: string }) => {
+        const summary = useGroupAnalyticsSummary(hookProps);
+        useLayoutEffect(() => {
+          layoutSnapshots.push({
+            phase,
+            data: summary.data,
+            loading: summary.loading,
+            error: summary.error,
+          });
+        }, [phase, summary]);
+        return summary;
+      },
+      {
+        initialProps: {
+          scope: homeScope,
+          start,
+          end,
+          enabled: true,
+          phase: 'initial',
+        },
+      }
+    );
+    await waitFor(() => expect(result.current.data?.totalIncome).toBe(100));
+
+    rerender({
       scope: homeScope,
       start,
       end,
-      enabled: true,
+      enabled: false,
+      phase: 'disabled',
     });
-    await waitFor(() => expect(result.current.data?.totalIncome).toBe(100));
-
-    rerender({ scope: homeScope, start, end, enabled: false });
     expect(result.current).toMatchObject({
       data: null,
       loading: false,
       error: null,
     });
 
-    getGroupSummary.mockImplementationOnce(() => freshRequest.promise);
-    rerender({ scope: homeScope, start, end, enabled: true });
+    rerender({
+      scope: homeScope,
+      start,
+      end,
+      enabled: true,
+      phase: 'first-reenable',
+    });
+    expect(
+      layoutSnapshots.filter(({ phase }) => phase === 'first-reenable')[0]
+    ).toMatchObject({
+      data: null,
+      loading: true,
+      error: null,
+    });
+    await waitFor(() => expect(getGroupSummary).toHaveBeenCalledTimes(2));
+
+    rerender({
+      scope: homeScope,
+      start,
+      end,
+      enabled: false,
+      phase: 'disabled-again',
+    });
+    rerender({
+      scope: homeScope,
+      start,
+      end,
+      enabled: true,
+      phase: 'second-reenable',
+    });
+    await waitFor(() => expect(getGroupSummary).toHaveBeenCalledTimes(3));
+
+    await act(async () => {
+      staleRequest.resolve(response({ totalIncomeCents: BigInt(20_000) }));
+      await staleRequest.promise;
+    });
     expect(result.current).toMatchObject({
       data: null,
       loading: true,
@@ -498,14 +564,14 @@ describe('useGroupAnalyticsSummary', () => {
     });
 
     await act(async () => {
-      freshRequest.resolve(response({ totalIncomeCents: BigInt(20_000) }));
+      freshRequest.resolve(response({ totalIncomeCents: BigInt(30_000) }));
       await freshRequest.promise;
     });
     expect(result.current).toMatchObject({
-      data: expect.objectContaining({ totalIncome: 200 }),
+      data: expect.objectContaining({ totalIncome: 300 }),
       loading: false,
       error: null,
     });
-    expect(getGroupSummary).toHaveBeenCalledTimes(2);
+    expect(getGroupSummary).toHaveBeenCalledTimes(3);
   });
 });

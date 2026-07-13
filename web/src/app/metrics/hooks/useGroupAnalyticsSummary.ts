@@ -311,12 +311,15 @@ export function useGroupAnalyticsSummary(
     latestCommittedRequestRef.current = request;
     if (!request) {
       requestIdRef.current += 1;
+      // A committed idle period invalidates keyed success so re-enabling the
+      // same request cannot expose it before the next passive effect runs.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setState((current) => (current === IDLE_STATE ? current : IDLE_STATE));
       return;
     }
 
     // Fetch state must reset on each committed activation, including when the
     // same request key is re-enabled after being idle.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void executeRequest(request);
     return () => {
       requestIdRef.current += 1;

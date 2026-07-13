@@ -296,11 +296,8 @@ function anomalyCents(amount: number): number {
     : Number.NaN;
 }
 
-function privateMemberLabel(userId: string, index: number): string {
-  const normalizedId = userId.trim();
-  return normalizedId.length > 4
-    ? `Member •••${normalizedId.slice(-4)}`
-    : `Member ${index + 1}`;
+function privateMemberLabel(index: number): string {
+  return `Member ${index + 1}`;
 }
 
 function GroupSettlementPanel({
@@ -373,7 +370,7 @@ function GroupSettlementPanel({
                 >
                   <div className="min-w-0">
                     <h3 className="truncate text-sm font-semibold text-foreground">
-                      {privateMemberLabel(member.userId, index)}
+                      {privateMemberLabel(index)}
                     </h3>
                     <p className={'mt-1 text-xs font-medium ' + status.className}>
                       {status.label}

@@ -621,10 +621,12 @@ describe('OverviewAnalyticsView', () => {
     expect(screen.getByText('AUD 125.50')).toBeInTheDocument();
     const balances = screen.getByRole('region', { name: 'Member balances' });
     expect(within(balances).getAllByTestId('member-balance')).toHaveLength(2);
-    expect(within(balances).getByText('Member •••edit')).toBeInTheDocument();
-    expect(within(balances).getByText('Member •••ebit')).toBeInTheDocument();
+    expect(within(balances).getByText('Member 1')).toBeInTheDocument();
+    expect(within(balances).getByText('Member 2')).toBeInTheDocument();
     expect(within(balances).queryByText('member-credit')).not.toBeInTheDocument();
     expect(within(balances).queryByText('member-debit')).not.toBeInTheDocument();
+    expect(balances).not.toHaveTextContent('edit');
+    expect(balances).not.toHaveTextContent('ebit');
     expect(within(balances).getByText('Is owed')).toHaveClass('text-chart-2');
     expect(within(balances).getByText('Owes')).toHaveClass('text-destructive');
     expect(within(balances).getAllByText('AUD 150.00')).toHaveLength(2);
@@ -691,12 +693,19 @@ describe('OverviewAnalyticsView', () => {
 
     renderOverview(groupScope);
 
-    expect(screen.getAllByText('Member •••1234')).toHaveLength(2);
+    expect(screen.getByText('Member 1')).toBeInTheDocument();
+    expect(screen.getByText('Member 2')).toBeInTheDocument();
     expect(screen.getByText('Member 3')).toBeInTheDocument();
     expect(screen.getByText('Member 4')).toBeInTheDocument();
     expect(screen.getByText('Member 5')).toBeInTheDocument();
     expect(screen.queryByText('opaque-user-1234')).not.toBeInTheDocument();
     expect(screen.queryByText('xy')).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Member balances' })).not.toHaveTextContent(
+      'opaque'
+    );
+    expect(screen.getByRole('region', { name: 'Member balances' })).not.toHaveTextContent(
+      '1234'
+    );
     expect(
       consoleError.mock.calls.some((call) =>
         call.some(
