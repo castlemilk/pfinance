@@ -790,6 +790,13 @@ enum Granularity {
   GRANULARITY_MONTH = 3;
 }
 
+enum AnalyticsPeriod {
+  ANALYTICS_PERIOD_UNSPECIFIED = 0;
+  ANALYTICS_PERIOD_MONTH = 1;
+  ANALYTICS_PERIOD_QUARTER = 2;
+  ANALYTICS_PERIOD_YEAR = 3;
+}
+
 // AnomalyType categorizes the kind of spending anomaly
 enum AnomalyType {
   ANOMALY_TYPE_UNSPECIFIED = 0;
@@ -844,6 +851,14 @@ message CategorySpending {
   double change_percent = 8;
 }
 
+message CombinedBudgetComparison {
+  string budget_id = 1;
+  string name = 2;
+  repeated ExpenseCategory categories = 3;
+  int64 allowance_cents = 4;
+  int64 current_spend_cents = 5;
+}
+
 // SpendingAnomaly represents a detected spending anomaly
 message SpendingAnomaly {
   string id = 1;
@@ -858,6 +873,15 @@ message SpendingAnomaly {
   int64 expected_amount_cents = 10;
   AnomalyType anomaly_type = 11;
   AnomalySeverity severity = 12;
+  int64 expected_lower_cents = 13;
+  int64 expected_upper_cents = 14;
+  bool has_expected_range = 15;
+}
+
+message AnomalyCategoryCoverage {
+  ExpenseCategory category = 1;
+  int32 sample_count = 2;
+  bool has_sufficient_history = 3;
 }
 
 // ForecastPoint represents a single forecast data point

@@ -136,6 +136,7 @@ service FinanceService {
   rpc VerifyCheckoutSession(VerifyCheckoutSessionRequest) returns (VerifyCheckoutSessionResponse);
 
   // Analytics operations (Pro tier)
+  rpc GetAnalyticsOverview(GetAnalyticsOverviewRequest) returns (GetAnalyticsOverviewResponse);
   rpc GetDailyAggregates(GetDailyAggregatesRequest) returns (GetDailyAggregatesResponse);
   rpc GetSpendingTrends(GetSpendingTrendsRequest) returns (GetSpendingTrendsResponse);
   rpc GetCategoryComparison(GetCategoryComparisonRequest) returns (GetCategoryComparisonResponse);
@@ -1249,6 +1250,36 @@ message VerifyCheckoutSessionResponse {
 // Analytics operations (Pro tier)
 // ============================================================================
 
+message GetAnalyticsOverviewRequest {
+  string user_id = 1;
+  string group_id = 2;
+  AnalyticsPeriod period = 3;
+}
+
+message GetAnalyticsOverviewResponse {
+  google.protobuf.Timestamp current_start = 1;
+  google.protobuf.Timestamp current_end = 2;
+  google.protobuf.Timestamp previous_start = 3;
+  google.protobuf.Timestamp previous_end = 4;
+  int64 current_income_cents = 5;
+  int64 current_expense_cents = 6;
+  int64 current_net_cents = 7;
+  int64 previous_income_cents = 8;
+  int64 previous_expense_cents = 9;
+  int64 previous_net_cents = 10;
+  double savings_rate_percent = 11;
+  bool has_savings_rate = 12;
+  double income_change_percent = 13;
+  bool has_income_change = 14;
+  double expense_change_percent = 15;
+  bool has_expense_change = 16;
+  ExpenseCategory largest_category = 17;
+  int64 largest_category_amount_cents = 18;
+  int32 current_transaction_count = 19;
+  int32 previous_transaction_count = 20;
+  bool has_current_data = 21;
+}
+
 message GetDailyAggregatesRequest {
   string user_id = 1;
   string group_id = 2;              // Optional
@@ -1286,6 +1317,7 @@ message GetCategoryComparisonRequest {
 
 message GetCategoryComparisonResponse {
   repeated CategorySpending categories = 1;
+  repeated CombinedBudgetComparison combined_budgets = 2;
 }
 
 message DetectAnomaliesRequest {
@@ -1301,6 +1333,11 @@ message DetectAnomaliesResponse {
   double anomalous_spend_total = 3;
   int64 anomalous_spend_total_cents = 4;
   string top_anomaly_category = 5;
+  int32 analyzed_expense_count = 6;
+  int32 eligible_category_count = 7;
+  int32 minimum_category_sample = 8;
+  bool has_sufficient_history = 9;
+  repeated AnomalyCategoryCoverage category_coverage = 10;
 }
 
 message GetCashFlowForecastRequest {
