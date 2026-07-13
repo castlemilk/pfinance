@@ -774,6 +774,13 @@ describe('MultiUserFinanceContext', () => {
     expect(screen.getByTestId('probe-loading')).toHaveTextContent('loading');
 
     await act(async () => {
+      initialGroups.resolve({ groups: [existingGroup] });
+      await initialGroups.promise;
+    });
+    expect(screen.getByTestId('probe-groups')).toHaveTextContent('Created Group');
+    expect(screen.getByTestId('probe-loading')).toHaveTextContent('loading');
+
+    await act(async () => {
       reconciledGroups.resolve({ groups: [existingGroup, createdGroup] });
       await reconciledGroups.promise;
     });
@@ -781,14 +788,6 @@ describe('MultiUserFinanceContext', () => {
       expect(screen.getByTestId('probe-groups')).toHaveTextContent('Group A,Created Group');
       expect(screen.getByTestId('probe-loading')).toHaveTextContent('loaded');
     });
-
-    await act(async () => {
-      initialGroups.resolve({ groups: [existingGroup] });
-      await initialGroups.promise;
-    });
-
-    expect(screen.getByTestId('probe-groups')).toHaveTextContent('Group A,Created Group');
-    expect(screen.getByTestId('probe-loading')).toHaveTextContent('loaded');
   });
 
   it('ignores stale group data from a refresh started before a successful update', async () => {
