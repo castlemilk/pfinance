@@ -52,13 +52,13 @@ export function AnalyticsExpenseFilterSummary({
     <section
       role="region"
       aria-label="Active analytics filters"
-      className="flex flex-col gap-3 rounded-lg border border-primary/25 bg-primary/[0.04] p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+      className="flex flex-col gap-3 rounded-2xl border border-primary/25 bg-primary/[0.04] p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
     >
       <dl className="grid min-w-0 flex-1 grid-cols-1 gap-x-5 gap-y-2 text-sm sm:grid-cols-2 xl:grid-cols-4">
         {normalizedFilters.date ? (
           <div className="min-w-0">
             <dt className="text-xs font-medium text-muted-foreground">Date</dt>
-            <dd className="tabular-nums text-foreground">
+            <dd className="font-mono tabular-nums text-foreground">
               {formatUtcCalendarDate(normalizedFilters.date)}
             </dd>
           </div>
@@ -76,7 +76,7 @@ export function AnalyticsExpenseFilterSummary({
         {range ? (
           <div className="min-w-0">
             <dt className="text-xs font-medium text-muted-foreground">Range</dt>
-            <dd className="tabular-nums text-foreground">{range}</dd>
+            <dd className="font-mono tabular-nums text-foreground">{range}</dd>
           </div>
         ) : null}
         {normalizedFilters.expenseId ? (
@@ -84,9 +84,7 @@ export function AnalyticsExpenseFilterSummary({
             <dt className="text-xs font-medium text-muted-foreground">
               Focused expense
             </dt>
-            <dd className="break-all font-mono text-foreground">
-              {normalizedFilters.expenseId}
-            </dd>
+            <dd className="text-foreground">Highlighted below</dd>
           </div>
         ) : null}
       </dl>

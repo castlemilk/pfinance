@@ -175,6 +175,7 @@ function DriverBand({
   formatMoney: AnalyticsCurrencyContext['formatMoney'];
 }>) {
   const href = driverUrl(data, scope);
+  const Heading = scope.kind === 'personal' ? 'h2' : 'h3';
   return (
     <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
@@ -182,10 +183,10 @@ function DriverBand({
           Largest spending driver
         </p>
         <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 className="text-balance text-xl font-semibold text-foreground">
+          <Heading className="text-balance text-xl font-semibold text-foreground">
             {data.largestCategory || 'Not available'}
-          </h2>
-          <p className="text-base font-semibold tabular-nums text-foreground">
+          </Heading>
+          <p className="font-mono text-base font-semibold tabular-nums text-foreground">
             {Number.isFinite(data.largestCategoryAmount)
               ? formatMoney(data.largestCategoryAmount)
               : 'Not available'}
@@ -296,14 +297,24 @@ function anomalyCents(amount: number): number {
     : Number.NaN;
 }
 
-function privateMemberLabel(index: number): string {
-  return `Member ${index + 1}`;
+function groupMemberLabel(
+  scope: Extract<AnalyticsScope, { kind: 'group' }>,
+  userId: string,
+  index: number
+): string {
+  const member = scope.members?.find((candidate) => candidate.userId === userId);
+  const displayName = member?.displayName?.trim();
+  if (displayName) return displayName;
+  const email = member?.email?.trim();
+  return email || `Member ${index + 1}`;
 }
 
 function GroupSettlementPanel({
+  scope,
   summary,
   formatMoney,
 }: Readonly<{
+  scope: Extract<AnalyticsScope, { kind: 'group' }>;
   summary: NonNullable<ReturnType<typeof useGroupAnalyticsSummary>['data']>;
   formatMoney: AnalyticsCurrencyContext['formatMoney'];
 }>) {
@@ -318,21 +329,21 @@ function GroupSettlementPanel({
     >
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2
+          <h3
             id="group-settlement-heading"
             className="text-balance text-lg font-semibold text-foreground"
           >
             Group settlement
-          </h2>
+          </h3>
           <p className="mt-1 text-sm text-muted-foreground">
             Authoritative balances for this period
           </p>
         </div>
         <div className="text-right">
-          <p className="text-sm font-medium tabular-nums text-foreground">
+          <p className="font-mono text-sm font-medium tabular-nums text-foreground">
             {unsettledLabel}
           </p>
-          <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
+          <p className="mt-1 font-mono text-xl font-semibold tabular-nums text-foreground">
             {formatMoney(summary.unsettledAmount)}
           </p>
         </div>
@@ -340,11 +351,11 @@ function GroupSettlementPanel({
 
       <p className="mt-4 text-xs text-muted-foreground">
         Period income{' '}
-        <span className="font-medium tabular-nums text-foreground">
+        <span className="font-mono font-medium tabular-nums text-foreground">
           {formatMoney(summary.totalIncome, true)}
-        </span>{' '}
-        · Period spending{' '}
-        <span className="font-medium tabular-nums text-foreground">
+        </span>
+        {', period spending '}
+        <span className="font-mono font-medium tabular-nums text-foreground">
           {formatMoney(summary.totalExpenses, true)}
         </span>
       </p>
@@ -358,10 +369,10 @@ function GroupSettlementPanel({
             {summary.memberBalances.map((member, index) => {
               const status =
                 member.balance > 0
-                  ? { label: 'Is owed', className: 'text-chart-2' }
+                  ? { label: 'Is owed', accentClassName: 'bg-chart-2' }
                   : member.balance < 0
-                    ? { label: 'Owes', className: 'text-destructive' }
-                    : { label: 'Settled', className: 'text-muted-foreground' };
+                    ? { label: 'Owes', accentClassName: 'bg-destructive' }
+                    : { label: 'Settled', accentClassName: 'bg-muted-foreground' };
               return (
                 <article
                   key={JSON.stringify([member.groupId, member.userId, index])}
@@ -369,32 +380,33 @@ function GroupSettlementPanel({
                   className="grid gap-4 px-4 py-4 sm:grid-cols-[minmax(8rem,1.3fr)_repeat(3,minmax(6rem,1fr))] sm:items-center"
                 >
                   <div className="min-w-0">
-                    <h3 className="truncate text-sm font-semibold text-foreground">
-                      {privateMemberLabel(index)}
-                    </h3>
-                    <p className={'mt-1 text-xs font-medium ' + status.className}>
-                      {status.label}
+                    <h4 className="truncate text-sm font-semibold text-foreground">
+                      {groupMemberLabel(scope, member.userId, index)}
+                    </h4>
+                    <p className="mt-1 inline-flex items-center gap-2 text-xs font-medium text-foreground">
+                      <span
+                        aria-hidden="true"
+                        className={`size-2 rounded-full ${status.accentClassName}`}
+                      />
+                      <span>{status.label}</span>
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Paid</p>
-                    <p className="mt-1 text-sm font-medium tabular-nums text-foreground">
+                    <p className="mt-1 font-mono text-sm font-medium tabular-nums text-foreground">
                       {formatMoney(member.totalPaid)}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Allocated</p>
-                    <p className="mt-1 text-sm font-medium tabular-nums text-foreground">
+                    <p className="mt-1 font-mono text-sm font-medium tabular-nums text-foreground">
                       {formatMoney(member.totalOwed)}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Balance</p>
                     <p
-                      className={
-                        'mt-1 text-sm font-semibold tabular-nums ' +
-                        status.className
-                      }
+                      className="mt-1 font-mono text-sm font-semibold tabular-nums text-foreground"
                     >
                       {formatMoney(Math.abs(member.balance))}
                     </p>
@@ -471,6 +483,7 @@ function LoadedOverview({
   const trendCaption =
     (config.trendGranularity === 'week' ? 'Weekly' : 'Monthly') +
     ' income and spending';
+  const SectionHeading = scope.kind === 'personal' ? 'h2' : 'h3';
 
   return (
     <div className="space-y-5">
@@ -486,17 +499,17 @@ function LoadedOverview({
           aria-labelledby="spending-trend-heading"
           className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm"
         >
-          <div>
-            <h2
+          <figcaption>
+            <SectionHeading
               id="spending-trend-heading"
               className="text-balance text-lg font-semibold text-foreground"
             >
               Spending trend
-            </h2>
-            <figcaption className="mt-1 text-pretty text-sm text-muted-foreground">
+            </SectionHeading>
+            <p className="mt-1 text-pretty text-sm text-muted-foreground">
               {trendCaption}
-            </figcaption>
-          </div>
+            </p>
+          </figcaption>
           <div className="mt-4">
             {trends.loading ? (
               <LocalLoading label="Loading spending trend" />
@@ -538,12 +551,12 @@ function LoadedOverview({
           aria-labelledby="spending-attention-heading"
           className="rounded-2xl border border-border bg-card p-5 shadow-sm"
         >
-          <h2
+          <SectionHeading
             id="spending-attention-heading"
             className="text-balance text-lg font-semibold text-foreground"
           >
             Spending attention
-          </h2>
+          </SectionHeading>
           <p className="mt-1 text-pretty text-sm text-muted-foreground">
             Evidence worth reviewing, with coverage limits kept visible.
           </p>
@@ -565,6 +578,7 @@ function LoadedOverview({
                 uncoveredCategoryCount={uncoveredCategoryCount}
                 formatMoney={currency.formatMoney}
                 attentionUrl={attentionUrl}
+                headingLevel={scope.kind === 'personal' ? 3 : 4}
               />
             )}
           </div>
@@ -575,15 +589,17 @@ function LoadedOverview({
         aria-labelledby="money-flow-heading"
         className="rounded-2xl border border-border bg-card p-5 shadow-sm"
       >
-        <h2
-          id="money-flow-heading"
-          className="text-balance text-lg font-semibold text-foreground"
-        >
-          Money flow
-        </h2>
-        <figcaption className="mt-1 text-pretty text-sm text-muted-foreground">
-          {waterfall.periodLabel ||
-            'Income through spending to the period balance'}
+        <figcaption>
+          <SectionHeading
+            id="money-flow-heading"
+            className="text-balance text-lg font-semibold text-foreground"
+          >
+            Money flow
+          </SectionHeading>
+          <p className="mt-1 text-pretty text-sm text-muted-foreground">
+            {waterfall.periodLabel ||
+              'Income through spending to the period balance'}
+          </p>
         </figcaption>
         <div className="mt-4">
           {waterfall.loading ? (
@@ -597,7 +613,10 @@ function LoadedOverview({
           ) : waterfall.data && waterfall.data.length > 0 ? (
             <>
               <div className="h-[340px] rounded-[10px] bg-muted/20 p-2">
-                <LazyWaterfallChart data={waterfall.data} />
+                <LazyWaterfallChart
+                  data={waterfall.data}
+                  formatMoney={currency.formatMoney}
+                />
               </div>
               <div className="mt-3">
                 <AccessibleDataSummary
@@ -618,18 +637,18 @@ function LoadedOverview({
       {scope.kind === 'group' ? (
         groupSummary.loading ? (
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-balance text-lg font-semibold text-foreground">
+            <h3 className="text-balance text-lg font-semibold text-foreground">
               Group settlement
-            </h2>
+            </h3>
             <div className="mt-4">
               <LocalLoading label="Loading group settlement" />
             </div>
           </section>
         ) : groupSummary.error ? (
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-balance text-lg font-semibold text-foreground">
+            <h3 className="text-balance text-lg font-semibold text-foreground">
               Group settlement
-            </h2>
+            </h3>
             <div className="mt-4">
               <LocalError
                 message={groupSummary.error}
@@ -640,14 +659,15 @@ function LoadedOverview({
           </section>
         ) : groupSummary.data ? (
           <GroupSettlementPanel
+            scope={scope}
             summary={groupSummary.data}
             formatMoney={currency.formatMoney}
           />
         ) : (
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-balance text-lg font-semibold text-foreground">
+            <h3 className="text-balance text-lg font-semibold text-foreground">
               Group settlement
-            </h2>
+            </h3>
             <p className="mt-3 text-sm text-muted-foreground">
               No settlement summary is available for this period.
             </p>
@@ -669,6 +689,7 @@ function OverviewGate({ scope, period, currency }: AnalyticsViewProps) {
       <AnalyticsErrorState
         message={overview.error}
         onRetry={() => void overview.refetch()}
+        headingLevel={scope.kind === 'personal' ? 2 : 3}
       />
     );
   }

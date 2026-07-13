@@ -73,16 +73,18 @@ function expectedRangeCopy(
   formatMoney: AnalyticsCurrencyContext['formatMoney']
 ): string {
   return point.hasExpectedRange
-    ? `Expected ${formatMoney(point.expectedLowerAmount)}–${formatMoney(
+    ? `Expected ${formatMoney(point.expectedLowerAmount)} to ${formatMoney(
         point.expectedUpperAmount
       )}`
     : `${humanizeReason(point.anomalyType)}; no expected amount range applies.`;
 }
 
 function CoverageSummary({
+  scope,
   coverage,
   minimumSample,
 }: Readonly<{
+  scope: AnalyticsScope;
   coverage: readonly AnalyticsAnomalyCoverage[];
   minimumSample: number;
 }>) {
@@ -92,18 +94,19 @@ function CoverageSummary({
   const safeMinimum = Number.isFinite(minimumSample)
     ? Math.max(0, Math.trunc(minimumSample))
     : 0;
+  const Heading = scope.kind === 'personal' ? 'h3' : 'h4';
 
   return (
     <section
       aria-labelledby={headingId}
       className="rounded-2xl border border-border bg-card p-5 shadow-sm"
     >
-      <h3
+      <Heading
         id={headingId}
         className="text-balance text-lg font-semibold text-foreground"
       >
-        Anomaly coverage
-      </h3>
+        Spending check coverage
+      </Heading>
       {coverage.length === 0 ? (
         <p className="mt-2 text-pretty text-sm text-muted-foreground">
           Coverage details were not reported, so no conclusion can be made
@@ -111,16 +114,16 @@ function CoverageSummary({
         </p>
       ) : (
         <p className="mt-2 text-pretty text-sm text-muted-foreground">
-          <span className="tabular-nums">{covered.length}</span> of{' '}
-          <span className="tabular-nums">{coverage.length}</span> categories
+          <span className="font-mono tabular-nums">{covered.length}</span> of{' '}
+          <span className="font-mono tabular-nums">{coverage.length}</span> categories
           assessed. Minimum sample{' '}
-          <span className="tabular-nums">{safeMinimum}</span>{' '}
+          <span className="font-mono tabular-nums">{safeMinimum}</span>{' '}
           {plural(safeMinimum, 'transaction')} per category.
         </p>
       )}
       {uncovered.length > 0 ? (
         <ul
-          aria-label="Categories needing more anomaly history"
+          aria-label="Categories needing more spending history"
           className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2"
         >
           {uncovered.map((item, index) => (
@@ -128,9 +131,10 @@ function CoverageSummary({
               key={`${item.category}:${item.sampleCount}:${index}`}
               className="rounded-[10px] bg-muted/40 px-3 py-2"
             >
-              <span className="font-medium text-foreground">{item.category}</span>{' '}
-              · <span className="tabular-nums">{item.sampleCount}</span>{' '}
-              {plural(item.sampleCount, 'transaction')}
+              <span className="font-medium text-foreground">{item.category}</span>
+              <span className="font-mono tabular-nums">
+                , {item.sampleCount} {plural(item.sampleCount, 'transaction')}
+              </span>
             </li>
           ))}
         </ul>
@@ -144,24 +148,29 @@ function CoverageSummary({
 }
 
 function QualifiedZeroState({
+  scope,
   coverage,
-}: Readonly<{ coverage: readonly AnalyticsAnomalyCoverage[] }>) {
+}: Readonly<{
+  scope: AnalyticsScope;
+  coverage: readonly AnalyticsAnomalyCoverage[];
+}>) {
   const covered = coverage.filter((item) => item.hasSufficientHistory);
   const uncovered = coverage.filter((item) => !item.hasSufficientHistory);
+  const Heading = scope.kind === 'personal' ? 'h3' : 'h4';
 
   return (
     <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-      <h2 className="text-balance text-xl font-semibold text-foreground">
+      <Heading className="text-balance text-xl font-semibold text-foreground">
         No unusual spending was flagged
-      </h2>
+      </Heading>
       <p className="mt-2 max-w-2xl text-pretty text-sm leading-relaxed text-muted-foreground">
         This conclusion applies only to{' '}
-        <span className="tabular-nums">{covered.length}</span> covered{' '}
+        <span className="font-mono tabular-nums">{covered.length}</span> covered{' '}
         {plural(covered.length, 'category', 'categories')}.
       </p>
       {uncovered.length > 0 ? (
         <p className="mt-2 max-w-2xl text-pretty text-sm leading-relaxed text-muted-foreground">
-          <span className="tabular-nums">{uncovered.length}</span>{' '}
+          <span className="font-mono tabular-nums">{uncovered.length}</span>{' '}
           {plural(uncovered.length, 'category', 'categories')} still needs more
           history: {uncovered
             .map(
@@ -202,32 +211,33 @@ function AnomalyRow({
   const href = expenseId
     ? buildAnalyticsExpenseUrl(scope, { expenseId })
     : null;
+  const Heading = scope.kind === 'personal' ? 'h4' : 'h5';
 
   return (
     <li className="rounded-[10px] border border-border bg-background p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h4 className="text-balance text-sm font-semibold text-foreground">
+            <Heading className="text-balance text-sm font-semibold text-foreground">
               {point.description}
-            </h4>
-            <span className="tabular-nums text-sm font-semibold text-foreground">
+            </Heading>
+            <span className="font-mono tabular-nums text-sm font-semibold text-foreground">
               {currency.formatMoney(point.amount)}
             </span>
           </div>
           <p className="mt-1 text-pretty text-xs text-muted-foreground">
-            {point.category} ·{' '}
+            {point.category},{' '}
             {currency.formatDate(point.date, {
               dateStyle: 'medium',
               timeZone: 'UTC',
-            })}{' '}
-            · {point.severity} severity
+            })}
+            {`, ${point.severity} severity`}
           </p>
           <p className="mt-2 text-pretty text-xs text-muted-foreground">
-            Reason: {humanizeReason(point.anomalyType)} · Z-score{' '}
-            <span className="tabular-nums">{point.zScore.toFixed(2)}</span>
+            Reason: {humanizeReason(point.anomalyType)}, comparison score{' '}
+            <span className="font-mono tabular-nums">{point.zScore.toFixed(2)}</span>
           </p>
-          <p className="mt-2 text-pretty text-xs tabular-nums text-muted-foreground">
+          <p className="mt-2 text-pretty font-mono text-xs tabular-nums text-muted-foreground">
             {expectedRangeCopy(point, currency.formatMoney)}
           </p>
         </div>
@@ -270,7 +280,9 @@ function AttentionHeader({
   return (
     <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div className="min-w-0">
-        <p className="text-sm font-medium text-primary">{scopeLabel}</p>
+        <p className="inline-flex border-l-2 border-primary pl-2 text-sm font-medium text-foreground">
+          {scopeLabel}
+        </p>
         {scope.kind === 'group' ? (
           <h3 className="mt-1 text-balance text-2xl font-semibold text-foreground">
             Spending attention
@@ -281,8 +293,8 @@ function AttentionHeader({
           </h2>
         )}
         <p className="mt-2 max-w-2xl text-pretty text-sm text-muted-foreground">
-          Review statistically unusual expenses without treating under-sampled
-          categories as normal.
+          Review unusual expenses without drawing conclusions from categories
+          that still need history.
         </p>
       </div>
 
@@ -294,7 +306,7 @@ function AttentionHeader({
           >
             Sensitivity
           </label>
-          <output className="tabular-nums text-sm font-semibold text-foreground">
+          <output className="font-mono tabular-nums text-sm font-semibold text-foreground">
             {visualSensitivity.toFixed(1)}
           </output>
         </div>
@@ -368,12 +380,14 @@ function AttentionAnalyticsViewInner({
       ]),
     [currency, points]
   );
+  const PanelHeading = scope.kind === 'personal' ? 'h3' : 'h4';
 
   if (anomalies.error) {
     return (
       <AnalyticsErrorState
         message={anomalies.error}
         onRetry={() => void anomalies.refetch()}
+        headingLevel={scope.kind === 'personal' ? 2 : 3}
       />
     );
   }
@@ -399,7 +413,8 @@ function AttentionAnalyticsViewInner({
       <div className="space-y-5">
         {header}
         <AnalyticsInsufficientState
-          title="More history is needed for anomaly detection"
+          title="More history is needed to check unusual spending"
+          headingLevel={scope.kind === 'personal' ? 3 : 4}
           coveredCategories={coverage
             .filter((item) => item.hasSufficientHistory)
             .map((item) => item.category)}
@@ -414,7 +429,7 @@ function AttentionAnalyticsViewInner({
     return (
       <div className="space-y-5">
         {header}
-        <QualifiedZeroState coverage={coverage} />
+        <QualifiedZeroState scope={scope} coverage={coverage} />
       </div>
     );
   }
@@ -424,6 +439,7 @@ function AttentionAnalyticsViewInner({
       {header}
 
       <CoverageSummary
+        scope={scope}
         coverage={coverage}
         minimumSample={anomalies.minimumSample}
       />
@@ -434,21 +450,21 @@ function AttentionAnalyticsViewInner({
       >
         <figcaption className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h3
+            <PanelHeading
               id={chartHeadingId}
               className="text-balance text-lg font-semibold text-foreground"
             >
               Flagged spending patterns
-            </h3>
+            </PanelHeading>
             <p className="mt-1 text-pretty text-sm text-muted-foreground">
-              Each expense contributes once, using its strongest anomaly reason.
+              Each expense appears once, using the strongest signal found.
             </p>
           </div>
           <dl className="shrink-0 text-left sm:text-right">
             <dt className="text-xs font-medium text-muted-foreground">
               Flagged total
             </dt>
-            <dd className="mt-1 tabular-nums text-lg font-semibold text-foreground">
+            <dd className="mt-1 font-mono tabular-nums text-lg font-semibold text-foreground">
               {currency.formatMoney(displayedTotal)}
             </dd>
           </dl>
@@ -462,7 +478,7 @@ function AttentionAnalyticsViewInner({
         </div>
         <div className="mt-3">
           <AccessibleDataSummary
-            caption="Flagged spending anomaly evidence"
+            caption="Flagged spending evidence"
             columns={[
               'Expense',
               'Date',
@@ -470,7 +486,7 @@ function AttentionAnalyticsViewInner({
               'Category',
               'Severity',
               'Reason',
-              'Z-score',
+              'Comparison score',
               'Expected range',
             ]}
             rows={tableRows}
@@ -482,14 +498,14 @@ function AttentionAnalyticsViewInner({
         aria-labelledby={listHeadingId}
         className="rounded-2xl border border-border bg-card p-5 shadow-sm"
       >
-        <h3
+        <PanelHeading
           id={listHeadingId}
           className="text-balance text-lg font-semibold text-foreground"
         >
           Expenses to review
-        </h3>
+        </PanelHeading>
         <p className="mt-1 text-pretty text-sm text-muted-foreground">
-          Open the exact scoped expense when a stable identifier is available.
+          Open a flagged expense when it is available in this account.
         </p>
         <ol className="mt-4 space-y-3">
           {points.map((point, index) => (

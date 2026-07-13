@@ -149,10 +149,56 @@ describe('ForecastAnalyticsView', () => {
     });
   });
 
+  it('leads with the latest projected net position and qualifies missing bounds', () => {
+    renderView();
+
+    const takeaway = screen.getByRole('region', {
+      name: 'Projected net position',
+    });
+    expect(within(takeaway).getByText('AUD 420.00')).toHaveClass(
+      'font-mono',
+      'tabular-nums',
+      'text-foreground'
+    );
+    expect(takeaway).toHaveTextContent(
+      'By date 2026-07-20, the projected net position is positive.'
+    );
+    expect(takeaway).toHaveTextContent('Expected range: Not available.');
+  });
+
+  it('preserves a signed negative takeaway and a real expected range', () => {
+    mockedForecast.mockReturnValue(
+      forecastResult({
+        netForecast: [
+          futurePoint('2026-07-21', -75, {
+            lowerBound: -120,
+            upperBound: -30,
+            hasBounds: true,
+          }),
+        ],
+      })
+    );
+
+    renderView();
+
+    const takeaway = screen.getByRole('region', {
+      name: 'Projected net position',
+    });
+    expect(takeaway).toHaveClass('border-l-destructive');
+    expect(takeaway).toHaveTextContent('AUD -75.00');
+    expect(takeaway).toHaveTextContent(
+      'Expected range: AUD -120.00 to AUD -30.00.'
+    );
+  });
+
   it('provides date and value rows without inventing a zero confidence range', () => {
     renderView();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show data table' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Show Cash flow history and forecast values data table',
+      })
+    );
 
     const table = screen.getByRole('table');
     expect(within(table).getByText('Cash flow history and forecast values')).toBeInTheDocument();
@@ -267,7 +313,11 @@ describe('ForecastAnalyticsView', () => {
     );
 
     renderView();
-    fireEvent.click(screen.getByRole('button', { name: 'Show data table' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Show Cash flow history and forecast values data table',
+      })
+    );
 
     const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1);
     expect(rows.map((row) => row.textContent)).toEqual([

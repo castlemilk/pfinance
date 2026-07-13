@@ -23,12 +23,12 @@ type AnalyticsMetricStripProps = Readonly<{
 }>;
 
 const TONE_STYLES: Readonly<
-  Record<AnalyticsMetricTone, { label: string; className: string }>
+  Record<AnalyticsMetricTone, { label: string; accentClassName: string }>
 > = Object.freeze({
-  positive: { label: 'Positive', className: 'text-chart-2' },
-  negative: { label: 'Negative', className: 'text-destructive' },
-  neutral: { label: 'Neutral', className: 'text-foreground' },
-  attention: { label: 'Needs attention', className: 'text-chart-1' },
+  positive: { label: 'Positive', accentClassName: 'bg-chart-2' },
+  negative: { label: 'Negative', accentClassName: 'bg-destructive' },
+  neutral: { label: 'Neutral', accentClassName: 'bg-muted-foreground' },
+  attention: { label: 'Needs attention', accentClassName: 'bg-chart-1' },
 });
 
 export function AnalyticsMetricStrip({ metrics }: AnalyticsMetricStripProps) {
@@ -52,17 +52,22 @@ export function AnalyticsMetricStrip({ metrics }: AnalyticsMetricStripProps) {
                 index === 2 ? 'lg:border-l' : ''
               }`}
             >
-              <dt className="text-sm font-medium text-muted-foreground">
-                {metric.label}
+              <dt className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <span
+                  aria-hidden="true"
+                  data-testid="analytics-metric-tone-accent"
+                  className={`h-3 w-1 rounded-full ${tone.accentClassName}`}
+                />
+                <span>{metric.label}</span>
               </dt>
               <dd
                 data-testid="analytics-metric-value"
-                className={`mt-2 break-words text-xl font-semibold leading-tight tabular-nums [overflow-wrap:anywhere] sm:text-2xl ${tone.className}`}
+                className="mt-2 break-words font-mono text-xl font-semibold leading-tight tabular-nums text-foreground [overflow-wrap:anywhere] sm:text-2xl"
               >
                 <span className="sr-only">{tone.label}: </span>
                 {metric.value}
               </dd>
-              <dd className="mt-1 text-pretty text-xs leading-relaxed tabular-nums text-muted-foreground">
+              <dd className="mt-1 text-pretty font-mono text-xs leading-relaxed tabular-nums text-muted-foreground">
                 {metric.detail}
               </dd>
             </div>

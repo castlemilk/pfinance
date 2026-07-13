@@ -175,7 +175,9 @@ function CategoriesHeader({
   return (
     <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <p className="text-sm font-medium text-primary">{scopeLabel}</p>
+        <p className="inline-flex border-l-2 border-primary pl-2 text-sm font-medium text-foreground">
+          {scopeLabel}
+        </p>
         <Heading
           level={level}
           className="mt-1 text-balance text-2xl font-semibold text-foreground"
@@ -259,10 +261,10 @@ function CombinedBudgets({
             </Heading>
             <p className="mt-1 break-words text-sm text-muted-foreground">
               {budget.categories.length > 0
-                ? budget.categories.join(' · ')
+                ? budget.categories.join(', ')
                 : 'Categories not specified'}
             </p>
-            <dl className="mt-3 grid grid-cols-1 gap-3 tabular-nums sm:grid-cols-2">
+            <dl className="mt-3 grid grid-cols-1 gap-3 font-mono tabular-nums sm:grid-cols-2">
               <div>
                 <dt className="text-xs font-medium text-muted-foreground">
                   Allowance
@@ -321,7 +323,7 @@ function CategoryComparisonFigure({
             Current and previous spending
           </Heading>
           <p className="mt-1 text-pretty text-sm text-muted-foreground">
-            Every axis uses the same category response and selected period.
+            Every axis uses the same categories and selected period.
           </p>
         </div>
         {hasBudgets ? (
@@ -408,13 +410,13 @@ function CategoryDrivers({
                   >
                     <span
                       aria-hidden="true"
-                      className="mr-2 tabular-nums text-muted-foreground"
+                      className="mr-2 font-mono tabular-nums text-muted-foreground"
                     >
                       {index + 1}.
                     </span>
                     {axis.category}
                   </Heading>
-                  <p className="mt-1 break-words text-sm tabular-nums text-foreground">
+                  <p className="mt-1 break-words font-mono text-sm tabular-nums text-foreground">
                     {formattedAmount(axis.currentValue, currency.formatMoney)}
                   </p>
                   <p className="mt-1 text-pretty text-xs text-muted-foreground">
@@ -531,6 +533,7 @@ function CategoriesAnalyticsViewInner({
       <AnalyticsErrorState
         message={overview.error}
         onRetry={() => void overview.refetch()}
+        headingLevel={scope.kind === 'personal' ? 2 : 3}
       />
     );
   }
@@ -539,6 +542,7 @@ function CategoriesAnalyticsViewInner({
       <AnalyticsErrorState
         message={comparison.error}
         onRetry={() => void comparison.refetch()}
+        headingLevel={scope.kind === 'personal' ? 2 : 3}
       />
     );
   }

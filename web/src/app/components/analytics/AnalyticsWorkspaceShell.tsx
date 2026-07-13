@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 
@@ -94,6 +94,7 @@ export function AnalyticsWorkspaceShell({
       : null;
   const lastNormalizationRef = useRef<string | null>(null);
   const onViewChangeRef = useRef(onViewChange);
+  const [hasRequestedViewChange, setHasRequestedViewChange] = useState(false);
 
   useEffect(() => {
     onViewChangeRef.current = onViewChange;
@@ -142,6 +143,7 @@ export function AnalyticsWorkspaceShell({
           value={effectiveActiveView}
           onValueChange={(value) => {
             if (scopedViews.includes(value as AnalyticsView)) {
+              setHasRequestedViewChange(true);
               onViewChange(value as AnalyticsView);
             }
           }}
@@ -155,7 +157,11 @@ export function AnalyticsWorkspaceShell({
             <TabsContent
               key={view}
               value={view}
-              className="mt-0 min-w-0 animate-in fade-in-0 slide-in-from-bottom-2 duration-150 ease-out motion-reduce:animate-none"
+              className={`mt-0 min-w-0 ${
+                hasRequestedViewChange
+                  ? 'animate-in fade-in-0 slide-in-from-bottom-2 duration-150 ease-out motion-reduce:animate-none'
+                  : ''
+              }`}
             >
               {view === effectiveActiveView ? (
                 activeViewIsAvailable ? (

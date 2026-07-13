@@ -130,7 +130,10 @@ describe('AnalyticsWorkspaceShell', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Personal analytics' })
     ).toBeInTheDocument();
-    expect(screen.getByText('Personal scope')).toBeInTheDocument();
+    const scopeLabel = screen.getByText('Personal scope');
+    expect(scopeLabel).toBeInTheDocument();
+    expect(scopeLabel.parentElement).toHaveClass('text-foreground');
+    expect(scopeLabel.previousElementSibling).toHaveClass('bg-primary');
   });
 
   it('names the active group without adding a second page h1', () => {
@@ -140,7 +143,10 @@ describe('AnalyticsWorkspaceShell', () => {
       screen.getByRole('heading', { level: 2, name: 'Merri House analytics' })
     ).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
-    expect(screen.getByText('Group scope')).toBeInTheDocument();
+    const scopeLabel = screen.getByText('Group scope');
+    expect(scopeLabel).toBeInTheDocument();
+    expect(scopeLabel.parentElement).toHaveClass('text-foreground');
+    expect(scopeLabel.previousElementSibling).toHaveClass('bg-primary');
   });
 
   it('reports period selections through the controlled callback', async () => {
@@ -190,12 +196,7 @@ describe('AnalyticsWorkspaceShell', () => {
       'Overview',
       'Categories',
     ]);
-    expect(screen.getByRole('tabpanel')).toHaveClass(
-      'fade-in-0',
-      'slide-in-from-bottom-2',
-      'duration-150',
-      'motion-reduce:animate-none'
-    );
+    expect(screen.getByRole('tabpanel')).not.toHaveClass('animate-in');
   });
 
   it('exports immutable personal and group view sets with personal-only data quality', () => {
@@ -307,6 +308,25 @@ describe('AnalyticsWorkspaceShell', () => {
     expect(selected).not.toHaveClass('transition-all');
   });
 
+  it('reserves view entrance motion for requested changes after the initial paint', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(shell());
+
+    expect(screen.getByRole('tabpanel', { name: 'Overview' })).not.toHaveClass(
+      'animate-in'
+    );
+
+    await user.click(screen.getByRole('tab', { name: 'Spending' }));
+
+    rerender(shell({ activeView: 'spending' }));
+
+    expect(screen.getByRole('tabpanel', { name: 'Spending' })).toHaveClass(
+      'animate-in',
+      'duration-150',
+      'motion-reduce:animate-none'
+    );
+  });
+
   it('scrolls a newly active view into sight with smooth nearest behavior', async () => {
     const { rerender } = render(shell());
     await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
@@ -322,6 +342,60 @@ describe('AnalyticsWorkspaceShell', () => {
       })
     );
     expect(screen.getByRole('tab', { name: 'Spending' })).not.toHaveFocus();
+  });
+
+  it('moves the horizontal rail directly when WebKit leaves the active tab offscreen', async () => {
+    const availableViews = ['overview', 'spending', 'forecast'] as const;
+    const { rerender } = render(shell({ availableViews }));
+    const rail = screen.getByRole('tablist');
+    const forecast = screen.getByRole('tab', { name: 'Forecast' });
+    const scrollTo = jest.fn();
+
+    Object.defineProperties(rail, {
+      clientWidth: { configurable: true, value: 320 },
+      scrollWidth: { configurable: true, value: 720 },
+      scrollLeft: { configurable: true, value: 0, writable: true },
+      scrollTo: { configurable: true, value: scrollTo },
+      getBoundingClientRect: {
+        configurable: true,
+        value: () => ({
+          bottom: 48,
+          height: 48,
+          left: 0,
+          right: 320,
+          top: 0,
+          width: 320,
+          x: 0,
+          y: 0,
+          toJSON: () => undefined,
+        }),
+      },
+    });
+    Object.defineProperties(forecast, {
+      getBoundingClientRect: {
+        configurable: true,
+        value: () => ({
+          bottom: 44,
+          height: 40,
+          left: 520,
+          right: 620,
+          top: 4,
+          width: 100,
+          x: 520,
+          y: 4,
+          toJSON: () => undefined,
+        }),
+      },
+    });
+
+    rerender(shell({ activeView: 'forecast', availableViews }));
+
+    await waitFor(() =>
+      expect(scrollTo).toHaveBeenCalledWith({
+        left: 304,
+        behavior: 'smooth',
+      })
+    );
   });
 
   it('uses instant active-view scrolling when reduced motion is requested', async () => {
@@ -383,10 +457,22 @@ describe('analytics states', () => {
   it('renders the exact error and a real retry control', async () => {
     const user = userEvent.setup();
     const onRetry = jest.fn();
-    render(<AnalyticsErrorState message="Forecast service is unavailable." onRetry={onRetry} />);
+    render(
+      <AnalyticsErrorState
+        message="Forecast service is unavailable."
+        onRetry={onRetry}
+        headingLevel={3}
+      />
+    );
 
     const alert = screen.getByRole('alert');
     expect(alert).toHaveTextContent('Forecast service is unavailable.');
+    expect(
+      within(alert).getByRole('heading', {
+        level: 3,
+        name: 'Analytics could not load',
+      })
+    ).toBeInTheDocument();
     const retry = within(alert).getByRole('button', { name: 'Try again' });
     expect(retry).toHaveClass('min-h-10');
 
@@ -447,6 +533,10 @@ describe('analytics states', () => {
       expect(action).toHaveClass('min-h-10');
       const state = action.closest('section');
       expect(state).toHaveTextContent(expectedCopy);
+      expect(within(state as HTMLElement).getByRole('heading')).toHaveProperty(
+        'tagName',
+        scope.kind === 'personal' ? 'H2' : 'H3'
+      );
       expect(state).toHaveTextContent(/analytics period/i);
       expect(state).not.toHaveTextContent(/recorded/i);
       expect(state).not.toHaveTextContent(/\byet\b/i);
@@ -485,11 +575,15 @@ describe('analytics states', () => {
         title="More history needed"
         coveredCategories={covered}
         uncoveredCategories={uncovered}
+        headingLevel={4}
       />
     );
 
     expect(
-      screen.getByRole('heading', { name: 'More history needed' })
+      screen.getByRole('heading', { level: 4, name: 'More history needed' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 5, name: /Covered categories/ })
     ).toBeInTheDocument();
     expect(
       within(screen.getByRole('list', { name: 'Covered categories' }))

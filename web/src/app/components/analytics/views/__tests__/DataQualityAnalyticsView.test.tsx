@@ -169,7 +169,7 @@ describe('DataQualityAnalyticsView', () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
-  it('uses the exact existing import destination when no extraction exists', () => {
+  it('uses an extraction-specific empty state and the existing import destination', () => {
     mockedMetrics.mockReturnValue(
       metricsResult({ data: metricsData({ totalExtractions: 0, recentEvents: [] }) })
     );
@@ -179,6 +179,14 @@ describe('DataQualityAnalyticsView', () => {
     expect(
       screen.getByRole('link', { name: 'Import a receipt or statement' })
     ).toHaveAttribute('href', '/personal/expenses#smart-expense-entry');
+    expect(
+      screen.getByRole('heading', {
+        name: 'No extraction history for this period',
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/no receipts or statements were imported/i)).toBeInTheDocument();
+    expect(screen.queryByText('No activity for this period')).not.toBeInTheDocument();
+    expect(screen.queryByText(/no income or expenses/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Review quality' })).not.toBeInTheDocument();
   });
 
@@ -200,40 +208,40 @@ describe('DataQualityAnalyticsView', () => {
     );
   });
 
-  it('links only stable-ID events to the import anchor without inventing query parameters', () => {
+  it('offers one truthful import action without pretending events have deep links', () => {
     renderView();
+
+    const eventsSection = screen.getByRole('region', {
+      name: 'Recent extraction reviews',
+    });
+    const importLink = within(eventsSection).getByRole('link', {
+      name: 'Open import tools',
+    });
+    expect(importLink).toHaveAttribute(
+      'href',
+      '/personal/expenses#smart-expense-entry'
+    );
+    expect(importLink).toHaveClass('min-h-10');
 
     const receipt = screen.getByRole('article', {
       name: 'Receipt extraction from date 2026-07-12',
     });
-    const receiptLink = within(receipt).getByRole('link', {
-      name: 'Review receipt extraction',
-    });
-    expect(receiptLink).toHaveAttribute(
-      'href',
-      '/personal/expenses#smart-expense-entry'
-    );
-    expect(receiptLink.getAttribute('href')).not.toContain('?');
-    expect(receiptLink.getAttribute('href')).not.toContain('event-stable');
-
     const statement = screen.getByRole('article', {
       name: 'Bank statement extraction from date 2026-07-10',
     });
-    expect(
-      within(statement).queryByRole('link', {
-        name: /review bank statement extraction/i,
-      })
-    ).not.toBeInTheDocument();
-    expect(within(statement).getByText('Review unavailable')).toHaveAttribute(
-      'aria-disabled',
-      'true'
-    );
+    expect(within(receipt).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(statement).queryByRole('link')).not.toBeInTheDocument();
+    expect(eventsSection).not.toHaveTextContent(/review unavailable/i);
   });
 
   it('gives its disclosure control an accessible name and exposes tabular event values', () => {
     renderView();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show data table' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Show Recent extraction review details data table',
+      })
+    );
     const table = screen.getByRole('table');
     expect(within(table).getByText('Recent extraction review details')).toBeInTheDocument();
     expect(

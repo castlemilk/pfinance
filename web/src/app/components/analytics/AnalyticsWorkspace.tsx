@@ -75,7 +75,10 @@ export function AnalyticsWorkspace({ scope }: AnalyticsWorkspaceProps) {
   if (!subscription.hasProAccess) {
     return (
       <AnalyticsWorkspaceFrame scope={scope}>
-        <UpgradePrompt feature="Advanced Analytics" />
+        <UpgradePrompt
+          feature="Advanced Analytics"
+          headingLevel={scope.kind === 'personal' ? 2 : 3}
+        />
       </AnalyticsWorkspaceFrame>
     );
   }

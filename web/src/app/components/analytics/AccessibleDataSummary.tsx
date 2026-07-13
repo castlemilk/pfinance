@@ -59,6 +59,7 @@ export function AccessibleDataSummary({
       <CollapsibleTrigger asChild>
         <button
           type="button"
+          aria-label={`${isOpen ? 'Hide' : 'Show'} ${caption} data table`}
           className="flex min-h-10 w-full items-center justify-between gap-3 rounded-md bg-transparent px-4 py-2 text-left text-sm font-semibold text-foreground outline-none transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out hover:bg-muted/50 focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/50 active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100"
         >
           <span>{isOpen ? 'Hide data table' : 'Show data table'}</span>
@@ -89,7 +90,7 @@ export function AccessibleDataSummary({
             supplied columns.
           </p>
         ) : (
-          <Table className="min-w-max tabular-nums">
+          <Table className="min-w-max font-mono tabular-nums">
             <TableCaption className="sr-only">{caption}</TableCaption>
             <TableHeader>
               <TableRow>
@@ -112,7 +113,7 @@ export function AccessibleDataSummary({
                     {row.map((cell, cellIndex) => (
                       <TableCell
                         key={cellKeys[cellIndex]}
-                        className="tabular-nums"
+                        className="font-mono tabular-nums"
                       >
                         {cell}
                       </TableCell>

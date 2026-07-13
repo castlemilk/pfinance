@@ -66,7 +66,7 @@ interface ActiveDayState {
 const DEFAULT_FORMATTERS = createAnalyticsCurrencyContext(undefined);
 const HIDE_DELAY = 200;
 const MAX_RENDERED_DAYS = 400;
-const MIN_ACTIONABLE_CELL_SIZE = 24;
+const MIN_ACTIONABLE_CELL_SIZE = 40;
 const CELL_GAP = 2;
 const MARGIN = { top: 28, right: 12, bottom: 8, left: 36 } as const;
 const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
@@ -191,7 +191,7 @@ function DayDetailCard({
       <header className="border-b border-border px-3 py-2.5">
         <p className="font-semibold text-popover-foreground">{longDate}</p>
         <div className="mt-0.5 flex justify-between gap-4">
-          <span className="text-sm font-bold tabular-nums text-popover-foreground">
+          <span className="font-mono text-sm font-bold tabular-nums text-popover-foreground">
             {formatMoney(activeDay.value)}
           </span>
           <span className="text-xs text-muted-foreground">
@@ -217,7 +217,7 @@ function DayDetailCard({
                 <span className="shrink-0 text-[0.6875rem] text-muted-foreground">
                   {expense.category}
                 </span>
-                <span className="shrink-0 text-xs font-semibold tabular-nums">
+                <span className="shrink-0 font-mono text-xs font-semibold tabular-nums">
                   {amount}
                 </span>
               </>
@@ -233,7 +233,7 @@ function DayDetailCard({
                 type="button"
                 aria-label={`${expense.description}, ${expense.category}, ${amount}`}
                 onClick={() => onDayClick(activeDay.date)}
-                className="flex min-h-10 w-full items-center gap-2 px-3 text-popover-foreground outline-none transition-[color,background-color,box-shadow,transform] duration-150 ease-out hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/50 active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100"
+                className="flex min-h-10 w-full items-center gap-2 px-3 text-popover-foreground outline-none transition-[color,background-color,box-shadow,transform] duration-150 ease-out hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/50 active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100"
               >
                 {content}
               </button>
@@ -262,7 +262,7 @@ function DayDetailCard({
               <span className="truncate text-popover-foreground">
                 {category.category}
               </span>
-              <span className="shrink-0 font-semibold tabular-nums text-popover-foreground">
+              <span className="shrink-0 font-mono font-semibold tabular-nums text-popover-foreground">
                 {formatMoney(category.amount)}{' '}
                 <span className="font-normal text-muted-foreground">
                   ({category.count})
@@ -282,7 +282,7 @@ function DayDetailCard({
         <button
           type="button"
           onClick={() => onDayClick(activeDay.date)}
-          className="flex min-h-10 w-full items-center justify-center border-t border-border px-3 text-xs font-semibold text-primary outline-none transition-[color,background-color,box-shadow,transform] duration-150 ease-out hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/50 active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100"
+          className="flex min-h-10 w-full items-center justify-center border-t border-border px-3 text-xs font-semibold text-foreground outline-none transition-[color,background-color,box-shadow,transform] duration-150 ease-out hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/50 active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100"
         >
           View all expenses <span aria-hidden="true">→</span>
         </button>
@@ -749,7 +749,7 @@ export default function SpendingHeatmap(props: SpendingHeatmapProps) {
             role="region"
             aria-label="Scrollable daily spending calendar"
             tabIndex={-1}
-            className="h-full w-full max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain"
+            className="h-full w-full max-w-full overflow-x-auto overflow-y-auto overscroll-contain"
           >
             <HeatmapChart
               key={modelKey}

@@ -9,7 +9,7 @@ const CategoryStackedTrendChart = dynamic(
   {
     loading: () => (
       <div className="flex h-64 w-full items-center justify-center">
-        <Skeleton className="h-full w-full rounded-lg" />
+        <Skeleton className="h-full w-full rounded-lg motion-reduce:animate-none" />
       </div>
     ),
     ssr: false,

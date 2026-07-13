@@ -11,12 +11,13 @@ type AnalyticsAttentionSummaryProps = Readonly<{
   uncoveredCategoryCount: number;
   formatMoney: AnalyticsCurrencyContext['formatMoney'];
   attentionUrl: string | null;
+  headingLevel?: 3 | 4;
 }>;
 
 const SEVERITY_STYLES = {
-  low: 'text-muted-foreground',
-  medium: 'text-chart-1',
-  high: 'text-destructive',
+  low: 'border-muted-foreground/40',
+  medium: 'border-chart-1',
+  high: 'border-destructive',
 } as const;
 
 function severityLabel(severity: PrimaryAnalyticsAttention['severity']) {
@@ -90,11 +91,13 @@ export function AnalyticsAttentionSummary({
   uncoveredCategoryCount,
   formatMoney,
   attentionUrl,
+  headingLevel = 3,
 }: AnalyticsAttentionSummaryProps) {
   const safeCount = safeAnomalyCount(anomalyCount);
   const safeCoveredCount = safeCategoryCount(coveredCategoryCount);
   const safeUncoveredCount = safeCategoryCount(uncoveredCategoryCount);
   const anomalousSpend = formattedAnomalousSpend(anomalousCents, formatMoney);
+  const Heading = headingLevel === 3 ? 'h3' : 'h4';
 
   if (!primary) {
     const copy = noPrimaryCopy(
@@ -105,19 +108,19 @@ export function AnalyticsAttentionSummary({
     return (
       <section
         aria-labelledby="analytics-attention-title"
-        className="rounded-[10px] bg-muted/40 p-4"
+        className="rounded-[10px] border-l-4 border-muted-foreground/40 bg-muted/40 p-4"
       >
-        <h3
+        <Heading
           id="analytics-attention-title"
           className="text-balance text-base font-semibold text-foreground"
         >
           {copy.title}
-        </h3>
+        </Heading>
         <p className="mt-2 text-pretty text-sm leading-relaxed text-muted-foreground">
           {copy.description}
         </p>
         {safeCount > 0 ? (
-          <p className="mt-3 text-sm font-medium tabular-nums text-foreground">
+          <p className="mt-3 font-mono text-sm font-medium tabular-nums text-foreground">
             {anomalousSpend} flagged
           </p>
         ) : null}
@@ -146,23 +149,23 @@ export function AnalyticsAttentionSummary({
   return (
     <section
       aria-labelledby="analytics-attention-title"
-      className="rounded-[10px] bg-muted/40 p-4"
+      className={`rounded-[10px] border-l-4 bg-muted/40 p-4 ${SEVERITY_STYLES[primary.severity]}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p
-            className={`text-xs font-semibold ${SEVERITY_STYLES[primary.severity]}`}
+            className="text-xs font-semibold text-foreground"
           >
             {severityLabel(primary.severity)}
           </p>
-          <h3
+          <Heading
             id="analytics-attention-title"
             className="mt-1 text-balance text-base font-semibold text-foreground"
           >
             {primary.description}
-          </h3>
+          </Heading>
         </div>
-        <p className="shrink-0 text-base font-semibold tabular-nums text-foreground">
+        <p className="shrink-0 font-mono text-base font-semibold tabular-nums text-foreground">
           {primaryAmount}
         </p>
       </div>
@@ -171,7 +174,7 @@ export function AnalyticsAttentionSummary({
         {primary.reason}
       </p>
       {structuredExpectedRange ? (
-        <p className="mt-1 text-pretty text-xs leading-relaxed tabular-nums text-muted-foreground">
+        <p className="mt-1 text-pretty font-mono text-xs leading-relaxed tabular-nums text-muted-foreground">
           {structuredExpectedRange}
         </p>
       ) : primary.expectedContext ? (
@@ -188,15 +191,15 @@ export function AnalyticsAttentionSummary({
       ) : null}
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
-        <div className="text-xs text-muted-foreground">
+        <div className="font-mono text-xs text-muted-foreground">
           <span className="tabular-nums">{countLabel}</span>
-          <span aria-hidden="true"> · </span>
+          <span aria-hidden="true">, </span>
           <span className="tabular-nums">{anomalousSpend} flagged</span>
         </div>
         {attentionUrl && primary.expenseId.trim().length > 0 ? (
           <Link
             href={attentionUrl}
-            className="inline-flex min-h-10 items-center rounded-md px-3 text-sm font-semibold text-primary outline-none transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out hover:bg-primary/10 focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100"
+            className="inline-flex min-h-10 items-center rounded-md border border-primary/30 bg-background px-3 text-sm font-semibold text-foreground outline-none transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out hover:bg-primary/10 focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100"
           >
             Review expense
           </Link>

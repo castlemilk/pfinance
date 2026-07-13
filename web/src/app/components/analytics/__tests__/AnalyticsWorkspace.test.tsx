@@ -31,8 +31,16 @@ const mockDataQuality = jest.fn((props: AnalyticsViewProps) => {
   void props;
   return <div data-testid="data-quality-view">Data quality view</div>;
 });
-const mockUpgradePrompt = jest.fn(({ feature }: { feature: string }) => (
-  <div data-testid="upgrade-prompt">Upgrade {feature}</div>
+const mockUpgradePrompt = jest.fn(({
+  feature,
+  headingLevel,
+}: {
+  feature: string;
+  headingLevel?: number;
+}) => (
+  <div data-testid="upgrade-prompt" data-heading-level={headingLevel}>
+    Upgrade {feature}
+  </div>
 ));
 
 function StatefulOverviewMock({ scope, period }: AnalyticsViewProps) {
@@ -51,7 +59,8 @@ jest.mock('@/app/context/FinanceContext', () => ({
 }));
 
 jest.mock('@/app/components/ProFeatureGate', () => ({
-  UpgradePrompt: (props: { feature: string }) => mockUpgradePrompt(props),
+  UpgradePrompt: (props: { feature: string; headingLevel?: number }) =>
+    mockUpgradePrompt(props),
 }));
 
 jest.mock('../views/OverviewAnalyticsView', () => ({
@@ -218,6 +227,7 @@ describe('AnalyticsWorkspace', () => {
     ).toBeInTheDocument();
     expect(mockUpgradePrompt).toHaveBeenCalledWith({
       feature: 'Advanced Analytics',
+      headingLevel: 2,
     });
     expect(mockOverview).not.toHaveBeenCalled();
     expect(mockSpending).not.toHaveBeenCalled();

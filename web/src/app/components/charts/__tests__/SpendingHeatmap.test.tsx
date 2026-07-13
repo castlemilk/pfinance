@@ -82,9 +82,9 @@ describe('SpendingHeatmap', () => {
 
     fireEvent.focus(cell);
     expect(screen.getByText('day 2026-07-01')).toBeInTheDocument();
-    expect(screen.getByText('credits 25.00')).toBeInTheDocument();
-    expect(screen.getByText('credits 15.00')).toBeInTheDocument();
-    expect(screen.getByText('credits 10.00')).toBeInTheDocument();
+    expect(screen.getByText('credits 25.00')).toHaveClass('font-mono');
+    expect(screen.getByText('credits 15.00')).toHaveClass('font-mono');
+    expect(screen.getByText('credits 10.00')).toHaveClass('font-mono');
     fireEvent.keyDown(cell, { key: 'Enter' });
     expect(onDayClick).toHaveBeenCalledWith('2026-07-01');
 
@@ -358,11 +358,13 @@ describe('SpendingHeatmap', () => {
         name: /scrollable daily spending calendar/i,
       });
       expect(viewport).toHaveClass('overflow-x-auto');
+      expect(viewport).toHaveClass('overflow-y-auto');
       expect(Number(viewport.querySelector('svg')?.getAttribute('width'))).toBeGreaterThan(
         mockParentSize.width
       );
       screen.getAllByRole('button', { name: /day 20/i }).forEach((cell) => {
-        expect(Number(cell.getAttribute('width'))).toBeGreaterThanOrEqual(24);
+        expect(Number(cell.getAttribute('width'))).toBeGreaterThanOrEqual(40);
+        expect(Number(cell.getAttribute('height'))).toBeGreaterThanOrEqual(40);
       });
     }
   );

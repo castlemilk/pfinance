@@ -29,7 +29,9 @@ describe('AnalyticsExpenseFilterSummary', () => {
     expect(summary).toHaveTextContent('Range');
     expect(summary).toHaveTextContent('1 Jul 2026 to 31 Jul 2026');
     expect(summary).toHaveTextContent('Focused expense');
-    expect(summary).toHaveTextContent('expense-42');
+    expect(summary).toHaveTextContent('Highlighted below');
+    expect(summary).not.toHaveTextContent('expense-42');
+    expect(summary).toHaveClass('rounded-2xl');
     expect(container.querySelector('[class*="rounded-full"]')).toBeNull();
 
     const clear = screen.getByRole('button', {
@@ -73,7 +75,9 @@ describe('AnalyticsExpenseFilterSummary', () => {
     const summary = screen.getByRole('region', {
       name: 'Active analytics filters',
     });
-    expect(summary).toHaveTextContent('expense-42');
+    expect(summary).toHaveTextContent('Focused expense');
+    expect(summary).toHaveTextContent('Highlighted below');
+    expect(summary).not.toHaveTextContent('expense-42');
     expect(summary).not.toHaveTextContent('Date');
     expect(summary).not.toHaveTextContent('Category');
   });

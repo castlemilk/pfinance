@@ -169,7 +169,11 @@ describe('CategoriesAnalyticsView', () => {
     expect(within(budgetSection).getAllByText('AUD 500.00')).toHaveLength(1);
     expect(within(budgetSection).getAllByText('AUD 400.00')).toHaveLength(1);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show data table' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Show Ranked category comparison values data table',
+      })
+    );
     const rows = screen.getAllByRole('row');
     expect(rows[1]).toHaveTextContent('Housing');
     expect(rows[2]).toHaveTextContent('Food');
@@ -209,7 +213,11 @@ describe('CategoriesAnalyticsView', () => {
       )
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show data table' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Show Ranked category comparison values data table',
+      })
+    );
     expect(screen.queryByRole('columnheader', { name: 'Budget' })).not.toBeInTheDocument();
     expect(screen.getByText('Household essentials')).toBeInTheDocument();
   });
@@ -270,7 +278,11 @@ describe('CategoriesAnalyticsView', () => {
     ]);
     expect(screen.getAllByRole('link', { name: 'Review Food spending' })).toHaveLength(1);
     expect(screen.queryByText('Housing')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Show data table' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Show Ranked category comparison values data table',
+      })
+    );
     const rows = screen.getAllByRole('row');
     expect(rows).toHaveLength(2);
     expect(rows[1]).toHaveTextContent('Food');
@@ -321,7 +333,11 @@ describe('CategoriesAnalyticsView', () => {
     renderView();
 
     expect(screen.queryByRole('button', { name: /category budgets/i })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Show data table' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Show Ranked category comparison values data table',
+      })
+    );
     expect(screen.queryByRole('columnheader', { name: 'Budget' })).not.toBeInTheDocument();
     expect(screen.getByText('Household essentials')).toBeInTheDocument();
   });
@@ -398,7 +414,7 @@ describe('CategoriesAnalyticsView', () => {
     const section = screen.getByRole('region', { name: 'Combined budget context' });
     expect(within(section).getAllByText('Household essentials')).toHaveLength(1);
     expect(within(section).queryByText('Duplicate response row')).not.toBeInTheDocument();
-    expect(within(section).getByText('Food · Housing · Travel')).toBeInTheDocument();
+    expect(within(section).getByText('Food, Housing, Travel')).toBeInTheDocument();
     expect(within(section).getAllByText('Not available')).toHaveLength(2);
     expect(within(section).getByRole('heading', { name: 'Combined budget 3' })).toBeInTheDocument();
     expect(within(section).getByRole('heading', { name: 'Combined budget 4' })).toBeInTheDocument();

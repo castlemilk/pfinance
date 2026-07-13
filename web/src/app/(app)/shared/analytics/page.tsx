@@ -33,6 +33,11 @@ export default function SharedAnalyticsPage() {
         kind: 'group',
         groupId: activeGroup.id,
         groupName: activeGroup.name.trim() || 'Group',
+        members: activeGroup.members.map((member) => ({
+          userId: member.userId,
+          displayName: member.displayName,
+          email: member.email,
+        })),
       }}
     />
   );

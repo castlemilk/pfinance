@@ -9,6 +9,8 @@ import { GridRows } from '@visx/grid';
 import { Text } from '@visx/text';
 import { useTooltip, TooltipWithBounds, defaultStyles } from '@visx/tooltip';
 import { ParentSize } from '@visx/responsive';
+import { createAnalyticsCurrencyContext } from '@/app/components/analytics/formatting';
+import type { AnalyticsCurrencyContext } from '@/app/components/analytics/types';
 import type { WaterfallBar } from '@/app/metrics/types';
 
 // ============================================================================
@@ -17,6 +19,7 @@ import type { WaterfallBar } from '@/app/metrics/types';
 
 interface WaterfallChartProps {
   data: WaterfallBar[];
+  formatMoney?: AnalyticsCurrencyContext['formatMoney'];
 }
 
 interface TooltipData {
@@ -37,21 +40,13 @@ const tooltipStyles: React.CSSProperties = {
   border: '1px solid var(--border)',
   borderRadius: '6px',
   fontSize: '12px',
+  fontFamily: 'var(--font-mono)',
   padding: '8px 12px',
   boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
 };
-
-function formatAmount(value: number): string {
-  return `$${Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function formatCompactAmount(value: number): string {
-  const abs = Math.abs(value);
-  if (abs >= 1000) {
-    return `$${(value / 1000).toFixed(1)}k`;
-  }
-  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
+const DEFAULT_FORMATTERS = createAnalyticsCurrencyContext(undefined);
+const WATERFALL_MARGIN = { top: 24, right: 16, bottom: 78, left: 60 } as const;
+const MIN_WATERFALL_BAR_WIDTH = 88;
 
 /**
  * Get the color for each bar type.
@@ -89,32 +84,25 @@ interface ComputedBar {
 
 function computeBarPositions(data: WaterfallBar[]): ComputedBar[] {
   return data.map((bar) => {
-    let barTop: number;
-    let barBottom: number;
+    let firstEndpoint: number;
+    let secondEndpoint: number;
 
     if (bar.type === 'subtotal' || bar.type === 'savings') {
-      // Subtotal/savings bars go from 0 to runningTotal
-      barTop = Math.max(0, bar.runningTotal);
-      barBottom = Math.min(0, bar.runningTotal);
-    } else if (bar.type === 'income') {
-      // Income bars extend upward from (runningTotal - amount) to runningTotal
-      barBottom = bar.runningTotal - bar.amount;
-      barTop = bar.runningTotal;
+      firstEndpoint = 0;
+      secondEndpoint = bar.runningTotal;
     } else {
-      // Expense/tax bars extend downward: from previous running total to current
-      barTop = bar.runningTotal - bar.amount;
-      barBottom = bar.runningTotal;
-      // For negative amounts (expense decreasing total), swap
-      if (bar.amount < 0) {
-        barTop = bar.runningTotal;
-        barBottom = bar.runningTotal - bar.amount;
-      }
+      // Amount is the signed cash-flow effect supplied by the frontend mapper.
+      firstEndpoint = bar.runningTotal - bar.amount;
+      secondEndpoint = bar.runningTotal;
     }
+
+    const barTop = Math.max(firstEndpoint, secondEndpoint);
+    const barBottom = Math.min(firstEndpoint, secondEndpoint);
 
     return {
       bar,
-      barTop: Math.max(barTop, barBottom),
-      barBottom: Math.min(barTop, barBottom),
+      barTop,
+      barBottom,
       barHeight: Math.abs(barTop - barBottom),
       color: getBarColor(bar),
     };
@@ -127,6 +115,7 @@ function computeBarPositions(data: WaterfallBar[]): ComputedBar[] {
 
 function WaterfallInner({
   data,
+  formatMoney = DEFAULT_FORMATTERS.formatMoney,
   width,
   height,
 }: WaterfallChartProps & { width: number; height: number }) {
@@ -139,7 +128,7 @@ function WaterfallInner({
     hideTooltip,
   } = useTooltip<TooltipData>();
 
-  const margin = { top: 24, right: 16, bottom: 60, left: 60 };
+  const margin = WATERFALL_MARGIN;
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
 
@@ -177,7 +166,7 @@ function WaterfallInner({
 
   return (
     <div style={{ position: 'relative' }}>
-      <svg width={width} height={height}>
+      <svg aria-hidden="true" focusable="false" width={width} height={height}>
         <Group left={margin.left} top={margin.top}>
           {/* Grid */}
           <GridRows
@@ -237,7 +226,6 @@ function WaterfallInner({
                   fill={cb.color}
                   fillOpacity={cb.bar.type === 'subtotal' ? 0.5 : 0.85}
                   rx={2}
-                  style={{ cursor: 'pointer' }}
                   onMouseMove={(event) => {
                     const rect = (event.currentTarget as SVGElement).closest('svg')?.getBoundingClientRect();
                     if (!rect) return;
@@ -263,9 +251,10 @@ function WaterfallInner({
                     verticalAnchor="middle"
                     fontSize={10}
                     fill="var(--foreground)"
+                    fontFamily="var(--font-mono)"
                     fontWeight={500}
                   >
-                    {formatCompactAmount(cb.bar.amount)}
+                    {formatMoney(cb.bar.amount, true)}
                   </Text>
                 )}
               </g>
@@ -280,6 +269,7 @@ function WaterfallInner({
             tickStroke="var(--border)"
             tickLabelProps={() => ({
               fill: 'var(--muted-foreground)',
+              fontFamily: 'var(--font-mono)',
               fontSize: 10,
               textAnchor: 'middle' as const,
               dy: '0.25em',
@@ -290,12 +280,10 @@ function WaterfallInner({
                 y={y}
                 dy="0.75em"
                 fontSize={10}
+                fontFamily="var(--font-mono)"
                 fill="var(--muted-foreground)"
-                textAnchor="middle"
-                style={{
-                  maxWidth: xScale.bandwidth?.() ?? 60,
-                  overflow: 'hidden',
-                }}
+                textAnchor="end"
+                transform={`rotate(-25 ${x} ${y})`}
               >
                 {formattedValue}
               </text>
@@ -304,11 +292,12 @@ function WaterfallInner({
           <AxisLeft
             scale={yScale}
             numTicks={5}
-            tickFormat={(d) => `$${(d as number).toLocaleString()}`}
+            tickFormat={(value) => formatMoney(value as number, true)}
             stroke="var(--border)"
             tickStroke="var(--border)"
             tickLabelProps={() => ({
               fill: 'var(--muted-foreground)',
+              fontFamily: 'var(--font-mono)',
               fontSize: 10,
               textAnchor: 'end' as const,
               dx: '-0.25em',
@@ -325,8 +314,8 @@ function WaterfallInner({
           style={tooltipStyles}
         >
           <div style={{ fontWeight: 600, marginBottom: 4 }}>{tooltipData.label}</div>
-          <div>Amount: {formatAmount(tooltipData.amount)}</div>
-          <div>Running Total: {formatAmount(tooltipData.runningTotal)}</div>
+          <div>Amount: {formatMoney(tooltipData.amount)}</div>
+          <div>Running Total: {formatMoney(tooltipData.runningTotal)}</div>
           <div style={{ marginTop: 4, fontSize: 10, color: 'var(--muted-foreground)' }}>
             Type: {tooltipData.type}
           </div>
@@ -346,7 +335,27 @@ export default function WaterfallChart(props: WaterfallChartProps) {
       {({ width, height }) => {
         if (width < 10) return null;
         const chartHeight = Math.max(height, 300);
-        return <WaterfallInner {...props} width={width} height={chartHeight} />;
+        const minimumWidth =
+          WATERFALL_MARGIN.left +
+          WATERFALL_MARGIN.right +
+          Math.max(props.data.length, 1) * MIN_WATERFALL_BAR_WIDTH;
+        const chartWidth = Math.max(width, minimumWidth);
+        const isScrollable = chartWidth > width;
+
+        return (
+          <div
+            role="region"
+            aria-label="Scrollable money-flow chart"
+            tabIndex={isScrollable ? 0 : undefined}
+            className="h-full w-full max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-[10px] outline-none focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/50"
+          >
+            <WaterfallInner
+              {...props}
+              width={chartWidth}
+              height={chartHeight}
+            />
+          </div>
+        );
       }}
     </ParentSize>
   );

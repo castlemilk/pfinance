@@ -200,7 +200,11 @@ describe('AttentionAnalyticsView', () => {
     expect(chartPoints).toHaveLength(2);
     expect(source[0].amount).toBe(30);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show data table' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Show Flagged spending evidence data table',
+      })
+    );
     expect(screen.getAllByRole('row')).toHaveLength(3);
   });
 
@@ -241,14 +245,14 @@ describe('AttentionAnalyticsView', () => {
     );
     renderView();
 
-    expect(screen.getByText('Expected AUD 30.00–AUD 70.00')).toBeInTheDocument();
+    expect(screen.getByText('Expected AUD 30.00 to AUD 70.00')).toBeInTheDocument();
     expect(screen.getByText(/new merchant.*no expected amount range applies/i)).toBeInTheDocument();
     expect(screen.queryByText(/AUD 90\.00.*AUD 10\.00/)).not.toBeInTheDocument();
   });
 
   it('puts qualified coverage before populated evidence and names undersampled categories', () => {
     renderView();
-    const coverage = screen.getByRole('region', { name: 'Anomaly coverage' });
+    const coverage = screen.getByRole('region', { name: 'Spending check coverage' });
     const figure = screen.getByRole('figure', { name: 'Flagged spending patterns' });
     expect(coverage.compareDocumentPosition(figure) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(coverage).toHaveTextContent('1 of 2 categories assessed');
@@ -265,7 +269,7 @@ describe('AttentionAnalyticsView', () => {
 
     renderView();
 
-    const coverage = screen.getByRole('region', { name: 'Anomaly coverage' });
+    const coverage = screen.getByRole('region', { name: 'Spending check coverage' });
     expect(coverage).toHaveTextContent(/coverage details were not reported/i);
     expect(coverage).not.toHaveTextContent(
       /no under-sampled category was reported/i
@@ -284,10 +288,10 @@ describe('AttentionAnalyticsView', () => {
 
     renderView();
 
-    const coverage = screen.getByRole('region', { name: 'Anomaly coverage' });
+    const coverage = screen.getByRole('region', { name: 'Spending check coverage' });
     expect(coverage).toHaveTextContent('0 of 1 categories assessed');
     expect(within(coverage).getAllByText('Food')).toHaveLength(1);
-    expect(coverage).toHaveTextContent('Food · 4 transactions');
+    expect(coverage).toHaveTextContent('Food, 4 transactions');
   });
 
   it.each([
@@ -302,8 +306,14 @@ describe('AttentionAnalyticsView', () => {
 
   it('shows the hook error and uses its retry callback', () => {
     mockedAnomalies.mockReturnValue(anomalyResult({ error: 'Detection failed' }));
-    renderView();
+    renderView(groupScope);
     expect(screen.getByText('Detection failed')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        level: 3,
+        name: 'Analytics could not load',
+      })
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(refetch).toHaveBeenCalledTimes(1);
   });
@@ -320,7 +330,12 @@ describe('AttentionAnalyticsView', () => {
       })
     );
     renderView();
-    expect(screen.getByRole('heading', { name: /more history is needed/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        level: 3,
+        name: /more history is needed/i,
+      })
+    ).toBeInTheDocument();
     expect(screen.getByRole('list', { name: 'Covered categories' })).toHaveTextContent('Food');
     expect(screen.getByRole('list', { name: 'Categories needing history' })).toHaveTextContent('Travel');
     expect(screen.queryByText(/no unusual spending was flagged/i)).not.toBeInTheDocument();
@@ -339,6 +354,7 @@ describe('AttentionAnalyticsView', () => {
     );
     renderView();
     const heading = screen.getByRole('heading', {
+      level: 3,
       name: 'No unusual spending was flagged',
     });
     const state = heading.closest('section');
@@ -386,6 +402,30 @@ describe('AttentionAnalyticsView', () => {
     expect(screen.getByText('Group')).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { level: 3, name: 'Spending attention' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        level: 4,
+        name: 'Spending check coverage',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        level: 4,
+        name: 'Flagged spending patterns',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        level: 4,
+        name: 'Expenses to review',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        level: 5,
+        name: 'Large grocery shop',
+      })
     ).toBeInTheDocument();
   });
 

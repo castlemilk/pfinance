@@ -278,7 +278,9 @@ function SpendingAnalyticsContent({
         className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
       >
         <div className="min-w-0">
-          <p className="text-sm font-medium text-primary">{scopeLabel}</p>
+          <p className="inline-flex border-l-2 border-primary pl-2 text-sm font-medium text-foreground">
+            {scopeLabel}
+          </p>
           <ViewHeading className="mt-1 text-balance text-2xl font-semibold text-foreground">
             Spending patterns
           </ViewHeading>

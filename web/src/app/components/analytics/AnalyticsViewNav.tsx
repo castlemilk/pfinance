@@ -35,28 +35,63 @@ export function AnalyticsViewNav({
   activeView,
   availableViews,
 }: AnalyticsViewNavProps) {
+  const railRef = useRef<HTMLDivElement | null>(null);
   const triggerRefs = useRef<
     Partial<Record<AnalyticsView, HTMLButtonElement | null>>
   >({});
 
   useEffect(() => {
     const activeTrigger = triggerRefs.current[activeView];
-    if (
-      !activeTrigger ||
-      typeof activeTrigger.scrollIntoView !== 'function'
-    ) {
-      return;
-    }
+    if (!activeTrigger) return;
 
     const reduceMotion =
       typeof window !== 'undefined' &&
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const behavior: ScrollBehavior = reduceMotion ? 'auto' : 'smooth';
+    const rail = railRef.current;
+
+    if (rail) {
+      const railBounds = rail.getBoundingClientRect();
+      const triggerBounds = activeTrigger.getBoundingClientRect();
+      const hasMeasurableGeometry =
+        railBounds.width > 0 && triggerBounds.width > 0;
+
+      if (hasMeasurableGeometry) {
+        const leftOverflow = triggerBounds.left - railBounds.left;
+        const rightOverflow = triggerBounds.right - railBounds.right;
+
+        if (leftOverflow < 0 || rightOverflow > 0) {
+          const edgePadding = 4;
+          const delta =
+            leftOverflow < 0
+              ? leftOverflow - edgePadding
+              : rightOverflow + edgePadding;
+          const maxScrollLeft = Math.max(
+            0,
+            rail.scrollWidth - rail.clientWidth
+          );
+          const nextScrollLeft = Math.min(
+            maxScrollLeft,
+            Math.max(0, rail.scrollLeft + delta)
+          );
+
+          if (typeof rail.scrollTo === 'function') {
+            rail.scrollTo({ left: nextScrollLeft, behavior });
+          } else {
+            rail.scrollLeft = nextScrollLeft;
+          }
+        }
+        return;
+      }
+    }
+
+    if (typeof activeTrigger.scrollIntoView !== 'function') return;
 
     activeTrigger.scrollIntoView({
       block: 'nearest',
       inline: 'nearest',
-      behavior: reduceMotion ? 'auto' : 'smooth',
+      behavior,
     });
   }, [activeView]);
 
@@ -67,6 +102,7 @@ export function AnalyticsViewNav({
     >
       {availableViews.length > 0 ? (
         <TabsList
+          ref={railRef}
           aria-label="Choose an analytics view"
           className="h-auto min-h-12 w-full max-w-full justify-start gap-1 overflow-x-auto overscroll-x-contain rounded-[10px] border border-border bg-muted/50 p-1"
         >

@@ -58,6 +58,18 @@ const groupScope = {
   kind: 'group',
   groupId: 'group-home',
   groupName: 'Home',
+  members: [
+    {
+      userId: 'member-credit',
+      displayName: 'Alex',
+      email: 'alex@example.com',
+    },
+    {
+      userId: 'member-debit',
+      displayName: 'Sam',
+      email: 'sam@example.com',
+    },
+  ],
 } as const satisfies AnalyticsScope;
 
 const formatMoney = jest.fn(
@@ -563,7 +575,9 @@ describe('OverviewAnalyticsView', () => {
       })
     );
     await user.click(
-      within(trendFigure).getByRole('button', { name: 'Show data table' })
+      within(trendFigure).getByRole('button', {
+        name: 'Show Spending trend values data table',
+      })
     );
     const trendTable = within(trendFigure).getByRole('table', {
       name: 'Spending trend values',
@@ -573,9 +587,14 @@ describe('OverviewAnalyticsView', () => {
 
     const waterfallFigure = screen.getByRole('figure', { name: 'Money flow' });
     expect(within(waterfallFigure).getByText('July 2026')).toBeInTheDocument();
-    expect(mockWaterfallChart).toHaveBeenCalledWith({ data: waterfallData });
+    expect(mockWaterfallChart).toHaveBeenCalledWith({
+      data: waterfallData,
+      formatMoney,
+    });
     await user.click(
-      within(waterfallFigure).getByRole('button', { name: 'Show data table' })
+      within(waterfallFigure).getByRole('button', {
+        name: 'Show Money flow values data table',
+      })
     );
     const waterfallTable = within(waterfallFigure).getByRole('table', {
       name: 'Money flow values',
@@ -621,16 +640,37 @@ describe('OverviewAnalyticsView', () => {
     expect(screen.getByText('AUD 125.50')).toBeInTheDocument();
     const balances = screen.getByRole('region', { name: 'Member balances' });
     expect(within(balances).getAllByTestId('member-balance')).toHaveLength(2);
-    expect(within(balances).getByText('Member 1')).toBeInTheDocument();
-    expect(within(balances).getByText('Member 2')).toBeInTheDocument();
+    expect(within(balances).getByText('Alex')).toBeInTheDocument();
+    expect(within(balances).getByText('Sam')).toBeInTheDocument();
     expect(within(balances).queryByText('member-credit')).not.toBeInTheDocument();
     expect(within(balances).queryByText('member-debit')).not.toBeInTheDocument();
     expect(balances).not.toHaveTextContent('edit');
     expect(balances).not.toHaveTextContent('ebit');
-    expect(within(balances).getByText('Is owed')).toHaveClass('text-chart-2');
-    expect(within(balances).getByText('Owes')).toHaveClass('text-destructive');
-    expect(within(balances).getAllByText('AUD 150.00')).toHaveLength(2);
+    expect(within(balances).getByText('Is owed').parentElement).toHaveClass(
+      'text-foreground'
+    );
+    expect(within(balances).getByText('Owes').parentElement).toHaveClass(
+      'text-foreground'
+    );
+    expect(
+      within(balances).getByText('Is owed').previousElementSibling
+    ).toHaveClass('bg-chart-2');
+    expect(within(balances).getByText('Owes').previousElementSibling).toHaveClass(
+      'bg-destructive'
+    );
+    within(balances)
+      .getAllByText('AUD 150.00')
+      .forEach((value) => expect(value).toHaveClass('font-mono'));
     expect(within(balances).getAllByText('AUD 400.00')).toHaveLength(1);
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Group settlement' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 4, name: 'Large market shop' })
+    ).toBeInTheDocument();
+    expect(
+      within(balances).getByRole('heading', { level: 4, name: 'Alex' })
+    ).toBeInTheDocument();
   });
 
   it('uses private duplicate-safe member labels without React key warnings', () => {
@@ -775,7 +815,13 @@ describe('AnalyticsMetricStrip', () => {
     expect(within(strip).getAllByTestId('analytics-metric')).toHaveLength(4);
     within(strip)
       .getAllByTestId('analytics-metric-value')
-      .forEach((value) => expect(value).toHaveClass('tabular-nums'));
+      .forEach((value) =>
+        expect(value).toHaveClass('font-mono', 'tabular-nums', 'text-foreground')
+      );
+    const accents = within(strip).getAllByTestId('analytics-metric-tone-accent');
+    expect(accents).toHaveLength(4);
+    expect(accents[0]).toHaveClass('bg-chart-2');
+    expect(accents[1]).toHaveClass('bg-chart-1');
     const longValue = within(strip).getByText(
       'AUD 123456789012345678901234567890.00'
     );

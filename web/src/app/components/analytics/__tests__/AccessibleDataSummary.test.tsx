@@ -51,7 +51,9 @@ describe('AccessibleDataSummary', () => {
       <AccessibleDataSummary caption="Weekly cash flow" columns={columns} rows={rows} />
     );
 
-    const disclosure = screen.getByRole('button', { name: 'Show data table' });
+    const disclosure = screen.getByRole('button', {
+      name: 'Show Weekly cash flow data table',
+    });
     expect(disclosure).toHaveAttribute('aria-expanded', 'false');
     expect(disclosure).toHaveClass('min-h-10');
     expect(disclosure).toHaveClass('focus-visible:ring-inset');
@@ -67,9 +69,15 @@ describe('AccessibleDataSummary', () => {
       <AccessibleDataSummary caption="Weekly cash flow" columns={columns} rows={rows} />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Show data table' }));
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Show Weekly cash flow data table',
+      })
+    );
 
-    const disclosure = screen.getByRole('button', { name: 'Hide data table' });
+    const disclosure = screen.getByRole('button', {
+      name: 'Hide Weekly cash flow data table',
+    });
     expect(disclosure).toHaveAttribute('aria-expanded', 'true');
     const table = screen.getByRole('table', { name: 'Weekly cash flow' });
     expect(within(table).getByText('Weekly cash flow', { selector: 'caption' })).toBeInTheDocument();
@@ -83,13 +91,14 @@ describe('AccessibleDataSummary', () => {
     ).toEqual(rows.flat());
     within(table)
       .getAllByRole('cell')
-      .forEach((cell) => expect(cell).toHaveClass('tabular-nums'));
+      .forEach((cell) => expect(cell).toHaveClass('font-mono', 'tabular-nums'));
 
     await user.click(disclosure);
-    expect(screen.getByRole('button', { name: 'Show data table' })).toHaveAttribute(
-      'aria-expanded',
-      'false'
-    );
+    expect(
+      screen.getByRole('button', {
+        name: 'Show Weekly cash flow data table',
+      })
+    ).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
@@ -101,7 +110,9 @@ describe('AccessibleDataSummary', () => {
 
     await user.tab();
     await user.keyboard('{Enter}');
-    const disclosure = screen.getByRole('button', { name: 'Hide data table' });
+    const disclosure = screen.getByRole('button', {
+      name: 'Hide Weekly cash flow data table',
+    });
     expect(disclosure).toHaveAttribute('aria-expanded', 'true');
     const chevron = within(disclosure).getByTestId('data-summary-chevron');
     expect(chevron).toHaveAttribute('aria-hidden', 'true');
@@ -114,10 +125,11 @@ describe('AccessibleDataSummary', () => {
     );
 
     await user.keyboard(' ');
-    expect(screen.getByRole('button', { name: 'Show data table' })).toHaveAttribute(
-      'aria-expanded',
-      'false'
-    );
+    expect(
+      screen.getByRole('button', {
+        name: 'Show Weekly cash flow data table',
+      })
+    ).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('never mutates readonly inputs', async () => {
@@ -137,7 +149,9 @@ describe('AccessibleDataSummary', () => {
         rows={frozenRows}
       />
     );
-    await user.click(screen.getByRole('button', { name: 'Show data table' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Show Category totals data table' })
+    );
 
     expect(frozenColumns).toEqual(columnsBefore);
     expect(frozenRows).toEqual(rowsBefore);
@@ -157,7 +171,9 @@ describe('AccessibleDataSummary', () => {
         ]}
       />
     );
-    await user.click(screen.getByRole('button', { name: 'Show data table' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Show Repeated values data table' })
+    );
 
     expect(screen.getAllByRole('columnheader')).toHaveLength(2);
     expect(screen.getAllByRole('cell')).toHaveLength(4);
@@ -178,7 +194,9 @@ describe('AccessibleDataSummary', () => {
       <AccessibleDataSummary caption="No rows yet" columns={[]} rows={[]} />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Show data table' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Show No rows yet data table' })
+    );
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(
       'No table data is available.'
@@ -219,7 +237,11 @@ describe('AccessibleDataSummary', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Show data table' }));
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Show Invalid category totals data table',
+      })
+    );
 
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(
@@ -238,7 +260,9 @@ describe('AccessibleDataSummary', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Show data table' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Show Category totals data table' })
+    );
 
     const table = screen.getByRole('table', { name: 'Category totals' });
     expect(

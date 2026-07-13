@@ -460,7 +460,11 @@ describe('SpendingAnalyticsView', () => {
     renderView();
 
     const heatmapFigure = screen.getByRole('figure', { name: 'Daily spending' });
-    fireEvent.click(within(heatmapFigure).getByRole('button', { name: 'Show data table' }));
+    fireEvent.click(
+      within(heatmapFigure).getByRole('button', {
+        name: 'Show Daily spending values data table',
+      })
+    );
     const heatmapTable = within(heatmapFigure).getByRole('table', {
       name: 'Daily spending values',
     });
@@ -469,7 +473,11 @@ describe('SpendingAnalyticsView', () => {
     expect(within(heatmapTable).getByText('2')).toBeInTheDocument();
 
     const trendFigure = screen.getByRole('figure', { name: 'Spending trend' });
-    fireEvent.click(within(trendFigure).getByRole('button', { name: 'Show data table' }));
+    fireEvent.click(
+      within(trendFigure).getByRole('button', {
+        name: 'Show Spending trend values data table',
+      })
+    );
     const trendTable = within(trendFigure).getByRole('table', {
       name: 'Spending trend values',
     });
@@ -481,7 +489,11 @@ describe('SpendingAnalyticsView', () => {
     expect(within(trendRows[3]).getByText('Not available')).toBeInTheDocument();
 
     const categoryFigure = screen.getByRole('figure', { name: 'Category mix over time' });
-    fireEvent.click(within(categoryFigure).getByRole('button', { name: 'Show data table' }));
+    fireEvent.click(
+      within(categoryFigure).getByRole('button', {
+        name: 'Show Category mix values data table',
+      })
+    );
     const categoryTable = within(categoryFigure).getByRole('table', {
       name: 'Category mix values',
     });
@@ -608,7 +620,11 @@ describe('SpendingAnalyticsView', () => {
     ]);
 
     const dailyFigure = screen.getByRole('figure', { name: 'Daily spending' });
-    fireEvent.click(within(dailyFigure).getByRole('button', { name: 'Show data table' }));
+    fireEvent.click(
+      within(dailyFigure).getByRole('button', {
+        name: 'Show Daily spending values data table',
+      })
+    );
     const dailyTable = within(dailyFigure).getByRole('table', {
       name: 'Daily spending values',
     });
@@ -617,7 +633,11 @@ describe('SpendingAnalyticsView', () => {
     expect(within(dailyTable).getByText('3')).toBeInTheDocument();
 
     const trendFigure = screen.getByRole('figure', { name: 'Spending trend' });
-    fireEvent.click(within(trendFigure).getByRole('button', { name: 'Show data table' }));
+    fireEvent.click(
+      within(trendFigure).getByRole('button', {
+        name: 'Show Spending trend values data table',
+      })
+    );
     const trendTable = within(trendFigure).getByRole('table', {
       name: 'Spending trend values',
     });
@@ -625,7 +645,11 @@ describe('SpendingAnalyticsView', () => {
     expect(within(trendTable).getByText('AUD 15.00')).toBeInTheDocument();
 
     const categoryFigure = screen.getByRole('figure', { name: 'Category mix over time' });
-    fireEvent.click(within(categoryFigure).getByRole('button', { name: 'Show data table' }));
+    fireEvent.click(
+      within(categoryFigure).getByRole('button', {
+        name: 'Show Category mix values data table',
+      })
+    );
     const categoryTable = within(categoryFigure).getByRole('table', {
       name: 'Category mix values',
     });

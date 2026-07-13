@@ -130,6 +130,26 @@ function forecastRows(
     .map((entry) => entry.row);
 }
 
+function latestNetProjection(
+  points: readonly ForecastSeries[]
+): ForecastSeries | null {
+  return (
+    [...points]
+      .filter(
+        (point) =>
+          Number.isFinite(point.predicted) &&
+          sortDate(point.date) !== Number.MAX_SAFE_INTEGER
+      )
+      .sort((left, right) => sortDate(right.date) - sortDate(left.date))[0] ??
+    null
+  );
+}
+
+function projectionDirection(value: number): string {
+  if (Math.abs(value) < 0.005) return 'near break-even';
+  return value > 0 ? 'positive' : 'negative';
+}
+
 export function ForecastAnalyticsView({
   scope,
   period,
@@ -156,6 +176,7 @@ export function ForecastAnalyticsView({
     netForecast,
     currency
   );
+  const currentProjection = latestNetProjection(netForecast);
 
   if (forecast.loading || (!forecast.error && isUnresolved)) {
     return <AnalyticsChartSkeleton label="Loading cash flow forecast" />;
@@ -165,6 +186,7 @@ export function ForecastAnalyticsView({
       <AnalyticsErrorState
         message={forecast.error}
         onRetry={() => void forecast.refetch()}
+        headingLevel={scope.kind === 'personal' ? 2 : 3}
       />
     );
   }
@@ -180,14 +202,42 @@ export function ForecastAnalyticsView({
   return (
     <div className="space-y-5">
       <header className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-primary">{scopeLabel}</p>
+        <p className="inline-flex border-l-2 border-primary pl-2 text-sm font-medium text-foreground">
+          {scopeLabel}
+        </p>
         <ViewHeading className="text-balance text-2xl font-semibold text-foreground">
           Cash flow forecast
         </ViewHeading>
         <p className="max-w-2xl text-pretty text-sm text-muted-foreground">
-          Compare recorded cash flow with the modelled direction for this horizon.
+          Compare recorded cash flow with the projected direction for this horizon.
         </p>
       </header>
+
+      {currentProjection ? (
+        <section
+          aria-labelledby="forecast-takeaway-heading"
+          className={`rounded-2xl border border-border border-l-4 bg-card p-5 shadow-sm ${
+            currentProjection.predicted < -0.005
+              ? 'border-l-destructive'
+              : 'border-l-chart-2'
+          }`}
+        >
+          <SectionHeading
+            id="forecast-takeaway-heading"
+            className="text-balance text-sm font-semibold text-foreground"
+          >
+            Projected net position
+          </SectionHeading>
+          <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-foreground">
+            {currency.formatMoney(currentProjection.predicted)}
+          </p>
+          <p className="mt-2 max-w-2xl text-pretty text-sm leading-relaxed text-muted-foreground">
+            By {formattedDate(currentProjection.date, currency)}, the projected
+            net position is {projectionDirection(currentProjection.predicted)}.
+            {' '}Expected range: {meaningfulRange(currentProjection, currency)}.
+          </p>
+        </section>
+      ) : null}
 
       {!hasData ? (
         <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">

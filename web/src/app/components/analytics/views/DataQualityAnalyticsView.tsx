@@ -5,6 +5,7 @@ import Link from 'next/link';
 
 import { analyticsTimestampDate } from '@/app/metrics/analyticsMappers';
 import { useExtractionMetrics } from '@/app/metrics/hooks/useExtractionMetrics';
+import { Button } from '@/components/ui/button';
 import {
   DocumentType,
   ExtractionMethod,
@@ -13,7 +14,6 @@ import {
 import { AccessibleDataSummary } from '../AccessibleDataSummary';
 import {
   AnalyticsChartSkeleton,
-  AnalyticsEmptyState,
   AnalyticsErrorState,
 } from '../AnalyticsStates';
 
@@ -34,9 +34,7 @@ const PERIOD_DAYS: Readonly<Record<AnalyticsPeriod, 30 | 90 | 365>> =
 
 type NormalizedEvent = {
   readonly key: string;
-  readonly hasStableId: boolean;
   readonly documentLabel: string;
-  readonly documentActionLabel: string;
   readonly dateLabel: string;
   readonly transactionCount: number;
   readonly acceptedCount: number;
@@ -162,9 +160,7 @@ function normalizeEvent(
 
   return Object.freeze({
     key: `${event.id.trim() || 'unidentified'}:${index}`,
-    hasStableId: event.id.trim().length > 0,
     documentLabel: label,
-    documentActionLabel: label.toLocaleLowerCase(currency.locale),
     dateLabel,
     transactionCount: nonNegativeInteger(event.transactionCount),
     acceptedCount: nonNegativeInteger(event.acceptedCount),
@@ -188,7 +184,7 @@ function Metric({
       <dt className="text-pretty text-xs font-medium text-muted-foreground">
         {label}
       </dt>
-      <dd className="mt-2 break-words text-2xl font-semibold tabular-nums text-foreground">
+      <dd className="mt-2 break-words font-mono text-2xl font-semibold tabular-nums text-foreground">
         {value}
       </dd>
       <p className="mt-1 text-pretty text-xs leading-relaxed text-muted-foreground">
@@ -222,7 +218,7 @@ function CorrectionBreakdown({
               <span className="min-w-0 break-words text-muted-foreground">
                 {entry.label}
               </span>
-              <span className="shrink-0 font-semibold tabular-nums text-foreground">
+              <span className="shrink-0 font-mono font-semibold tabular-nums text-foreground">
                 {formatCount.format(entry.count)}
               </span>
             </div>
@@ -255,28 +251,13 @@ function ExtractionEventCard({ event }: Readonly<{ event: NormalizedEvent }>) {
           <h4 className="text-balance text-sm font-semibold text-foreground">
             {event.documentLabel} extraction
           </h4>
-          <p className="mt-1 text-xs tabular-nums text-muted-foreground">
+          <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
             {event.dateLabel}
           </p>
         </div>
-        {event.hasStableId ? (
-          <Link
-            href={IMPORT_DESTINATION}
-            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-semibold text-foreground outline-none transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out hover:bg-muted/60 focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100"
-          >
-            Review {event.documentActionLabel} extraction
-          </Link>
-        ) : (
-          <span
-            aria-disabled="true"
-            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-border px-3 text-xs font-semibold text-muted-foreground"
-          >
-            Review unavailable
-          </span>
-        )}
       </div>
 
-      <dl className="mt-4 grid grid-cols-2 gap-3 tabular-nums sm:grid-cols-5">
+      <dl className="mt-4 grid grid-cols-2 gap-3 font-mono tabular-nums sm:grid-cols-5">
         {[
           ['Transactions', event.transactionCount],
           ['Accepted', event.acceptedCount],
@@ -299,10 +280,32 @@ function ExtractionEventCard({ event }: Readonly<{ event: NormalizedEvent }>) {
       </dl>
 
       <p className="mt-4 text-pretty text-xs text-muted-foreground">
-        {event.methodLabel} · Processing time{' '}
-        <span className="tabular-nums">{event.processingTimeLabel}</span>
+        {event.methodLabel}, processing time{' '}
+        <span className="font-mono tabular-nums">{event.processingTimeLabel}</span>
       </p>
     </article>
+  );
+}
+
+function ExtractionEmptyState() {
+  return (
+    <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+      <h3 className="text-balance text-xl font-semibold text-foreground">
+        No extraction history for this period
+      </h3>
+      <p className="mt-2 max-w-xl text-pretty text-sm leading-relaxed text-muted-foreground">
+        No receipts or statements were imported in this analytics period, so
+        there is no extraction quality to review yet.
+      </p>
+      <Button
+        asChild
+        variant="outline"
+        size="lg"
+        className="mt-5 min-h-10 normal-case tracking-normal transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100"
+      >
+        <Link href={IMPORT_DESTINATION}>Import a receipt or statement</Link>
+      </Button>
+    </section>
   );
 }
 
@@ -337,7 +340,9 @@ function PersonalDataQualityAnalyticsView({
     return (
       <div className="space-y-5">
         <header className="flex flex-col gap-2">
-          <p className="text-sm font-medium text-primary">Your imports</p>
+          <p className="inline-flex border-l-2 border-primary pl-2 text-sm font-medium text-foreground">
+            Your imports
+          </p>
           <h2 className="text-balance text-2xl font-semibold text-foreground">
             Data quality
           </h2>
@@ -345,14 +350,7 @@ function PersonalDataQualityAnalyticsView({
             See where imported transactions needed review and what to check next.
           </p>
         </header>
-        <AnalyticsEmptyState
-          scope={{ kind: 'personal' }}
-          missing="both"
-          action={{
-            href: IMPORT_DESTINATION,
-            label: 'Import a receipt or statement',
-          }}
-        />
+        <ExtractionEmptyState />
       </div>
     );
   }
@@ -384,7 +382,9 @@ function PersonalDataQualityAnalyticsView({
   return (
     <div className="space-y-5">
       <header className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-primary">Your imports</p>
+        <p className="inline-flex border-l-2 border-primary pl-2 text-sm font-medium text-foreground">
+          Your imports
+        </p>
         <h2 className="text-balance text-2xl font-semibold text-foreground">
           Data quality
         </h2>
@@ -455,16 +455,28 @@ function PersonalDataQualityAnalyticsView({
         aria-labelledby="recent-extraction-reviews-heading"
         className="rounded-2xl border border-border bg-card p-5 shadow-sm"
       >
-        <h3
-          id="recent-extraction-reviews-heading"
-          className="text-balance text-lg font-semibold text-foreground"
-        >
-          Recent extraction reviews
-        </h3>
-        <p className="mt-1 max-w-2xl text-pretty text-sm text-muted-foreground">
-          Outcome counts show what was accepted, rejected, or corrected.
-          Processing time is retained as secondary technical context.
-        </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3
+              id="recent-extraction-reviews-heading"
+              className="text-balance text-lg font-semibold text-foreground"
+            >
+              Recent extraction reviews
+            </h3>
+            <p className="mt-1 max-w-2xl text-pretty text-sm text-muted-foreground">
+              Outcome counts show what was accepted, rejected, or corrected.
+              Processing time is retained as secondary technical context.
+            </p>
+          </div>
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="min-h-10 shrink-0 normal-case tracking-normal transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100"
+          >
+            <Link href={IMPORT_DESTINATION}>Open import tools</Link>
+          </Button>
+        </div>
 
         {events.length > 0 ? (
           <>

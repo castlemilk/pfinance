@@ -226,6 +226,32 @@ function waterfallColor(type: WaterfallEntryType): string {
   }
 }
 
+function signedWaterfallAmount(
+  type: WaterfallBar['type'],
+  amount: number
+): number {
+  if (type !== 'expense' && type !== 'tax') return amount;
+  return amount === 0 ? 0 : -amount;
+}
+
+function waterfallDisplayLabel(
+  label: string,
+  type: WaterfallBar['type']
+): string {
+  const trimmed = label.trim();
+  if (type !== 'expense' || !trimmed.startsWith('EXPENSE_CATEGORY_')) {
+    return trimmed || 'Untitled step';
+  }
+
+  const category = trimmed.replace(/^EXPENSE_CATEGORY_/, '');
+  return category
+    .toLowerCase()
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ') || 'Other';
+}
+
 export function mapAnalyticsOverviewResponse(
   response: GetAnalyticsOverviewResponse
 ): AnalyticsOverviewData {
@@ -456,16 +482,24 @@ export function mapWaterfallResponse(
   response: GetWaterfallDataResponse
 ): WaterfallData {
   return {
-    data: response.entries.map((entry) => ({
-      label: entry.label,
-      amount: checkedCentsToDollars(entry.amountCents, entry.amount),
-      type: waterfallTypeLabel(entry.entryType),
-      runningTotal: checkedCentsToDollars(
-        entry.runningTotalCents,
-        entry.runningTotal
-      ),
-      color: waterfallColor(entry.entryType),
-    })),
+    data: response.entries.map((entry) => {
+      const type = waterfallTypeLabel(entry.entryType);
+      const rawAmount = checkedCentsToDollars(
+        entry.amountCents,
+        entry.amount
+      );
+
+      return {
+        label: waterfallDisplayLabel(entry.label, type),
+        amount: signedWaterfallAmount(type, rawAmount),
+        type,
+        runningTotal: checkedCentsToDollars(
+          entry.runningTotalCents,
+          entry.runningTotal
+        ),
+        color: waterfallColor(entry.entryType),
+      };
+    }),
     periodLabel: response.periodLabel,
   };
 }

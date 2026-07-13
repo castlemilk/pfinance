@@ -615,6 +615,7 @@ export interface CashFlowForecastData {
  */
 export interface WaterfallBar {
   label: string;
+  /** Signed cash-flow effect: deductions are negative and refunds are positive. */
   amount: number;
   type: 'income' | 'expense' | 'tax' | 'savings' | 'subtotal';
   runningTotal: number;

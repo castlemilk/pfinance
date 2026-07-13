@@ -768,5 +768,50 @@ describe('analytics response mappers', () => {
         periodLabel: 'July 2026',
       });
     });
+
+    it('converts backend deduction magnitudes into signed cash-flow effects', () => {
+      const mapped = mapWaterfallResponse(
+        response<GetWaterfallDataResponse>({
+          periodLabel: 'July 2026',
+          entries: [
+            {
+              label: 'Gross Income',
+              amountCents: BigInt(100_000),
+              entryType: WaterfallEntryType.INCOME,
+              runningTotalCents: BigInt(100_000),
+            },
+            {
+              label: 'Tax',
+              amountCents: BigInt(20_000),
+              entryType: WaterfallEntryType.TAX,
+              runningTotalCents: BigInt(80_000),
+            },
+            {
+              label: 'EXPENSE_CATEGORY_FOOD',
+              amountCents: BigInt(25_000),
+              entryType: WaterfallEntryType.EXPENSE,
+              runningTotalCents: BigInt(55_000),
+            },
+            {
+              label: 'Refund',
+              amountCents: BigInt(-5_000),
+              entryType: WaterfallEntryType.EXPENSE,
+              runningTotalCents: BigInt(60_000),
+            },
+          ],
+        })
+      );
+
+      expect(mapped.data.map(({ label, amount, runningTotal }) => ({
+        label,
+        amount,
+        runningTotal,
+      }))).toEqual([
+        { label: 'Gross Income', amount: 1_000, runningTotal: 1_000 },
+        { label: 'Tax', amount: -200, runningTotal: 800 },
+        { label: 'Food', amount: -250, runningTotal: 550 },
+        { label: 'Refund', amount: 50, runningTotal: 600 },
+      ]);
+    });
   });
 });

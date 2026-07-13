@@ -1,6 +1,15 @@
 export type AnalyticsScope =
   | { kind: 'personal' }
-  | { kind: 'group'; groupId: string; groupName: string };
+  | {
+      kind: 'group';
+      groupId: string;
+      groupName: string;
+      members?: readonly {
+        userId: string;
+        displayName?: string;
+        email?: string;
+      }[];
+    };
 
 export type AnalyticsPeriod = 'month' | 'quarter' | 'year';
 

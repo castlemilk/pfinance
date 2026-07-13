@@ -14,9 +14,11 @@ const mockDataQuality = jest.fn((props: AnalyticsViewProps) => {
   void props;
   return <div data-testid="data-quality">Data quality</div>;
 });
-const mockUpgradePrompt = jest.fn(({ feature }: { feature: string }) => (
+const mockUpgradePrompt = jest.fn(
+  ({ feature }: { feature: string; headingLevel?: 2 | 3 | 4 }) => (
   <div data-testid="upgrade-prompt">Upgrade {feature}</div>
-));
+  )
+);
 
 jest.mock('@/app/context/MultiUserFinanceContext', () => ({
   useMultiUserFinance: jest.fn(),
@@ -31,7 +33,8 @@ jest.mock('@/app/context/FinanceContext', () => ({
 }));
 
 jest.mock('@/app/components/ProFeatureGate', () => ({
-  UpgradePrompt: (props: { feature: string }) => mockUpgradePrompt(props),
+  UpgradePrompt: (props: { feature: string; headingLevel?: 2 | 3 | 4 }) =>
+    mockUpgradePrompt(props),
 }));
 
 jest.mock('@/app/components/analytics/views/OverviewAnalyticsView', () => ({
@@ -61,6 +64,18 @@ jest.mock('@/app/components/analytics/views/DataQualityAnalyticsView', () => ({
 const activeGroup = {
   id: 'group-home',
   name: 'Home',
+  members: [
+    {
+      userId: 'member-alex',
+      displayName: 'Alex',
+      email: 'alex@example.com',
+    },
+    {
+      userId: 'member-sam',
+      displayName: '',
+      email: 'sam@example.com',
+    },
+  ],
 };
 
 describe('SharedAnalyticsPage', () => {
@@ -106,6 +121,18 @@ describe('SharedAnalyticsPage', () => {
           kind: 'group',
           groupId: 'group-home',
           groupName: 'Home',
+          members: [
+            {
+              userId: 'member-alex',
+              displayName: 'Alex',
+              email: 'alex@example.com',
+            },
+            {
+              userId: 'member-sam',
+              displayName: '',
+              email: 'sam@example.com',
+            },
+          ],
         },
         period: 'month',
       })
@@ -143,6 +170,10 @@ describe('SharedAnalyticsPage', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: 'Home analytics' })
     ).toBeInTheDocument();
+    expect(mockUpgradePrompt).toHaveBeenCalledWith({
+      feature: 'Advanced Analytics',
+      headingLevel: 3,
+    });
     expect(mockOverview).not.toHaveBeenCalled();
     expect(mockDataQuality).not.toHaveBeenCalled();
   });

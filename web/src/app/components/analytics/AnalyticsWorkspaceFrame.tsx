@@ -31,8 +31,12 @@ export function AnalyticsWorkspaceFrame({
     >
       <header className="flex flex-col gap-5 border-b border-border pb-5 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
-          <p className="mb-2 text-sm font-medium text-primary">
-            {scope.kind === 'personal' ? 'Personal scope' : 'Group scope'}
+          <p className="mb-2 inline-flex items-center gap-2 text-sm font-medium text-foreground">
+            <span
+              aria-hidden="true"
+              className="h-3 w-1 rounded-full bg-primary"
+            />
+            <span>{scope.kind === 'personal' ? 'Personal scope' : 'Group scope'}</span>
           </p>
           {scope.kind === 'personal' ? (
             <h1

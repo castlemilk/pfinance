@@ -9,7 +9,7 @@ const WaterfallChart = dynamic(
   {
     loading: () => (
       <div className="w-full h-64 flex items-center justify-center">
-        <Skeleton className="w-full h-full rounded-lg" />
+        <Skeleton className="w-full h-full rounded-lg motion-reduce:animate-none" />
       </div>
     ),
     ssr: false,

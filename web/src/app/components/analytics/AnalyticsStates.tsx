@@ -6,7 +6,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 import { buildAnalyticsExpenseUrl } from './links';
 
+import type { HTMLAttributes } from 'react';
 import type { AnalyticsScope } from './types';
+
+type AnalyticsHeadingLevel = 2 | 3 | 4 | 5;
 
 type AnalyticsChartSkeletonProps = {
   label?: string;
@@ -15,6 +18,7 @@ type AnalyticsChartSkeletonProps = {
 type AnalyticsErrorStateProps = {
   message: string;
   onRetry: () => void;
+  headingLevel?: AnalyticsHeadingLevel;
 };
 
 type AnalyticsEmptyStateProps = {
@@ -27,7 +31,29 @@ type AnalyticsInsufficientStateProps = {
   title: string;
   coveredCategories: readonly string[];
   uncoveredCategories: readonly string[];
+  headingLevel?: AnalyticsHeadingLevel;
 };
+
+const HEADING_TAGS = {
+  2: 'h2',
+  3: 'h3',
+  4: 'h4',
+  5: 'h5',
+} as const;
+
+function Heading({
+  level,
+  ...props
+}: Readonly<
+  { level: AnalyticsHeadingLevel } & HTMLAttributes<HTMLHeadingElement>
+>) {
+  const Tag = HEADING_TAGS[level];
+  return <Tag {...props} />;
+}
+
+function childHeadingLevel(level: AnalyticsHeadingLevel): AnalyticsHeadingLevel {
+  return Math.min(5, level + 1) as AnalyticsHeadingLevel;
+}
 
 const BUTTON_STYLE = {
   backgroundColor: 'var(--background)',
@@ -100,15 +126,19 @@ export function AnalyticsChartSkeleton({
 export function AnalyticsErrorState({
   message,
   onRetry,
+  headingLevel = 2,
 }: AnalyticsErrorStateProps) {
   return (
     <Alert
       variant="destructive"
       className="rounded-2xl bg-card p-5 shadow-sm"
     >
-      <h2 className="text-balance text-lg font-semibold text-foreground">
+      <Heading
+        level={headingLevel}
+        className="text-balance text-lg font-semibold text-foreground"
+      >
         Analytics could not load
-      </h2>
+      </Heading>
       <AlertDescription className="mt-2 text-pretty text-destructive">
         <p>{message}</p>
       </AlertDescription>
@@ -178,12 +208,16 @@ export function AnalyticsEmptyState({
 }: AnalyticsEmptyStateProps) {
   const copy = emptyStateCopy(scope, missing);
   const resolvedAction = action ?? defaultEmptyAction(scope, missing);
+  const headingLevel = scope.kind === 'personal' ? 2 : 3;
 
   return (
     <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-      <h2 className="text-balance text-xl font-semibold text-foreground">
+      <Heading
+        level={headingLevel}
+        className="text-balance text-xl font-semibold text-foreground"
+      >
         {copy.title}
-      </h2>
+      </Heading>
       <p className="mt-2 max-w-xl text-pretty text-sm leading-relaxed text-muted-foreground">
         {copy.description}
       </p>
@@ -205,6 +239,7 @@ export function AnalyticsInsufficientState({
   title,
   coveredCategories,
   uncoveredCategories,
+  headingLevel = 2,
 }: AnalyticsInsufficientStateProps) {
   const coveredEntries = duplicateSafeEntries(coveredCategories, 'covered');
   const uncoveredEntries = duplicateSafeEntries(
@@ -215,22 +250,29 @@ export function AnalyticsInsufficientState({
   const coverageMessage = hasCoverageGap
     ? 'More history is needed before every category can be assessed.'
     : 'Coverage details are incomplete. More history is needed before drawing conclusions.';
+  const sectionHeadingLevel = childHeadingLevel(headingLevel);
 
   return (
     <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-      <h2 className="text-balance text-xl font-semibold text-foreground">
+      <Heading
+        level={headingLevel}
+        className="text-balance text-xl font-semibold text-foreground"
+      >
         {title}
-      </h2>
+      </Heading>
       <p className="mt-2 text-pretty text-sm leading-relaxed text-muted-foreground">
         {coverageMessage}
       </p>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
         <section className="rounded-[10px] bg-muted/40 p-4">
-          <h3 className="text-balance text-sm font-semibold text-foreground">
+          <Heading
+            level={sectionHeadingLevel}
+            className="text-balance text-sm font-semibold text-foreground"
+          >
             Covered categories{' '}
-            <span className="tabular-nums">({coveredCategories.length})</span>
-          </h3>
+            <span className="font-mono tabular-nums">({coveredCategories.length})</span>
+          </Heading>
           <ul
             aria-label="Covered categories"
             className="mt-2 space-y-1 text-sm text-muted-foreground"
@@ -244,10 +286,13 @@ export function AnalyticsInsufficientState({
         </section>
 
         <section className="rounded-[10px] bg-muted/40 p-4">
-          <h3 className="text-balance text-sm font-semibold text-foreground">
+          <Heading
+            level={sectionHeadingLevel}
+            className="text-balance text-sm font-semibold text-foreground"
+          >
             Categories needing history{' '}
-            <span className="tabular-nums">({uncoveredCategories.length})</span>
-          </h3>
+            <span className="font-mono tabular-nums">({uncoveredCategories.length})</span>
+          </Heading>
           <ul
             aria-label="Categories needing history"
             className="mt-2 space-y-1 text-sm text-muted-foreground"
