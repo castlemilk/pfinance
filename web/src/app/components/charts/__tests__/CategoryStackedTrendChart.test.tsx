@@ -152,4 +152,105 @@ describe('CategoryStackedTrendChart', () => {
     );
     expect(singleton.container.innerHTML).not.toMatch(/NaN|Infinity/);
   });
+
+  it('derives totals from the plotted categories and normalizes aliases and duplicate dates', () => {
+    render(
+      <CategoryStackedTrendChart
+        points={[
+          {
+            date: '2026-07-01',
+            label: 'Earlier duplicate',
+            total: 900,
+            categories: { ' Food ': 1, Food: 2, Housing: 3 },
+          },
+          {
+            date: '2026-07-01',
+            label: 'Chosen duplicate',
+            total: 999,
+            categories: { ' Food ': 5, Food: 10, Housing: 20 },
+          },
+        ]}
+        categories={[' Food ', 'Food', 'Housing', 'Housing', '   ']}
+        formatMoney={formatMoney}
+        formatDate={formatDate}
+      />
+    );
+
+    const chart = screen.getByRole('img', { name: /category spending over time/i });
+    expect(Number(chart.getAttribute('data-y-domain-max'))).toBeLessThan(999);
+    const legend = screen.getByTestId('category-chart-legend');
+    expect(within(legend).getAllByText('Food')).toHaveLength(1);
+    expect(within(legend).getAllByText('Housing')).toHaveLength(1);
+    expect(within(legend).queryByText(/^\s+$/)).not.toBeInTheDocument();
+
+    const overlay = screen.getByTestId('category-chart-overlay');
+    fireEvent.focus(overlay);
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'day 2026-07-01. Total credits 35. Food credits 15. Housing credits 20.'
+    );
+    expect(screen.getByText('Total: credits 35')).toBeInTheDocument();
+  });
+
+  it('clears stale inspection on replacement and withholds legends for sanitized-empty data', () => {
+    const rendered = render(
+      <CategoryStackedTrendChart
+        points={[
+          {
+            date: '2026-07-01',
+            label: 'First',
+            total: 10,
+            categories: { Food: 10 },
+          },
+        ]}
+        categories={['Food']}
+        formatMoney={formatMoney}
+        formatDate={formatDate}
+      />
+    );
+    fireEvent.focus(screen.getByTestId('category-chart-overlay'));
+    expect(screen.getByRole('status')).toHaveTextContent('day 2026-07-01');
+
+    rendered.rerender(
+      <CategoryStackedTrendChart
+        points={[
+          {
+            date: '2026-07-01',
+            label: 'First',
+            total: 10,
+            categories: { Food: 10 },
+          },
+        ]}
+        categories={['Food']}
+        formatMoney={formatMoney}
+        formatDate={formatDate}
+      />
+    );
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+    expect(screen.queryByText('Total: credits 10')).not.toBeInTheDocument();
+
+    fireEvent.focus(screen.getByTestId('category-chart-overlay'));
+    expect(screen.getByRole('status')).toHaveTextContent('day 2026-07-01');
+
+    rendered.rerender(
+      <CategoryStackedTrendChart
+        points={[
+          {
+            date: 'invalid',
+            label: 'Invalid replacement',
+            total: 20,
+            categories: { Food: 20 },
+          },
+        ]}
+        categories={['Food', 'Food', '   ']}
+        formatMoney={formatMoney}
+        formatDate={formatDate}
+      />
+    );
+
+    expect(screen.getByText(/no category trend data/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('category-chart-overlay')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('category-chart-legend')).not.toBeInTheDocument();
+    expect(screen.queryByText('credits 10')).not.toBeInTheDocument();
+  });
 });

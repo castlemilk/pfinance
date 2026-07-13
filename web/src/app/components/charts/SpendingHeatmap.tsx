@@ -52,6 +52,11 @@ interface ActiveDay {
   top: number;
 }
 
+interface ActiveDayState {
+  model: HeatmapData;
+  day: ActiveDay;
+}
+
 const DEFAULT_FORMATTERS = createAnalyticsCurrencyContext(undefined);
 const HIDE_DELAY = 200;
 const MAX_RENDERED_DAYS = 400;
@@ -103,27 +108,81 @@ function toUtcDateKey(date: Date): string | null {
   ).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
 }
 
-function copiedDay(day: HeatmapDay): HeatmapDay | null {
-  if (
-    !utcDateFromKey(day.date) ||
-    !Number.isFinite(day.value) ||
-    !Number.isFinite(day.count)
-  ) {
-    return null;
+export function normalizeHeatmapData(data: HeatmapData): HeatmapData {
+  type AggregatedDay = {
+    date: string;
+    value: number;
+    count: number;
+    categories: Map<string, HeatmapCategoryAmount>;
+  };
+
+  const daysByDate = new Map<string, AggregatedDay>();
+  for (const day of data.days) {
+    if (
+      !utcDateFromKey(day.date) ||
+      !Number.isFinite(day.value) ||
+      !Number.isFinite(day.count)
+    ) {
+      continue;
+    }
+
+    const aggregate = daysByDate.get(day.date) ?? {
+      date: day.date,
+      value: 0,
+      count: 0,
+      categories: new Map<string, HeatmapCategoryAmount>(),
+    };
+    const nextValue = aggregate.value + day.value;
+    const nextCount = aggregate.count + day.count;
+    if (!Number.isFinite(nextValue) || !Number.isFinite(nextCount)) continue;
+    aggregate.value = nextValue;
+    aggregate.count = nextCount;
+
+    for (const category of day.categories ?? []) {
+      const label = category.category.trim();
+      if (
+        !label ||
+        !Number.isFinite(category.amount) ||
+        !Number.isFinite(category.count)
+      ) {
+        continue;
+      }
+      const previous = aggregate.categories.get(label);
+      const amount = (previous?.amount ?? 0) + category.amount;
+      const count = (previous?.count ?? 0) + category.count;
+      if (!Number.isFinite(amount) || !Number.isFinite(count)) continue;
+      aggregate.categories.set(label, { category: label, amount, count });
+    }
+    daysByDate.set(day.date, aggregate);
   }
+
+  const days = [...daysByDate.values()]
+    .sort((left, right) => left.date.localeCompare(right.date))
+    .map((day): HeatmapDay => {
+      const categories = [...day.categories.values()].sort((left, right) =>
+        left.category.localeCompare(right.category)
+      );
+      return {
+        date: day.date,
+        value: day.value,
+        count: day.count,
+        ...(categories.length > 0 ? { categories } : {}),
+      };
+    });
+
   return {
-    date: day.date,
-    value: day.value,
-    count: day.count,
-    categories: day.categories?.map((category) => ({ ...category })),
+    days,
+    maxValue:
+      days.length > 0
+        ? Math.max(...days.map((day) => Math.abs(day.value)))
+        : 0,
   };
 }
 
 function transformToBinData(days: readonly HeatmapDay[]): HeatmapBinData[] {
-  const sorted = days
-    .map(copiedDay)
-    .filter((day): day is HeatmapDay => day !== null)
-    .sort((left, right) => left.date.localeCompare(right.date));
+  const sorted = [...days].sort((left, right) =>
+    left.date.localeCompare(right.date)
+  );
   if (sorted.length === 0) return [];
 
   const firstDate = utcDateFromKey(sorted[0].date);
@@ -225,7 +284,7 @@ function DayDetailCard({
 
       {dayExpenses.length > 0 ? (
         <div className="max-h-60 overflow-y-auto">
-          {dayExpenses.map((expense) => {
+          {dayExpenses.map((expense, expenseIndex) => {
             const amount = formatMoney(expense.amount);
             const content = (
               <>
@@ -247,7 +306,12 @@ function DayDetailCard({
             );
             return onDayClick ? (
               <button
-                key={expense.id}
+                key={JSON.stringify([
+                  expense.id,
+                  expense.date.getTime(),
+                  expense.amount,
+                  expenseIndex,
+                ])}
                 type="button"
                 aria-label={`${expense.description}, ${expense.category}, ${amount}`}
                 onClick={() => onDayClick(activeDay.date)}
@@ -257,7 +321,12 @@ function DayDetailCard({
               </button>
             ) : (
               <div
-                key={expense.id}
+                key={JSON.stringify([
+                  expense.id,
+                  expense.date.getTime(),
+                  expense.amount,
+                  expenseIndex,
+                ])}
                 className="flex min-h-10 items-center gap-2 px-3 text-popover-foreground"
               >
                 {content}
@@ -269,7 +338,7 @@ function DayDetailCard({
         <div className="px-3 py-2">
           {categories.slice(0, 5).map((category) => (
             <div
-              key={`${category.category}:${category.count}`}
+              key={category.category}
               className="flex min-h-7 items-center justify-between gap-3 text-xs"
             >
               <span className="truncate text-popover-foreground">
@@ -317,7 +386,8 @@ function HeatmapChart({
   const descriptionId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [activeDay, setActiveDay] = useState<ActiveDay | null>(null);
+  const [activeDayState, setActiveDayState] = useState<ActiveDayState | null>(null);
+  const activeDay = activeDayState?.model === data ? activeDayState.day : null;
 
   const clearHideTimeout = useCallback(() => {
     if (hideTimeoutRef.current !== null) {
@@ -327,11 +397,11 @@ function HeatmapChart({
   }, []);
   const hideDay = useCallback(() => {
     clearHideTimeout();
-    setActiveDay(null);
+    setActiveDayState(null);
   }, [clearHideTimeout]);
   const startHideTimeout = useCallback(() => {
     clearHideTimeout();
-    hideTimeoutRef.current = setTimeout(() => setActiveDay(null), HIDE_DELAY);
+    hideTimeoutRef.current = setTimeout(() => setActiveDayState(null), HIDE_DELAY);
   }, [clearHideTimeout]);
 
   useEffect(() => () => clearHideTimeout(), [clearHideTimeout]);
@@ -387,6 +457,16 @@ function HeatmapChart({
       }),
     [formatDate]
   );
+  const activeDayCount = useMemo(
+    () =>
+      data.days.filter((day) => day.value !== 0 || day.count !== 0).length,
+    [data.days]
+  );
+  const totalSpending = useMemo(
+    () => data.days.reduce((total, day) => total + day.value, 0),
+    [data.days]
+  );
+  const actionable = typeof onDayClick === 'function';
 
   const showDay = useCallback(
     (bin: HeatmapBin, left: number, top: number) => {
@@ -394,16 +474,19 @@ function HeatmapChart({
       const tooltipWidth = Math.min(320, Math.max(width - 16, 0));
       const clampedLeft = Math.max(8, Math.min(left, Math.max(8, width - tooltipWidth - 8)));
       const clampedTop = Math.max(8, Math.min(top, Math.max(8, height - 184)));
-      setActiveDay({
-        date: bin.date,
-        value: bin.value,
-        count: bin.count,
-        categories: bin.categories?.map((category) => ({ ...category })),
-        left: clampedLeft,
-        top: clampedTop,
+      setActiveDayState({
+        model: data,
+        day: {
+          date: bin.date,
+          value: bin.value,
+          count: bin.count,
+          categories: bin.categories?.map((category) => ({ ...category })),
+          left: clampedLeft,
+          top: clampedTop,
+        },
       });
     },
-    [clearHideTimeout, height, width]
+    [clearHideTimeout, data, height, width]
   );
 
   const showMouseDay = useCallback(
@@ -415,6 +498,19 @@ function HeatmapChart({
       showDay(bin, left, top);
     },
     [showDay]
+  );
+  const handleCellBlur = useCallback(
+    (event: React.FocusEvent<SVGRectElement>) => {
+      const nextTarget = event.relatedTarget;
+      if (
+        nextTarget instanceof Node &&
+        containerRef.current?.contains(nextTarget)
+      ) {
+        return;
+      }
+      hideDay();
+    },
+    [hideDay]
   );
 
   if (binData.length === 0) {
@@ -430,12 +526,17 @@ function HeatmapChart({
       <svg
         width={width}
         height={height}
-        role="img"
-        aria-labelledby={`${titleId} ${descriptionId}`}
+        role={actionable ? 'group' : 'img'}
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
       >
         <title id={titleId}>Daily spending heatmap</title>
         <desc id={descriptionId}>
-          Calendar cells show daily spending intensity. Focus a valued day to inspect it.
+          {actionable
+            ? 'Calendar cells show daily spending intensity. Focus a valued day to inspect it.'
+            : `${activeDayCount} active ${
+                activeDayCount === 1 ? 'day' : 'days'
+              }, ${formatMoney(totalSpending)} total spending.`}
         </desc>
 
         <Group
@@ -490,7 +591,7 @@ function HeatmapChart({
               const x = column * xStep;
               const y = row * yStep;
               const hasValue = bin.inRange && (bin.value !== 0 || bin.count !== 0);
-              const interactive = hasValue;
+              const interactive = hasValue && actionable;
               const dateLabel = interactive
                 ? formatDate(bin.date, {
                     weekday: 'long',
@@ -531,7 +632,7 @@ function HeatmapChart({
                       ? () => showDay(bin, MARGIN.left + x + cellSize + 10, MARGIN.top + y)
                       : undefined
                   }
-                  onBlur={interactive ? hideDay : undefined}
+                  onBlur={interactive ? handleCellBlur : undefined}
                   onClick={
                     interactive && onDayClick ? () => onDayClick(bin.date) : undefined
                   }
@@ -561,6 +662,16 @@ function HeatmapChart({
         <div
           onMouseEnter={clearHideTimeout}
           onMouseLeave={startHideTimeout}
+          onBlur={(event) => {
+            const nextTarget = event.relatedTarget;
+            if (
+              nextTarget instanceof Node &&
+              event.currentTarget.contains(nextTarget)
+            ) {
+              return;
+            }
+            hideDay();
+          }}
           onKeyDown={(event) => {
             if (event.key === 'Escape') hideDay();
           }}
@@ -587,6 +698,12 @@ function HeatmapChart({
 }
 
 export default function SpendingHeatmap(props: SpendingHeatmapProps) {
+  const normalizedData = useMemo(
+    () => normalizeHeatmapData(props.data),
+    [props.data]
+  );
+  const modelKey = JSON.stringify(normalizedData);
+
   return (
     <ParentSize>
       {({ width, height }) => {
@@ -599,7 +716,15 @@ export default function SpendingHeatmap(props: SpendingHeatmapProps) {
             />
           );
         }
-        return <HeatmapChart {...props} width={width} height={height} />;
+        return (
+          <HeatmapChart
+            key={modelKey}
+            {...props}
+            data={normalizedData}
+            width={width}
+            height={height}
+          />
+        );
       }}
     </ParentSize>
   );

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import type { Expense } from '@/app/types';
 
@@ -67,7 +68,12 @@ describe('SpendingHeatmap', () => {
       />
     );
 
-    expect(screen.getByRole('img', { name: /daily spending heatmap/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('group', { name: /daily spending heatmap/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('img', { name: /daily spending heatmap/i })
+    ).not.toBeInTheDocument();
     const cell = screen.getByRole('button', {
       name: 'day 2026-07-01, credits 25.00, 2 transactions',
     });
@@ -154,19 +160,112 @@ describe('SpendingHeatmap', () => {
     expect(onDayClick).toHaveBeenNthCalledWith(2, '2026-07-01');
   });
 
-  it('clears focused detail on blur and renders a safe fallback at tiny sizes', () => {
+  it('keeps detail available while focus moves through actions, then closes outside', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const onDayClick = jest.fn();
+    const expenses = [
+      {
+        id: 'shared-id',
+        description: 'First item',
+        amount: 3,
+        category: 'Food' as const,
+        date: new Date('2026-07-01T00:00:00.000Z'),
+        frequency: 'once' as const,
+      },
+      {
+        id: 'shared-id',
+        description: 'Second item',
+        amount: 2,
+        category: 'Food' as const,
+        date: new Date('2026-07-01T00:00:00.000Z'),
+        frequency: 'once' as const,
+      },
+    ];
+    render(
+      <>
+        <SpendingHeatmap
+          data={{
+            maxValue: 5,
+            days: [{ date: '2026-07-01', value: 5, count: 2 }],
+          }}
+          expenses={expenses}
+          onDayClick={onDayClick}
+          formatMoney={formatMoney}
+          formatDate={formatDate}
+        />
+        <button type="button">After chart</button>
+      </>
+    );
+
+    const cell = screen.getByRole('button', { name: /day 2026-07-01/i });
+    fireEvent.focus(cell);
+    expect(screen.getByText('credits 5.00')).toBeInTheDocument();
+
+    const firstExpense = screen.getByRole('button', { name: /First item/i });
+    fireEvent.blur(cell, { relatedTarget: firstExpense });
+    firstExpense.focus();
+    expect(firstExpense).toHaveFocus();
+    expect(screen.getByText('credits 5.00')).toBeInTheDocument();
+
+    await user.tab();
+    expect(screen.getByRole('button', { name: /Second item/i })).toHaveFocus();
+    expect(screen.getByText('credits 5.00')).toBeInTheDocument();
+    await user.tab();
+    expect(screen.getByRole('button', { name: /view all expenses/i })).toHaveFocus();
+    expect(screen.getByText('credits 5.00')).toBeInTheDocument();
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'After chart' })).toHaveFocus();
+    expect(screen.queryByText('credits 5.00')).not.toBeInTheDocument();
+  });
+
+  it('clears focused detail on outside blur and replacement data', () => {
     const data = {
       maxValue: 4,
       days: [{ date: '2026-07-01', value: 4, count: 1 }],
     };
+    const onDayClick = jest.fn();
     const first = render(
-      <SpendingHeatmap data={data} formatMoney={formatMoney} formatDate={formatDate} />
+      <SpendingHeatmap
+        data={data}
+        onDayClick={onDayClick}
+        formatMoney={formatMoney}
+        formatDate={formatDate}
+      />
     );
     const cell = screen.getByRole('button', { name: /day 2026-07-01/i });
     fireEvent.focus(cell);
     expect(screen.getByText('credits 4.00')).toBeInTheDocument();
     fireEvent.blur(cell);
     expect(screen.queryByText('credits 4.00')).not.toBeInTheDocument();
+
+    fireEvent.focus(cell);
+    first.rerender(
+      <SpendingHeatmap
+        data={{
+          maxValue: 4,
+          days: [{ date: '2026-07-01', value: 4, count: 1 }],
+        }}
+        onDayClick={onDayClick}
+        formatMoney={formatMoney}
+        formatDate={formatDate}
+      />
+    );
+    expect(screen.queryByText('credits 4.00')).not.toBeInTheDocument();
+
+    fireEvent.focus(screen.getByRole('button', { name: /day 2026-07-01/i }));
+    first.rerender(
+      <SpendingHeatmap
+        data={{
+          maxValue: 7,
+          days: [{ date: '2026-07-02', value: 7, count: 1 }],
+        }}
+        onDayClick={onDayClick}
+        formatMoney={formatMoney}
+        formatDate={formatDate}
+      />
+    );
+    expect(screen.queryByText('credits 4.00')).not.toBeInTheDocument();
+    expect(screen.queryByText('day 2026-07-01')).not.toBeInTheDocument();
     first.unmount();
 
     mockParentSize = { width: 8, height: 8 };
@@ -174,14 +273,61 @@ describe('SpendingHeatmap', () => {
     expect(tiny.container.innerHTML).not.toMatch(/NaN|Infinity/);
   });
 
-  it('keeps the central formatter fallback working for existing callers', () => {
+  it('is a static accessible summary without dead controls when no callback is supplied', () => {
     const { container } = render(
       <SpendingHeatmap
         data={{ maxValue: 12, days: [{ date: '2026-07-01', value: 12, count: 1 }] }}
       />
     );
 
-    fireEvent.focus(screen.getByRole('button', { name: /2026.*12/i }));
+    const image = screen.getByRole('img', { name: 'Daily spending heatmap' });
+    expect(image).toHaveAccessibleDescription(/1 active day.*12/i);
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(container.querySelector('[tabindex="0"]')).not.toBeInTheDocument();
+    expect(container.querySelector('.cursor-pointer')).not.toBeInTheDocument();
     expect(container.innerHTML).not.toMatch(/NaN|Infinity/);
+  });
+
+  it('normalizes duplicate days and category aggregates without duplicate React keys', () => {
+    const onDayClick = jest.fn();
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    render(
+      <SpendingHeatmap
+        data={{
+          maxValue: 999,
+          days: [
+            {
+              date: '2026-07-01',
+              value: 4,
+              count: 1,
+              categories: [
+                { category: 'Food', amount: 2, count: 1 },
+                { category: 'Food', amount: 1, count: 1 },
+              ],
+            },
+            {
+              date: '2026-07-01',
+              value: 6,
+              count: 2,
+              categories: [{ category: 'Food', amount: 3, count: 1 }],
+            },
+            { date: 'not-a-date', value: 500, count: 1 },
+          ],
+        }}
+        onDayClick={onDayClick}
+        formatMoney={formatMoney}
+        formatDate={formatDate}
+      />
+    );
+
+    const cell = screen.getByRole('button', {
+      name: 'day 2026-07-01, credits 10.00, 3 transactions',
+    });
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    fireEvent.focus(cell);
+    expect(screen.getByText('credits 6.00')).toBeInTheDocument();
+    expect(screen.getAllByText('Food')).toHaveLength(1);
+    expect(consoleError.mock.calls.flat().join(' ')).not.toMatch(/same key/i);
+    consoleError.mockRestore();
   });
 });

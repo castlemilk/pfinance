@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import LazyCategoryStackedTrendChart from '@/app/components/charts/LazyCategoryStackedTrendChart';
 import LazySpendingHeatmap from '@/app/components/charts/LazySpendingHeatmap';
 import LazySpendingTrendChart from '@/app/components/charts/LazySpendingTrendChart';
+import { normalizeCategoryStackedTrendData } from '@/app/components/charts/CategoryStackedTrendChart';
+import { normalizeHeatmapData } from '@/app/components/charts/SpendingHeatmap';
 import {
   useCategorySpendingTrends,
   useHeatmapData,
@@ -28,6 +30,34 @@ import type {
 } from '../types';
 
 type TrendPoint = Readonly<{ date: string; value: number }>;
+
+function isUtcDateKey(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year < 1 || year > 9_999) return false;
+  const parsed = new Date(0);
+  parsed.setUTCHours(0, 0, 0, 0);
+  parsed.setUTCFullYear(year, month - 1, day);
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
+
+function normalizeTrendSeries<T extends TrendPoint>(series: readonly T[]): T[] {
+  const byDate = new Map<string, T>();
+  for (const point of series) {
+    if (!isUtcDateKey(point.date) || !Number.isFinite(point.value)) continue;
+    byDate.set(point.date, { ...point });
+  }
+  return [...byDate.values()].sort((left, right) =>
+    left.date.localeCompare(right.date)
+  );
+}
 
 function nextUtcMidnightDelay(nowMilliseconds: number): number {
   const now = new Date(nowMilliseconds);
@@ -180,7 +210,7 @@ function categoryRows(
     ]);
 }
 
-export function SpendingAnalyticsView({
+function SpendingAnalyticsContent({
   scope,
   period,
   currency,
@@ -205,23 +235,51 @@ export function SpendingAnalyticsView({
     scope
   );
 
-  const heatmapData = heatmapHasActivity(heatmap.data) ? heatmap.data : null;
+  const normalizedHeatmap = useMemo(
+    () => (heatmap.data ? normalizeHeatmapData(heatmap.data) : null),
+    [heatmap.data]
+  );
+  const normalizedExpenseSeries = useMemo(
+    () => normalizeTrendSeries(trends.expenseSeries),
+    [trends.expenseSeries]
+  );
+  const normalizedIncomeSeries = useMemo(
+    () => normalizeTrendSeries(trends.incomeSeries),
+    [trends.incomeSeries]
+  );
+  const normalizedCategoryTrends = useMemo(
+    () =>
+      normalizeCategoryStackedTrendData(
+        categoryTrends.points,
+        categoryTrends.categories
+      ),
+    [categoryTrends.categories, categoryTrends.points]
+  );
+  const heatmapData = heatmapHasActivity(normalizedHeatmap)
+    ? normalizedHeatmap
+    : null;
   const hasHeatmap = heatmapData !== null;
   const hasTrends =
-    trends.expenseSeries.length > 0 || trends.incomeSeries.length > 0;
+    normalizedExpenseSeries.length > 0 || normalizedIncomeSeries.length > 0;
   const hasCategoryTrends =
-    categoryTrends.points.length > 0 && categoryTrends.categories.length > 0;
+    normalizedCategoryTrends.points.length > 0 &&
+    normalizedCategoryTrends.categories.length > 0;
   const dailyRows = useMemo(
     () => (heatmapData ? heatmapRows(heatmapData, currency) : []),
     [currency, heatmapData]
   );
   const spendingRows = useMemo(
-    () => trendRows(trends.expenseSeries, trends.incomeSeries, currency),
-    [currency, trends.expenseSeries, trends.incomeSeries]
+    () => trendRows(normalizedExpenseSeries, normalizedIncomeSeries, currency),
+    [currency, normalizedExpenseSeries, normalizedIncomeSeries]
   );
   const mixRows = useMemo(
-    () => categoryRows(categoryTrends.points, categoryTrends.categories, currency),
-    [categoryTrends.categories, categoryTrends.points, currency]
+    () =>
+      categoryRows(
+        normalizedCategoryTrends.points,
+        normalizedCategoryTrends.categories,
+        currency
+      ),
+    [currency, normalizedCategoryTrends]
   );
   const handleDayClick = useCallback(
     (date: string) => {
@@ -229,8 +287,11 @@ export function SpendingAnalyticsView({
     },
     [router, scope]
   );
-  const scopeLabel = scope.kind === 'group' ? scope.groupName : 'Your finances';
+  const scopeLabel =
+    scope.kind === 'group' ? scope.groupName.trim() || 'Group' : 'Your finances';
   const cadence = config.trendGranularity === 'week' ? 'Weekly' : 'Monthly';
+  const ViewHeading = scope.kind === 'personal' ? 'h2' : 'h3';
+  const PanelHeading = scope.kind === 'personal' ? 'h3' : 'h4';
 
   return (
     <div className="space-y-5">
@@ -240,9 +301,9 @@ export function SpendingAnalyticsView({
       >
         <div className="min-w-0">
           <p className="text-sm font-medium text-primary">{scopeLabel}</p>
-          <h1 className="mt-1 text-balance text-2xl font-semibold text-foreground">
+          <ViewHeading className="mt-1 text-balance text-2xl font-semibold text-foreground">
             Spending patterns
-          </h1>
+          </ViewHeading>
         </div>
         <p className="max-w-xl text-pretty text-sm text-muted-foreground sm:text-right">
           Follow daily activity, the overall direction, and the categories shaping it.
@@ -255,12 +316,12 @@ export function SpendingAnalyticsView({
           className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm xl:col-span-2"
         >
           <figcaption>
-            <h2
+            <PanelHeading
               id="daily-spending-heading"
               className="text-balance text-lg font-semibold text-foreground"
             >
               Daily spending
-            </h2>
+            </PanelHeading>
             <p className="mt-1 text-pretty text-sm text-muted-foreground">
               A UTC calendar view of each day in the selected window.
             </p>
@@ -306,12 +367,12 @@ export function SpendingAnalyticsView({
           className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm"
         >
           <figcaption>
-            <h2
+            <PanelHeading
               id="spending-trend-heading"
               className="text-balance text-lg font-semibold text-foreground"
             >
               Spending trend
-            </h2>
+            </PanelHeading>
             <p className="mt-1 text-pretty text-sm text-muted-foreground">
               {cadence} spending and income across the selected history.
             </p>
@@ -332,8 +393,8 @@ export function SpendingAnalyticsView({
                   className="h-[320px] min-w-0 overflow-hidden rounded-[10px] bg-muted/20 p-2"
                 >
                   <LazySpendingTrendChart
-                    expenseSeries={trends.expenseSeries}
-                    incomeSeries={trends.incomeSeries}
+                    expenseSeries={normalizedExpenseSeries}
+                    incomeSeries={normalizedIncomeSeries}
                     trendSlope={trends.trendSlope}
                     trendRSquared={trends.trendRSquared}
                     formatMoney={currency.formatMoney}
@@ -359,12 +420,12 @@ export function SpendingAnalyticsView({
           className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm"
         >
           <figcaption>
-            <h2
+            <PanelHeading
               id="category-mix-heading"
               className="text-balance text-lg font-semibold text-foreground"
             >
               Category mix over time
-            </h2>
+            </PanelHeading>
             <p className="mt-1 text-pretty text-sm text-muted-foreground">
               How each category contributes to total spending over time.
             </p>
@@ -385,8 +446,8 @@ export function SpendingAnalyticsView({
                   className="h-[340px] min-w-0 overflow-hidden rounded-[10px] bg-muted/20 p-2"
                 >
                   <LazyCategoryStackedTrendChart
-                    points={categoryTrends.points}
-                    categories={categoryTrends.categories}
+                    points={normalizedCategoryTrends.points}
+                    categories={normalizedCategoryTrends.categories}
                     formatMoney={currency.formatMoney}
                     formatDate={currency.formatDate}
                   />
@@ -394,7 +455,11 @@ export function SpendingAnalyticsView({
                 <div className="mt-3">
                   <AccessibleDataSummary
                     caption="Category mix values"
-                    columns={['Date', 'Total', ...categoryTrends.categories]}
+                    columns={[
+                      'Date',
+                      'Total',
+                      ...normalizedCategoryTrends.categories,
+                    ]}
                     rows={mixRows}
                   />
                 </div>
@@ -407,4 +472,14 @@ export function SpendingAnalyticsView({
       </div>
     </div>
   );
+}
+
+function scopePeriodKey({ scope, period }: AnalyticsViewProps): string {
+  const scopeIdentity =
+    scope.kind === 'personal' ? 'personal' : `group:${scope.groupId}`;
+  return `${scopeIdentity}:${period}`;
+}
+
+export function SpendingAnalyticsView(props: AnalyticsViewProps) {
+  return <SpendingAnalyticsContent key={scopePeriodKey(props)} {...props} />;
 }

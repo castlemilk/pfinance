@@ -97,34 +97,80 @@ function parseUtcDateKey(dateKey: string): Date | null {
   return date;
 }
 
-function uniqueCategories(categories: readonly string[]): string[] {
-  return [...new Set(categories.filter((category) => category.length > 0))];
-}
+export type NormalizedCategoryStackedTrendData = Readonly<{
+  points: CategoryStackedTrendPoint[];
+  categories: string[];
+}>;
 
-function parsePoints(
+export function normalizeCategoryStackedTrendData(
   points: readonly CategoryStackedTrendPoint[],
   categories: readonly string[]
-): ChartPoint[] {
-  return points
-    .map((point): ChartPoint | null => {
-      const dateValue = parseUtcDateKey(point.date);
-      if (!dateValue || !Number.isFinite(point.total)) return null;
-      const copiedCategories: Record<string, number> = {};
-      for (const category of categories) {
-        const amount = point.categories[category];
-        if (amount !== undefined && !Number.isFinite(amount)) return null;
-        copiedCategories[category] = amount ?? 0;
+): NormalizedCategoryStackedTrendData {
+  const aliasesByCategory = new Map<string, Set<string>>();
+  for (const suppliedCategory of categories) {
+    const category = suppliedCategory.trim();
+    if (!category) continue;
+    const aliases = aliasesByCategory.get(category) ?? new Set<string>();
+    aliases.add(category);
+    aliases.add(suppliedCategory);
+    aliasesByCategory.set(category, aliases);
+  }
+  const normalizedCategories = [...aliasesByCategory.keys()];
+  if (normalizedCategories.length === 0) {
+    return { points: [], categories: [] };
+  }
+
+  const pointsByDate = new Map<string, CategoryStackedTrendPoint>();
+  for (const point of points) {
+    if (!parseUtcDateKey(point.date)) continue;
+    let valid = true;
+    const normalizedAmounts: Record<string, number> = {};
+    for (const category of normalizedCategories) {
+      let amount = 0;
+      for (const alias of aliasesByCategory.get(category) ?? []) {
+        const suppliedAmount = point.categories[alias];
+        if (suppliedAmount === undefined) continue;
+        if (!Number.isFinite(suppliedAmount)) {
+          valid = false;
+          break;
+        }
+        amount += suppliedAmount;
+        if (!Number.isFinite(amount)) {
+          valid = false;
+          break;
+        }
       }
-      return {
-        date: point.date,
-        label: point.label,
-        total: point.total,
-        categories: copiedCategories,
-        dateValue,
-      };
-    })
-    .filter((point): point is ChartPoint => point !== null)
-    .sort((left, right) => left.dateValue.getTime() - right.dateValue.getTime());
+      if (!valid) break;
+      normalizedAmounts[category] = amount;
+    }
+    if (!valid) continue;
+    const total = normalizedCategories.reduce(
+      (sum, category) => sum + normalizedAmounts[category],
+      0
+    );
+    if (!Number.isFinite(total)) continue;
+    pointsByDate.set(point.date, {
+      date: point.date,
+      label: point.label,
+      total,
+      categories: normalizedAmounts,
+    });
+  }
+
+  return {
+    categories: normalizedCategories,
+    points: [...pointsByDate.values()].sort((left, right) =>
+      left.date.localeCompare(right.date)
+    ),
+  };
+}
+
+function parsePoints(points: readonly CategoryStackedTrendPoint[]): ChartPoint[] {
+  return points.map((point) => ({
+    ...point,
+    categories: { ...point.categories },
+    dateValue: parseUtcDateKey(point.date) as Date,
+  }));
 }
 
 function valueDomain(
@@ -185,6 +231,9 @@ function InnerCategoryStackedTrendChart({
   const statusId = useId();
   const [keyboardIndex, setKeyboardIndex] = useState(0);
   const [selectedStatus, setSelectedStatus] = useState('');
+  const [inspectionModel, setInspectionModel] = useState<
+    readonly CategoryStackedTrendPoint[] | null
+  >(null);
   const {
     tooltipData,
     tooltipLeft,
@@ -193,10 +242,11 @@ function InnerCategoryStackedTrendChart({
     showTooltip,
     hideTooltip,
   } = useTooltip<TooltipData>();
+  const inspectionCurrent = inspectionModel === points;
 
   const parsedPoints = useMemo(
-    () => parsePoints(points, categories),
-    [categories, points]
+    () => parsePoints(points),
+    [points]
   );
   const innerWidth = Math.max(1, width - MARGIN.left - MARGIN.right);
   const innerHeight = Math.max(1, height - MARGIN.top - MARGIN.bottom);
@@ -229,6 +279,7 @@ function InnerCategoryStackedTrendChart({
 
   const showPoint = useCallback(
     (point: ChartPoint, announce: boolean) => {
+      setInspectionModel(points);
       if (announce) {
         setSelectedStatus(
           keyboardStatus(point, categories, formatMoney, formatDate)
@@ -240,7 +291,7 @@ function InnerCategoryStackedTrendChart({
         tooltipTop: yScale(point.total) + MARGIN.top,
       });
     },
-    [categories, formatDate, formatMoney, showTooltip, xScale, yScale]
+    [categories, formatDate, formatMoney, points, showTooltip, xScale, yScale]
   );
 
   const showClosestAtX = useCallback(
@@ -273,6 +324,7 @@ function InnerCategoryStackedTrendChart({
   const clearSelection = useCallback(() => {
     hideTooltip();
     setSelectedStatus('');
+    setInspectionModel(null);
   }, [hideTooltip]);
 
   const handleKeyboard = useCallback(
@@ -293,12 +345,13 @@ function InnerCategoryStackedTrendChart({
       if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
       event.preventDefault();
       const direction = event.key === 'ArrowRight' ? 1 : -1;
+      const currentIndex = inspectionModel === points ? keyboardIndex : 0;
       const index =
-        (keyboardIndex + direction + parsedPoints.length) % parsedPoints.length;
+        (currentIndex + direction + parsedPoints.length) % parsedPoints.length;
       setKeyboardIndex(index);
       showPoint(parsedPoints[index], true);
     },
-    [clearSelection, keyboardIndex, parsedPoints, showPoint]
+    [clearSelection, inspectionModel, keyboardIndex, parsedPoints, points, showPoint]
   );
 
   if (parsedPoints.length === 0) {
@@ -309,7 +362,7 @@ function InnerCategoryStackedTrendChart({
     );
   }
 
-  const tooltipRows = tooltipData
+  const tooltipRows = inspectionCurrent && tooltipData
     ? categories.map((category, index) => ({
         category,
         amount: tooltipData.point.categories[category] ?? 0,
@@ -399,7 +452,7 @@ function InnerCategoryStackedTrendChart({
             onMouseLeave={hideTooltip}
           />
 
-          {tooltipOpen && tooltipData ? (
+          {inspectionCurrent && tooltipOpen && tooltipData ? (
             <Line
               from={{ x: (tooltipLeft ?? 0) - MARGIN.left, y: 0 }}
               to={{ x: (tooltipLeft ?? 0) - MARGIN.left, y: innerHeight }}
@@ -434,10 +487,10 @@ function InnerCategoryStackedTrendChart({
         <span className="sr-only">Explore category spending chart values</span>
       </button>
       <p id={statusId} role="status" aria-live="polite" className="sr-only">
-        {selectedStatus}
+        {inspectionCurrent ? selectedStatus : ''}
       </p>
 
-      {tooltipOpen && tooltipData ? (
+      {inspectionCurrent && tooltipOpen && tooltipData ? (
         <TooltipWithBounds left={tooltipLeft} top={tooltipTop} style={tooltipStyles}>
           <div className="mb-1 font-semibold">
             {formatDate(tooltipData.point.dateValue, {
@@ -470,13 +523,15 @@ function InnerCategoryStackedTrendChart({
 export default function CategoryStackedTrendChart(
   props: CategoryStackedTrendChartProps
 ) {
-  const categories = uniqueCategories(props.categories);
+  const normalized = useMemo(
+    () => normalizeCategoryStackedTrendData(props.points, props.categories),
+    [props.categories, props.points]
+  );
+  const { categories, points } = normalized;
+  const hasData = points.length > 0 && categories.length > 0;
   const formatMoney = props.formatMoney ?? DEFAULT_FORMATTERS.formatMoney;
   const formatDate = props.formatDate ?? DEFAULT_FORMATTERS.formatDate;
-  const modelKey = JSON.stringify([
-    categories,
-    props.points.map((point) => [point.date, point.total, point.categories]),
-  ]);
+  const modelKey = JSON.stringify(normalized);
 
   return (
     <div
@@ -487,7 +542,7 @@ export default function CategoryStackedTrendChart(
         data-testid="category-chart-plot"
         className="relative min-h-0 flex-1"
       >
-        {props.points.length === 0 || categories.length === 0 ? (
+        {!hasData ? (
           <div className="flex h-full items-center justify-center p-4 text-pretty text-sm text-muted-foreground">
             No category trend data available.
           </div>
@@ -506,7 +561,7 @@ export default function CategoryStackedTrendChart(
               return (
                 <InnerCategoryStackedTrendChart
                   key={modelKey}
-                  points={props.points}
+                  points={points}
                   categories={categories}
                   formatMoney={formatMoney}
                   formatDate={formatDate}
@@ -518,7 +573,7 @@ export default function CategoryStackedTrendChart(
           </ParentSize>
         )}
       </div>
-      {categories.length > 0 ? (
+      {hasData ? (
         <div
           data-testid="category-chart-legend"
           className="flex shrink-0 flex-wrap gap-x-4 gap-y-2 px-2 pt-2 text-xs text-muted-foreground"
