@@ -1,26 +1,8 @@
+import { ExpenseCategory } from '@/gen/pfinance/v1/types_pb';
+
 import type { AnalyticsScope } from './types';
 
-export type AnalyticsCategorySlug =
-  | 'food'
-  | 'housing'
-  | 'transportation'
-  | 'entertainment'
-  | 'healthcare'
-  | 'utilities'
-  | 'shopping'
-  | 'education'
-  | 'travel'
-  | 'other';
-
-export type AnalyticsExpenseFilters = {
-  date?: string;
-  category?: AnalyticsCategorySlug;
-  from?: string;
-  to?: string;
-  expenseId?: string;
-};
-
-const ANALYTICS_CATEGORY_SLUGS = new Set<AnalyticsCategorySlug>([
+export const ANALYTICS_CATEGORY_SLUGS = [
   'food',
   'housing',
   'transportation',
@@ -31,14 +13,48 @@ const ANALYTICS_CATEGORY_SLUGS = new Set<AnalyticsCategorySlug>([
   'education',
   'travel',
   'other',
-]);
+] as const;
+
+export type AnalyticsCategorySlug = (typeof ANALYTICS_CATEGORY_SLUGS)[number];
+
+export const ANALYTICS_CATEGORY_SLUG_BY_EXPENSE_CATEGORY = {
+  [ExpenseCategory.UNSPECIFIED]: 'other',
+  [ExpenseCategory.FOOD]: 'food',
+  [ExpenseCategory.HOUSING]: 'housing',
+  [ExpenseCategory.TRANSPORTATION]: 'transportation',
+  [ExpenseCategory.ENTERTAINMENT]: 'entertainment',
+  [ExpenseCategory.HEALTHCARE]: 'healthcare',
+  [ExpenseCategory.UTILITIES]: 'utilities',
+  [ExpenseCategory.SHOPPING]: 'shopping',
+  [ExpenseCategory.EDUCATION]: 'education',
+  [ExpenseCategory.TRAVEL]: 'travel',
+  [ExpenseCategory.OTHER]: 'other',
+} satisfies Record<ExpenseCategory, AnalyticsCategorySlug>;
+
+export function analyticsCategorySlug(
+  category: ExpenseCategory
+): AnalyticsCategorySlug {
+  return ANALYTICS_CATEGORY_SLUG_BY_EXPENSE_CATEGORY[category] ?? 'other';
+}
+
+export type AnalyticsExpenseFilters = {
+  date?: string;
+  category?: AnalyticsCategorySlug;
+  from?: string;
+  to?: string;
+  expenseId?: string;
+};
+
+const analyticsCategorySlugSet = new Set<AnalyticsCategorySlug>(
+  ANALYTICS_CATEGORY_SLUGS
+);
 
 function isAnalyticsCategorySlug(
   value: unknown
 ): value is AnalyticsCategorySlug {
   return (
     typeof value === 'string' &&
-    ANALYTICS_CATEGORY_SLUGS.has(value as AnalyticsCategorySlug)
+    analyticsCategorySlugSet.has(value as AnalyticsCategorySlug)
   );
 }
 

@@ -1,4 +1,9 @@
+import { ExpenseCategory } from '@/gen/pfinance/v1/types_pb';
+
 import {
+  ANALYTICS_CATEGORY_SLUGS,
+  ANALYTICS_CATEGORY_SLUG_BY_EXPENSE_CATEGORY,
+  analyticsCategorySlug,
   buildAnalyticsExpenseUrl,
   type AnalyticsExpenseFilters,
 } from '../links';
@@ -45,22 +50,14 @@ describe('buildAnalyticsExpenseUrl', () => {
     );
   });
 
-  it.each([
-    'food',
-    'housing',
-    'transportation',
-    'entertainment',
-    'healthcare',
-    'utilities',
-    'shopping',
-    'education',
-    'travel',
-    'other',
-  ] as const)('accepts the canonical %s category slug', (category) => {
+  it.each(ANALYTICS_CATEGORY_SLUGS)(
+    'accepts the canonical %s category slug',
+    (category) => {
     expect(buildAnalyticsExpenseUrl(personalScope, { category })).toBe(
       `/personal/expenses?category=${category}`
     );
-  });
+    }
+  );
 
   it('accepts real UTC calendar dates, including leap day', () => {
     expect(
@@ -98,6 +95,62 @@ describe('buildAnalyticsExpenseUrl', () => {
 
     expect(buildAnalyticsExpenseUrl(groupScope, malformedFilters)).toBe(
       '/shared/expenses'
+    );
+  });
+});
+
+describe('analytics category contract', () => {
+  const generatedCategoryMappings = [
+    [ExpenseCategory.FOOD, 'food'],
+    [ExpenseCategory.HOUSING, 'housing'],
+    [ExpenseCategory.TRANSPORTATION, 'transportation'],
+    [ExpenseCategory.ENTERTAINMENT, 'entertainment'],
+    [ExpenseCategory.HEALTHCARE, 'healthcare'],
+    [ExpenseCategory.UTILITIES, 'utilities'],
+    [ExpenseCategory.SHOPPING, 'shopping'],
+    [ExpenseCategory.EDUCATION, 'education'],
+    [ExpenseCategory.TRAVEL, 'travel'],
+    [ExpenseCategory.OTHER, 'other'],
+    [ExpenseCategory.UNSPECIFIED, 'other'],
+  ] as const;
+
+  it('exports the exact canonical category slugs in stable order', () => {
+    expect(ANALYTICS_CATEGORY_SLUGS).toEqual([
+      'food',
+      'housing',
+      'transportation',
+      'entertainment',
+      'healthcare',
+      'utilities',
+      'shopping',
+      'education',
+      'travel',
+      'other',
+    ]);
+  });
+
+  it.each(generatedCategoryMappings)(
+    'maps generated ExpenseCategory %s to %s',
+    (category, expectedSlug) => {
+      expect(ANALYTICS_CATEGORY_SLUG_BY_EXPENSE_CATEGORY[category]).toBe(
+        expectedSlug
+      );
+      expect(analyticsCategorySlug(category)).toBe(expectedSlug);
+    }
+  );
+
+  it('exhaustively maps the generated enum and safely handles unknown runtime values', () => {
+    expect(
+      Object.keys(ANALYTICS_CATEGORY_SLUG_BY_EXPENSE_CATEGORY)
+    ).toHaveLength(generatedCategoryMappings.length);
+    expect(analyticsCategorySlug(999 as ExpenseCategory)).toBe('other');
+  });
+
+  it('passes a generated category mapping into the canonical link builder', () => {
+    const category = analyticsCategorySlug(ExpenseCategory.FOOD);
+
+    expect(buildAnalyticsExpenseUrl(groupScope, { category })).toBe(
+      '/shared/expenses?category=food'
     );
   });
 });
