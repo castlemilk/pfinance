@@ -209,14 +209,10 @@ export function AnalyticsInsufficientState({
     uncoveredCategories,
     'uncovered'
   );
-  const isAllClear =
-    coveredCategories.length > 0 && uncoveredCategories.length === 0;
   const hasCoverageGap = uncoveredCategories.length > 0;
-  const coverageMessage = isAllClear
-    ? 'All categories have enough history for analysis.'
-    : hasCoverageGap
-      ? 'More history is needed before every category can be assessed.'
-      : 'There is not enough category history to assess coverage yet.';
+  const coverageMessage = hasCoverageGap
+    ? 'More history is needed before every category can be assessed.'
+    : 'Coverage details are incomplete. More history is needed before drawing conclusions.';
 
   return (
     <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
@@ -259,7 +255,7 @@ export function AnalyticsInsufficientState({
                 <li key={key}>{value}</li>
               ))
             ) : (
-              <li>None</li>
+              <li>None reported</li>
             )}
           </ul>
         </section>

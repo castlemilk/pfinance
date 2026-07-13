@@ -436,7 +436,7 @@ describe('analytics states', () => {
     expect(uncovered).toEqual(uncoveredBefore);
   });
 
-  it('shows all-clear only when at least one category is covered and none are missing', () => {
+  it('keeps covered-only and empty coverage qualified rather than implying all-clear', () => {
     const { rerender } = render(
       <AnalyticsInsufficientState
         title="Coverage status"
@@ -445,7 +445,22 @@ describe('analytics states', () => {
       />
     );
 
-    expect(screen.getByText(/all categories have enough history/i)).toBeInTheDocument();
+    let state = screen.getByRole('heading', { name: 'Coverage status' }).closest('section');
+    expect(state).toHaveTextContent(/coverage details are incomplete/i);
+    expect(state).toHaveTextContent(/more history is needed before drawing conclusions/i);
+    expect(state).not.toHaveTextContent(/\ball\b/i);
+    expect(state).not.toHaveTextContent(/all[- ]clear/i);
+    expect(state).not.toHaveTextContent(/enough history for analysis/i);
+    expect(
+      within(screen.getByRole('list', { name: 'Covered categories' }))
+        .getAllByRole('listitem')
+        .map((item) => item.textContent)
+    ).toEqual(['Food']);
+    expect(
+      within(screen.getByRole('list', { name: 'Categories needing history' }))
+        .getAllByRole('listitem')
+        .map((item) => item.textContent)
+    ).toEqual(['None reported']);
 
     rerender(
       <AnalyticsInsufficientState
@@ -454,7 +469,11 @@ describe('analytics states', () => {
         uncoveredCategories={[]}
       />
     );
-    expect(screen.queryByText(/all categories have enough history/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/not enough category history to assess coverage/i)).toBeInTheDocument();
+    state = screen.getByRole('heading', { name: 'Coverage status' }).closest('section');
+    expect(state).toHaveTextContent(/coverage details are incomplete/i);
+    expect(state).toHaveTextContent(/more history is needed before drawing conclusions/i);
+    expect(state).not.toHaveTextContent(/\ball\b/i);
+    expect(state).not.toHaveTextContent(/all[- ]clear/i);
+    expect(state).not.toHaveTextContent(/enough history for analysis/i);
   });
 });
