@@ -190,6 +190,12 @@ describe('AnalyticsWorkspaceShell', () => {
       'Overview',
       'Categories',
     ]);
+    expect(screen.getByRole('tabpanel')).toHaveClass(
+      'fade-in-0',
+      'slide-in-from-bottom-2',
+      'duration-150',
+      'motion-reduce:animate-none'
+    );
   });
 
   it('exports immutable personal and group view sets with personal-only data quality', () => {
