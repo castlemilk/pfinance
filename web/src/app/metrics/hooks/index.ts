@@ -38,3 +38,18 @@ export {
   type UseVisualizationDataOptions,
   type UseVisualizationDataReturn,
 } from './useVisualizationData';
+
+// Analytics data hooks
+export { useAnalyticsOverview } from './useAnalyticsOverview';
+export {
+  useHeatmapData,
+  useSpendingTrends,
+  useCategorySpendingTrends,
+  useCategoryComparison,
+  useAnomalies,
+  useCashFlowForecast,
+  useWaterfallData,
+  type SpendingTrendsData,
+  type CategorySpendingTrendsData,
+  type CategoryComparisonPeriod,
+} from './useAnalyticsData';

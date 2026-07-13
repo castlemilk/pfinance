@@ -15,6 +15,9 @@ import {
   Income,
   Expense
 } from '../types';
+import type { PrimaryAnalyticsAttention } from '../components/analytics/types';
+
+export type { PrimaryAnalyticsAttention } from '../components/analytics/types';
 
 // ============================================================================
 // Core Metric Types
@@ -477,6 +480,46 @@ export interface RadarAxis {
   maxValue: number;
 }
 
+/** A multi-category budget normalized for analytics display. */
+export interface AnalyticsCombinedBudget {
+  id: string;
+  name: string;
+  categories: string[];
+  allowance: number;
+  currentSpend: number;
+}
+
+/** Category comparison data, including budgets that span multiple categories. */
+export interface CategoryComparisonData {
+  categories: RadarAxis[];
+  combinedBudgets: AnalyticsCombinedBudget[];
+}
+
+/** Authoritative headline analytics for the selected period. */
+export interface AnalyticsOverviewData {
+  currentStart: Date | null;
+  currentEnd: Date | null;
+  previousStart: Date | null;
+  previousEnd: Date | null;
+  currentIncome: number;
+  currentExpense: number;
+  currentNet: number;
+  previousIncome: number;
+  previousExpense: number;
+  previousNet: number;
+  savingsRate: number;
+  hasSavingsRate: boolean;
+  incomeChange: number;
+  hasIncomeChange: boolean;
+  expenseChange: number;
+  hasExpenseChange: boolean;
+  largestCategory: string;
+  largestCategoryAmount: number;
+  currentTransactionCount: number;
+  previousTransactionCount: number;
+  hasCurrentData: boolean;
+}
+
 /**
  * One point in a stacked category spending trend.
  */
@@ -499,8 +542,31 @@ export interface AnomalyPoint {
   date: Date;
   zScore: number;
   expectedAmount: number;
+  expectedLowerAmount: number;
+  expectedUpperAmount: number;
+  hasExpectedRange: boolean;
   anomalyType: string;
   severity: 'low' | 'medium' | 'high';
+}
+
+/** History coverage for one anomaly-detection category. */
+export interface AnalyticsAnomalyCoverage {
+  category: string;
+  sampleCount: number;
+  hasSufficientHistory: boolean;
+}
+
+/** Complete anomaly response normalized for analytics views. */
+export interface AnalyticsAnomalyData {
+  data: AnomalyPoint[];
+  totalAnomalousSpend: number;
+  topCategory: string;
+  analyzedCount: number;
+  eligibleCount: number;
+  minimumSample: number;
+  hasSufficientHistory: boolean;
+  categoryCoverage: AnalyticsAnomalyCoverage[];
+  primaryAttention: PrimaryAnalyticsAttention | null;
 }
 
 /**
@@ -511,6 +577,24 @@ export interface ForecastSeries {
   predicted: number;
   lowerBound: number;
   upperBound: number;
+  hasBounds: boolean;
+  isRecurring: boolean;
+}
+
+/** Historical point shown alongside forecast data. */
+export interface ForecastHistoryPoint {
+  date: string;
+  label: string;
+  value: number;
+}
+
+/** Forecast and history series normalized for analytics views. */
+export interface CashFlowForecastData {
+  incomeForecast: ForecastSeries[];
+  expenseForecast: ForecastSeries[];
+  netForecast: ForecastSeries[];
+  incomeHistory: ForecastHistoryPoint[];
+  expenseHistory: ForecastHistoryPoint[];
 }
 
 /**
@@ -522,4 +606,10 @@ export interface WaterfallBar {
   type: 'income' | 'expense' | 'tax' | 'savings' | 'subtotal';
   runningTotal: number;
   color: string;
+}
+
+/** Waterfall bars and the server-authored period label. */
+export interface WaterfallData {
+  data: WaterfallBar[];
+  periodLabel: string;
 }

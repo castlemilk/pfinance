@@ -1,43 +1,61 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { create } from '@bufbuild/protobuf';
 import type { Timestamp } from '@bufbuild/protobuf/wkt';
 import { TimestampSchema } from '@bufbuild/protobuf/wkt';
+import type { AnalyticsScope } from '@/app/components/analytics/types';
+import { scopeGroupId } from '@/app/components/analytics/types';
 import { financeClient } from '@/lib/financeService';
 import type {
   DailyAggregate,
   Expense,
   TimeSeriesDataPoint,
-  CategorySpending,
-  SpendingAnomaly,
-  ForecastPoint,
-  WaterfallEntry,
 } from '@/gen/pfinance/v1/types_pb';
+import { ExpenseCategory, Granularity } from '@/gen/pfinance/v1/types_pb';
 import {
-  Granularity,
-  ExpenseCategory,
-  AnomalyType,
-  AnomalySeverity,
-  WaterfallEntryType,
-} from '@/gen/pfinance/v1/types_pb';
+  analyticsCategoryLabel,
+  analyticsMoney,
+  mapAnomalyResponse,
+  mapCashFlowForecastResponse,
+  mapCategoryComparisonResponse,
+  mapWaterfallResponse,
+} from '../analyticsMappers';
 import type {
-  HeatmapDay,
-  HeatmapData,
+  AnalyticsAnomalyData,
+  AnalyticsCombinedBudget,
+  AnalyticsAnomalyCoverage,
+  CashFlowForecastData,
   CategoryStackedTrendPoint,
+  HeatmapData,
+  HeatmapDay,
+  PrimaryAnalyticsAttention,
   RadarAxis,
-  AnomalyPoint,
-  ForecastSeries,
-  WaterfallBar,
+  WaterfallData,
 } from '../types';
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
+function useRequestSequence() {
+  const requestIdRef = useRef(0);
 
-/**
- * Convert a JS Date to a protobuf Timestamp.
- */
+  const beginRequest = useCallback(() => {
+    requestIdRef.current += 1;
+    return requestIdRef.current;
+  }, []);
+  const isCurrentRequest = useCallback(
+    (requestId: number) => requestIdRef.current === requestId,
+    []
+  );
+  const invalidateRequest = useCallback(() => {
+    requestIdRef.current += 1;
+  }, []);
+
+  return { beginRequest, isCurrentRequest, invalidateRequest };
+}
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
 function timestampFromDate(date: Date): Timestamp {
   return create(TimestampSchema, {
     seconds: BigInt(Math.floor(date.getTime() / 1000)),
@@ -57,17 +75,28 @@ function startOfLocalDay(date: Date): Date {
 }
 
 function endOfLocalDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    23,
+    59,
+    59,
+    999
+  );
 }
 
 function dateKeysInRange(startDate: Date, endDate: Date): string[] {
   const start = startOfLocalDay(startDate);
   const end = startOfLocalDay(endDate);
-
   if (start > end) return [];
 
   const keys: string[] = [];
-  for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+  for (
+    const cursor = new Date(start);
+    cursor <= end;
+    cursor.setDate(cursor.getDate() + 1)
+  ) {
     keys.push(localDateKey(cursor));
   }
   return keys;
@@ -80,7 +109,10 @@ interface TrendPeriod {
 }
 
 function formatShortDate(date: Date): string {
-  return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: '2-digit',
+  });
 }
 
 function buildTrendPeriods(
@@ -94,11 +126,7 @@ function buildTrendPeriods(
     if (granularity === 'day') {
       const start = startOfLocalDay(anchor);
       start.setDate(start.getDate() - offset);
-      return {
-        start,
-        end: endOfLocalDay(start),
-        label: localDateKey(start),
-      };
+      return { start, end: endOfLocalDay(start), label: localDateKey(start) };
     }
 
     if (granularity === 'week') {
@@ -106,39 +134,34 @@ function buildTrendPeriods(
       start.setDate(start.getDate() - start.getDay() - offset * 7);
       const end = endOfLocalDay(start);
       end.setDate(end.getDate() + 6);
-      return {
-        start,
-        end,
-        label: formatShortDate(start),
-      };
+      return { start, end, label: formatShortDate(start) };
     }
 
     const start = new Date(anchor.getFullYear(), anchor.getMonth() - offset, 1);
-    const end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
+    const end = new Date(
+      start.getFullYear(),
+      start.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
     return {
       start,
       end,
-      label: start.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+      label: start.toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric',
+      }),
     };
   });
 }
 
-/**
- * Convert an ExpenseCategory enum value to a human-readable string.
- * e.g. ExpenseCategory.FOOD (whose key is "FOOD") -> "Food"
- */
-function categoryToString(cat: ExpenseCategory): string {
-  const name = ExpenseCategory[cat] || '';
-  // Enum keys are like "FOOD", "HOUSING", "TRANSPORTATION", etc.
-  if (!name || name === 'UNSPECIFIED') return 'Other';
-  return name.charAt(0) + name.slice(1).toLowerCase();
-}
-
-/**
- * Map a string-based granularity to the proto Granularity enum.
- */
-function granularityFromString(g: 'day' | 'week' | 'month'): Granularity {
-  switch (g) {
+function granularityFromString(
+  granularity: 'day' | 'week' | 'month'
+): Granularity {
+  switch (granularity) {
     case 'day':
       return Granularity.DAY;
     case 'week':
@@ -150,12 +173,7 @@ function granularityFromString(g: 'day' | 'week' | 'month'): Granularity {
   }
 }
 
-/**
- * Map a category string to the ExpenseCategory enum.
- * Accepts lowercase or title-case category names.
- */
-function categoryFromString(cat: string): ExpenseCategory {
-  const upper = cat.toUpperCase();
+function categoryFromString(category: string): ExpenseCategory {
   const mapping: Record<string, ExpenseCategory> = {
     FOOD: ExpenseCategory.FOOD,
     HOUSING: ExpenseCategory.HOUSING,
@@ -168,7 +186,7 @@ function categoryFromString(cat: string): ExpenseCategory {
     TRAVEL: ExpenseCategory.TRAVEL,
     OTHER: ExpenseCategory.OTHER,
   };
-  return mapping[upper] ?? ExpenseCategory.UNSPECIFIED;
+  return mapping[category.toUpperCase()] ?? ExpenseCategory.UNSPECIFIED;
 }
 
 const categoryOrder: ExpenseCategory[] = [
@@ -184,128 +202,55 @@ const categoryOrder: ExpenseCategory[] = [
   ExpenseCategory.OTHER,
 ];
 
-/**
- * Prefer cents value (converted to dollars) over the legacy double field.
- * Uses BigInt(0) for comparison since the ES target is below ES2020.
- */
-function centsOrFallback(cents: bigint, fallbackDollars: number): number {
-  if (cents !== BigInt(0)) {
-    return Number(cents) / 100;
-  }
-  return fallbackDollars;
-}
-
-/**
- * Map AnomalySeverity enum to the display string union type.
- */
-function severityToString(s: AnomalySeverity): 'low' | 'medium' | 'high' {
-  switch (s) {
-    case AnomalySeverity.LOW:
-      return 'low';
-    case AnomalySeverity.MEDIUM:
-      return 'medium';
-    case AnomalySeverity.HIGH:
-      return 'high';
-    default:
-      return 'low';
-  }
-}
-
-/**
- * Map AnomalyType enum to a human-readable string.
- */
-function anomalyTypeToString(t: AnomalyType): string {
-  switch (t) {
-    case AnomalyType.AMOUNT_OUTLIER:
-      return 'Amount Outlier';
-    case AnomalyType.NEW_MERCHANT:
-      return 'New Merchant';
-    case AnomalyType.UNUSUAL_TIMING:
-      return 'Unusual Timing';
-    case AnomalyType.CATEGORY_SPIKE:
-      return 'Category Spike';
-    default:
-      return 'Unknown';
-  }
-}
-
-/**
- * Map a WaterfallEntryType to the display union type for WaterfallBar.
- */
-function waterfallEntryTypeToString(
-  t: WaterfallEntryType
-): 'income' | 'expense' | 'tax' | 'savings' | 'subtotal' {
-  switch (t) {
-    case WaterfallEntryType.INCOME:
-      return 'income';
-    case WaterfallEntryType.EXPENSE:
-      return 'expense';
-    case WaterfallEntryType.TAX:
-      return 'tax';
-    case WaterfallEntryType.SAVINGS:
-      return 'savings';
-    case WaterfallEntryType.SUBTOTAL:
-      return 'subtotal';
-    default:
-      return 'subtotal';
-  }
-}
-
-/**
- * Map a WaterfallEntryType to a chart color.
- */
-function waterfallEntryColor(t: WaterfallEntryType): string {
-  switch (t) {
-    case WaterfallEntryType.INCOME:
-      return 'var(--chart-2)';
-    case WaterfallEntryType.EXPENSE:
-      return 'var(--chart-1)';
-    case WaterfallEntryType.TAX:
-      return 'var(--chart-4)';
-    case WaterfallEntryType.SAVINGS:
-      return 'var(--chart-3)';
-    case WaterfallEntryType.SUBTOTAL:
-    default:
-      return 'var(--muted)';
-  }
-}
-
-// ============================================================================
-// Hook 1: useHeatmapData
-// ============================================================================
-
-export function useHeatmapData(startDate: Date, endDate: Date) {
+export function useHeatmapData(
+  startDate: Date,
+  endDate: Date,
+  scope?: AnalyticsScope
+) {
   const [data, setData] = useState<HeatmapData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const groupId = scopeGroupId(scope);
+  const startTime = startDate.getTime();
+  const endTime = endDate.getTime();
+  const { beginRequest, isCurrentRequest, invalidateRequest } =
+    useRequestSequence();
 
   const fetchData = useCallback(async () => {
+    const requestId = beginRequest();
     setLoading(true);
     setError(null);
+    const requestStart = new Date(startTime);
+    const requestEnd = new Date(endTime);
+
     try {
       const response = await financeClient.getDailyAggregates({
         userId: '',
-        groupId: '',
-        startDate: timestampFromDate(startDate),
-        endDate: timestampFromDate(endDate),
+        groupId,
+        startDate: timestampFromDate(requestStart),
+        endDate: timestampFromDate(requestEnd),
       });
+      if (!isCurrentRequest(requestId)) return;
 
       const aggregateByDate = new Map<string, HeatmapDay>();
-      for (const agg of response.aggregates as DailyAggregate[]) {
-        aggregateByDate.set(agg.date, {
-          date: agg.date,
-          value: centsOrFallback(agg.totalAmountCents, agg.totalAmount),
-          count: agg.transactionCount,
-          categories: agg.categoryAmounts.map((ca) => ({
-            category: categoryToString(ca.category),
-            amount: centsOrFallback(ca.amountCents, ca.amount),
-            count: ca.count,
+      for (const aggregate of response.aggregates as DailyAggregate[]) {
+        aggregateByDate.set(aggregate.date, {
+          date: aggregate.date,
+          value: analyticsMoney(
+            aggregate.totalAmountCents,
+            aggregate.totalAmount
+          ),
+          count: aggregate.transactionCount,
+          categories: aggregate.categoryAmounts.map((category) => ({
+            category: analyticsCategoryLabel(category.category),
+            amount: analyticsMoney(category.amountCents, category.amount),
+            count: category.count,
           })),
         });
       }
 
-      const days: HeatmapDay[] = dateKeysInRange(startDate, endDate).map(
-        (date) =>
+      const days = dateKeysInRange(requestStart, requestEnd).map(
+        (date): HeatmapDay =>
           aggregateByDate.get(date) ?? {
             date,
             value: 0,
@@ -313,30 +258,26 @@ export function useHeatmapData(startDate: Date, endDate: Date) {
             categories: [],
           }
       );
-
-      const maxValue =
-        days.length > 0 ? Math.max(...days.map((d) => d.value)) : 0;
-
-      setData({ days, maxValue });
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to fetch heatmap data'
-      );
+      setData({
+        days,
+        maxValue:
+          days.length > 0 ? Math.max(...days.map((day) => day.value)) : 0,
+      });
+    } catch (caughtError) {
+      if (!isCurrentRequest(requestId)) return;
+      setError(errorMessage(caughtError, 'Failed to fetch heatmap data'));
     } finally {
-      setLoading(false);
+      if (isCurrentRequest(requestId)) setLoading(false);
     }
-  }, [startDate, endDate]);
+  }, [beginRequest, endTime, groupId, isCurrentRequest, startTime]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    void fetchData();
+    return invalidateRequest;
+  }, [fetchData, invalidateRequest]);
 
   return { data, loading, error, refetch: fetchData };
 }
-
-// ============================================================================
-// Hook 2: useSpendingTrends
-// ============================================================================
 
 export interface SpendingTrendsData {
   expenseSeries: TimeSeriesDataPoint[];
@@ -348,28 +289,32 @@ export interface SpendingTrendsData {
 export function useSpendingTrends(
   granularity: 'day' | 'week' | 'month',
   periods: number,
-  category?: string
+  category?: string,
+  scope?: AnalyticsScope
 ) {
   const [data, setData] = useState<SpendingTrendsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const groupId = scopeGroupId(scope);
+  const { beginRequest, isCurrentRequest, invalidateRequest } =
+    useRequestSequence();
 
   const fetchData = useCallback(async () => {
+    const requestId = beginRequest();
     setLoading(true);
     setError(null);
-    try {
-      const protoGranularity = granularityFromString(granularity);
-      const protoCategory = category
-        ? categoryFromString(category)
-        : ExpenseCategory.UNSPECIFIED;
 
+    try {
       const response = await financeClient.getSpendingTrends({
         userId: '',
-        groupId: '',
-        granularity: protoGranularity,
+        groupId,
+        granularity: granularityFromString(granularity),
         periods,
-        category: protoCategory,
+        category: category
+          ? categoryFromString(category)
+          : ExpenseCategory.UNSPECIFIED,
       });
+      if (!isCurrentRequest(requestId)) return;
 
       setData({
         expenseSeries: response.expenseSeries,
@@ -377,20 +322,25 @@ export function useSpendingTrends(
         trendSlope: response.trendSlope,
         trendRSquared: response.trendRSquared,
       });
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to fetch spending trends'
-      );
+    } catch (caughtError) {
+      if (!isCurrentRequest(requestId)) return;
+      setError(errorMessage(caughtError, 'Failed to fetch spending trends'));
     } finally {
-      setLoading(false);
+      if (isCurrentRequest(requestId)) setLoading(false);
     }
-  }, [granularity, periods, category]);
+  }, [
+    beginRequest,
+    category,
+    granularity,
+    groupId,
+    isCurrentRequest,
+    periods,
+  ]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    void fetchData();
+    return invalidateRequest;
+  }, [fetchData, invalidateRequest]);
 
   return {
     expenseSeries: data?.expenseSeries ?? [],
@@ -403,10 +353,6 @@ export function useSpendingTrends(
   };
 }
 
-// ============================================================================
-// Hook 3: useCategorySpendingTrends
-// ============================================================================
-
 export interface CategorySpendingTrendsData {
   points: CategoryStackedTrendPoint[];
   categories: string[];
@@ -414,63 +360,83 @@ export interface CategorySpendingTrendsData {
 
 function expenseDate(expense: Expense): Date | null {
   if (!expense.date) return null;
-  return new Date(Number(expense.date.seconds) * 1000 + Math.floor(expense.date.nanos / 1_000_000));
+  const milliseconds =
+    Number(expense.date.seconds) * 1_000 + expense.date.nanos / 1_000_000;
+  const date = new Date(milliseconds);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function findExpensePeriodIndex(date: Date, periods: TrendPeriod[]): number {
-  return periods.findIndex((period) => date >= period.start && date <= period.end);
+  return periods.findIndex(
+    (period) => date >= period.start && date <= period.end
+  );
 }
 
 function latestExpenseDate(expenses: Expense[]): Date | null {
   let latest: Date | null = null;
   for (const expense of expenses) {
     const date = expenseDate(expense);
-    if (date && (!latest || date > latest)) {
-      latest = date;
-    }
+    if (date && (!latest || date > latest)) latest = date;
   }
   return latest;
 }
 
-async function listAllExpenses(): Promise<Expense[]> {
+async function listAllExpenses(groupId: string): Promise<Expense[]> {
   const expenses: Expense[] = [];
+  const seenPageTokens = new Set<string>();
   let pageToken = '';
 
-  do {
+  while (true) {
     const response = await financeClient.listExpenses({
       userId: '',
-      groupId: '',
+      groupId,
       pageSize: 10000,
       pageToken,
     });
     expenses.push(...response.expenses);
-    pageToken = response.nextPageToken;
-  } while (pageToken);
+
+    const nextPageToken = response.nextPageToken;
+    if (!nextPageToken || seenPageTokens.has(nextPageToken)) break;
+    seenPageTokens.add(nextPageToken);
+    pageToken = nextPageToken;
+  }
 
   return expenses;
 }
 
 export function useCategorySpendingTrends(
   granularity: 'day' | 'week' | 'month',
-  periods: number
+  periods: number,
+  scope?: AnalyticsScope
 ) {
   const [data, setData] = useState<CategorySpendingTrendsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const groupId = scopeGroupId(scope);
+  const { beginRequest, isCurrentRequest, invalidateRequest } =
+    useRequestSequence();
 
   const fetchData = useCallback(async () => {
+    const requestId = beginRequest();
     setLoading(true);
     setError(null);
+
     try {
-      const expenses = await listAllExpenses();
-      const currentPeriods = buildTrendPeriods(new Date(), granularity, periods);
+      const expenses = await listAllExpenses(groupId);
+      if (!isCurrentRequest(requestId)) return;
+
+      const now = new Date();
+      const currentPeriods = buildTrendPeriods(now, granularity, periods);
       const hasCurrentWindowData = expenses.some((expense) => {
         const date = expenseDate(expense);
-        return date ? findExpensePeriodIndex(date, currentPeriods) !== -1 : false;
+        return date
+          ? findExpensePeriodIndex(date, currentPeriods) !== -1
+          : false;
       });
-      const anchor = hasCurrentWindowData ? new Date() : latestExpenseDate(expenses) ?? new Date();
+      const anchor = hasCurrentWindowData
+        ? now
+        : latestExpenseDate(expenses) ?? now;
       const trendPeriods = buildTrendPeriods(anchor, granularity, periods);
-
       const totalsByCategory = new Map<string, number>();
       const points = trendPeriods.map((period) => ({
         date: localDateKey(period.start),
@@ -480,10 +446,8 @@ export function useCategorySpendingTrends(
       }));
 
       for (const category of categoryOrder) {
-        const label = categoryToString(category);
-        for (const point of points) {
-          point.categories[label] = 0;
-        }
+        const label = analyticsCategoryLabel(category);
+        for (const point of points) point.categories[label] = 0;
       }
 
       for (const expense of expenses) {
@@ -492,41 +456,51 @@ export function useCategorySpendingTrends(
         const periodIndex = findExpensePeriodIndex(date, trendPeriods);
         if (periodIndex === -1) continue;
 
-        const category = categoryToString(expense.category);
-        const amount = centsOrFallback(expense.amountCents, expense.amount);
+        const category = analyticsCategoryLabel(expense.category);
+        const amount = analyticsMoney(expense.amountCents, expense.amount);
         points[periodIndex].categories[category] =
           (points[periodIndex].categories[category] ?? 0) + amount;
         points[periodIndex].total += amount;
-        totalsByCategory.set(category, (totalsByCategory.get(category) ?? 0) + amount);
+        totalsByCategory.set(
+          category,
+          (totalsByCategory.get(category) ?? 0) + amount
+        );
       }
 
       const activeCategories = categoryOrder
-        .map(categoryToString)
+        .map(analyticsCategoryLabel)
         .filter((category) => (totalsByCategory.get(category) ?? 0) > 0);
 
+      if (!isCurrentRequest(requestId)) return;
       setData({
         categories: activeCategories,
         points: points.map((point) => ({
           ...point,
           categories: Object.fromEntries(
-            activeCategories.map((category) => [category, point.categories[category] ?? 0])
+            activeCategories.map((category) => [
+              category,
+              point.categories[category] ?? 0,
+            ])
           ),
         })),
       });
-    } catch (err) {
+    } catch (caughtError) {
+      if (!isCurrentRequest(requestId)) return;
       setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to fetch category spending trends'
+        errorMessage(
+          caughtError,
+          'Failed to fetch category spending trends'
+        )
       );
     } finally {
-      setLoading(false);
+      if (isCurrentRequest(requestId)) setLoading(false);
     }
-  }, [granularity, periods]);
+  }, [beginRequest, granularity, groupId, isCurrentRequest, periods]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    void fetchData();
+    return invalidateRequest;
+  }, [fetchData, invalidateRequest]);
 
   return {
     points: data?.points ?? [],
@@ -537,272 +511,228 @@ export function useCategorySpendingTrends(
   };
 }
 
-// ============================================================================
-// Hook 4: useCategoryComparison
-// ============================================================================
-
 export type CategoryComparisonPeriod = 'week' | 'month' | 'quarter' | 'year';
 
 export function useCategoryComparison(
   includeBudgets: boolean,
-  currentPeriod: CategoryComparisonPeriod = 'month'
+  currentPeriod: CategoryComparisonPeriod = 'month',
+  scope?: AnalyticsScope
 ) {
   const [data, setData] = useState<RadarAxis[] | null>(null);
+  const [combinedBudgets, setCombinedBudgets] = useState<
+    AnalyticsCombinedBudget[]
+  >([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const groupId = scopeGroupId(scope);
+  const { beginRequest, isCurrentRequest, invalidateRequest } =
+    useRequestSequence();
 
   const fetchData = useCallback(async () => {
+    const requestId = beginRequest();
     setLoading(true);
     setError(null);
+
     try {
       const response = await financeClient.getCategoryComparison({
         userId: '',
-        groupId: '',
+        groupId,
         currentPeriod,
         includeBudgets,
       });
+      if (!isCurrentRequest(requestId)) return;
 
-      const axes: RadarAxis[] = response.categories.map(
-        (cs: CategorySpending) => {
-          const currentValue = centsOrFallback(
-            cs.currentAmountCents,
-            cs.currentAmount
-          );
-          const previousValue = centsOrFallback(
-            cs.previousAmountCents,
-            cs.previousAmount
-          );
-          const budgetValue = centsOrFallback(
-            cs.budgetAmountCents,
-            cs.budgetAmount
-          );
-          const maxValue = Math.max(
-            currentValue,
-            previousValue,
-            budgetValue || 0
-          );
-
-          return {
-            category: categoryToString(cs.category),
-            currentValue,
-            previousValue,
-            budgetValue: budgetValue > 0 ? budgetValue : undefined,
-            maxValue,
-          };
-        }
-      );
-
-      setData(axes);
-    } catch (err) {
+      const mapped = mapCategoryComparisonResponse(response);
+      setData(mapped.categories);
+      setCombinedBudgets(mapped.combinedBudgets);
+    } catch (caughtError) {
+      if (!isCurrentRequest(requestId)) return;
       setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to fetch category comparison'
+        errorMessage(caughtError, 'Failed to fetch category comparison')
       );
     } finally {
-      setLoading(false);
+      if (isCurrentRequest(requestId)) setLoading(false);
     }
-  }, [includeBudgets, currentPeriod]);
+  }, [
+    beginRequest,
+    currentPeriod,
+    groupId,
+    includeBudgets,
+    isCurrentRequest,
+  ]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, loading, error, refetch: fetchData };
-}
-
-// ============================================================================
-// Hook 4: useAnomalies
-// ============================================================================
-
-export function useAnomalies(lookbackDays: number, sensitivity: number) {
-  const [data, setData] = useState<AnomalyPoint[] | null>(null);
-  const [totalAnomalousSpend, setTotalAnomalousSpend] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await financeClient.detectAnomalies({
-        userId: '',
-        groupId: '',
-        lookbackDays,
-        sensitivity,
-      });
-
-      const points: AnomalyPoint[] = response.anomalies.map(
-        (a: SpendingAnomaly) => ({
-          id: a.id,
-          expenseId: a.expenseId,
-          description: a.description,
-          amount: centsOrFallback(a.amountCents, a.amount),
-          category: categoryToString(a.category),
-          date: a.date
-            ? new Date(Number(a.date.seconds) * 1000)
-            : new Date(),
-          zScore: a.zScore,
-          expectedAmount: centsOrFallback(
-            a.expectedAmountCents,
-            a.expectedAmount
-          ),
-          anomalyType: anomalyTypeToString(a.anomalyType),
-          severity: severityToString(a.severity),
-        })
-      );
-
-      const spend = centsOrFallback(
-        response.anomalousSpendTotalCents,
-        response.anomalousSpendTotal
-      );
-
-      setData(points);
-      setTotalAnomalousSpend(spend);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to fetch anomalies'
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [lookbackDays, sensitivity]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, totalAnomalousSpend, loading, error, refetch: fetchData };
-}
-
-// ============================================================================
-// Hook 5: useCashFlowForecast
-// ============================================================================
-
-function forecastPointsToSeries(points: ForecastPoint[]): ForecastSeries[] {
-  return points.map((fp) => ({
-    date: new Date(fp.date),
-    predicted: centsOrFallback(fp.predictedCents, fp.predicted),
-    lowerBound: centsOrFallback(fp.lowerBoundCents, fp.lowerBound),
-    upperBound: centsOrFallback(fp.upperBoundCents, fp.upperBound),
-  }));
-}
-
-export function useCashFlowForecast(forecastDays: number) {
-  const [incomeForecast, setIncomeForecast] = useState<ForecastSeries[] | null>(
-    null
-  );
-  const [expenseForecast, setExpenseForecast] = useState<
-    ForecastSeries[] | null
-  >(null);
-  const [netForecast, setNetForecast] = useState<ForecastSeries[] | null>(
-    null
-  );
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await financeClient.getCashFlowForecast({
-        userId: '',
-        groupId: '',
-        forecastDays,
-      });
-
-      setIncomeForecast(forecastPointsToSeries(response.incomeForecast));
-      setExpenseForecast(forecastPointsToSeries(response.expenseForecast));
-      setNetForecast(forecastPointsToSeries(response.netForecast));
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to fetch cash flow forecast'
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [forecastDays]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    void fetchData();
+    return invalidateRequest;
+  }, [fetchData, invalidateRequest]);
 
   return {
-    incomeForecast,
-    expenseForecast,
-    netForecast,
+    data,
+    combinedBudgets,
     loading,
     error,
     refetch: fetchData,
   };
 }
 
-// ============================================================================
-// Hook 6: useWaterfallData
-// ============================================================================
-
-export function useWaterfallData(periodDays: number) {
-  const [data, setData] = useState<WaterfallBar[] | null>(null);
+export function useAnomalies(
+  lookbackDays: number,
+  sensitivity: number,
+  scope?: AnalyticsScope
+) {
+  const [result, setResult] = useState<AnalyticsAnomalyData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const groupId = scopeGroupId(scope);
+  const { beginRequest, isCurrentRequest, invalidateRequest } =
+    useRequestSequence();
 
   const fetchData = useCallback(async () => {
+    const requestId = beginRequest();
     setLoading(true);
     setError(null);
+
     try {
-      // Map periodDays to a period string for the RPC
-      let period = 'month';
-      if (periodDays > 180) {
-        period = 'year';
-      } else if (periodDays > 60) {
-        period = 'quarter';
-      }
-
-      const response = await financeClient.getWaterfallData({
+      const response = await financeClient.detectAnomalies({
         userId: '',
-        groupId: '',
-        period,
+        groupId,
+        lookbackDays,
+        sensitivity,
       });
-
-      const bars: WaterfallBar[] = response.entries.map(
-        (entry: WaterfallEntry) => {
-          const amount = centsOrFallback(entry.amountCents, entry.amount);
-          const runningTotal = centsOrFallback(
-            entry.runningTotalCents,
-            entry.runningTotal
-          );
-          const entryType = waterfallEntryTypeToString(entry.entryType);
-          const color = waterfallEntryColor(entry.entryType);
-
-          return {
-            label: entry.label,
-            amount,
-            type: entryType,
-            runningTotal,
-            color,
-          };
-        }
-      );
-
-      setData(bars);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to fetch waterfall data'
-      );
+      if (!isCurrentRequest(requestId)) return;
+      setResult(mapAnomalyResponse(response));
+    } catch (caughtError) {
+      if (!isCurrentRequest(requestId)) return;
+      setError(errorMessage(caughtError, 'Failed to fetch anomalies'));
     } finally {
-      setLoading(false);
+      if (isCurrentRequest(requestId)) setLoading(false);
     }
-  }, [periodDays]);
+  }, [
+    beginRequest,
+    groupId,
+    isCurrentRequest,
+    lookbackDays,
+    sensitivity,
+  ]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    void fetchData();
+    return invalidateRequest;
+  }, [fetchData, invalidateRequest]);
 
-  return { data, loading, error, refetch: fetchData };
+  return {
+    data: result?.data ?? null,
+    totalAnomalousSpend: result?.totalAnomalousSpend ?? 0,
+    topCategory: result?.topCategory ?? '',
+    analyzedCount: result?.analyzedCount ?? 0,
+    eligibleCount: result?.eligibleCount ?? 0,
+    minimumSample: result?.minimumSample ?? 0,
+    hasSufficientHistory: result?.hasSufficientHistory ?? false,
+    categoryCoverage:
+      result?.categoryCoverage ?? ([] as AnalyticsAnomalyCoverage[]),
+    primaryAttention:
+      result?.primaryAttention ?? (null as PrimaryAnalyticsAttention | null),
+    loading,
+    error,
+    refetch: fetchData,
+  };
+}
+
+export function useCashFlowForecast(
+  forecastDays: number,
+  scope?: AnalyticsScope
+) {
+  const [result, setResult] = useState<CashFlowForecastData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const groupId = scopeGroupId(scope);
+  const { beginRequest, isCurrentRequest, invalidateRequest } =
+    useRequestSequence();
+
+  const fetchData = useCallback(async () => {
+    const requestId = beginRequest();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await financeClient.getCashFlowForecast({
+        userId: '',
+        groupId,
+        forecastDays,
+      });
+      if (!isCurrentRequest(requestId)) return;
+      setResult(mapCashFlowForecastResponse(response));
+    } catch (caughtError) {
+      if (!isCurrentRequest(requestId)) return;
+      setError(
+        errorMessage(caughtError, 'Failed to fetch cash flow forecast')
+      );
+    } finally {
+      if (isCurrentRequest(requestId)) setLoading(false);
+    }
+  }, [beginRequest, forecastDays, groupId, isCurrentRequest]);
+
+  useEffect(() => {
+    void fetchData();
+    return invalidateRequest;
+  }, [fetchData, invalidateRequest]);
+
+  return {
+    incomeForecast: result?.incomeForecast ?? null,
+    expenseForecast: result?.expenseForecast ?? null,
+    netForecast: result?.netForecast ?? null,
+    incomeHistory: result?.incomeHistory ?? null,
+    expenseHistory: result?.expenseHistory ?? null,
+    loading,
+    error,
+    refetch: fetchData,
+  };
+}
+
+export function useWaterfallData(
+  periodDays: number,
+  scope?: AnalyticsScope
+) {
+  const [result, setResult] = useState<WaterfallData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const groupId = scopeGroupId(scope);
+  const { beginRequest, isCurrentRequest, invalidateRequest } =
+    useRequestSequence();
+
+  const fetchData = useCallback(async () => {
+    const requestId = beginRequest();
+    setLoading(true);
+    setError(null);
+    const period =
+      periodDays > 180 ? 'year' : periodDays > 60 ? 'quarter' : 'month';
+
+    try {
+      const response = await financeClient.getWaterfallData({
+        userId: '',
+        groupId,
+        period,
+      });
+      if (!isCurrentRequest(requestId)) return;
+      setResult(mapWaterfallResponse(response));
+    } catch (caughtError) {
+      if (!isCurrentRequest(requestId)) return;
+      setError(errorMessage(caughtError, 'Failed to fetch waterfall data'));
+    } finally {
+      if (isCurrentRequest(requestId)) setLoading(false);
+    }
+  }, [beginRequest, groupId, isCurrentRequest, periodDays]);
+
+  useEffect(() => {
+    void fetchData();
+    return invalidateRequest;
+  }, [fetchData, invalidateRequest]);
+
+  return {
+    data: result?.data ?? null,
+    periodLabel: result?.periodLabel ?? '',
+    loading,
+    error,
+    refetch: fetchData,
+  };
 }
