@@ -73,7 +73,7 @@ func categoryComparisonScopeFixture() analyticsHandlerScopeFixture {
 		name: "category_comparison",
 		expectQueries: func(mockStore *store.MockStore, userID, groupID string) {
 			mockStore.EXPECT().
-				ListExpenses(gomock.Any(), userID, groupID, gomock.Any(), gomock.Any(), int32(10000), "").
+				ListExpenses(gomock.Any(), userID, groupID, gomock.Any(), gomock.Any(), int32(1000), "").
 				Return([]*pfinancev1.Expense{{
 					Id:       "expense-1",
 					UserId:   userID,
@@ -152,10 +152,10 @@ func waterfallScopeFixture() analyticsHandlerScopeFixture {
 		name: "waterfall",
 		expectQueries: func(mockStore *store.MockStore, userID, groupID string) {
 			mockStore.EXPECT().
-				ListIncomes(gomock.Any(), userID, groupID, gomock.Any(), gomock.Any(), int32(10000), "").
+				ListIncomes(gomock.Any(), userID, groupID, gomock.Any(), gomock.Any(), int32(1000), "").
 				Return(nil, "", nil)
 			mockStore.EXPECT().
-				ListExpenses(gomock.Any(), userID, groupID, gomock.Any(), gomock.Any(), int32(10000), "").
+				ListExpenses(gomock.Any(), userID, groupID, gomock.Any(), gomock.Any(), int32(1000), "").
 				Return(nil, "", nil)
 			if groupID == "" {
 				mockStore.EXPECT().
@@ -396,13 +396,13 @@ func TestAnalyticsHandlerScopeCoversFallbackBranches(t *testing.T) {
 					MemberIds: []string{ownerID},
 				}, nil),
 			mockStore.EXPECT().
-				ListExpenses(gomock.Any(), "", groupID, gomock.Any(), gomock.Any(), int32(10000), "").
+				ListExpenses(gomock.Any(), "", groupID, gomock.Any(), gomock.Any(), int32(1000), "").
 				Return(nil, "", nil),
 			mockStore.EXPECT().
-				ListExpenses(gomock.Any(), "", groupID, gomock.Any(), gomock.Any(), int32(10000), "").
+				ListExpenses(gomock.Any(), "", groupID, gomock.Any(), gomock.Any(), int32(1000), "").
 				Return(nil, "", nil),
 			mockStore.EXPECT().
-				ListExpenses(gomock.Any(), "", groupID, nil, nil, int32(10000), "").
+				ListExpenses(gomock.Any(), "", groupID, nil, nil, int32(1000), "").
 				Return([]*pfinancev1.Expense{{
 					Id:       "historical-expense",
 					UserId:   "another-member",
@@ -411,7 +411,7 @@ func TestAnalyticsHandlerScopeCoversFallbackBranches(t *testing.T) {
 					Date:     timestamppb.New(anchor),
 				}}, "", nil),
 			mockStore.EXPECT().
-				ListExpenses(gomock.Any(), "", groupID, gomock.Any(), gomock.Any(), int32(10000), "").
+				ListExpenses(gomock.Any(), "", groupID, gomock.Any(), gomock.Any(), int32(1000), "").
 				Return([]*pfinancev1.Expense{{
 					Id:          "anchored-expense",
 					UserId:      "another-member",
@@ -422,10 +422,10 @@ func TestAnalyticsHandlerScopeCoversFallbackBranches(t *testing.T) {
 					Date:        timestamppb.New(anchor),
 				}}, "", nil),
 			mockStore.EXPECT().
-				ListExpenses(gomock.Any(), "", groupID, gomock.Any(), gomock.Any(), int32(10000), "").
+				ListExpenses(gomock.Any(), "", groupID, gomock.Any(), gomock.Any(), int32(1000), "").
 				Return(nil, "", nil),
 			mockStore.EXPECT().
-				ListBudgets(gomock.Any(), "", groupID, false, int32(10000), "").
+				ListBudgets(gomock.Any(), "", groupID, false, int32(1000), "").
 				Return([]*pfinancev1.Budget{{
 					Id:          "group-budget",
 					GroupId:     groupID,

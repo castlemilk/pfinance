@@ -344,17 +344,17 @@ func TestAnalyticsGetCategoryComparison(t *testing.T) {
 
 		// Current period ListExpenses
 		mockStore.EXPECT().
-			ListExpenses(gomock.Any(), userID, "", gomock.Any(), gomock.Any(), int32(10000), "").
+			ListExpenses(gomock.Any(), userID, "", gomock.Any(), gomock.Any(), int32(1000), "").
 			Return(currentExpenses, "", nil)
 
 		// Previous period ListExpenses
 		mockStore.EXPECT().
-			ListExpenses(gomock.Any(), userID, "", gomock.Any(), gomock.Any(), int32(10000), "").
+			ListExpenses(gomock.Any(), userID, "", gomock.Any(), gomock.Any(), int32(1000), "").
 			Return(prevExpenses, "", nil)
 
 		// ListBudgets (IncludeBudgets=true)
 		mockStore.EXPECT().
-			ListBudgets(gomock.Any(), userID, "", false, int32(10000), "").
+			ListBudgets(gomock.Any(), userID, "", false, int32(1000), "").
 			Return(budgets, "", nil)
 
 		resp, err := service.GetCategoryComparison(ctx, connect.NewRequest(&pfinancev1.GetCategoryComparisonRequest{
@@ -869,12 +869,12 @@ func TestAnalyticsGetWaterfallData(t *testing.T) {
 
 		// ListIncomes for the current period
 		mockStore.EXPECT().
-			ListIncomes(gomock.Any(), userID, "", gomock.Any(), gomock.Any(), int32(10000), "").
+			ListIncomes(gomock.Any(), userID, "", gomock.Any(), gomock.Any(), int32(1000), "").
 			Return(incomes, "", nil)
 
 		// ListExpenses for the current period
 		mockStore.EXPECT().
-			ListExpenses(gomock.Any(), userID, "", gomock.Any(), gomock.Any(), int32(10000), "").
+			ListExpenses(gomock.Any(), userID, "", gomock.Any(), gomock.Any(), int32(1000), "").
 			Return(expenses, "", nil)
 
 		// GetTaxConfig for tax rate (returns error → falls back to 25%)

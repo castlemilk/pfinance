@@ -47,6 +47,182 @@ func assertGroupSummaryDollarsMatchCents(t *testing.T, resp *pfinancev1.GetGroup
 	}
 }
 
+func memberBalanceFor(t *testing.T, balances []*pfinancev1.MemberBalance, userID string) *pfinancev1.MemberBalance {
+	t.Helper()
+	for _, balance := range balances {
+		if balance.UserId == userID {
+			return balance
+		}
+	}
+	t.Fatalf("member balance %q not found", userID)
+	return nil
+}
+
+func TestMemberBalanceGrossTotalsStayStableAfterSettlement(t *testing.T) {
+	makeExpense := func(paid bool) *pfinancev1.Expense {
+		return &pfinancev1.Expense{
+			Id: "shared", GroupId: "group-analytics", PaidByUserId: "member-a", AmountCents: 10_000,
+			Allocations: []*pfinancev1.ExpenseAllocation{
+				{UserId: "member-a", AmountCents: 5_000, IsPaid: false},
+				{UserId: "member-b", AmountCents: 5_000, IsPaid: paid},
+			},
+		}
+	}
+
+	before, err := computeMemberBalancesFromExpenses([]*pfinancev1.Expense{makeExpense(false)}, "group-analytics")
+	if err != nil {
+		t.Fatalf("compute before settlement: %v", err)
+	}
+	aBefore := memberBalanceFor(t, before, "member-a")
+	bBefore := memberBalanceFor(t, before, "member-b")
+	if aBefore.TotalPaidCents != 10_000 || aBefore.TotalOwedCents != 5_000 || aBefore.BalanceCents != 5_000 {
+		t.Fatalf("member-a before = %+v", aBefore)
+	}
+	if bBefore.TotalPaidCents != 0 || bBefore.TotalOwedCents != 5_000 || bBefore.BalanceCents != -5_000 {
+		t.Fatalf("member-b before = %+v", bBefore)
+	}
+	for _, balance := range []*pfinancev1.MemberBalance{aBefore, bBefore} {
+		if len(balance.Debts) != 1 || balance.Debts[0].FromUserId != "member-b" ||
+			balance.Debts[0].ToUserId != "member-a" || balance.Debts[0].AmountCents != 5_000 {
+			t.Fatalf("member %s debts before = %+v, want shared member-b -> member-a debt", balance.UserId, balance.Debts)
+		}
+	}
+
+	after, err := computeMemberBalancesFromExpenses([]*pfinancev1.Expense{makeExpense(true)}, "group-analytics")
+	if err != nil {
+		t.Fatalf("compute after settlement: %v", err)
+	}
+	aAfter := memberBalanceFor(t, after, "member-a")
+	bAfter := memberBalanceFor(t, after, "member-b")
+	for _, pair := range [][2]*pfinancev1.MemberBalance{{aBefore, aAfter}, {bBefore, bAfter}} {
+		if pair[0].TotalPaidCents != pair[1].TotalPaidCents ||
+			pair[0].TotalOwedCents != pair[1].TotalOwedCents ||
+			pair[0].BalanceCents != pair[1].BalanceCents {
+			t.Fatalf("gross balance changed after settlement: before=%+v after=%+v", pair[0], pair[1])
+		}
+		if len(pair[1].Debts) != 0 {
+			t.Fatalf("member %s debts after settlement = %+v, want none", pair[1].UserId, pair[1].Debts)
+		}
+	}
+}
+
+func TestGetMemberBalancesLoadsEveryGroupExpensePage(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockStore := store.NewMockStore(ctrl)
+	service := NewFinanceService(mockStore, nil, nil)
+
+	firstPage := make([]*pfinancev1.Expense, 1000)
+	for i := range firstPage {
+		firstPage[i] = &pfinancev1.Expense{
+			Id: "first-page", GroupId: "group-analytics", PaidByUserId: "member-a", AmountCents: 1,
+		}
+	}
+	start := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, time.January, 31, 23, 59, 59, 0, time.UTC)
+
+	mockStore.EXPECT().GetGroup(gomock.Any(), "group-analytics").Return(groupSummaryTestGroup(), nil)
+	gomock.InOrder(
+		mockStore.EXPECT().
+			ListExpenses(gomock.Any(), "", "group-analytics", gomock.Any(), gomock.Any(), int32(1000), "").
+			Return(firstPage, "expenses-next", nil),
+		mockStore.EXPECT().
+			ListExpenses(gomock.Any(), "", "group-analytics", gomock.Any(), gomock.Any(), int32(1000), "expenses-next").
+			Return([]*pfinancev1.Expense{{
+				Id: "second-page", GroupId: "group-analytics", PaidByUserId: "member-b", AmountCents: 250,
+			}}, "", nil),
+	)
+
+	resp, err := service.GetMemberBalances(testContext("member-a"), connect.NewRequest(&pfinancev1.GetMemberBalancesRequest{
+		GroupId: "group-analytics", StartDate: timestamppb.New(start), EndDate: timestamppb.New(end),
+	}))
+	if err != nil {
+		t.Fatalf("GetMemberBalances: %v", err)
+	}
+	if resp.Msg.TotalGroupExpensesCents != 1_250 {
+		t.Fatalf("total group expenses = %d, want 1250", resp.Msg.TotalGroupExpensesCents)
+	}
+	if got := memberBalanceFor(t, resp.Msg.Balances, "member-a").TotalPaidCents; got != 1_000 {
+		t.Fatalf("member-a paid = %d, want 1000", got)
+	}
+	if got := memberBalanceFor(t, resp.Msg.Balances, "member-b").TotalPaidCents; got != 250 {
+		t.Fatalf("member-b paid = %d, want 250", got)
+	}
+}
+
+func TestGetMemberBalancesRejectsRepeatedExpensePageToken(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockStore := store.NewMockStore(ctrl)
+	service := NewFinanceService(mockStore, nil, nil)
+
+	mockStore.EXPECT().GetGroup(gomock.Any(), "group-analytics").Return(groupSummaryTestGroup(), nil)
+	expenseCalls := 0
+	mockStore.EXPECT().
+		ListExpenses(gomock.Any(), "", "group-analytics", gomock.Any(), gomock.Any(), int32(1000), gomock.Any()).
+		DoAndReturn(func(_ any, _, _ string, _, _ *time.Time, _ int32, _ string) ([]*pfinancev1.Expense, string, error) {
+			expenseCalls++
+			return nil, "repeat", nil
+		}).
+		AnyTimes()
+
+	resp, err := service.GetMemberBalances(testContext("member-a"), connect.NewRequest(&pfinancev1.GetMemberBalancesRequest{
+		GroupId: "group-analytics",
+	}))
+	if resp != nil {
+		t.Fatalf("response = %#v, want nil", resp)
+	}
+	if connect.CodeOf(err) != connect.CodeInternal {
+		t.Fatalf("error code = %s, want internal (err=%v)", connect.CodeOf(err), err)
+	}
+	if expenseCalls != 2 {
+		t.Fatalf("expense page calls = %d, want 2", expenseCalls)
+	}
+}
+
+func TestGetMemberBalancesOptionalUserFilter(t *testing.T) {
+	tests := []struct {
+		name      string
+		userID    string
+		wantUsers []string
+	}{
+		{name: "absent returns all members", wantUsers: []string{"member-a", "member-b"}},
+		{name: "present returns requested member", userID: "member-b", wantUsers: []string{"member-b"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			mockStore := store.NewMockStore(ctrl)
+			service := NewFinanceService(mockStore, nil, nil)
+
+			mockStore.EXPECT().GetGroup(gomock.Any(), "group-analytics").Return(groupSummaryTestGroup(), nil)
+			mockStore.EXPECT().
+				ListExpenses(gomock.Any(), "", "group-analytics", gomock.Any(), gomock.Any(), int32(1000), "").
+				Return([]*pfinancev1.Expense{
+					{Id: "a", GroupId: "group-analytics", PaidByUserId: "member-a", AmountCents: 100},
+					{Id: "b", GroupId: "group-analytics", PaidByUserId: "member-b", AmountCents: 200},
+				}, "", nil)
+
+			resp, err := service.GetMemberBalances(testContext("member-a"), connect.NewRequest(&pfinancev1.GetMemberBalancesRequest{
+				GroupId: "group-analytics", UserId: tt.userID,
+			}))
+			if err != nil {
+				t.Fatalf("GetMemberBalances: %v", err)
+			}
+			if resp.Msg.TotalGroupExpensesCents != 300 {
+				t.Fatalf("total group expenses = %d, want 300", resp.Msg.TotalGroupExpensesCents)
+			}
+			if len(resp.Msg.Balances) != len(tt.wantUsers) {
+				t.Fatalf("balance count = %d, want %d", len(resp.Msg.Balances), len(tt.wantUsers))
+			}
+			for i, wantUser := range tt.wantUsers {
+				if got := resp.Msg.Balances[i].UserId; got != wantUser {
+					t.Fatalf("balance %d user = %q, want %q", i, got, wantUser)
+				}
+			}
+		})
+	}
+}
+
 func TestGetGroupSummaryCountsEveryPageOnceAndUsesCents(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := store.NewMockStore(ctrl)

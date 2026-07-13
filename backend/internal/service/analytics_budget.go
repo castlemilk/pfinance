@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"math"
 	"math/big"
 	"sort"
@@ -42,9 +43,20 @@ func analyticsPeriodsPerYear(period string) int64 {
 	}
 }
 
-// normaliseBudgetCents converts a budget allowance between periods and rounds
-// half away from zero without overflowing the intermediate multiplication.
 func normaliseBudgetCents(amountCents int64, source pfinancev1.BudgetPeriod, target string) int64 {
+	result, err := normaliseBudgetCentsChecked(amountCents, source, target)
+	if err == nil {
+		return result
+	}
+	if amountCents < 0 {
+		return math.MinInt64
+	}
+	return math.MaxInt64
+}
+
+// normaliseBudgetCentsChecked converts a budget allowance between periods and
+// rounds half away from zero without overflowing intermediate or final values.
+func normaliseBudgetCentsChecked(amountCents int64, source pfinancev1.BudgetPeriod, target string) (int64, error) {
 	numerator := new(big.Int).Mul(
 		big.NewInt(amountCents),
 		big.NewInt(budgetPeriodsPerYear(source)),
@@ -62,12 +74,9 @@ func normaliseBudgetCents(amountCents int64, source pfinancev1.BudgetPeriod, tar
 		}
 	}
 	if quotient.IsInt64() {
-		return quotient.Int64()
+		return quotient.Int64(), nil
 	}
-	if quotient.Sign() < 0 {
-		return math.MinInt64
-	}
-	return math.MaxInt64
+	return 0, errors.New("normalised budget amount overflows int64")
 }
 
 func budgetAmountCents(budget *pfinancev1.Budget) (int64, error) {
@@ -78,6 +87,39 @@ func budgetAmountCents(budget *pfinancev1.Budget) (int64, error) {
 		return budget.AmountCents, nil
 	}
 	return checkedLegacyDollarCents(budget.Amount)
+}
+
+func (s *FinanceService) listAllAnalyticsBudgets(
+	ctx context.Context,
+	scope analyticsScope,
+) ([]*pfinancev1.Budget, error) {
+	var budgets []*pfinancev1.Budget
+	pageToken := ""
+	seenTokens := make(map[string]struct{})
+
+	for {
+		page, nextPageToken, err := s.store.ListBudgets(
+			ctx, scope.userID, scope.groupID, false, 1000, pageToken,
+		)
+		if err != nil {
+			return nil, connect.NewError(
+				connect.CodeInternal,
+				errors.New("analytics budget data is unavailable"),
+			)
+		}
+		budgets = append(budgets, page...)
+		if nextPageToken == "" {
+			return budgets, nil
+		}
+		if _, repeated := seenTokens[nextPageToken]; repeated {
+			return nil, connect.NewError(
+				connect.CodeInternal,
+				errors.New("analytics budget data is unavailable"),
+			)
+		}
+		seenTokens[nextPageToken] = struct{}{}
+		pageToken = nextPageToken
+	}
 }
 
 // GetCategoryComparison compares category spending between current and previous periods.
@@ -101,29 +143,29 @@ func (s *FinanceService) GetCategoryComparison(ctx context.Context, req *connect
 	}
 	currentStart, currentEnd, prevStart, prevEnd := categoryComparisonBounds(time.Now(), period)
 
-	currentExpenses, _, err := s.store.ListExpenses(ctx, scope.userID, scope.groupID, &currentStart, &currentEnd, 10000, "")
+	currentExpenses, err := s.listAllAnalyticsExpenses(ctx, scope, &currentStart, &currentEnd)
 	if err != nil {
-		return nil, auth.WrapStoreError("list current expenses", err)
+		return nil, err
 	}
-	previousExpenses, _, err := s.store.ListExpenses(ctx, scope.userID, scope.groupID, &prevStart, &prevEnd, 10000, "")
+	previousExpenses, err := s.listAllAnalyticsExpenses(ctx, scope, &prevStart, &prevEnd)
 	if err != nil {
-		return nil, auth.WrapStoreError("list previous expenses", err)
+		return nil, err
 	}
 
 	if len(currentExpenses) == 0 && len(previousExpenses) == 0 {
-		historicalExpenses, _, err := s.store.ListExpenses(ctx, scope.userID, scope.groupID, nil, nil, 10000, "")
+		historicalExpenses, err := s.listAllAnalyticsExpenses(ctx, scope, nil, nil)
 		if err != nil {
-			return nil, auth.WrapStoreError("list historical expenses", err)
+			return nil, err
 		}
 		if anchor, ok := latestExpenseDate(historicalExpenses, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED); ok {
 			currentStart, currentEnd, prevStart, prevEnd = categoryComparisonBounds(anchor, period)
-			currentExpenses, _, err = s.store.ListExpenses(ctx, scope.userID, scope.groupID, &currentStart, &currentEnd, 10000, "")
+			currentExpenses, err = s.listAllAnalyticsExpenses(ctx, scope, &currentStart, &currentEnd)
 			if err != nil {
-				return nil, auth.WrapStoreError("list anchored current expenses", err)
+				return nil, err
 			}
-			previousExpenses, _, err = s.store.ListExpenses(ctx, scope.userID, scope.groupID, &prevStart, &prevEnd, 10000, "")
+			previousExpenses, err = s.listAllAnalyticsExpenses(ctx, scope, &prevStart, &prevEnd)
 			if err != nil {
-				return nil, auth.WrapStoreError("list anchored previous expenses", err)
+				return nil, err
 			}
 		}
 	}
@@ -169,9 +211,9 @@ func (s *FinanceService) GetCategoryComparison(ctx context.Context, req *connect
 	var combinedBudgets []*pfinancev1.CombinedBudgetComparison
 	if req.Msg.IncludeBudgets {
 		// includeInactive=false makes the store the source of truth for active budgets.
-		budgets, _, err := s.store.ListBudgets(ctx, scope.userID, scope.groupID, false, 10000, "")
+		budgets, err := s.listAllAnalyticsBudgets(ctx, scope)
 		if err != nil {
-			return nil, auth.WrapStoreError("list budgets", err)
+			return nil, err
 		}
 		for _, budget := range budgets {
 			if budget == nil {
@@ -181,7 +223,10 @@ func (s *FinanceService) GetCategoryComparison(ctx context.Context, req *connect
 			if err != nil {
 				return nil, analyticsCalculationError()
 			}
-			allowance = normaliseBudgetCents(allowance, budget.Period, period)
+			allowance, err = normaliseBudgetCentsChecked(allowance, budget.Period, period)
+			if err != nil {
+				return nil, analyticsCalculationError()
+			}
 
 			uniqueCategories := make(map[pfinancev1.ExpenseCategory]struct{})
 			for _, category := range budget.CategoryIds {
@@ -193,6 +238,7 @@ func (s *FinanceService) GetCategoryComparison(ctx context.Context, req *connect
 					if err != nil {
 						return nil, analyticsCalculationError()
 					}
+					allCategories[category] = struct{}{}
 				}
 				continue
 			}

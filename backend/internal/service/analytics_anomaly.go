@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -60,6 +61,10 @@ func roundedAnomalyCents(value float64) (int64, error) {
 	return int64(rounded), nil
 }
 
+func normaliseAnomalyMerchant(description string) string {
+	return strings.ToLower(strings.TrimSpace(description))
+}
+
 // DetectAnomalies detects unusual spending patterns using z-score analysis.
 func (s *FinanceService) DetectAnomalies(ctx context.Context, req *connect.Request[pfinancev1.DetectAnomaliesRequest]) (*connect.Response[pfinancev1.DetectAnomaliesResponse], error) {
 	claims, err := auth.RequireAuth(ctx)
@@ -80,8 +85,16 @@ func (s *FinanceService) DetectAnomalies(ctx context.Context, req *connect.Reque
 		lookbackDays = 90
 	}
 	sensitivity := req.Msg.Sensitivity
-	if sensitivity <= 0 {
+	// Sensitivity is a proto3 scalar, so zero also represents omission and uses
+	// the documented default. Explicit values otherwise must stay in [0, 1].
+	if sensitivity == 0 {
 		sensitivity = 0.5
+	}
+	if sensitivity < 0 || sensitivity > 1 || math.IsNaN(sensitivity) {
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("sensitivity must be between 0 and 1"),
+		)
 	}
 	threshold := 3.0 - sensitivity*2.0
 
@@ -126,8 +139,12 @@ func (s *FinanceService) DetectAnomalies(ctx context.Context, req *connect.Reque
 
 	merchantCount := make(map[string]int)
 	for _, expense := range fullHistory {
-		if expense != nil && expense.Description != "" {
-			merchantCount[expense.Description]++
+		if expense == nil {
+			continue
+		}
+		merchant := normaliseAnomalyMerchant(expense.Description)
+		if merchant != "" {
+			merchantCount[merchant]++
 		}
 	}
 
@@ -206,6 +223,9 @@ func (s *FinanceService) DetectAnomalies(ctx context.Context, req *connect.Reque
 		if err != nil {
 			return nil, anomalyCalculationError()
 		}
+		if expectedLowerCents > expectedUpperCents {
+			return nil, anomalyCalculationError()
+		}
 
 		for index, expense := range stats.expenses {
 			amount := stats.amounts[index]
@@ -244,7 +264,11 @@ func (s *FinanceService) DetectAnomalies(ctx context.Context, req *connect.Reque
 	}
 
 	for _, expense := range expenses {
-		if expense == nil || expense.Description == "" || merchantCount[expense.Description] != 1 {
+		if expense == nil {
+			continue
+		}
+		merchant := normaliseAnomalyMerchant(expense.Description)
+		if merchant == "" || merchantCount[merchant] != 1 {
 			continue
 		}
 		amount, err := checkedExpenseCents(expense)

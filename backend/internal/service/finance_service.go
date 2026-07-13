@@ -1899,9 +1899,9 @@ func (s *FinanceService) GetMemberBalances(ctx context.Context, req *connect.Req
 
 	startTime, endTime := auth.ConvertDateRange(req.Msg.StartDate, req.Msg.EndDate)
 
-	expenses, _, err := s.store.ListExpenses(ctx, "", req.Msg.GroupId, startTime, endTime, 1000, "")
+	expenses, err := s.listAllAnalyticsExpenses(ctx, analyticsScope{groupID: req.Msg.GroupId}, startTime, endTime)
 	if err != nil {
-		return nil, auth.WrapStoreError("list expenses", err)
+		return nil, err
 	}
 
 	var totalExpensesCents int64
@@ -1919,6 +1919,16 @@ func (s *FinanceService) GetMemberBalances(ctx context.Context, req *connect.Req
 	balances, err := computeMemberBalancesFromExpenses(expenses, req.Msg.GroupId)
 	if err != nil {
 		return nil, groupCalculationError()
+	}
+	if req.Msg.UserId != "" {
+		filteredBalances := make([]*pfinancev1.MemberBalance, 0, 1)
+		for _, balance := range balances {
+			if balance.UserId == req.Msg.UserId {
+				filteredBalances = append(filteredBalances, balance)
+				break
+			}
+		}
+		balances = filteredBalances
 	}
 
 	return connect.NewResponse(&pfinancev1.GetMemberBalancesResponse{
@@ -2144,7 +2154,7 @@ func computeMemberBalancesFromExpenses(expenses []*pfinancev1.Expense, groupID s
 			}
 		}
 		for _, alloc := range expense.Allocations {
-			if alloc == nil || alloc.IsPaid {
+			if alloc == nil {
 				continue
 			}
 			allocationAmount, err := checkedAllocationCents(alloc)
@@ -2157,7 +2167,7 @@ func computeMemberBalancesFromExpenses(expenses []*pfinancev1.Expense, groupID s
 					return nil, err
 				}
 			}
-			if alloc.UserId != "" && expense.PaidByUserId != "" && alloc.UserId != expense.PaidByUserId {
+			if !alloc.IsPaid && alloc.UserId != "" && expense.PaidByUserId != "" && alloc.UserId != expense.PaidByUserId {
 				key := debtKey{from: alloc.UserId, to: expense.PaidByUserId}
 				total := debts[key]
 				total.amountCents, err = checkedAddInt64(total.amountCents, allocationAmount)
@@ -2193,7 +2203,7 @@ func computeMemberBalancesFromExpenses(expenses []*pfinancev1.Expense, groupID s
 		}
 		memberDebts := make([]*pfinancev1.MemberDebt, 0)
 		for key, total := range debts {
-			if key.from != userID {
+			if key.from != userID && key.to != userID {
 				continue
 			}
 			expenseCount, err := checkedAnalyticsTransactionCount(total.expenseCount, 0)

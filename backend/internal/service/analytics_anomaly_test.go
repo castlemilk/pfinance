@@ -199,3 +199,113 @@ func TestDetectAnomaliesUsesEveryFullHistoryPageForMerchantLookup(t *testing.T) 
 		t.Fatalf("partial category coverage = %+v", resp.Msg.CategoryCoverage)
 	}
 }
+
+func TestDetectAnomaliesSensitivityValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		sensitivity float64
+		wantCode    connect.Code
+		wantValid   bool
+	}{
+		{name: "negative", sensitivity: -0.01, wantCode: connect.CodeInvalidArgument},
+		{name: "above one", sensitivity: 1.01, wantCode: connect.CodeInvalidArgument},
+		{name: "one is valid", sensitivity: 1, wantValid: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			mockStore := store.NewMockStore(ctrl)
+			service := NewFinanceService(mockStore, nil, nil)
+			mockStore.EXPECT().
+				ListExpenses(gomock.Any(), "sensitivity-user", "", gomock.Any(), gomock.Any(), int32(1000), gomock.Any()).
+				Return(nil, "", nil).
+				AnyTimes()
+
+			_, err := service.DetectAnomalies(testProContext("sensitivity-user"), connect.NewRequest(&pfinancev1.DetectAnomaliesRequest{
+				Sensitivity: tt.sensitivity,
+			}))
+			if tt.wantValid {
+				if err != nil {
+					t.Fatalf("DetectAnomalies with valid sensitivity: %v", err)
+				}
+				return
+			}
+			if got := connect.CodeOf(err); got != tt.wantCode {
+				t.Fatalf("error code = %s, want %s (err=%v)", got, tt.wantCode, err)
+			}
+		})
+	}
+}
+
+func TestDetectAnomaliesProtoZeroSensitivityDefaultsToHalf(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockStore := store.NewMockStore(ctrl)
+	service := NewFinanceService(mockStore, nil, nil)
+	now := time.Now().UTC()
+	expenses := make([]*pfinancev1.Expense, 0, 11)
+	for i := 0; i < 10; i++ {
+		expenses = append(expenses, &pfinancev1.Expense{
+			Id: "routine-" + string(rune('a'+i)), Description: "Established Merchant", AmountCents: 100,
+			Category: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD, Date: timestamppb.New(now.Add(-time.Duration(i+1) * time.Hour)),
+		})
+	}
+	expenses = append(expenses, &pfinancev1.Expense{
+		Id: "outlier", Description: "Established Merchant", AmountCents: 10_000,
+		Category: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD, Date: timestamppb.New(now.Add(-30 * time.Minute)),
+	})
+	mockStore.EXPECT().
+		ListExpenses(gomock.Any(), "default-user", "", gomock.Any(), gomock.Any(), int32(1000), gomock.Any()).
+		Return(expenses, "", nil).
+		Times(2)
+
+	resp, err := service.DetectAnomalies(testProContext("default-user"), connect.NewRequest(&pfinancev1.DetectAnomaliesRequest{}))
+	if err != nil {
+		t.Fatalf("DetectAnomalies: %v", err)
+	}
+	if len(resp.Msg.Anomalies) != 1 {
+		t.Fatalf("anomaly count = %d, want 1", len(resp.Msg.Anomalies))
+	}
+	anomaly := resp.Msg.Anomalies[0]
+	if anomaly.ExpenseId != "outlier" || anomaly.ExpectedLowerCents != 0 || anomaly.ExpectedUpperCents != 6_692 {
+		t.Fatalf("default sensitivity anomaly = %+v, want outlier range [0,6692]", anomaly)
+	}
+	if anomaly.ExpectedLowerCents > anomaly.ExpectedUpperCents {
+		t.Fatalf("expected range is inverted: [%d,%d]", anomaly.ExpectedLowerCents, anomaly.ExpectedUpperCents)
+	}
+}
+
+func TestDetectAnomaliesNormalisesMerchantCaseAndWhitespace(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockStore := store.NewMockStore(ctrl)
+	service := NewFinanceService(mockStore, nil, nil)
+	now := time.Now().UTC()
+	current := &pfinancev1.Expense{
+		Id: "current", Description: "  Woolworths ", AmountCents: 500,
+		Category: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD, Date: timestamppb.New(now.Add(-time.Hour)),
+	}
+	old := &pfinancev1.Expense{
+		Id: "old", Description: "woolworths", AmountCents: 400,
+		Category: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD, Date: timestamppb.New(now.AddDate(0, 0, -180)),
+	}
+	mockStore.EXPECT().
+		ListExpenses(gomock.Any(), "merchant-user", "", gomock.Any(), gomock.Any(), int32(1000), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _, _ string, start, end *time.Time, _ int32, _ string) ([]*pfinancev1.Expense, string, error) {
+			if start == nil && end == nil {
+				return []*pfinancev1.Expense{old, current}, "", nil
+			}
+			return []*pfinancev1.Expense{current}, "", nil
+		}).
+		Times(2)
+
+	resp, err := service.DetectAnomalies(testProContext("merchant-user"), connect.NewRequest(&pfinancev1.DetectAnomaliesRequest{
+		LookbackDays: 30,
+		Sensitivity:  0.5,
+	}))
+	if err != nil {
+		t.Fatalf("DetectAnomalies: %v", err)
+	}
+	if len(resp.Msg.Anomalies) != 0 {
+		t.Fatalf("case/whitespace variant was flagged as new: %+v", resp.Msg.Anomalies)
+	}
+}

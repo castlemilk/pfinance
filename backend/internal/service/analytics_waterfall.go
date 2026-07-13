@@ -84,13 +84,13 @@ func (s *FinanceService) GetWaterfallData(ctx context.Context, req *connect.Requ
 	}
 	startDate, endDate, periodLabel := waterfallPeriodBounds(time.Now(), period)
 
-	incomes, _, err := s.store.ListIncomes(ctx, scope.userID, scope.groupID, &startDate, &endDate, 10000, "")
+	incomes, err := s.listAllAnalyticsIncomes(ctx, scope, &startDate, &endDate)
 	if err != nil {
-		return nil, auth.WrapStoreError("list incomes", err)
+		return nil, err
 	}
-	expenses, _, err := s.store.ListExpenses(ctx, scope.userID, scope.groupID, &startDate, &endDate, 10000, "")
+	expenses, err := s.listAllAnalyticsExpenses(ctx, scope, &startDate, &endDate)
 	if err != nil {
-		return nil, auth.WrapStoreError("list expenses", err)
+		return nil, err
 	}
 
 	var totalIncomeCents int64
