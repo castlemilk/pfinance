@@ -52,15 +52,29 @@ interface AdminProviderProps {
 export function AdminProvider({ children }: AdminProviderProps) {
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [impersonatedUser, setImpersonatedUser] = useState<typeof TEST_USERS[0] | null>(null);
+  const [hasRestoredPersistence, setHasRestoredPersistence] = useState(false);
 
-  // Load admin mode from localStorage (development only)
+  // Restore persisted admin state together before persistence effects can run.
   useEffect(() => {
-    if (!isDevelopment) return; // SECURITY: Never load admin mode in production
+    if (!isDevelopment) return; // SECURITY: Never load admin state in production
 
-    const savedAdminMode = localStorage.getItem('pfinance-admin-mode');
-    if (savedAdminMode === 'true') {
-      setIsAdminMode(true);
+    const savedAdminMode = localStorage.getItem('pfinance-admin-mode') === 'true';
+    let savedImpersonatedUser: typeof TEST_USERS[0] | null = null;
+
+    if (savedAdminMode) {
+      const savedUser = localStorage.getItem('pfinance-impersonated-user');
+      if (savedUser) {
+        try {
+          savedImpersonatedUser = JSON.parse(savedUser);
+        } catch (e) {
+          console.error('Failed to parse impersonated user:', e);
+        }
+      }
     }
+
+    setIsAdminMode(savedAdminMode);
+    setImpersonatedUser(savedImpersonatedUser);
+    setHasRestoredPersistence(true);
   }, []);
 
   // Add keyboard shortcut for admin mode (Ctrl/Cmd + Shift + A) - development only
@@ -80,8 +94,10 @@ export function AdminProvider({ children }: AdminProviderProps) {
 
   // Save admin mode to localStorage
   useEffect(() => {
+    if (!isDevelopment || !hasRestoredPersistence) return;
+
     localStorage.setItem('pfinance-admin-mode', isAdminMode.toString());
-  }, [isAdminMode]);
+  }, [hasRestoredPersistence, isAdminMode]);
 
   const switchToUser = (userId: string) => {
     if (!isDevelopment) return; // SECURITY: Never allow user switching in production
@@ -99,25 +115,15 @@ export function AdminProvider({ children }: AdminProviderProps) {
     localStorage.removeItem('pfinance-impersonated-user');
   };
 
-  // Load impersonated user from localStorage (development only)
+  // Clear impersonation when restored admin mode is disabled.
   useEffect(() => {
-    if (!isDevelopment) return; // SECURITY: Never load impersonated user in production
+    if (!isDevelopment || !hasRestoredPersistence) return;
 
-    if (isAdminMode) {
-      const savedUser = localStorage.getItem('pfinance-impersonated-user');
-      if (savedUser) {
-        try {
-          const user = JSON.parse(savedUser);
-          setImpersonatedUser(user);
-        } catch (e) {
-          console.error('Failed to parse impersonated user:', e);
-        }
-      }
-    } else {
-      // Clear impersonation when admin mode is disabled
-      exitImpersonation();
+    if (!isAdminMode) {
+      setImpersonatedUser(null);
+      localStorage.removeItem('pfinance-impersonated-user');
     }
-  }, [isAdminMode]);
+  }, [hasRestoredPersistence, isAdminMode]);
 
   // Wrap setIsAdminMode with production guard
   const safeSetIsAdminMode = (value: boolean) => {
