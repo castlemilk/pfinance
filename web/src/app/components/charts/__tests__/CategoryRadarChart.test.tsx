@@ -85,6 +85,33 @@ describe('CategoryRadarChart', () => {
     expect(container.innerHTML).not.toMatch(/#(?:[0-9a-f]{3}){1,2}/i);
   });
 
+  it('keeps exact zero bars at zero while preserving a visible marker for tiny positives', () => {
+    render(
+      <CategoryRadarChart
+        data={[
+          {
+            category: 'Food',
+            currentValue: 0,
+            previousValue: 100,
+            budgetValue: 0.01,
+            maxValue: 100,
+          },
+        ]}
+        formatMoney={formatMoney}
+      />
+    );
+
+    expect(screen.getByTestId('category-bar-current')).toHaveStyle({
+      width: '0%',
+    });
+    expect(screen.getByTestId('category-bar-previous')).toHaveStyle({
+      width: '100%',
+    });
+    expect(screen.getByTestId('category-bar-budget')).toHaveStyle({
+      width: '2%',
+    });
+  });
+
   it('renders a stable empty state when no finite axes are available', () => {
     const { container } = render(
       <CategoryRadarChart

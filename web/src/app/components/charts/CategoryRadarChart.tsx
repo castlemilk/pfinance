@@ -174,10 +174,14 @@ function CompactCategoryComparison({
                 </div>
                 <div className="h-3 overflow-hidden rounded-full bg-muted">
                   <div
+                    data-testid={`category-bar-${row.key}`}
                     className="h-full rounded-full"
                     style={{
                       backgroundColor: row.color,
-                      width: `${Math.max(2, (row.value / maximum) * 100)}%`,
+                      width:
+                        row.value === 0
+                          ? '0%'
+                          : `${Math.max(2, (row.value / maximum) * 100)}%`,
                     }}
                   />
                 </div>
