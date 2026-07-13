@@ -854,6 +854,7 @@ type StableRefetchCase = {
   responseForScope: (isCurrent: boolean) => unknown;
   readMarker: (result: unknown) => unknown;
   initialMarker: unknown;
+  unresolvedMarker: unknown;
   currentMarker: unknown;
   expectedCurrentRequest: Record<string, unknown>;
 };
@@ -868,6 +869,7 @@ const stableRefetchCases: StableRefetchCase[] = [
     readMarker: (result) =>
       (result as ReturnType<typeof useHeatmapRefreshCase>).data?.days[0]?.date,
     initialMarker: '2026-07-01',
+    unresolvedMarker: undefined,
     currentMarker: '2026-08-01',
     expectedCurrentRequest: {
       startDate: expect.objectContaining({
@@ -886,6 +888,7 @@ const stableRefetchCases: StableRefetchCase[] = [
     readMarker: (result) =>
       (result as ReturnType<typeof useSpendingRefreshCase>).trendSlope,
     initialMarker: 11,
+    unresolvedMarker: 0,
     currentMarker: 22,
     expectedCurrentRequest: {
       granularity: Granularity.MONTH,
@@ -907,6 +910,7 @@ const stableRefetchCases: StableRefetchCase[] = [
       ];
     },
     initialMarker: [11, 1],
+    unresolvedMarker: [0, 0],
     currentMarker: [22, 3],
     expectedCurrentRequest: { pageSize: 10000, pageToken: '' },
   },
@@ -919,6 +923,7 @@ const stableRefetchCases: StableRefetchCase[] = [
       (result as ReturnType<typeof useComparisonRefreshCase>).data?.[0]
         ?.currentValue,
     initialMarker: 11,
+    unresolvedMarker: undefined,
     currentMarker: 22,
     expectedCurrentRequest: { includeBudgets: true, currentPeriod: 'year' },
   },
@@ -931,6 +936,7 @@ const stableRefetchCases: StableRefetchCase[] = [
     readMarker: (result) =>
       (result as ReturnType<typeof useAnomalyRefreshCase>).data?.[0]?.expenseId,
     initialMarker: 'initial-expense',
+    unresolvedMarker: undefined,
     currentMarker: 'current-expense',
     expectedCurrentRequest: { lookbackDays: 180, sensitivity: 0.8 },
   },
@@ -943,6 +949,7 @@ const stableRefetchCases: StableRefetchCase[] = [
       (result as ReturnType<typeof useForecastRefreshCase>).incomeForecast?.[0]
         ?.predicted,
     initialMarker: 11,
+    unresolvedMarker: undefined,
     currentMarker: 22,
     expectedCurrentRequest: { forecastDays: 60 },
   },
@@ -954,12 +961,56 @@ const stableRefetchCases: StableRefetchCase[] = [
     readMarker: (result) =>
       (result as ReturnType<typeof useWaterfallRefreshCase>).data?.[0]?.amount,
     initialMarker: 11,
+    unresolvedMarker: undefined,
     currentMarker: 22,
     expectedCurrentRequest: { period: 'year' },
   },
 ];
 
 describe.each(stableRefetchCases)('$name held refetch safety', (hookCase) => {
+  it.each([
+    {
+      change: 'scope',
+      nextScope: groupScope,
+      nextVariant: 'initial' as RefreshProps['variant'],
+    },
+    {
+      change: 'filters',
+      nextScope: personalScope,
+      nextVariant: 'current' as RefreshProps['variant'],
+    },
+  ])('masks settled evidence synchronously when $change changes', async ({
+    nextScope,
+    nextVariant,
+  }) => {
+    const currentRequest = deferred<unknown>();
+    hookCase.clientMock.mockReset();
+    hookCase.clientMock
+      .mockResolvedValueOnce(hookCase.responseForScope(false))
+      .mockImplementationOnce(() => currentRequest.promise);
+
+    const { result, rerender, unmount } = renderHook(hookCase.hook, {
+      initialProps: {
+        scope: personalScope as AnalyticsScope,
+        variant: 'initial' as RefreshProps['variant'],
+      },
+    });
+    await waitFor(() =>
+      expect(hookCase.readMarker(result.current)).toEqual(
+        hookCase.initialMarker
+      )
+    );
+
+    rerender({ scope: nextScope, variant: nextVariant });
+
+    expect(hookCase.readMarker(result.current)).toEqual(
+      hookCase.unresolvedMarker
+    );
+    expect((result.current as StableRefetchResult).loading).toBe(true);
+    expect((result.current as StableRefetchResult).error).toBeNull();
+    unmount();
+  });
+
   it('keeps refetch stable and uses the current group and filters', async () => {
     hookCase.clientMock.mockReset();
     hookCase.clientMock.mockImplementation(

@@ -149,6 +149,46 @@ describe('useAnalyticsOverview', () => {
     expect(result.current.error).toBeNull();
   });
 
+  it.each([
+    {
+      change: 'scope',
+      nextScope: homeScope,
+      nextPeriod: 'month' as AnalyticsPeriod,
+    },
+    {
+      change: 'period',
+      nextScope: personalScope,
+      nextPeriod: 'year' as AnalyticsPeriod,
+    },
+  ])('masks settled overview evidence synchronously when $change changes', async ({
+    nextScope,
+    nextPeriod,
+  }) => {
+    const currentRequest = deferred<GetAnalyticsOverviewResponse>();
+    getAnalyticsOverview
+      .mockResolvedValueOnce(overviewResponse(BigInt(10_000)))
+      .mockImplementationOnce(() => currentRequest.promise);
+
+    const { result, rerender, unmount } = renderHook(
+      ({ scope, period }: { scope: AnalyticsScope; period: AnalyticsPeriod }) =>
+        useAnalyticsOverview(scope, period),
+      {
+        initialProps: {
+          scope: personalScope as AnalyticsScope,
+          period: 'month' as AnalyticsPeriod,
+        },
+      }
+    );
+    await waitFor(() => expect(result.current.data?.currentIncome).toBe(100));
+
+    rerender({ scope: nextScope, period: nextPeriod });
+
+    expect(result.current.data).toBeNull();
+    expect(result.current.loading).toBe(true);
+    expect(result.current.error).toBeNull();
+    unmount();
+  });
+
   it('ignores stale success after the group and period switch', async () => {
     const oldRequest = deferred<GetAnalyticsOverviewResponse>();
     const currentRequest = deferred<GetAnalyticsOverviewResponse>();

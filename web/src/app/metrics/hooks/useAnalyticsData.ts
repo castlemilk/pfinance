@@ -63,6 +63,48 @@ function useLatestRef<T>(value: T) {
   return valueRef;
 }
 
+type RequestKeyPart = string | number | boolean | undefined;
+
+interface KeyedRequestState<T> {
+  key: string | null;
+  data: T | null;
+  loading: boolean;
+  error: string | null;
+}
+
+function requestKeyPart(value: RequestKeyPart): string {
+  if (typeof value === 'number') {
+    if (Number.isNaN(value)) return 'number:NaN';
+    if (value === Number.POSITIVE_INFINITY) return 'number:Infinity';
+    if (value === Number.NEGATIVE_INFINITY) return 'number:-Infinity';
+    if (Object.is(value, -0)) return 'number:-0';
+  }
+  return `${typeof value}:${JSON.stringify(value)}`;
+}
+
+function analyticsRequestKey(...parts: RequestKeyPart[]): string {
+  return parts.map(requestKeyPart).join('\u001f');
+}
+
+function analyticsScopeRequestKey(scope?: AnalyticsScope): string {
+  return scope?.kind === 'group'
+    ? analyticsRequestKey('group', scope.groupId)
+    : analyticsRequestKey('personal');
+}
+
+function unresolvedRequestState<T>(
+  state: KeyedRequestState<T>,
+  requestKey: string
+): KeyedRequestState<T> {
+  if (state.key === requestKey) return state;
+  return {
+    key: requestKey,
+    data: null,
+    loading: true,
+    error: null,
+  };
+}
+
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
@@ -222,23 +264,42 @@ export function useHeatmapData(
   endDate: Date,
   scope?: AnalyticsScope
 ) {
-  const [data, setData] = useState<HeatmapData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<KeyedRequestState<HeatmapData>>({
+    key: null,
+    data: null,
+    loading: false,
+    error: null,
+  });
   const groupId = scopeGroupId(scope);
+  const scopeKey = analyticsScopeRequestKey(scope);
   const startTime = startDate.getTime();
   const endTime = endDate.getTime();
+  const requestKey = analyticsRequestKey(
+    'heatmap',
+    scopeKey,
+    startTime,
+    endTime
+  );
   const { beginRequest, isCurrentRequest, invalidateRequest } =
     useRequestSequence();
-  const parametersRef = useLatestRef({ startTime, endTime, groupId });
+  const parametersRef = useLatestRef({
+    requestKey,
+    startTime,
+    endTime,
+    groupId,
+  });
 
   const fetchData = useCallback(async () => {
     const requestId = beginRequest();
-    setLoading(true);
-    setError(null);
+    const parameters = parametersRef.current;
+    setState({
+      key: parameters.requestKey,
+      data: null,
+      loading: true,
+      error: null,
+    });
 
     try {
-      const parameters = parametersRef.current;
       if (
         !Number.isFinite(parameters.startTime) ||
         !Number.isFinite(parameters.endTime) ||
@@ -285,25 +346,39 @@ export function useHeatmapData(
             categories: [],
           }
       );
-      setData({
-        days,
-        maxValue:
-          days.length > 0 ? Math.max(...days.map((day) => day.value)) : 0,
+      setState({
+        key: parameters.requestKey,
+        data: {
+          days,
+          maxValue:
+            days.length > 0 ? Math.max(...days.map((day) => day.value)) : 0,
+        },
+        loading: false,
+        error: null,
       });
     } catch (caughtError) {
       if (!isCurrentRequest(requestId)) return;
-      setError(errorMessage(caughtError, 'Failed to fetch heatmap data'));
-    } finally {
-      if (isCurrentRequest(requestId)) setLoading(false);
+      setState({
+        key: parameters.requestKey,
+        data: null,
+        loading: false,
+        error: errorMessage(caughtError, 'Failed to fetch heatmap data'),
+      });
     }
   }, [beginRequest, isCurrentRequest, parametersRef]);
 
   useEffect(() => {
     void fetchData();
     return invalidateRequest;
-  }, [endTime, fetchData, groupId, invalidateRequest, startTime]);
+  }, [fetchData, invalidateRequest, requestKey]);
 
-  return { data, loading, error, refetch: fetchData };
+  const currentState = unresolvedRequestState(state, requestKey);
+  return {
+    data: currentState.data,
+    loading: currentState.loading,
+    error: currentState.error,
+    refetch: fetchData,
+  };
 }
 
 export interface SpendingTrendsData {
@@ -319,13 +394,25 @@ export function useSpendingTrends(
   category?: string,
   scope?: AnalyticsScope
 ) {
-  const [data, setData] = useState<SpendingTrendsData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<KeyedRequestState<SpendingTrendsData>>({
+    key: null,
+    data: null,
+    loading: false,
+    error: null,
+  });
   const groupId = scopeGroupId(scope);
+  const scopeKey = analyticsScopeRequestKey(scope);
+  const requestKey = analyticsRequestKey(
+    'spending-trends',
+    scopeKey,
+    granularity,
+    periods,
+    category
+  );
   const { beginRequest, isCurrentRequest, invalidateRequest } =
     useRequestSequence();
   const parametersRef = useLatestRef({
+    requestKey,
     granularity,
     periods,
     category,
@@ -334,11 +421,15 @@ export function useSpendingTrends(
 
   const fetchData = useCallback(async () => {
     const requestId = beginRequest();
-    setLoading(true);
-    setError(null);
+    const parameters = parametersRef.current;
+    setState({
+      key: parameters.requestKey,
+      data: null,
+      loading: true,
+      error: null,
+    });
 
     try {
-      const parameters = parametersRef.current;
       const response = await financeClient.getSpendingTrends({
         userId: '',
         groupId: parameters.groupId,
@@ -350,34 +441,38 @@ export function useSpendingTrends(
       });
       if (!isCurrentRequest(requestId)) return;
 
-      setData(mapSpendingTrendsResponse(response));
+      setState({
+        key: parameters.requestKey,
+        data: mapSpendingTrendsResponse(response),
+        loading: false,
+        error: null,
+      });
     } catch (caughtError) {
       if (!isCurrentRequest(requestId)) return;
-      setError(errorMessage(caughtError, 'Failed to fetch spending trends'));
-    } finally {
-      if (isCurrentRequest(requestId)) setLoading(false);
+      setState({
+        key: parameters.requestKey,
+        data: null,
+        loading: false,
+        error: errorMessage(caughtError, 'Failed to fetch spending trends'),
+      });
     }
   }, [beginRequest, isCurrentRequest, parametersRef]);
 
   useEffect(() => {
     void fetchData();
     return invalidateRequest;
-  }, [
-    category,
-    fetchData,
-    granularity,
-    groupId,
-    invalidateRequest,
-    periods,
-  ]);
+  }, [fetchData, invalidateRequest, requestKey]);
+
+  const currentState = unresolvedRequestState(state, requestKey);
+  const data = currentState.data;
 
   return {
     expenseSeries: data?.expenseSeries ?? [],
     incomeSeries: data?.incomeSeries ?? [],
     trendSlope: data?.trendSlope ?? 0,
     trendRSquared: data?.trendRSquared ?? 0,
-    loading,
-    error,
+    loading: currentState.loading,
+    error: currentState.error,
     refetch: fetchData,
   };
 }
@@ -437,21 +532,42 @@ export function useCategorySpendingTrends(
   periods: number,
   scope?: AnalyticsScope
 ) {
-  const [data, setData] = useState<CategorySpendingTrendsData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<
+    KeyedRequestState<CategorySpendingTrendsData>
+  >({
+    key: null,
+    data: null,
+    loading: false,
+    error: null,
+  });
   const groupId = scopeGroupId(scope);
+  const scopeKey = analyticsScopeRequestKey(scope);
+  const requestKey = analyticsRequestKey(
+    'category-spending-trends',
+    scopeKey,
+    granularity,
+    periods
+  );
   const { beginRequest, isCurrentRequest, invalidateRequest } =
     useRequestSequence();
-  const parametersRef = useLatestRef({ granularity, periods, groupId });
+  const parametersRef = useLatestRef({
+    requestKey,
+    granularity,
+    periods,
+    groupId,
+  });
 
   const fetchData = useCallback(async () => {
     const requestId = beginRequest();
-    setLoading(true);
-    setError(null);
+    const parameters = parametersRef.current;
+    setState({
+      key: parameters.requestKey,
+      data: null,
+      loading: true,
+      error: null,
+    });
 
     try {
-      const parameters = parametersRef.current;
       const expenses = await listAllExpenses(parameters.groupId);
       if (!isCurrentRequest(requestId)) return;
 
@@ -513,41 +629,50 @@ export function useCategorySpendingTrends(
         .filter((category) => (totalsByCategory.get(category) ?? 0) > 0);
 
       if (!isCurrentRequest(requestId)) return;
-      setData({
-        categories: activeCategories,
-        points: points.map((point) => ({
-          ...point,
-          categories: Object.fromEntries(
-            activeCategories.map((category) => [
-              category,
-              point.categories[category] ?? 0,
-            ])
-          ),
-        })),
+      setState({
+        key: parameters.requestKey,
+        data: {
+          categories: activeCategories,
+          points: points.map((point) => ({
+            ...point,
+            categories: Object.fromEntries(
+              activeCategories.map((category) => [
+                category,
+                point.categories[category] ?? 0,
+              ])
+            ),
+          })),
+        },
+        loading: false,
+        error: null,
       });
     } catch (caughtError) {
       if (!isCurrentRequest(requestId)) return;
-      setError(
-        errorMessage(
+      setState({
+        key: parameters.requestKey,
+        data: null,
+        loading: false,
+        error: errorMessage(
           caughtError,
           'Failed to fetch category spending trends'
-        )
-      );
-    } finally {
-      if (isCurrentRequest(requestId)) setLoading(false);
+        ),
+      });
     }
   }, [beginRequest, isCurrentRequest, parametersRef]);
 
   useEffect(() => {
     void fetchData();
     return invalidateRequest;
-  }, [fetchData, granularity, groupId, invalidateRequest, periods]);
+  }, [fetchData, invalidateRequest, requestKey]);
+
+  const currentState = unresolvedRequestState(state, requestKey);
+  const data = currentState.data;
 
   return {
     points: data?.points ?? [],
     categories: data?.categories ?? [],
-    loading,
-    error,
+    loading: currentState.loading,
+    error: currentState.error,
     refetch: fetchData,
   };
 }
@@ -559,16 +684,29 @@ export function useCategoryComparison(
   currentPeriod: CategoryComparisonPeriod = 'month',
   scope?: AnalyticsScope
 ) {
-  const [data, setData] = useState<RadarAxis[] | null>(null);
-  const [combinedBudgets, setCombinedBudgets] = useState<
-    AnalyticsCombinedBudget[]
-  >([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<
+    KeyedRequestState<{
+      categories: RadarAxis[];
+      combinedBudgets: AnalyticsCombinedBudget[];
+    }>
+  >({
+    key: null,
+    data: null,
+    loading: false,
+    error: null,
+  });
   const groupId = scopeGroupId(scope);
+  const scopeKey = analyticsScopeRequestKey(scope);
+  const requestKey = analyticsRequestKey(
+    'category-comparison',
+    scopeKey,
+    includeBudgets,
+    currentPeriod
+  );
   const { beginRequest, isCurrentRequest, invalidateRequest } =
     useRequestSequence();
   const parametersRef = useLatestRef({
+    requestKey,
     includeBudgets,
     currentPeriod,
     groupId,
@@ -576,11 +714,15 @@ export function useCategoryComparison(
 
   const fetchData = useCallback(async () => {
     const requestId = beginRequest();
-    setLoading(true);
-    setError(null);
+    const parameters = parametersRef.current;
+    setState({
+      key: parameters.requestKey,
+      data: null,
+      loading: true,
+      error: null,
+    });
 
     try {
-      const parameters = parametersRef.current;
       const response = await financeClient.getCategoryComparison({
         userId: '',
         groupId: parameters.groupId,
@@ -590,34 +732,41 @@ export function useCategoryComparison(
       if (!isCurrentRequest(requestId)) return;
 
       const mapped = mapCategoryComparisonResponse(response);
-      setData(mapped.categories);
-      setCombinedBudgets(mapped.combinedBudgets);
+      setState({
+        key: parameters.requestKey,
+        data: {
+          categories: mapped.categories,
+          combinedBudgets: mapped.combinedBudgets,
+        },
+        loading: false,
+        error: null,
+      });
     } catch (caughtError) {
       if (!isCurrentRequest(requestId)) return;
-      setError(
-        errorMessage(caughtError, 'Failed to fetch category comparison')
-      );
-    } finally {
-      if (isCurrentRequest(requestId)) setLoading(false);
+      setState({
+        key: parameters.requestKey,
+        data: null,
+        loading: false,
+        error: errorMessage(
+          caughtError,
+          'Failed to fetch category comparison'
+        ),
+      });
     }
   }, [beginRequest, isCurrentRequest, parametersRef]);
 
   useEffect(() => {
     void fetchData();
     return invalidateRequest;
-  }, [
-    currentPeriod,
-    fetchData,
-    groupId,
-    includeBudgets,
-    invalidateRequest,
-  ]);
+  }, [fetchData, invalidateRequest, requestKey]);
+
+  const currentState = unresolvedRequestState(state, requestKey);
 
   return {
-    data,
-    combinedBudgets,
-    loading,
-    error,
+    data: currentState.data?.categories ?? null,
+    combinedBudgets: currentState.data?.combinedBudgets ?? [],
+    loading: currentState.loading,
+    error: currentState.error,
     refetch: fetchData,
   };
 }
@@ -627,21 +776,42 @@ export function useAnomalies(
   sensitivity: number,
   scope?: AnalyticsScope
 ) {
-  const [result, setResult] = useState<AnalyticsAnomalyData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<
+    KeyedRequestState<AnalyticsAnomalyData>
+  >({
+    key: null,
+    data: null,
+    loading: false,
+    error: null,
+  });
   const groupId = scopeGroupId(scope);
+  const scopeKey = analyticsScopeRequestKey(scope);
+  const requestKey = analyticsRequestKey(
+    'anomalies',
+    scopeKey,
+    lookbackDays,
+    sensitivity
+  );
   const { beginRequest, isCurrentRequest, invalidateRequest } =
     useRequestSequence();
-  const parametersRef = useLatestRef({ lookbackDays, sensitivity, groupId });
+  const parametersRef = useLatestRef({
+    requestKey,
+    lookbackDays,
+    sensitivity,
+    groupId,
+  });
 
   const fetchData = useCallback(async () => {
     const requestId = beginRequest();
-    setLoading(true);
-    setError(null);
+    const parameters = parametersRef.current;
+    setState({
+      key: parameters.requestKey,
+      data: null,
+      loading: true,
+      error: null,
+    });
 
     try {
-      const parameters = parametersRef.current;
       const response = await financeClient.detectAnomalies({
         userId: '',
         groupId: parameters.groupId,
@@ -649,25 +819,30 @@ export function useAnomalies(
         sensitivity: parameters.sensitivity,
       });
       if (!isCurrentRequest(requestId)) return;
-      setResult(mapAnomalyResponse(response));
+      setState({
+        key: parameters.requestKey,
+        data: mapAnomalyResponse(response),
+        loading: false,
+        error: null,
+      });
     } catch (caughtError) {
       if (!isCurrentRequest(requestId)) return;
-      setError(errorMessage(caughtError, 'Failed to fetch anomalies'));
-    } finally {
-      if (isCurrentRequest(requestId)) setLoading(false);
+      setState({
+        key: parameters.requestKey,
+        data: null,
+        loading: false,
+        error: errorMessage(caughtError, 'Failed to fetch anomalies'),
+      });
     }
   }, [beginRequest, isCurrentRequest, parametersRef]);
 
   useEffect(() => {
     void fetchData();
     return invalidateRequest;
-  }, [
-    fetchData,
-    groupId,
-    invalidateRequest,
-    lookbackDays,
-    sensitivity,
-  ]);
+  }, [fetchData, invalidateRequest, requestKey]);
+
+  const currentState = unresolvedRequestState(state, requestKey);
+  const result = currentState.data;
 
   return {
     data: result?.data ?? null,
@@ -681,8 +856,8 @@ export function useAnomalies(
       result?.categoryCoverage ?? ([] as AnalyticsAnomalyCoverage[]),
     primaryAttention:
       result?.primaryAttention ?? (null as PrimaryAnalyticsAttention | null),
-    loading,
-    error,
+    loading: currentState.loading,
+    error: currentState.error,
     refetch: fetchData,
   };
 }
@@ -691,42 +866,73 @@ export function useCashFlowForecast(
   forecastDays: number,
   scope?: AnalyticsScope
 ) {
-  const [result, setResult] = useState<CashFlowForecastData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<
+    KeyedRequestState<CashFlowForecastData>
+  >({
+    key: null,
+    data: null,
+    loading: false,
+    error: null,
+  });
   const groupId = scopeGroupId(scope);
+  const scopeKey = analyticsScopeRequestKey(scope);
+  const requestKey = analyticsRequestKey(
+    'cash-flow-forecast',
+    scopeKey,
+    forecastDays
+  );
   const { beginRequest, isCurrentRequest, invalidateRequest } =
     useRequestSequence();
-  const parametersRef = useLatestRef({ forecastDays, groupId });
+  const parametersRef = useLatestRef({
+    requestKey,
+    forecastDays,
+    groupId,
+  });
 
   const fetchData = useCallback(async () => {
     const requestId = beginRequest();
-    setLoading(true);
-    setError(null);
+    const parameters = parametersRef.current;
+    setState({
+      key: parameters.requestKey,
+      data: null,
+      loading: true,
+      error: null,
+    });
 
     try {
-      const parameters = parametersRef.current;
       const response = await financeClient.getCashFlowForecast({
         userId: '',
         groupId: parameters.groupId,
         forecastDays: parameters.forecastDays,
       });
       if (!isCurrentRequest(requestId)) return;
-      setResult(mapCashFlowForecastResponse(response));
+      setState({
+        key: parameters.requestKey,
+        data: mapCashFlowForecastResponse(response),
+        loading: false,
+        error: null,
+      });
     } catch (caughtError) {
       if (!isCurrentRequest(requestId)) return;
-      setError(
-        errorMessage(caughtError, 'Failed to fetch cash flow forecast')
-      );
-    } finally {
-      if (isCurrentRequest(requestId)) setLoading(false);
+      setState({
+        key: parameters.requestKey,
+        data: null,
+        loading: false,
+        error: errorMessage(
+          caughtError,
+          'Failed to fetch cash flow forecast'
+        ),
+      });
     }
   }, [beginRequest, isCurrentRequest, parametersRef]);
 
   useEffect(() => {
     void fetchData();
     return invalidateRequest;
-  }, [fetchData, forecastDays, groupId, invalidateRequest]);
+  }, [fetchData, invalidateRequest, requestKey]);
+
+  const currentState = unresolvedRequestState(state, requestKey);
+  const result = currentState.data;
 
   return {
     incomeForecast: result?.incomeForecast ?? null,
@@ -734,8 +940,8 @@ export function useCashFlowForecast(
     netForecast: result?.netForecast ?? null,
     incomeHistory: result?.incomeHistory ?? null,
     expenseHistory: result?.expenseHistory ?? null,
-    loading,
-    error,
+    loading: currentState.loading,
+    error: currentState.error,
     refetch: fetchData,
   };
 }
@@ -744,19 +950,32 @@ export function useWaterfallData(
   periodDays: number,
   scope?: AnalyticsScope
 ) {
-  const [result, setResult] = useState<WaterfallData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<KeyedRequestState<WaterfallData>>({
+    key: null,
+    data: null,
+    loading: false,
+    error: null,
+  });
   const groupId = scopeGroupId(scope);
+  const scopeKey = analyticsScopeRequestKey(scope);
+  const requestKey = analyticsRequestKey(
+    'waterfall',
+    scopeKey,
+    periodDays
+  );
   const { beginRequest, isCurrentRequest, invalidateRequest } =
     useRequestSequence();
-  const parametersRef = useLatestRef({ periodDays, groupId });
+  const parametersRef = useLatestRef({ requestKey, periodDays, groupId });
 
   const fetchData = useCallback(async () => {
     const requestId = beginRequest();
-    setLoading(true);
-    setError(null);
     const parameters = parametersRef.current;
+    setState({
+      key: parameters.requestKey,
+      data: null,
+      loading: true,
+      error: null,
+    });
     const period =
       parameters.periodDays > 180
         ? 'year'
@@ -771,25 +990,36 @@ export function useWaterfallData(
         period,
       });
       if (!isCurrentRequest(requestId)) return;
-      setResult(mapWaterfallResponse(response));
+      setState({
+        key: parameters.requestKey,
+        data: mapWaterfallResponse(response),
+        loading: false,
+        error: null,
+      });
     } catch (caughtError) {
       if (!isCurrentRequest(requestId)) return;
-      setError(errorMessage(caughtError, 'Failed to fetch waterfall data'));
-    } finally {
-      if (isCurrentRequest(requestId)) setLoading(false);
+      setState({
+        key: parameters.requestKey,
+        data: null,
+        loading: false,
+        error: errorMessage(caughtError, 'Failed to fetch waterfall data'),
+      });
     }
   }, [beginRequest, isCurrentRequest, parametersRef]);
 
   useEffect(() => {
     void fetchData();
     return invalidateRequest;
-  }, [fetchData, groupId, invalidateRequest, periodDays]);
+  }, [fetchData, invalidateRequest, requestKey]);
+
+  const currentState = unresolvedRequestState(state, requestKey);
+  const result = currentState.data;
 
   return {
     data: result?.data ?? null,
     periodLabel: result?.periodLabel ?? '',
-    loading,
-    error,
+    loading: currentState.loading,
+    error: currentState.error,
     refetch: fetchData,
   };
 }
