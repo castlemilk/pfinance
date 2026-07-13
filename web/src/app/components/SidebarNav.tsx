@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -40,6 +40,14 @@ import { Badge } from '@/components/ui/badge';
 import { ThemeToggle } from './ThemeToggle';
 import { PaletteSelector } from './PaletteSelector';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import NotificationCenter from './notifications/NotificationCenter';
 import { useSubscription } from '../hooks/useSubscription';
 import { GenerativeAvatar } from './GenerativeAvatar';
@@ -133,6 +141,12 @@ const sharedNavItems: NavItem[] = [
     requiresAuth: true
   },
   {
+    title: 'Analytics',
+    href: '/shared/analytics',
+    icon: <BarChart3 className="w-4 h-4" />,
+    requiresAuth: true
+  },
+  {
     title: 'Reports',
     href: '/shared/reports',
     icon: <FileText className="w-4 h-4" />,
@@ -152,6 +166,7 @@ export default function SidebarNav() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const suppressMobileFocusRestoreRef = useRef(false);
 
   // Check admin status once when user is loaded so we can show the admin link.
   useEffect(() => {
@@ -180,18 +195,6 @@ export default function SidebarNav() {
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [pathname]);
-
-  // Lock body scroll when mobile menu is open
-  useEffect(() => {
-    if (isMobileMenuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isMobileMenuOpen]);
 
   const closeMobileMenu = useCallback(() => {
     setIsMobileMenuOpen(false);
@@ -224,15 +227,16 @@ export default function SidebarNav() {
           <div className="flex items-center gap-1">
             <NotificationCenter />
             {showCloseButton && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={closeMobileMenu}
-                className="lg:hidden"
-                aria-label="Close navigation"
-              >
-                <X className="w-5 h-5" />
-              </Button>
+              <SheetClose asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="lg:hidden"
+                  aria-label="Close navigation"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </SheetClose>
             )}
           </div>
         </div>
@@ -242,13 +246,15 @@ export default function SidebarNav() {
       <div className="px-4 pt-3 pb-1">
         <Button
           variant="outline"
-          className="w-full justify-start text-muted-foreground border-primary/30 hover:border-primary/60 hover:bg-primary/5 transition-all duration-200 group"
+          className="min-h-10 w-full justify-start border-primary/30 text-muted-foreground transition-[color,background-color,border-color,box-shadow] duration-150 ease-out hover:border-primary/60 hover:bg-primary/5 group motion-reduce:transition-none"
           size="sm"
+          data-testid="app-search-trigger"
           onClick={() => {
-            closeMobileMenu();
-            // NOTE: This synthetic KeyboardEvent is coupled to the CommandPalette's keydown listener.
-            // If the CommandPalette's shortcut detection changes, this dispatch must be updated too.
-            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
+            if (showCloseButton) {
+              suppressMobileFocusRestoreRef.current = true;
+              closeMobileMenu();
+            }
+            document.dispatchEvent(new Event('pfinance:open-search'));
           }}
         >
           <Search className="w-4 h-4 mr-2 text-primary/70 group-hover:text-primary transition-colors" />
@@ -318,16 +324,21 @@ export default function SidebarNav() {
           // Don't filter out nav items while loading - only when we know there's no user
           if (item.requiresAuth && !loading && !user) return null;
           return (
-            <Link key={item.href} href={item.href}>
-              <Button
-                variant={pathname === item.href ? 'secondary' : 'ghost'}
-                className="w-full justify-start"
-                size="sm"
+            <Button
+              key={item.href}
+              asChild
+              variant={pathname === item.href ? 'secondary' : 'ghost'}
+              className="min-h-10 w-full justify-start transition-[color,background-color,border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none"
+              size="sm"
+            >
+              <Link
+                href={item.href}
+                onClick={showCloseButton ? closeMobileMenu : undefined}
               >
                 {item.icon}
                 <span className="ml-2">{item.title}</span>
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           );
         })}
       </nav>
@@ -442,66 +453,65 @@ export default function SidebarNav() {
 
   return (
     <>
-      {/* Mobile Header Bar - fixed top bar with hamburger menu */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b flex items-center px-4 gap-3 overflow-visible">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsMobileMenuOpen(true)}
-          className="shrink-0"
-          aria-label="Open navigation"
-        >
-          <Menu className="w-5 h-5" />
-        </Button>
-        <Link href="/" className="flex items-center gap-2">
-          <Image
-            src="/logo.png"
-            alt="PFinance Logo"
-            width={28}
-            height={28}
-            className="rounded-md"
-          />
-          <span className="font-semibold text-lg">PFinance</span>
-        </Link>
-        {/* Mobile Search shortcut in header */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="ml-auto text-muted-foreground hover:text-primary"
-          aria-label="Open search"
-          onClick={() => {
-            // NOTE: This synthetic KeyboardEvent is coupled to the CommandPalette's keydown listener.
-            // If the CommandPalette's shortcut detection changes, this dispatch must be updated too.
-            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
+      <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+        {/* Mobile Header Bar - fixed top bar with hamburger menu */}
+        <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b flex items-center px-4 gap-3 overflow-visible">
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              aria-label="Open navigation"
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+          </SheetTrigger>
+          <Link href="/" className="flex items-center gap-2">
+            <Image
+              src="/logo.png"
+              alt="PFinance Logo"
+              width={28}
+              height={28}
+              className="rounded-md"
+            />
+            <span className="font-semibold text-lg">PFinance</span>
+          </Link>
+          {/* Mobile Search shortcut in header */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="ml-auto text-muted-foreground hover:text-primary"
+            aria-label="Open search"
+            data-testid="app-search-trigger"
+            onClick={() => {
+              document.dispatchEvent(new Event('pfinance:open-search'));
+            }}
+          >
+            <Search className="w-4 h-4" />
+          </Button>
+          <div className="overflow-visible">
+            <NotificationCenter />
+          </div>
+        </div>
+
+        <SheetContent
+          side="left"
+          showCloseButton={false}
+          className="z-[60] w-72 max-w-[85vw] gap-0 p-0 overscroll-contain data-[state=closed]:duration-150 data-[state=open]:duration-200 motion-reduce:animate-none motion-reduce:transition-none"
+          onCloseAutoFocus={(event) => {
+            if (suppressMobileFocusRestoreRef.current) {
+              event.preventDefault();
+              suppressMobileFocusRestoreRef.current = false;
+            }
           }}
         >
-          <Search className="w-4 h-4" />
-        </Button>
-        <div className="overflow-visible">
-          <NotificationCenter />
-        </div>
-      </div>
-
-      {/* Mobile Sidebar Overlay */}
-      <div
-        className={cn(
-          "fixed inset-0 z-[60] lg:hidden transition-opacity duration-200",
-          isMobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        )}
-      >
-        {/* Backdrop */}
-        <div
-          className="absolute inset-0 bg-black/50"
-          onClick={closeMobileMenu}
-        />
-        {/* Sidebar Panel */}
-        <div className={cn(
-          "absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-background border-r shadow-xl transform transition-transform duration-200 ease-in-out flex flex-col overscroll-contain",
-          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-        )}>
+          <SheetTitle className="sr-only">Mobile navigation</SheetTitle>
+          <SheetDescription className="sr-only">
+            Navigate between personal and shared finance features.
+          </SheetDescription>
           <NavContent showCloseButton={true} />
-        </div>
-      </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Desktop Sidebar */}
       <div className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 lg:bg-background lg:border-r">

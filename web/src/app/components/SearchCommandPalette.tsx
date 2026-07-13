@@ -15,7 +15,12 @@ import {
   CommandItem,
   CommandSeparator,
 } from '@/components/ui/command';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,6 +50,7 @@ import {
   Sparkles,
   Target,
   Wallet,
+  BarChart3,
 } from 'lucide-react';
 import { SearchResult, TransactionType, BudgetPeriod, Budget } from '@/gen/pfinance/v1/types_pb';
 import { timestampDate, timestampFromDate } from '@bufbuild/protobuf/wkt';
@@ -96,6 +102,28 @@ const DEFAULT_FILTERS: SearchFilters = {
   amountMin: '',
   amountMax: '',
 };
+
+const SHARED_ANALYTICS_RESULT = Object.freeze({
+  label: 'Shared Analytics',
+  href: '/shared/analytics',
+  description: 'Review group spending, trends, attention, and forecasts',
+  keywords: ['groups', 'household', 'shared', 'analytics', 'charts', 'forecast'],
+});
+
+function matchingNavigationResults(searchQuery: string) {
+  const query = searchQuery.trim().toLocaleLowerCase('en');
+  if (!query) return [];
+
+  const searchableText = [
+    SHARED_ANALYTICS_RESULT.label,
+    SHARED_ANALYTICS_RESULT.description,
+    ...SHARED_ANALYTICS_RESULT.keywords,
+  ]
+    .join(' ')
+    .toLocaleLowerCase('en');
+
+  return searchableText.includes(query) ? [SHARED_ANALYTICS_RESULT] : [];
+}
 
 function getDateRangeFromPreset(preset: DatePreset, customStart: string, customEnd: string): { start?: Date; end?: Date } {
   const now = new Date();
@@ -176,8 +204,13 @@ export default function SearchCommandPalette() {
         setOpen((prev) => !prev);
       }
     };
+    const openSearch = () => setOpen(true);
     document.addEventListener('keydown', down);
-    return () => document.removeEventListener('keydown', down);
+    document.addEventListener('pfinance:open-search', openSearch);
+    return () => {
+      document.removeEventListener('keydown', down);
+      document.removeEventListener('pfinance:open-search', openSearch);
+    };
   }, []);
 
   // Reset state when dialog closes
@@ -213,6 +246,17 @@ export default function SearchCommandPalette() {
       searchFilters.amountMax;
 
     if (!searchQuery.trim() && !hasActiveFilters) {
+      setResults([]);
+      setGoalResults([]);
+      setBudgetResults([]);
+      setTotalCount(0);
+      return;
+    }
+
+    if (
+      !hasActiveFilters &&
+      matchingNavigationResults(searchQuery).length > 0
+    ) {
       setResults([]);
       setGoalResults([]);
       setBudgetResults([]);
@@ -361,6 +405,11 @@ export default function SearchCommandPalette() {
     router.push('/personal/budgets/');
   };
 
+  const handleSelectNavigation = (href: string) => {
+    setOpen(false);
+    router.push(href);
+  };
+
   const formatAmount = (result: SearchResult) => {
     const cents = result.amountCents;
     if (cents !== BigInt(0)) {
@@ -409,6 +458,7 @@ export default function SearchCommandPalette() {
 
   const expenses = results.filter(r => r.type === TransactionType.EXPENSE);
   const incomes = results.filter(r => r.type === TransactionType.INCOME);
+  const navigationResults = matchingNavigationResults(query);
 
   // Summary calculations
   const totalExpenseAmount = expenses.reduce((sum, r) => {
@@ -426,13 +476,18 @@ export default function SearchCommandPalette() {
   const hasQuery = query.trim().length > 0;
   const hasActiveFilters = activeFilterCount > 0;
   const hasSearchCriteria = hasQuery || hasActiveFilters;
-  const allResultsCount = results.length + goalResults.length + budgetResults.length;
-  const totalResultsCount = totalCount + goalResults.length + budgetResults.length;
+  const allResultsCount = navigationResults.length + results.length + goalResults.length + budgetResults.length;
+  const totalResultsCount = navigationResults.length + totalCount + goalResults.length + budgetResults.length;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="overflow-hidden p-0 shadow-lg border-primary/20 sm:max-w-2xl max-w-[calc(100%-2rem)]">
-        <DialogTitle className="sr-only">Search transactions, goals, budgets</DialogTitle>
+        <DialogTitle className="sr-only">
+          Search pages, transactions, goals, and budgets
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          Search navigation and your financial records.
+        </DialogDescription>
         <Command
           className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5"
           shouldFilter={false}
@@ -442,8 +497,9 @@ export default function SearchCommandPalette() {
             <Search className="mr-2 h-4 w-4 shrink-0 text-primary" />
             <input
               ref={inputRef}
+              aria-label="Search pages, transactions, goals, and budgets"
               className="flex h-12 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-              placeholder="Search transactions, goals, budgets..."
+              placeholder="Search pages, transactions, goals, budgets..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -766,8 +822,43 @@ export default function SearchCommandPalette() {
                         {budgetResults.length}
                       </span>
                     )}
+                    {navigationResults.length > 0 && (
+                      <span className="flex items-center gap-1">
+                        <BarChart3 className="h-3 w-3 text-primary" />
+                        {navigationResults.length}
+                      </span>
+                    )}
                   </div>
                 </div>
+
+                {navigationResults.length > 0 && (
+                  <CommandGroup heading="Pages (1)">
+                    {navigationResults.map((result) => (
+                      <CommandItem
+                        key={result.href}
+                        value={`page-${result.href}-${result.label}`}
+                        onSelect={() => handleSelectNavigation(result.href)}
+                        className="cursor-pointer group"
+                      >
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                          <BarChart3 className="h-4 w-4 shrink-0 text-primary" />
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <span className="truncate text-sm">{result.label}</span>
+                            <span className="truncate text-[10px] text-muted-foreground">
+                              {result.description}
+                            </span>
+                          </div>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+
+                {navigationResults.length > 0 &&
+                  (expenses.length > 0 ||
+                    incomes.length > 0 ||
+                    goalResults.length > 0 ||
+                    budgetResults.length > 0) && <CommandSeparator />}
 
                 {expenses.length > 0 && (
                   <CommandGroup heading={`Expenses (${expenses.length})`}>
