@@ -40,7 +40,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
           <div className="h-14 lg:hidden" />
 
           {/* Page Content */}
-          <main className="mx-auto w-full max-w-7xl min-w-0 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className="mx-auto w-full max-w-7xl min-w-0 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8"
+          >
             <Breadcrumbs />
             {children}
           </main>
@@ -50,7 +54,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
         <Sheet>
           <SheetTrigger asChild>
             <button
-              className="chat-send-btn fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 !w-12 !h-12 sm:!w-14 sm:!h-14 shadow-lg hover:shadow-xl transition-all"
+              aria-label="Open finance assistant"
+              className="chat-send-btn fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 min-h-10 min-w-10 !w-12 !h-12 sm:!w-14 sm:!h-14 shadow-lg hover:shadow-xl transition-[transform,box-shadow,background-color,border-color] motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               <Bot className="h-5 w-5 sm:h-6 sm:w-6" />
             </button>

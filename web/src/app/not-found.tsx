@@ -5,7 +5,11 @@ import { Button } from '@/components/ui/button';
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-4 overflow-hidden">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="min-h-screen bg-black flex items-center justify-center p-4 overflow-hidden"
+    >
       {/* Scanlines overlay */}
       <div
         className="pointer-events-none fixed inset-0 z-10"
@@ -68,15 +72,18 @@ export default function NotFound() {
         </p>
 
         {/* Return button */}
-        <Link href="/personal/">
-          <Button
-            variant="outline"
-            className="font-mono text-sm border-primary/40 text-primary hover:bg-primary/10 hover:border-primary/60"
+        <Button
+          asChild
+          variant="outline"
+          className="min-h-10 font-mono text-sm border-primary/40 text-primary hover:bg-primary/10 hover:border-primary/60"
+        >
+          <Link
+            href="/personal/"
             style={{ textShadow: '0 0 5px currentColor' }}
           >
             {'> RETURN TO DASHBOARD'}
-          </Button>
-        </Link>
+          </Link>
+        </Button>
 
         {/* Terminal status line */}
         <div className="mt-8 pt-4 border-t border-primary/10">
@@ -96,6 +103,6 @@ export default function NotFound() {
           animation: crt-flicker 4s ease-in-out infinite;
         }
       `}</style>
-    </div>
+    </main>
   );
 }

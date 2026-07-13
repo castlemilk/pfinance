@@ -231,7 +231,7 @@ export default function SidebarNav() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="lg:hidden"
+                  className="min-h-10 min-w-10 lg:hidden"
                   aria-label="Close navigation"
                 >
                   <X className="w-5 h-5" />
@@ -268,56 +268,81 @@ export default function SidebarNav() {
       {/* Main Navigation Tabs */}
       <div className="p-4">
         <div className="grid grid-cols-2 gap-1 p-1 bg-muted rounded-lg">
-          <Link href="/personal">
-            <Button
-              variant={isPersonal ? 'default' : 'ghost'}
-              className="w-full justify-center gap-1.5 px-3"
-              size="sm"
-            >
+          <Button
+            asChild
+            variant={isPersonal ? 'default' : 'ghost'}
+            className="min-h-10 w-full justify-center gap-1.5 px-3"
+            size="sm"
+          >
+            <Link href="/personal">
               <User className="w-4 h-4 shrink-0" />
               <span className="text-sm whitespace-nowrap">Personal</span>
-            </Button>
-          </Link>
-          <Link href="/shared">
+            </Link>
+          </Button>
+          {!loading && !user ? (
             <Button
-              variant={isShared ? 'default' : 'ghost'}
-              className="w-full justify-center gap-1.5 px-3"
+              variant="ghost"
+              className="min-h-10 w-full justify-center gap-1.5 px-3"
               size="sm"
-              disabled={!loading && !user}
+              disabled
             >
               <Users className="w-4 h-4 shrink-0" />
               <span className="text-sm whitespace-nowrap">Shared</span>
             </Button>
-          </Link>
+          ) : (
+            <Button
+              asChild
+              variant={isShared ? 'default' : 'ghost'}
+              className="min-h-10 w-full justify-center gap-1.5 px-3"
+              size="sm"
+            >
+              <Link href="/shared">
+                <Users className="w-4 h-4 shrink-0" />
+                <span className="text-sm whitespace-nowrap">Shared</span>
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Navigation Items - scrollable on mobile */}
-      <nav className="p-4 space-y-1 overflow-y-auto overscroll-contain flex-1">
+      <nav
+        aria-label="Primary navigation"
+        className="p-4 space-y-1 overflow-y-auto overscroll-contain flex-1"
+      >
         {isPersonal && personalNavItems.map((item) => (
-          <Link key={item.href} href={item.href}>
-            <Button
-              variant={pathname === item.href ? 'secondary' : 'ghost'}
-              className="w-full justify-start"
-              size="sm"
+          <Button
+            key={item.href}
+            asChild
+            variant={pathname === item.href ? 'secondary' : 'ghost'}
+            className="min-h-10 w-full justify-start transition-[color,background-color,border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none"
+            size="sm"
+          >
+            <Link
+              href={item.href}
+              onClick={showCloseButton ? closeMobileMenu : undefined}
             >
               {item.icon}
               <span className="ml-2">{item.title}</span>
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         ))}
 
         {isPersonal && isAdmin && (
-          <Link href="/admin">
-            <Button
-              variant={pathname === '/admin' ? 'secondary' : 'ghost'}
-              className="w-full justify-start"
-              size="sm"
+          <Button
+            asChild
+            variant={pathname === '/admin' ? 'secondary' : 'ghost'}
+            className="min-h-10 w-full justify-start transition-[color,background-color,border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none"
+            size="sm"
+          >
+            <Link
+              href="/admin"
+              onClick={showCloseButton ? closeMobileMenu : undefined}
             >
               <ShieldCheck className="w-4 h-4" />
               <span className="ml-2">Admin</span>
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         )}
 
         {isShared && sharedNavItems.map((item) => {
@@ -349,7 +374,7 @@ export default function SidebarNav() {
         <div className="flex items-center gap-2 text-xs">
           <Link
             href="/"
-            className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+            className="flex min-h-10 items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
           >
             <ExternalLink className="w-3 h-3" />
             Home
@@ -357,7 +382,7 @@ export default function SidebarNav() {
           <span className="text-muted-foreground/50">•</span>
           <Link
             href="/blog"
-            className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+            className="flex min-h-10 items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
           >
             <BookOpen className="w-3 h-3" />
             Blog
@@ -382,70 +407,78 @@ export default function SidebarNav() {
           </div>
         ) : user ? (
           <div className="space-y-3">
-            <Link
-              href="/personal/account"
-              className={cn(
-                "flex items-center gap-3 p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors",
-                pathname === '/personal/account' && "ring-2 ring-primary ring-offset-1 ring-offset-background"
-              )}
-            >
-              <Avatar className={cn(
-                "w-8 h-8",
-                isImpersonating && "ring-2 ring-amber-500 ring-offset-2 ring-offset-background"
-              )}>
-                {user.photoURL && (
-                  <AvatarImage src={user.photoURL} alt={user.displayName || 'User'} />
+            <div className="flex items-center gap-2">
+              <Link
+                href="/personal/account"
+                className={cn(
+                  "flex min-h-10 min-w-0 flex-1 items-center gap-3 p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors",
+                  pathname === '/personal/account' && "ring-2 ring-primary ring-offset-1 ring-offset-background"
                 )}
-                <AvatarFallback className="p-0 bg-transparent">
-                  <GenerativeAvatar name={user.displayName || user.email || 'User'} size={32} />
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
-                  {user.displayName || user.email}
-                </p>
-                {!subscriptionLoading && isPro && (
-                  <Badge variant="default" className="text-xs bg-amber-500/90 hover:bg-amber-500">
-                    <Crown className="w-3 h-3 mr-0.5" />
-                    Pro
-                  </Badge>
-                )}
-                {isImpersonating && (
-                  <Badge variant="secondary" className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/50">
-                    Test User
-                  </Badge>
-                )}
-              </div>
+              >
+                <Avatar className={cn(
+                  "w-8 h-8",
+                  isImpersonating && "ring-2 ring-amber-500 ring-offset-2 ring-offset-background"
+                )}>
+                  {user.photoURL && (
+                    <AvatarImage src={user.photoURL} alt={user.displayName || 'User'} />
+                  )}
+                  <AvatarFallback className="p-0 bg-transparent">
+                    <GenerativeAvatar name={user.displayName || user.email || 'User'} size={32} />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {user.displayName || user.email}
+                  </p>
+                  {!subscriptionLoading && isPro && (
+                    <Badge variant="default" className="text-xs bg-amber-500/90 hover:bg-amber-500">
+                      <Crown className="w-3 h-3 mr-0.5" />
+                      Pro
+                    </Badge>
+                  )}
+                  {isImpersonating && (
+                    <Badge variant="secondary" className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/50">
+                      Test User
+                    </Badge>
+                  )}
+                </div>
+              </Link>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 shrink-0"
+                className="min-h-10 min-w-10 shrink-0"
                 aria-label="Sign out"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  logout();
-                }}
+                onClick={() => logout()}
               >
                 <LogOut className="w-4 h-4" />
               </Button>
-            </Link>
+            </div>
             {!subscriptionLoading && isFree && user && (
-              <Link href="/personal/billing/">
-                <Button variant="default" size="sm" className="w-full gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white">
+              <Button
+                asChild
+                variant="default"
+                size="sm"
+                className="min-h-10 w-full gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+              >
+                <Link href="/personal/billing/">
                   <Crown className="w-4 h-4" />
                   Upgrade to Pro
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             )}
           </div>
         ) : (
-          <Link href="/auth">
-            <Button variant="outline" className="w-full" size="sm">
+          <Button
+            asChild
+            variant="outline"
+            className="min-h-10 w-full"
+            size="sm"
+          >
+            <Link href="/auth">
               <UserPlus className="w-4 h-4 mr-2" />
               Sign In
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         )}
       </div>
     </>
@@ -460,13 +493,13 @@ export default function SidebarNav() {
             <Button
               variant="ghost"
               size="icon"
-              className="shrink-0"
+              className="min-h-10 min-w-10 shrink-0"
               aria-label="Open navigation"
             >
               <Menu className="w-5 h-5" />
             </Button>
           </SheetTrigger>
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex min-h-10 items-center gap-2">
             <Image
               src="/logo.png"
               alt="PFinance Logo"
@@ -480,7 +513,7 @@ export default function SidebarNav() {
           <Button
             variant="ghost"
             size="icon"
-            className="ml-auto text-muted-foreground hover:text-primary"
+            className="ml-auto min-h-10 min-w-10 text-muted-foreground hover:text-primary"
             aria-label="Open search"
             data-testid="app-search-trigger"
             onClick={() => {

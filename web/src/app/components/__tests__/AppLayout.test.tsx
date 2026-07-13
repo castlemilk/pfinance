@@ -3,6 +3,8 @@ import { render, screen } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server.node';
 
 import RootLayout from '../../layout';
+import AuthLayout from '../../auth/layout';
+import NotFound from '../../not-found';
 import AppLayout from '../AppLayout';
 
 jest.mock('next/font/google', () => ({
@@ -18,6 +20,14 @@ jest.mock('next/dynamic', () => () => {
 
 jest.mock('../../context/ThemeContext', () => ({
   ThemeProvider: ({ children }: PropsWithChildren) => children,
+}));
+
+jest.mock('../../context/AdminContext', () => ({
+  AdminProvider: ({ children }: PropsWithChildren) => children,
+}));
+
+jest.mock('../../context/AuthWithAdminContext', () => ({
+  AuthWithAdminProvider: ({ children }: PropsWithChildren) => children,
 }));
 
 jest.mock('@/lib/chat/ChatHistoryContext', () => ({
@@ -70,5 +80,56 @@ describe('Firebase banner ownership', () => {
     );
 
     expect(screen.queryByTestId('firebase-banner-owner')).not.toBeInTheDocument();
+  });
+});
+
+describe('App shell accessibility', () => {
+  it('provides a focusable main-content target and a named assistant trigger', () => {
+    render(
+      <AppLayout>
+        <div>Page</div>
+      </AppLayout>
+    );
+
+    const main = screen.getByRole('main');
+    expect(main).toHaveAttribute('id', 'main-content');
+    expect(main).toHaveAttribute('tabindex', '-1');
+
+    const assistantTrigger = screen.getByRole('button', {
+      name: 'Open finance assistant',
+    });
+    expect(assistantTrigger).toHaveClass('min-h-10', 'min-w-10');
+    expect(assistantTrigger).not.toHaveClass('transition-all');
+    expect(assistantTrigger).toHaveClass(
+      'transition-[transform,box-shadow,background-color,border-color]'
+    );
+  });
+
+  it('provides the same focusable skip target on the auth surface', () => {
+    render(
+      <AuthLayout>
+        <div>Sign in form</div>
+      </AuthLayout>
+    );
+
+    const main = screen.getByRole('main');
+    expect(main).toHaveAttribute('id', 'main-content');
+    expect(main).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('keeps the not-found return link valid inside a focusable main target', () => {
+    render(<NotFound />);
+
+    const main = screen.getByRole('main');
+    expect(main).toHaveAttribute('id', 'main-content');
+    expect(main).toHaveAttribute('tabindex', '-1');
+
+    const returnLink = screen.getByRole('link', {
+      name: '> RETURN TO DASHBOARD',
+    });
+    expect(returnLink).toHaveAttribute('href', '/personal');
+    expect(returnLink).toHaveClass('min-h-10');
+    expect(returnLink.querySelector('button')).not.toBeInTheDocument();
+    expect(document.querySelector('a button, button a')).not.toBeInTheDocument();
   });
 });

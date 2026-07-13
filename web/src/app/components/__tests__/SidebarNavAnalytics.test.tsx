@@ -3,8 +3,10 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { useAuth } from '../../context/AuthWithAdminContext';
+import { financeClient } from '@/lib/financeService';
 import SidebarNav from '../SidebarNav';
 
+const mockUsePathname = jest.fn(() => '/shared/analytics');
 const mockUseSubscription = jest.fn(() => ({
   isPro: true,
   isFree: false,
@@ -12,7 +14,7 @@ const mockUseSubscription = jest.fn(() => ({
 }));
 
 jest.mock('next/navigation', () => ({
-  usePathname: () => '/shared/analytics',
+  usePathname: () => mockUsePathname(),
 }));
 
 jest.mock('../../context/AuthWithAdminContext', () => ({
@@ -53,6 +55,15 @@ function SearchFocusProbe() {
 describe('Sidebar shared analytics navigation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUsePathname.mockReturnValue('/shared/analytics');
+    mockUseSubscription.mockReturnValue({
+      isPro: true,
+      isFree: false,
+      loading: false,
+    });
+    jest
+      .mocked(financeClient.getMyAdminStatus)
+      .mockImplementation(() => new Promise<never>(() => undefined));
     jest.mocked(useAuth).mockReturnValue({
       user: {
         uid: 'user-1',
@@ -149,5 +160,77 @@ describe('Sidebar shared analytics navigation', () => {
     expect(
       screen.queryByRole('dialog', { name: 'Mobile navigation' })
     ).not.toBeInTheDocument();
+  });
+
+  it('uses one interactive element for every signed-in sidebar destination', () => {
+    mockUsePathname.mockReturnValue('/personal');
+    render(<SidebarNav />);
+
+    expect(document.querySelector('a button, button a')).not.toBeInTheDocument();
+
+    const personalTab = screen.getByRole('link', { name: 'Personal' });
+    const sharedTab = screen.getByRole('link', { name: 'Shared' });
+    const overviewLink = within(screen.getByRole('navigation')).getByRole(
+      'link',
+      { name: 'Overview' }
+    );
+    const accountLink = screen.getByRole('link', { name: /^Person Pro$/ });
+    const signOut = screen.getByRole('button', { name: 'Sign out' });
+
+    for (const target of [personalTab, sharedTab, overviewLink, accountLink]) {
+      expect(target).toHaveClass('min-h-10');
+    }
+    expect(signOut).toHaveClass('min-h-10', 'min-w-10');
+    expect(accountLink.parentElement).toBe(signOut.parentElement);
+  });
+
+  it('renders signed-out Shared as a disabled button without a live anchor', () => {
+    jest.mocked(useAuth).mockReturnValue({
+      user: null,
+      loading: false,
+      logout: jest.fn(),
+      isImpersonating: false,
+    } as unknown as ReturnType<typeof useAuth>);
+
+    render(<SidebarNav />);
+
+    const sharedButton = screen.getByRole('button', { name: 'Shared' });
+    expect(sharedButton).toBeDisabled();
+    expect(sharedButton).toHaveClass('min-h-10');
+    expect(screen.queryByRole('link', { name: 'Shared' })).not.toBeInTheDocument();
+    expect(document.querySelector('a button, button a')).not.toBeInTheDocument();
+
+    const signIn = screen.getByRole('link', { name: 'Sign In' });
+    expect(signIn).toHaveClass('min-h-10');
+  });
+
+  it('keeps the resolved admin destination free of nested controls', async () => {
+    mockUsePathname.mockReturnValue('/personal');
+    jest.mocked(financeClient.getMyAdminStatus).mockResolvedValue({
+      isAdmin: true,
+    } as Awaited<ReturnType<typeof financeClient.getMyAdminStatus>>);
+
+    render(<SidebarNav />);
+
+    const admin = await screen.findByRole('link', { name: 'Admin' });
+    expect(admin).toHaveClass('min-h-10');
+    expect(admin.querySelector('button')).not.toBeInTheDocument();
+    expect(admin.parentElement?.tagName).not.toBe('BUTTON');
+  });
+
+  it('keeps the free-tier upgrade destination free of nested controls', () => {
+    mockUsePathname.mockReturnValue('/personal');
+    mockUseSubscription.mockReturnValue({
+      isPro: false,
+      isFree: true,
+      loading: false,
+    });
+
+    render(<SidebarNav />);
+
+    const upgrade = screen.getByRole('link', { name: 'Upgrade to Pro' });
+    expect(upgrade).toHaveClass('min-h-10');
+    expect(upgrade.querySelector('button')).not.toBeInTheDocument();
+    expect(upgrade.parentElement?.tagName).not.toBe('BUTTON');
   });
 });

@@ -12,7 +12,9 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
   return (
     <AdminProvider>
       <AuthWithAdminProvider>
-        {children}
+        <main id="main-content" tabIndex={-1}>
+          {children}
+        </main>
       </AuthWithAdminProvider>
     </AdminProvider>
   );

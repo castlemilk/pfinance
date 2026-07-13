@@ -1,5 +1,93 @@
 import { expect, test } from '@playwright/test';
 
+test.describe('Application shell interactions', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem('pfinance-admin-mode', 'true');
+      window.localStorage.setItem(
+        'pfinance-impersonated-user',
+        JSON.stringify({
+          uid: 'ui-rollout-shell-user',
+          email: 'ui-rollout-shell-user@debug.local',
+          displayName: 'UI Rollout Tester',
+          photoURL: null,
+        })
+      );
+    });
+
+    await page.goto('/personal', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('main')).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: /UI Rollout Tester/ })
+    ).toBeVisible({ timeout: 20_000 });
+  });
+
+  test('skip link moves keyboard focus to the app main content', async ({
+    page,
+  }) => {
+    await page.keyboard.press('Tab');
+    const skipLink = page.getByRole('link', { name: 'Skip to main content' });
+    await expect(skipLink).toBeFocused();
+
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('main')).toBeFocused();
+    await expect(page.getByRole('main')).toHaveAttribute('id', 'main-content');
+  });
+
+  test('assistant opens as a named dialog with named 40px controls', async ({
+    page,
+  }) => {
+    await page
+      .getByRole('button', { name: 'Open finance assistant' })
+      .click();
+
+    const dialog = page.getByRole('dialog', { name: 'Finance Assistant' });
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole('textbox', { name: 'Message finance assistant' })
+    ).toBeVisible();
+
+    const controls = [
+      dialog.getByRole('button', { name: 'Show chat history' }),
+      dialog.getByRole('button', { name: 'Start new chat' }),
+      dialog.getByRole('button', { name: 'Send message' }),
+    ];
+    for (const control of controls) {
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.width).toBeGreaterThanOrEqual(40);
+      expect(box!.height).toBeGreaterThanOrEqual(40);
+      expect(
+        await control.evaluate((element) =>
+          getComputedStyle(element).transitionProperty
+        )
+      ).not.toBe('all');
+    }
+  });
+
+  test('navigation contains no nested interactive controls', async ({ page }) => {
+    const primaryNavigation = page.getByRole('navigation', {
+      name: 'Primary navigation',
+    });
+    await expect(primaryNavigation.locator('a button, button a')).toHaveCount(0);
+
+    const personal = page.getByRole('link', { name: 'Personal' });
+    const shared = page.getByRole('link', { name: 'Shared' });
+    const account = page.getByRole('link', { name: /UI Rollout Tester/ });
+    await expect(personal).toHaveAttribute('href', /^\/personal\/?$/);
+    await expect(shared).toHaveAttribute('href', /^\/shared\/?$/);
+
+    for (const target of [personal, shared, account]) {
+      await expect(target.locator('button')).toHaveCount(0);
+      expect(await target.evaluate((element) => element.parentElement?.tagName))
+        .not.toBe('BUTTON');
+      const box = await target.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.height).toBeGreaterThanOrEqual(40);
+    }
+  });
+});
+
 test('Firebase notice is singular, hydrated, and does not block top navigation', async ({
   page,
 }) => {

@@ -2264,7 +2264,11 @@ select:focus {
   border: 1px solid color-mix(in oklch, var(--primary) 20%, transparent);
   color: var(--foreground);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    color 0.15s ease;
 }
 .chat-action-pill:hover {
   background: color-mix(in oklch, var(--primary) 15%, var(--card));
@@ -2302,7 +2306,13 @@ select:focus {
     0 0 8px color-mix(in oklch, var(--primary) 12%, transparent),
     inset 0 1px 0 color-mix(in oklch, var(--primary) 10%, transparent);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.15s ease;
   flex-shrink: 0;
 }
 .chat-send-btn:hover:not(:disabled) {

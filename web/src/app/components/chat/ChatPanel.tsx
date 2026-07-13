@@ -119,7 +119,13 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
   // UX-01: smart auto-scroll — only scroll down if user hasn't scrolled up
   useEffect(() => {
     if (!userScrolledUpRef.current) {
-      scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      const reduceMotion =
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      scrollEndRef.current?.scrollIntoView({
+        behavior: reduceMotion ? 'auto' : 'smooth',
+      });
     }
   }, [messages, isLoading]);
 
@@ -257,14 +263,16 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => setShowConversations(!showConversations)}
-            className="chat-action-pill h-7 px-2"
+            className="chat-action-pill min-h-10 min-w-10 justify-center px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            aria-label="Show chat history"
             title="Chat history"
           >
             <History className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={handleNewChat}
-            className="chat-action-pill h-7 px-2"
+            className="chat-action-pill min-h-10 min-w-10 justify-center px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            aria-label="Start new chat"
             title="New chat"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -278,7 +286,8 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
                   saveMessages(convId, []);
                 }
               }}
-              className="chat-action-pill h-7 px-2"
+              className="chat-action-pill min-h-10 min-w-10 justify-center px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              aria-label="Clear current chat"
               title="Clear current chat"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -310,7 +319,7 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
                     {SUGGESTED_PROMPTS.map((prompt) => (
                       <button
                         key={prompt}
-                        className="chat-action-pill justify-start text-left h-auto py-2.5 px-3.5 text-xs"
+                        className="chat-action-pill min-h-10 justify-start text-left h-auto py-2.5 px-3.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         onClick={() => handleSuggestedPrompt(prompt)}
                       >
                         {prompt}
@@ -347,7 +356,7 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
                     {/* MISS-02: stop button */}
                     <button
                       onClick={handleStop}
-                      className="chat-action-pill h-6 px-2.5 text-xs gap-1 self-start"
+                      className="chat-action-pill min-h-10 px-2.5 text-xs gap-1 self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
                       <StopIcon className="w-3 h-3" />
                       Stop
@@ -366,7 +375,7 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
                   {/* MISS-01: retry button */}
                   <button
                     onClick={handleRetry}
-                    className="chat-action-pill h-7 px-3 text-xs gap-1.5"
+                    className="chat-action-pill min-h-10 px-3 text-xs gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
                     <RefreshCw className="w-3 h-3" />
                     Retry
@@ -387,15 +396,17 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
+                aria-label="Message finance assistant"
                 placeholder="Ask about your finances..."
                 rows={1}
-                className="flex-1 resize-none overflow-hidden max-h-[120px] rounded-lg bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/50 border border-primary/10"
+                className="min-h-10 flex-1 resize-none overflow-hidden max-h-[120px] rounded-lg bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/50 border border-primary/10"
                 disabled={isLoading}
               />
               <button
                 type="submit"
                 disabled={!input.trim() || isLoading}
-                className="chat-send-btn"
+                aria-label="Send message"
+                className="chat-send-btn min-h-10 min-w-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 <Send className="w-4 h-4" />
               </button>
