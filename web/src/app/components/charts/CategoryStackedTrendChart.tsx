@@ -1,21 +1,32 @@
 'use client';
 
-import React, { useCallback, useMemo } from 'react';
-import { AreaStack, Bar, Line } from '@visx/shape';
-import { curveMonotoneX } from '@visx/curve';
+import React, { useCallback, useId, useMemo, useState } from 'react';
 import { AxisBottom, AxisLeft } from '@visx/axis';
+import { curveMonotoneX } from '@visx/curve';
+import { localPoint } from '@visx/event';
 import { GridRows } from '@visx/grid';
 import { Group } from '@visx/group';
-import { scaleLinear, scaleTime } from '@visx/scale';
-import { localPoint } from '@visx/event';
 import { ParentSize } from '@visx/responsive';
-import { TooltipWithBounds, defaultStyles, useTooltip } from '@visx/tooltip';
+import { scaleLinear, scaleTime } from '@visx/scale';
+import { AreaStack, Bar, Line } from '@visx/shape';
+import {
+  defaultStyles,
+  TooltipWithBounds,
+  useTooltip,
+} from '@visx/tooltip';
 import { bisector } from 'd3-array';
+
+import { createAnalyticsCurrencyContext } from '@/app/components/analytics/formatting';
+import type { AnalyticsCurrencyContext } from '@/app/components/analytics/types';
 import type { CategoryStackedTrendPoint } from '@/app/metrics/types';
+
+import { forecastDomain } from './analyticsChartMath';
 
 interface CategoryStackedTrendChartProps {
   points: CategoryStackedTrendPoint[];
   categories: string[];
+  formatMoney?: AnalyticsCurrencyContext['formatMoney'];
+  formatDate?: AnalyticsCurrencyContext['formatDate'];
 }
 
 interface ChartPoint extends CategoryStackedTrendPoint {
@@ -26,26 +37,27 @@ interface TooltipData {
   point: ChartPoint;
 }
 
-const categoryColors: Record<string, string> = {
+const DEFAULT_FORMATTERS = createAnalyticsCurrencyContext(undefined);
+const MARGIN = { top: 16, right: 16, bottom: 38, left: 64 } as const;
+const CATEGORY_TOKENS: Record<string, string> = {
   Food: 'var(--chart-1)',
   Housing: 'var(--chart-2)',
   Transportation: 'var(--chart-3)',
   Entertainment: 'var(--chart-4)',
   Healthcare: 'var(--chart-5)',
-  Utilities: '#2563eb',
-  Shopping: '#db2777',
-  Education: '#7c3aed',
-  Travel: '#0891b2',
-  Other: '#6b7280',
+  Utilities: 'var(--chart-2)',
+  Shopping: 'var(--chart-4)',
+  Education: 'var(--chart-3)',
+  Travel: 'var(--chart-5)',
+  Other: 'var(--muted-foreground)',
 };
-
-const fallbackColors = [
+const FALLBACK_TOKENS = [
   'var(--chart-1)',
   'var(--chart-2)',
   'var(--chart-3)',
   'var(--chart-4)',
   'var(--chart-5)',
-];
+] as const;
 
 const tooltipStyles: React.CSSProperties = {
   ...defaultStyles,
@@ -55,36 +67,124 @@ const tooltipStyles: React.CSSProperties = {
   borderRadius: '6px',
   fontSize: '12px',
   padding: '8px 12px',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+  boxShadow:
+    '0 4px 12px color-mix(in srgb, var(--foreground) 15%, transparent)',
 };
 
-const bisectDate = bisector<ChartPoint, Date>((d) => d.dateValue).left;
-
-function parseLocalDate(date: string): Date {
-  return new Date(`${date}T00:00:00`);
-}
-
-function formatAmount(value: number): string {
-  return `$${value.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
-function formatDateLabel(date: Date): string {
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
+const bisectDate = bisector<ChartPoint, Date>((point) => point.dateValue).left;
 
 function colorForCategory(category: string, index: number): string {
-  return categoryColors[category] ?? fallbackColors[index % fallbackColors.length];
+  return CATEGORY_TOKENS[category] ?? FALLBACK_TOKENS[index % FALLBACK_TOKENS.length];
+}
+
+function parseUtcDateKey(dateKey: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year < 1 || year > 9_999) return null;
+  const date = new Date(0);
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCFullYear(year, month - 1, day);
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+}
+
+function uniqueCategories(categories: readonly string[]): string[] {
+  return [...new Set(categories.filter((category) => category.length > 0))];
+}
+
+function parsePoints(
+  points: readonly CategoryStackedTrendPoint[],
+  categories: readonly string[]
+): ChartPoint[] {
+  return points
+    .map((point): ChartPoint | null => {
+      const dateValue = parseUtcDateKey(point.date);
+      if (!dateValue || !Number.isFinite(point.total)) return null;
+      const copiedCategories = Object.fromEntries(
+        categories.map((category) => {
+          const amount = point.categories[category] ?? 0;
+          return [category, Number.isFinite(amount) ? amount : 0];
+        })
+      );
+      return {
+        date: point.date,
+        label: point.label,
+        total: point.total,
+        categories: copiedCategories,
+        dateValue,
+      };
+    })
+    .filter((point): point is ChartPoint => point !== null)
+    .sort((left, right) => left.dateValue.getTime() - right.dateValue.getTime());
+}
+
+function valueDomain(
+  points: readonly ChartPoint[],
+  categories: readonly string[]
+): readonly [number, number] {
+  let minimum = 0;
+  let maximum = 0;
+  for (const point of points) {
+    minimum = Math.min(minimum, point.total);
+    maximum = Math.max(maximum, point.total);
+    let running = 0;
+    for (const category of categories) {
+      running += point.categories[category] ?? 0;
+      minimum = Math.min(minimum, running);
+      maximum = Math.max(maximum, running);
+    }
+  }
+  if (minimum === maximum) {
+    const padding = Math.abs(minimum) * 0.1 || 1;
+    return [minimum - padding, maximum + padding];
+  }
+  const padding = (maximum - minimum) * 0.08;
+  return [minimum - padding, maximum + padding];
+}
+
+function keyboardStatus(
+  point: ChartPoint,
+  categories: readonly string[],
+  formatMoney: AnalyticsCurrencyContext['formatMoney'],
+  formatDate: AnalyticsCurrencyContext['formatDate']
+): string {
+  const categoryValues = categories.map(
+    (category) => `${category} ${formatMoney(point.categories[category] ?? 0)}`
+  );
+  return `${formatDate(point.dateValue)}. Total ${formatMoney(point.total)}.${
+    categoryValues.length > 0 ? ` ${categoryValues.join('. ')}.` : ''
+  }`;
 }
 
 function InnerCategoryStackedTrendChart({
   points,
   categories,
+  formatMoney,
+  formatDate,
   width,
   height,
-}: CategoryStackedTrendChartProps & { width: number; height: number }) {
+}: Readonly<{
+  points: readonly CategoryStackedTrendPoint[];
+  categories: readonly string[];
+  formatMoney: AnalyticsCurrencyContext['formatMoney'];
+  formatDate: AnalyticsCurrencyContext['formatDate'];
+  width: number;
+  height: number;
+}>) {
+  const titleId = useId();
+  const descriptionId = useId();
+  const statusId = useId();
+  const [keyboardIndex, setKeyboardIndex] = useState(0);
+  const [selectedStatus, setSelectedStatus] = useState('');
   const {
     tooltipData,
     tooltipLeft,
@@ -94,107 +194,146 @@ function InnerCategoryStackedTrendChart({
     hideTooltip,
   } = useTooltip<TooltipData>();
 
-  const legendHeight = 58;
-  const svgHeight = Math.max(height - legendHeight, 240);
-  const margin = { top: 16, right: 16, bottom: 38, left: 60 };
-  const innerWidth = Math.max(width - margin.left - margin.right, 0);
-  const innerHeight = Math.max(svgHeight - margin.top - margin.bottom, 0);
-
   const parsedPoints = useMemo(
-    () =>
-      points
-        .map((point) => ({
-          ...point,
-          dateValue: parseLocalDate(point.date),
-        }))
-        .sort((a, b) => a.dateValue.getTime() - b.dateValue.getTime()),
-    [points]
+    () => parsePoints(points, categories),
+    [categories, points]
   );
-
-  const [minDate, maxDate] = useMemo(() => {
-    const first = parsedPoints[0]?.dateValue ?? new Date();
-    const last = parsedPoints[parsedPoints.length - 1]?.dateValue ?? first;
-    if (first.getTime() !== last.getTime()) {
-      return [first, last];
-    }
-    const next = new Date(first);
-    next.setDate(next.getDate() + 1);
-    return [first, next];
-  }, [parsedPoints]);
-
-  const yMax = useMemo(
-    () => Math.max(...parsedPoints.map((point) => point.total), 0) * 1.1 || 1,
+  const innerWidth = Math.max(1, width - MARGIN.left - MARGIN.right);
+  const innerHeight = Math.max(1, height - MARGIN.top - MARGIN.bottom);
+  const xDomain = useMemo(
+    () => forecastDomain(parsedPoints.map((point) => point.dateValue), []),
     [parsedPoints]
   );
-
   const xScale = useMemo(
     () =>
       scaleTime<number>({
-        domain: [minDate, maxDate],
+        domain: [...xDomain],
         range: [0, innerWidth],
       }),
-    [innerWidth, maxDate, minDate]
+    [innerWidth, xDomain]
   );
-
+  const yDomain = useMemo(
+    () => valueDomain(parsedPoints, categories),
+    [categories, parsedPoints]
+  );
   const yScale = useMemo(
     () =>
       scaleLinear<number>({
-        domain: [0, yMax],
+        domain: [...yDomain],
         range: [innerHeight, 0],
         nice: true,
       }),
-    [innerHeight, yMax]
+    [innerHeight, yDomain]
+  );
+  const renderedYDomain = yScale.domain();
+
+  const showPoint = useCallback(
+    (point: ChartPoint, announce: boolean) => {
+      if (announce) {
+        setSelectedStatus(
+          keyboardStatus(point, categories, formatMoney, formatDate)
+        );
+      }
+      showTooltip({
+        tooltipData: { point },
+        tooltipLeft: xScale(point.dateValue) + MARGIN.left,
+        tooltipTop: yScale(point.total) + MARGIN.top,
+      });
+    },
+    [categories, formatDate, formatMoney, showTooltip, xScale, yScale]
+  );
+
+  const showClosestAtX = useCallback(
+    (localX: number) => {
+      if (parsedPoints.length === 0) return;
+      const target = xScale.invert(localX);
+      const index = bisectDate(parsedPoints, target, 1);
+      const previous = parsedPoints[index - 1];
+      const next = parsedPoints[index];
+      const closest =
+        previous && next
+          ? target.getTime() - previous.dateValue.getTime() >
+            next.dateValue.getTime() - target.getTime()
+            ? next
+            : previous
+          : previous ?? next;
+      if (closest) showPoint(closest, false);
+    },
+    [parsedPoints, showPoint, xScale]
   );
 
   const handleTooltip = useCallback(
     (event: React.TouchEvent<SVGRectElement> | React.MouseEvent<SVGRectElement>) => {
-      const point = localPoint(event) || { x: 0 };
-      const x0 = xScale.invert(point.x - margin.left);
-      const index = bisectDate(parsedPoints, x0, 1);
-      const d0 = parsedPoints[index - 1];
-      const d1 = parsedPoints[index];
-      let nearest = d0;
-      if (d1 && d0) {
-        nearest =
-          x0.getTime() - d0.dateValue.getTime() >
-          d1.dateValue.getTime() - x0.getTime()
-            ? d1
-            : d0;
-      }
-      if (!nearest) return;
-
-      showTooltip({
-        tooltipData: { point: nearest },
-        tooltipLeft: xScale(nearest.dateValue) + margin.left,
-        tooltipTop: yScale(nearest.total) + margin.top,
-      });
+      const point = localPoint(event);
+      if (point) showClosestAtX(point.x - MARGIN.left);
     },
-    [parsedPoints, showTooltip, xScale, yScale]
+    [showClosestAtX]
   );
 
-  if (points.length === 0 || categories.length === 0) {
+  const clearSelection = useCallback(() => {
+    hideTooltip();
+    setSelectedStatus('');
+  }, [hideTooltip]);
+
+  const handleKeyboard = useCallback(
+    (event: React.KeyboardEvent<HTMLButtonElement>) => {
+      if (parsedPoints.length === 0) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        clearSelection();
+        return;
+      }
+      if (event.key === 'Home' || event.key === 'End') {
+        event.preventDefault();
+        const index = event.key === 'Home' ? 0 : parsedPoints.length - 1;
+        setKeyboardIndex(index);
+        showPoint(parsedPoints[index], true);
+        return;
+      }
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      event.preventDefault();
+      const direction = event.key === 'ArrowRight' ? 1 : -1;
+      const index =
+        (keyboardIndex + direction + parsedPoints.length) % parsedPoints.length;
+      setKeyboardIndex(index);
+      showPoint(parsedPoints[index], true);
+    },
+    [clearSelection, keyboardIndex, parsedPoints, showPoint]
+  );
+
+  if (parsedPoints.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+      <div className="flex h-full items-center justify-center p-4 text-pretty text-sm text-muted-foreground">
         No category trend data available.
       </div>
     );
   }
 
   const tooltipRows = tooltipData
-    ? categories
-        .map((category, index) => ({
-          category,
-          amount: tooltipData.point.categories[category] ?? 0,
-          color: colorForCategory(category, index),
-        }))
-        .filter((row) => row.amount > 0)
-        .sort((a, b) => b.amount - a.amount)
+    ? categories.map((category, index) => ({
+        category,
+        amount: tooltipData.point.categories[category] ?? 0,
+        color: colorForCategory(category, index),
+      }))
     : [];
 
   return (
-    <div style={{ position: 'relative', height }}>
-      <svg width={width} height={svgHeight} aria-label="Stacked category spend over time">
-        <Group left={margin.left} top={margin.top}>
+    <div className="relative h-full min-h-0 w-full min-w-0">
+      <svg
+        width={width}
+        height={height}
+        role="img"
+        aria-labelledby={`${titleId} ${descriptionId}`}
+        data-x-domain-start={xDomain[0].toISOString()}
+        data-x-domain-end={xDomain[1].toISOString()}
+        data-y-domain-min={renderedYDomain[0]}
+        data-y-domain-max={renderedYDomain[1]}
+      >
+        <title id={titleId}>Category spending over time</title>
+        <desc id={descriptionId}>
+          Stacked areas compare the contribution of each spending category over time.
+        </desc>
+        <Group left={MARGIN.left} top={MARGIN.top}>
           <GridRows
             scale={yScale}
             width={innerWidth}
@@ -206,13 +345,13 @@ function InnerCategoryStackedTrendChart({
 
           <AreaStack<ChartPoint, string>
             data={parsedPoints}
-            keys={categories}
-            value={(d, key) => d.categories[key] ?? 0}
-            x={(d) => xScale(d.data.dateValue) ?? 0}
-            y0={(d) => yScale(d[0]) ?? 0}
-            y1={(d) => yScale(d[1]) ?? 0}
+            keys={[...categories]}
+            value={(point, category) => point.categories[category] ?? 0}
+            x={(point) => xScale(point.data.dateValue) ?? 0}
+            y0={(point) => yScale(point[0]) ?? 0}
+            y1={(point) => yScale(point[1]) ?? 0}
             curve={curveMonotoneX}
-            color={(key, index) => colorForCategory(String(key), index)}
+            color={(category, index) => colorForCategory(String(category), index)}
             fillOpacity={0.78}
             stroke="var(--background)"
             strokeWidth={1}
@@ -221,8 +360,10 @@ function InnerCategoryStackedTrendChart({
           <AxisBottom
             top={innerHeight}
             scale={xScale}
-            numTicks={Math.min(6, points.length)}
-            tickFormat={(d) => formatDateLabel(d as Date)}
+            numTicks={Math.min(6, Math.max(2, parsedPoints.length))}
+            tickFormat={(value) =>
+              formatDate(value as Date, { day: 'numeric', month: 'short' })
+            }
             stroke="var(--border)"
             tickStroke="var(--border)"
             tickLabelProps={() => ({
@@ -234,7 +375,7 @@ function InnerCategoryStackedTrendChart({
           <AxisLeft
             scale={yScale}
             numTicks={5}
-            tickFormat={(d) => `$${(d as number).toLocaleString()}`}
+            tickFormat={(value) => formatMoney(value as number, true)}
             stroke="var(--border)"
             tickStroke="var(--border)"
             tickLabelProps={() => ({
@@ -258,70 +399,144 @@ function InnerCategoryStackedTrendChart({
             onMouseLeave={hideTooltip}
           />
 
-          {tooltipOpen && tooltipData && (
+          {tooltipOpen && tooltipData ? (
             <Line
-              from={{ x: (tooltipLeft ?? 0) - margin.left, y: 0 }}
-              to={{ x: (tooltipLeft ?? 0) - margin.left, y: innerHeight }}
+              from={{ x: (tooltipLeft ?? 0) - MARGIN.left, y: 0 }}
+              to={{ x: (tooltipLeft ?? 0) - MARGIN.left, y: innerHeight }}
               stroke="var(--muted-foreground)"
               strokeWidth={1}
               strokeDasharray="3,3"
               pointerEvents="none"
             />
-          )}
+          ) : null}
         </Group>
       </svg>
 
-      <div className="flex flex-wrap gap-x-4 gap-y-2 px-2 text-xs text-muted-foreground">
-        {categories.map((category, index) => (
-          <div key={category} className="flex items-center gap-1.5">
-            <span
-              className="h-2.5 w-2.5 rounded-sm"
-              style={{ backgroundColor: colorForCategory(category, index) }}
-            />
-            <span>{category}</span>
-          </div>
-        ))}
-      </div>
+      <button
+        type="button"
+        data-testid="category-chart-overlay"
+        aria-label="Explore category spending values. Use left and right arrows to move between dates; Home and End jump to the first and last date."
+        aria-describedby={statusId}
+        onFocus={() => {
+          setKeyboardIndex(0);
+          showPoint(parsedPoints[0], true);
+        }}
+        onBlur={clearSelection}
+        onKeyDown={handleKeyboard}
+        className="pointer-events-none absolute cursor-crosshair rounded-sm bg-transparent outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        style={{
+          left: MARGIN.left,
+          top: MARGIN.top,
+          width: innerWidth,
+          height: innerHeight,
+        }}
+      >
+        <span className="sr-only">Explore category spending chart values</span>
+      </button>
+      <p id={statusId} role="status" aria-live="polite" className="sr-only">
+        {selectedStatus}
+      </p>
 
-      {tooltipOpen && tooltipData && (
+      {tooltipOpen && tooltipData ? (
         <TooltipWithBounds left={tooltipLeft} top={tooltipTop} style={tooltipStyles}>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>
-            {tooltipData.point.label}
+          <div className="mb-1 font-semibold">
+            {formatDate(tooltipData.point.dateValue, {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            })}
           </div>
-          <div style={{ marginBottom: 6 }}>
-            Total: {formatAmount(tooltipData.point.total)}
+          <div className="mb-1.5 tabular-nums">
+            Total: {formatMoney(tooltipData.point.total)}
           </div>
           {tooltipRows.map((row) => (
-            <div
-              key={row.category}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}
-            >
+            <div key={row.category} className="mb-0.5 flex items-center gap-1.5">
               <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: 2,
-                  backgroundColor: row.color,
-                  display: 'inline-block',
-                }}
+                aria-hidden="true"
+                className="inline-block size-2 rounded-sm"
+                style={{ backgroundColor: row.color }}
               />
-              {row.category}: {formatAmount(row.amount)}
+              <span>
+                {row.category}: {formatMoney(row.amount)}
+              </span>
             </div>
           ))}
         </TooltipWithBounds>
-      )}
+      ) : null}
     </div>
   );
 }
 
-export default function CategoryStackedTrendChart(props: CategoryStackedTrendChartProps) {
+export default function CategoryStackedTrendChart(
+  props: CategoryStackedTrendChartProps
+) {
+  const categories = uniqueCategories(props.categories);
+  const formatMoney = props.formatMoney ?? DEFAULT_FORMATTERS.formatMoney;
+  const formatDate = props.formatDate ?? DEFAULT_FORMATTERS.formatDate;
+  const modelKey = JSON.stringify([
+    categories,
+    props.points.map((point) => [point.date, point.total, point.categories]),
+  ]);
+
   return (
-    <ParentSize>
-      {({ width, height }) => {
-        if (width < 10) return null;
-        const chartHeight = Math.max(height, 300);
-        return <InnerCategoryStackedTrendChart {...props} width={width} height={chartHeight} />;
-      }}
-    </ParentSize>
+    <div
+      data-testid="category-chart-layout"
+      className="flex h-full min-h-0 flex-col"
+    >
+      <div
+        data-testid="category-chart-plot"
+        className="relative min-h-0 flex-1"
+      >
+        {props.points.length === 0 || categories.length === 0 ? (
+          <div className="flex h-full items-center justify-center p-4 text-pretty text-sm text-muted-foreground">
+            No category trend data available.
+          </div>
+        ) : (
+          <ParentSize>
+            {({ width, height }) => {
+              if (width < 96 || height < 96) {
+                return (
+                  <div
+                    role="img"
+                    aria-label="Category spending chart needs more space"
+                    className="h-full w-full overflow-hidden"
+                  />
+                );
+              }
+              return (
+                <InnerCategoryStackedTrendChart
+                  key={modelKey}
+                  points={props.points}
+                  categories={categories}
+                  formatMoney={formatMoney}
+                  formatDate={formatDate}
+                  width={width}
+                  height={height}
+                />
+              );
+            }}
+          </ParentSize>
+        )}
+      </div>
+      {categories.length > 0 ? (
+        <div
+          data-testid="category-chart-legend"
+          className="flex shrink-0 flex-wrap gap-x-4 gap-y-2 px-2 pt-2 text-xs text-muted-foreground"
+        >
+          {categories.map((category, index) => (
+            <div key={category} className="flex items-center gap-1.5">
+              <span
+                data-testid="category-color"
+                data-color-token={colorForCategory(category, index)}
+                aria-hidden="true"
+                className="size-2.5 rounded-sm"
+                style={{ backgroundColor: colorForCategory(category, index) }}
+              />
+              <span>{category}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }

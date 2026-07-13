@@ -1,22 +1,32 @@
 'use client';
 
-import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
-import { scaleLinear } from '@visx/scale';
+import React, {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Group } from '@visx/group';
 import { ParentSize } from '@visx/responsive';
-import { useRouter } from 'next/navigation';
-import type { HeatmapData, HeatmapDay, HeatmapCategoryAmount } from '@/app/metrics/types';
-import type { Expense, ExpenseCategory } from '@/app/types';
-import { getCategoryColor } from '@/app/constants/theme';
+import { scaleLinear } from '@visx/scale';
 
-// ============================================================================
-// Types
-// ============================================================================
+import { createAnalyticsCurrencyContext } from '@/app/components/analytics/formatting';
+import type { AnalyticsCurrencyContext } from '@/app/components/analytics/types';
+import type {
+  HeatmapCategoryAmount,
+  HeatmapData,
+  HeatmapDay,
+} from '@/app/metrics/types';
+import type { Expense, ExpenseCategory } from '@/app/types';
 
 interface SpendingHeatmapProps {
   data: HeatmapData;
   onDayClick?: (date: string) => void;
   expenses?: Expense[];
+  formatMoney?: AnalyticsCurrencyContext['formatMoney'];
+  formatDate?: AnalyticsCurrencyContext['formatDate'];
 }
 
 interface HeatmapBin {
@@ -25,6 +35,7 @@ interface HeatmapBin {
   date: string;
   value: number;
   categories?: HeatmapCategoryAmount[];
+  inRange: boolean;
 }
 
 interface HeatmapBinData {
@@ -41,277 +52,253 @@ interface ActiveDay {
   top: number;
 }
 
-// ============================================================================
-// Helpers
-// ============================================================================
-
-const DAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
-const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DEFAULT_FORMATTERS = createAnalyticsCurrencyContext(undefined);
 const HIDE_DELAY = 200;
+const MAX_RENDERED_DAYS = 400;
+const MARGIN = { top: 28, right: 12, bottom: 8, left: 36 } as const;
+const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
+  Food: 'var(--chart-1)',
+  Housing: 'var(--chart-2)',
+  Transportation: 'var(--chart-3)',
+  Entertainment: 'var(--chart-4)',
+  Healthcare: 'var(--chart-5)',
+  Utilities: 'var(--chart-2)',
+  Shopping: 'var(--chart-4)',
+  Education: 'var(--chart-3)',
+  Travel: 'var(--chart-5)',
+  Other: 'var(--muted-foreground)',
+};
 
-function formatAmount(value: number): string {
-  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function categoryColor(category: ExpenseCategory): string {
+  return CATEGORY_COLORS[category] ?? 'var(--muted-foreground)';
 }
 
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-}
+function utcDateFromKey(dateKey: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year < 1 || year > 9_999) return null;
 
-function toDateKey(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-function dateFromKey(dateStr: string): Date {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(year, month - 1, day);
-}
-
-/**
- * Transform flat HeatmapDay[] into weekly bin data for HeatmapRect.
- * Each "bin" is a week column, containing up to 7 day entries.
- */
-function transformToBinData(days: HeatmapDay[]): HeatmapBinData[] {
-  if (days.length === 0) return [];
-
-  // Sort days by date
-  const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date));
-
-  // Determine the start of the first week (Sunday)
-  const firstDate = dateFromKey(sorted[0].date);
-  const lastDate = dateFromKey(sorted[sorted.length - 1].date);
-  const startOfWeek = new Date(firstDate);
-  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-  const endOfWeek = new Date(lastDate);
-  endOfWeek.setDate(endOfWeek.getDate() + (6 - endOfWeek.getDay()));
-
-  // Build a map for quick lookup
-  const dayMap = new Map<string, HeatmapDay>();
-  for (const d of sorted) {
-    dayMap.set(d.date, d);
+  const date = new Date(0);
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCFullYear(year, month - 1, day);
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
   }
+  return date;
+}
 
+function toUtcDateKey(date: Date): string | null {
+  if (!Number.isFinite(date.getTime())) return null;
+  const year = date.getUTCFullYear();
+  if (year < 1 || year > 9_999) return null;
+  return `${String(year).padStart(4, '0')}-${String(
+    date.getUTCMonth() + 1
+  ).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+}
+
+function copiedDay(day: HeatmapDay): HeatmapDay | null {
+  if (
+    !utcDateFromKey(day.date) ||
+    !Number.isFinite(day.value) ||
+    !Number.isFinite(day.count)
+  ) {
+    return null;
+  }
+  return {
+    date: day.date,
+    value: day.value,
+    count: day.count,
+    categories: day.categories?.map((category) => ({ ...category })),
+  };
+}
+
+function transformToBinData(days: readonly HeatmapDay[]): HeatmapBinData[] {
+  const sorted = days
+    .map(copiedDay)
+    .filter((day): day is HeatmapDay => day !== null)
+    .sort((left, right) => left.date.localeCompare(right.date));
+  if (sorted.length === 0) return [];
+
+  const firstDate = utcDateFromKey(sorted[0].date);
+  const lastDate = utcDateFromKey(sorted[sorted.length - 1].date);
+  if (!firstDate || !lastDate) return [];
+  const span = Math.floor((lastDate.getTime() - firstDate.getTime()) / 86_400_000) + 1;
+  if (span < 1 || span > MAX_RENDERED_DAYS) return [];
+
+  const startOfWeek = new Date(firstDate.getTime());
+  startOfWeek.setUTCDate(startOfWeek.getUTCDate() - startOfWeek.getUTCDay());
+  const endOfWeek = new Date(lastDate.getTime());
+  endOfWeek.setUTCDate(endOfWeek.getUTCDate() + (6 - endOfWeek.getUTCDay()));
+
+  const byDate = new Map(sorted.map((day) => [day.date, day] as const));
   const bins: HeatmapBinData[] = [];
-  const current = new Date(startOfWeek);
-  let week = 0;
+  const cursor = new Date(startOfWeek.getTime());
 
-  while (current <= endOfWeek) {
+  for (let week = 0; cursor <= endOfWeek; week += 1) {
     const weekBins: HeatmapBin[] = [];
-    for (let day = 0; day < 7; day++) {
-      const dateStr = toDateKey(current);
-      const entry = dayMap.get(dateStr);
+    for (let weekday = 0; weekday < 7; weekday += 1) {
+      const date = toUtcDateKey(cursor);
+      if (!date) return [];
+      const entry = byDate.get(date);
       weekBins.push({
-        bin: day,
-        count: entry?.count ?? 0,
-        date: dateStr,
+        bin: weekday,
+        date,
         value: entry?.value ?? 0,
-        categories: entry?.categories,
+        count: entry?.count ?? 0,
+        categories: entry?.categories?.map((category) => ({ ...category })),
+        inRange: cursor >= firstDate && cursor <= lastDate,
       });
-      current.setDate(current.getDate() + 1);
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
     bins.push({ bin: week, bins: weekBins });
-    week++;
   }
 
   return bins;
 }
 
-/**
- * Extract month label positions from the bin data for the top axis.
- */
-function getMonthLabels(binData: HeatmapBinData[], cellSize: number, gap: number): Array<{ label: string; x: number }> {
-  const labels: Array<{ label: string; x: number }> = [];
-  let lastMonth = -1;
-
-  for (let i = 0; i < binData.length; i++) {
-    const firstDay = binData[i].bins[0];
-    if (!firstDay) continue;
-    const d = new Date(firstDay.date);
-    const month = d.getMonth();
-    if (month !== lastMonth) {
-      labels.push({
-        label: MONTH_LABELS[month],
-        x: i * (cellSize + gap),
-      });
-      lastMonth = month;
-    }
-  }
-
-  return labels;
+function transactionLabel(count: number): string {
+  return `${count} ${count === 1 ? 'transaction' : 'transactions'}`;
 }
-
-// ============================================================================
-// DayDetailCard — expense table shown inside the interactive tooltip
-// ============================================================================
 
 function DayDetailCard({
   activeDay,
   expenses,
-  categories,
   onDayClick,
-}: {
+  formatMoney,
+  formatDate,
+}: Readonly<{
   activeDay: ActiveDay;
-  expenses: Expense[] | undefined;
-  categories: HeatmapCategoryAmount[] | undefined;
+  expenses: readonly Expense[] | undefined;
   onDayClick?: (date: string) => void;
-}) {
-  const router = useRouter();
-
-  const dayExpenses = useMemo(() => {
-    if (!expenses) return [];
-    return expenses
-      .filter((e) => toDateKey(e.date) === activeDay.date)
-      .sort((a, b) => b.amount - a.amount);
-  }, [expenses, activeDay.date]);
-
-  const hasExpenses = dayExpenses.length > 0;
+  formatMoney: AnalyticsCurrencyContext['formatMoney'];
+  formatDate: AnalyticsCurrencyContext['formatDate'];
+}>) {
+  const dayExpenses = useMemo(
+    () =>
+      (expenses ?? [])
+        .filter((expense) => toUtcDateKey(expense.date) === activeDay.date)
+        .map((expense) => ({ ...expense, date: new Date(expense.date.getTime()) }))
+        .sort((left, right) => right.amount - left.amount),
+    [activeDay.date, expenses]
+  );
+  const categories = useMemo(
+    () =>
+      (activeDay.categories ?? [])
+        .map((category) => ({ ...category }))
+        .filter((category) => Number.isFinite(category.amount))
+        .sort((left, right) => right.amount - left.amount),
+    [activeDay.categories]
+  );
+  const longDate = formatDate(activeDay.date, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 
   return (
-    <div style={{ minWidth: 260, maxWidth: 320 }}>
-      {/* Header */}
-      <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ fontWeight: 600, marginBottom: 2 }}>
-          {formatDate(activeDay.date)}
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-          <span style={{ fontWeight: 700, fontSize: 14 }}>{formatAmount(activeDay.value)}</span>
-          <span style={{ color: 'var(--muted-foreground)' }}>
-            {activeDay.count} transaction{activeDay.count !== 1 ? 's' : ''}
+    <section
+      aria-label={`Spending details for ${longDate}`}
+      className="w-full overflow-hidden rounded-[10px]"
+    >
+      <header className="border-b border-border px-3 py-2.5">
+        <h3 className="font-semibold text-popover-foreground">{longDate}</h3>
+        <div className="mt-0.5 flex justify-between gap-4">
+          <span className="text-sm font-bold tabular-nums text-popover-foreground">
+            {formatMoney(activeDay.value)}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {transactionLabel(activeDay.count)}
           </span>
         </div>
-      </div>
+      </header>
 
-      {/* Expense rows */}
-      {hasExpenses ? (
-        <div style={{ maxHeight: 240, overflowY: 'auto' }}>
-          {dayExpenses.map((expense) => (
+      {dayExpenses.length > 0 ? (
+        <div className="max-h-60 overflow-y-auto">
+          {dayExpenses.map((expense) => {
+            const amount = formatMoney(expense.amount);
+            const content = (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="size-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: categoryColor(expense.category) }}
+                />
+                <span className="min-w-0 flex-1 truncate text-left text-xs">
+                  {expense.description}
+                </span>
+                <span className="shrink-0 text-[0.6875rem] text-muted-foreground">
+                  {expense.category}
+                </span>
+                <span className="shrink-0 text-xs font-semibold tabular-nums">
+                  {amount}
+                </span>
+              </>
+            );
+            return onDayClick ? (
+              <button
+                key={expense.id}
+                type="button"
+                aria-label={`${expense.description}, ${expense.category}, ${amount}`}
+                onClick={() => onDayClick(activeDay.date)}
+                className="flex min-h-10 w-full items-center gap-2 px-3 text-popover-foreground outline-none transition-[color,background-color,box-shadow,transform] duration-150 ease-out hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/50 active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100"
+              >
+                {content}
+              </button>
+            ) : (
+              <div
+                key={expense.id}
+                className="flex min-h-10 items-center gap-2 px-3 text-popover-foreground"
+              >
+                {content}
+              </div>
+            );
+          })}
+        </div>
+      ) : categories.length > 0 ? (
+        <div className="px-3 py-2">
+          {categories.slice(0, 5).map((category) => (
             <div
-              key={expense.id}
-              onClick={() => router.push(`/personal/expenses?date=${activeDay.date}`)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '6px 12px',
-                cursor: 'pointer',
-                transition: 'background-color 0.1s',
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLDivElement).style.backgroundColor = 'var(--accent)';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent';
-              }}
+              key={`${category.category}:${category.count}`}
+              className="flex min-h-7 items-center justify-between gap-3 text-xs"
             >
-              {/* Category color dot */}
-              <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  backgroundColor: getCategoryColor(expense.category),
-                  flexShrink: 0,
-                }}
-              />
-              {/* Description */}
-              <span
-                style={{
-                  flex: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  fontSize: 12,
-                }}
-              >
-                {expense.description}
+              <span className="truncate text-popover-foreground">
+                {category.category}
               </span>
-              {/* Category badge */}
-              <span
-                style={{
-                  fontSize: 10,
-                  padding: '1px 6px',
-                  borderRadius: 4,
-                  backgroundColor: getCategoryColor(expense.category) + '22',
-                  color: getCategoryColor(expense.category),
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                }}
-              >
-                {expense.category}
-              </span>
-              {/* Amount */}
-              <span
-                style={{
-                  fontWeight: 500,
-                  fontVariantNumeric: 'tabular-nums',
-                  fontSize: 12,
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                }}
-              >
-                {formatAmount(expense.amount)}
+              <span className="shrink-0 font-semibold tabular-nums text-popover-foreground">
+                {formatMoney(category.amount)}{' '}
+                <span className="font-normal text-muted-foreground">
+                  ({category.count})
+                </span>
               </span>
             </div>
           ))}
-        </div>
-      ) : categories && categories.length > 0 ? (
-        /* Fallback: category summary when no individual expenses available */
-        <div style={{ padding: '8px 12px' }}>
-          {categories
-            .sort((a, b) => b.amount - a.amount)
-            .slice(0, 5)
-            .map((cat, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '2px 0' }}>
-                <span style={{ opacity: 0.8 }}>{cat.category}</span>
-                <span style={{ fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
-                  {formatAmount(cat.amount)}
-                  <span style={{ color: 'var(--muted-foreground)', marginLeft: 4, fontSize: 11 }}>
-                    ({cat.count})
-                  </span>
-                </span>
-              </div>
-            ))}
-          {categories.length > 5 && (
-            <div style={{ color: 'var(--muted-foreground)', fontSize: 11, paddingTop: 4 }}>
+          {categories.length > 5 ? (
+            <p className="pt-1 text-[0.6875rem] text-muted-foreground">
               +{categories.length - 5} more
-            </div>
-          )}
+            </p>
+          ) : null}
         </div>
       ) : null}
 
-      {/* Footer */}
-      {activeDay.value > 0 && onDayClick && (
-        <div
+      {activeDay.value !== 0 && onDayClick ? (
+        <button
+          type="button"
           onClick={() => onDayClick(activeDay.date)}
-          style={{
-            padding: '8px 12px',
-            borderTop: '1px solid var(--border)',
-            color: 'var(--primary)',
-            fontSize: 12,
-            cursor: 'pointer',
-            textAlign: 'center',
-            fontWeight: 500,
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLDivElement).style.backgroundColor = 'var(--accent)';
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent';
-          }}
+          className="flex min-h-10 w-full items-center justify-center border-t border-border px-3 text-xs font-semibold text-primary outline-none transition-[color,background-color,box-shadow,transform] duration-150 ease-out hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/50 active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100"
         >
-          View all expenses &rarr;
-        </div>
-      )}
-    </div>
+          View all expenses <span aria-hidden="true">→</span>
+        </button>
+      ) : null}
+    </section>
   );
 }
-
-// ============================================================================
-// Inner Chart (receives explicit width/height)
-// ============================================================================
 
 function HeatmapChart({
   data,
@@ -319,187 +306,246 @@ function HeatmapChart({
   height,
   onDayClick,
   expenses,
-}: SpendingHeatmapProps & { width: number; height: number }) {
+  formatMoney = DEFAULT_FORMATTERS.formatMoney,
+  formatDate = DEFAULT_FORMATTERS.formatDate,
+}: SpendingHeatmapProps & Readonly<{ width: number; height: number }>) {
+  const titleId = useId();
+  const descriptionId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [activeDay, setActiveDay] = useState<ActiveDay | null>(null);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [activeDay, setActiveDay] = useState<ActiveDay | null>(null);
 
   const clearHideTimeout = useCallback(() => {
-    if (hideTimeoutRef.current) {
+    if (hideTimeoutRef.current !== null) {
       clearTimeout(hideTimeoutRef.current);
       hideTimeoutRef.current = null;
     }
   }, []);
-
+  const hideDay = useCallback(() => {
+    clearHideTimeout();
+    setActiveDay(null);
+  }, [clearHideTimeout]);
   const startHideTimeout = useCallback(() => {
     clearHideTimeout();
-    hideTimeoutRef.current = setTimeout(() => {
-      setActiveDay(null);
-    }, HIDE_DELAY);
+    hideTimeoutRef.current = setTimeout(() => setActiveDay(null), HIDE_DELAY);
   }, [clearHideTimeout]);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
-    };
-  }, []);
-
-  const margin = { top: 24, right: 12, bottom: 8, left: 32 };
-  const innerWidth = width - margin.left - margin.right;
-  const innerHeight = height - margin.top - margin.bottom;
+  useEffect(() => () => clearHideTimeout(), [clearHideTimeout]);
 
   const binData = useMemo(() => transformToBinData(data.days), [data.days]);
+  const innerWidth = Math.max(1, width - MARGIN.left - MARGIN.right);
+  const innerHeight = Math.max(1, height - MARGIN.top - MARGIN.bottom);
+  const weekCount = Math.max(binData.length, 1);
+  const horizontalGap = innerWidth / weekCount >= 4 ? 2 : 0.5;
+  const horizontalCell = Math.max(
+    0.5,
+    (innerWidth - horizontalGap * (weekCount - 1)) / weekCount
+  );
+  const verticalGap = innerHeight >= 28 ? 2 : 0.5;
+  const verticalCell = Math.max(0.5, (innerHeight - verticalGap * 6) / 7);
+  const cellSize = Math.min(horizontalCell, verticalCell);
+  const xStep =
+    weekCount > 1 ? Math.max(cellSize, (innerWidth - cellSize) / (weekCount - 1)) : 0;
+  const yStep = cellSize + verticalGap;
 
-  // Cell sizing: fit 53 weeks across the width
-  const gap = 2;
-  const numWeeks = binData.length || 53;
-  const cellSize = Math.max(2, Math.floor((innerWidth - gap * (numWeeks - 1)) / numWeeks));
-  const adjustedCellSize = Math.min(cellSize, Math.floor((innerHeight - gap * 6) / 7));
-
-  // CSS variables can't be interpolated by D3's scaleLinear, so we use
-  // an opacity scale with a fixed fill color for proper heat intensity.
   const opacityScale = useMemo(
     () =>
       scaleLinear<number>({
-        domain: [0, data.maxValue],
-        range: [0.08, 1],
+        domain: [0, Number.isFinite(data.maxValue) && data.maxValue > 0 ? data.maxValue : 1],
+        range: [0.18, 1],
         clamp: true,
       }),
     [data.maxValue]
   );
 
-  const xScale = useMemo(
+  const monthLabels = useMemo(() => {
+    const labels: Array<{ label: string; column: number }> = [];
+    let previousMonth = -1;
+    binData.forEach((week, column) => {
+      const day = week.bins.find((candidate) => candidate.inRange);
+      if (!day) return;
+      const parsed = utcDateFromKey(day.date);
+      if (!parsed || parsed.getUTCMonth() === previousMonth) return;
+      previousMonth = parsed.getUTCMonth();
+      labels.push({
+        column,
+        label: formatDate(day.date, { month: 'short' }),
+      });
+    });
+    return labels;
+  }, [binData, formatDate]);
+  const weekdayLabels = useMemo(
     () =>
-      scaleLinear<number>({
-        domain: [0, numWeeks - 1],
-        range: [0, (adjustedCellSize + gap) * (numWeeks - 1)],
+      Array.from({ length: 7 }, (_, index) => {
+        const sample = new Date('2026-07-05T00:00:00.000Z');
+        sample.setUTCDate(sample.getUTCDate() + index);
+        return formatDate(sample, { weekday: 'short' });
       }),
-    [numWeeks, adjustedCellSize, gap]
+    [formatDate]
   );
 
-  const yScale = useMemo(
-    () =>
-      scaleLinear<number>({
-        domain: [0, 6],
-        range: [0, (adjustedCellSize + gap) * 6],
-      }),
-    [adjustedCellSize, gap]
-  );
-
-  const monthLabels = useMemo(
-    () => getMonthLabels(binData, adjustedCellSize, gap),
-    [binData, adjustedCellSize, gap]
-  );
-
-  const handleCellEnter = useCallback(
-    (event: React.MouseEvent, bin: HeatmapBin) => {
+  const showDay = useCallback(
+    (bin: HeatmapBin, left: number, top: number) => {
       clearHideTimeout();
-      const container = containerRef.current;
-      if (!container) return;
-      const containerRect = container.getBoundingClientRect();
-      const svgEl = (event.currentTarget as SVGElement).closest('svg');
-      if (!svgEl) return;
-      const svgRect = svgEl.getBoundingClientRect();
-
-      // Position relative to the container
-      let left = event.clientX - containerRect.left + 12;
-      let top = event.clientY - containerRect.top - 10;
-
-      // Clamp: keep tooltip within the container bounds
-      const tooltipWidth = 320;
-      const tooltipHeight = 200;
-      if (left + tooltipWidth > containerRect.width) {
-        left = event.clientX - containerRect.left - tooltipWidth - 12;
-      }
-      if (top + tooltipHeight > containerRect.height) {
-        top = containerRect.height - tooltipHeight - 8;
-      }
-      if (top < 0) top = 8;
-
+      const tooltipWidth = Math.min(320, Math.max(width - 16, 0));
+      const clampedLeft = Math.max(8, Math.min(left, Math.max(8, width - tooltipWidth - 8)));
+      const clampedTop = Math.max(8, Math.min(top, Math.max(8, height - 184)));
       setActiveDay({
         date: bin.date,
         value: bin.value,
         count: bin.count,
-        categories: bin.categories,
-        left,
-        top,
+        categories: bin.categories?.map((category) => ({ ...category })),
+        left: clampedLeft,
+        top: clampedTop,
       });
     },
-    [clearHideTimeout]
+    [clearHideTimeout, height, width]
   );
 
-  const handleCellLeave = useCallback(() => {
-    startHideTimeout();
-  }, [startHideTimeout]);
+  const showMouseDay = useCallback(
+    (event: React.MouseEvent<SVGRectElement>, bin: HeatmapBin) => {
+      const container = containerRef.current;
+      const bounds = container?.getBoundingClientRect();
+      const left = bounds ? event.clientX - bounds.left + 12 : MARGIN.left + 12;
+      const top = bounds ? event.clientY - bounds.top - 10 : MARGIN.top + 8;
+      showDay(bin, left, top);
+    },
+    [showDay]
+  );
 
-  if (data.days.length === 0) {
+  if (binData.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+      <div className="flex h-full items-center justify-center text-pretty p-4 text-sm text-muted-foreground">
         No data available for heatmap.
       </div>
     );
   }
 
   return (
-    <div ref={containerRef} style={{ position: 'relative' }}>
-      <svg width={width} height={height}>
-        {/* Month labels along top */}
-        <Group left={margin.left} top={margin.top - 8}>
-          {monthLabels.map((m, i) => (
+    <div ref={containerRef} className="relative h-full min-h-0 w-full min-w-0">
+      <svg
+        width={width}
+        height={height}
+        role="img"
+        aria-labelledby={`${titleId} ${descriptionId}`}
+      >
+        <title id={titleId}>Daily spending heatmap</title>
+        <desc id={descriptionId}>
+          Calendar cells show daily spending intensity. Focus a valued day to inspect it.
+        </desc>
+
+        <Group
+          left={MARGIN.left}
+          top={MARGIN.top - 10}
+          role="group"
+          aria-label="Month labels"
+        >
+          {monthLabels.map((month) => (
             <text
-              key={`month-${i}`}
-              x={m.x}
+              key={`${month.column}:${month.label}`}
+              x={month.column * xStep}
               y={0}
               fontSize={10}
               fill="var(--muted-foreground)"
               textAnchor="start"
             >
-              {m.label}
+              {month.label}
             </text>
           ))}
         </Group>
 
-        {/* Day-of-week labels on left */}
-        <Group left={0} top={margin.top}>
-          {DAY_LABELS.map((label, i) => (
+        <Group
+          left={0}
+          top={MARGIN.top}
+          role="group"
+          aria-label="Weekday labels"
+        >
+          {weekdayLabels.map((label, index) => (
             <text
-              key={`day-${i}`}
-              x={margin.left - 6}
-              y={i * (adjustedCellSize + gap) + adjustedCellSize / 2}
+              key={`${index}:${label}`}
+              x={MARGIN.left - 6}
+              y={index * yStep + cellSize / 2}
               fontSize={9}
               fill="var(--muted-foreground)"
               textAnchor="end"
               dominantBaseline="middle"
             >
-              {label}
+              {index % 2 === 1 ? label : ''}
             </text>
           ))}
         </Group>
 
-        {/* Heatmap grid */}
-        <Group left={margin.left} top={margin.top}>
-          {binData.map((weekData, col) =>
-            weekData.bins.map((bin, row) => {
-              const x = xScale(col) ?? 0;
-              const y = yScale(row) ?? 0;
-              const hasValue = bin.value > 0;
+        <Group
+          left={MARGIN.left}
+          top={MARGIN.top}
+          role="group"
+          aria-label="Daily spending cells"
+        >
+          {binData.flatMap((week, column) =>
+            week.bins.map((bin, row) => {
+              const x = column * xStep;
+              const y = row * yStep;
+              const hasValue = bin.inRange && (bin.value !== 0 || bin.count !== 0);
+              const interactive = hasValue;
+              const dateLabel = interactive
+                ? formatDate(bin.date, {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })
+                : '';
+              const accessibleName = interactive
+                ? `${dateLabel}, ${formatMoney(bin.value)}, ${transactionLabel(bin.count)}`
+                : undefined;
+
               return (
                 <rect
-                  key={`heatmap-rect-${row}-${col}`}
-                  width={adjustedCellSize}
-                  height={adjustedCellSize}
+                  key={`${bin.date}:${row}:${column}`}
+                  width={cellSize}
+                  height={cellSize}
                   x={x}
                   y={y}
-                  rx={2}
+                  rx={Math.min(2, cellSize / 3)}
                   fill={hasValue ? 'var(--chart-1)' : 'var(--muted)'}
-                  opacity={hasValue ? opacityScale(bin.value) : 0.3}
-                  style={{ cursor: hasValue && onDayClick ? 'pointer' : 'default' }}
-                  onMouseEnter={(e) => handleCellEnter(e, bin)}
-                  onMouseLeave={handleCellLeave}
-                  onClick={() => {
-                    if (hasValue && onDayClick) onDayClick(bin.date);
-                  }}
+                  opacity={hasValue ? opacityScale(Math.abs(bin.value)) : bin.inRange ? 0.35 : 0.16}
+                  role={interactive ? 'button' : undefined}
+                  tabIndex={interactive ? 0 : undefined}
+                  aria-label={accessibleName}
+                  aria-hidden={interactive ? undefined : true}
+                  className={
+                    interactive
+                      ? 'cursor-pointer outline-none transition-[opacity,stroke,stroke-width] duration-150 ease-out hover:opacity-90 focus-visible:stroke-ring focus-visible:stroke-[3px] motion-reduce:transition-none'
+                      : undefined
+                  }
+                  onMouseEnter={
+                    interactive ? (event) => showMouseDay(event, bin) : undefined
+                  }
+                  onMouseLeave={interactive ? startHideTimeout : undefined}
+                  onFocus={
+                    interactive
+                      ? () => showDay(bin, MARGIN.left + x + cellSize + 10, MARGIN.top + y)
+                      : undefined
+                  }
+                  onBlur={interactive ? hideDay : undefined}
+                  onClick={
+                    interactive && onDayClick ? () => onDayClick(bin.date) : undefined
+                  }
+                  onKeyDown={
+                    interactive
+                      ? (event) => {
+                          if (event.key === 'Escape') {
+                            event.preventDefault();
+                            hideDay();
+                            return;
+                          }
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            onDayClick?.(bin.date);
+                          }
+                        }
+                      : undefined
+                  }
                 />
               );
             })
@@ -507,48 +553,49 @@ function HeatmapChart({
         </Group>
       </svg>
 
-      {/* Interactive sticky tooltip */}
-      {activeDay && (
+      {activeDay ? (
         <div
           onMouseEnter={clearHideTimeout}
           onMouseLeave={startHideTimeout}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') hideDay();
+          }}
+          className="absolute z-50 rounded-[10px] border border-border bg-popover text-popover-foreground shadow-sm"
           style={{
-            position: 'absolute',
             left: activeDay.left,
             top: activeDay.top,
-            zIndex: 50,
-            backgroundColor: 'var(--popover)',
-            color: 'var(--popover-foreground)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            fontSize: 12,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            pointerEvents: 'auto',
+            width: Math.min(320, Math.max(width - 16, 1)),
+            maxHeight: Math.max(height - 16, 1),
+            overflowY: 'auto',
           }}
         >
           <DayDetailCard
             activeDay={activeDay}
             expenses={expenses}
-            categories={activeDay.categories}
             onDayClick={onDayClick}
+            formatMoney={formatMoney}
+            formatDate={formatDate}
           />
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
-
-// ============================================================================
-// Exported Responsive Wrapper
-// ============================================================================
 
 export default function SpendingHeatmap(props: SpendingHeatmapProps) {
   return (
     <ParentSize>
       {({ width, height }) => {
-        if (width < 10) return null;
-        const chartHeight = Math.max(height, 140);
-        return <HeatmapChart {...props} width={width} height={chartHeight} />;
+        if (width < 64 || height < 64) {
+          return (
+            <div
+              role="img"
+              aria-label="Daily spending heatmap needs more space"
+              className="h-full w-full overflow-hidden"
+            />
+          );
+        }
+        return <HeatmapChart {...props} width={width} height={height} />;
       }}
     </ParentSize>
   );
