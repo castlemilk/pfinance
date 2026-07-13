@@ -38,7 +38,7 @@ func TestResolveAnalyticsScope(t *testing.T) {
 			want:            analyticsScope{userID: ownerID},
 		},
 		{
-			name:    "verified group membership resolves authenticated user and group",
+			name:    "verified group membership resolves group-wide scope",
 			groupID: groupID,
 			setup: func(mockStore *store.MockStore) {
 				mockStore.EXPECT().
@@ -49,7 +49,7 @@ func TestResolveAnalyticsScope(t *testing.T) {
 						MemberIds: []string{ownerID},
 					}, nil)
 			},
-			want: analyticsScope{userID: ownerID, groupID: groupID},
+			want: analyticsScope{groupID: groupID},
 		},
 		{
 			name:    "missing group maps store error",

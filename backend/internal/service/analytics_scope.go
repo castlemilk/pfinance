@@ -13,8 +13,9 @@ type analyticsScope struct {
 	groupID string
 }
 
-// resolveAnalyticsScope derives analytics ownership exclusively from authenticated
-// claims. requestedUserID remains in the signature for wire compatibility and is
+// resolveAnalyticsScope derives personal analytics ownership exclusively from
+// authenticated claims and group analytics from verified group membership.
+// requestedUserID remains in the signature for wire compatibility and is
 // intentionally ignored.
 func (s *FinanceService) resolveAnalyticsScope(
 	ctx context.Context,
@@ -22,9 +23,8 @@ func (s *FinanceService) resolveAnalyticsScope(
 	requestedUserID string,
 	groupID string,
 ) (analyticsScope, error) {
-	scope := analyticsScope{userID: claims.UID, groupID: groupID}
 	if groupID == "" {
-		return scope, nil
+		return analyticsScope{userID: claims.UID}, nil
 	}
 
 	group, err := s.store.GetGroup(ctx, groupID)
@@ -38,5 +38,5 @@ func (s *FinanceService) resolveAnalyticsScope(
 		)
 	}
 
-	return scope, nil
+	return analyticsScope{groupID: groupID}, nil
 }
