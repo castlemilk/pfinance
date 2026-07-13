@@ -269,10 +269,10 @@ async function installSharedFixtures(
           photoURL: null,
         })
       );
-      window.localStorage.setItem(
-        `pfinance-active-group-${userId}`,
-        activeGroupId
-      );
+      const activeGroupKey = `pfinance-active-group-${userId}`;
+      if (window.localStorage.getItem(activeGroupKey) === null) {
+        window.localStorage.setItem(activeGroupKey, activeGroupId);
+      }
     },
     { activeGroupId: options.activeGroupId, userId: TEST_USER_ID }
   );
@@ -373,6 +373,68 @@ async function waitForTwoAnimationFrames(page: Page) {
 
 test.describe('Shared analytics', () => {
   test.describe.configure({ timeout: 90_000 });
+
+  test('persists active group selection across reloads', async ({ page }) => {
+    await installSharedFixtures(page, {
+      activeGroupId: GROUP_B_ID,
+      groups: [
+        {
+          id: GROUP_A_ID,
+          name: GROUP_A_NAME,
+          memberUserId: TEST_USER_ID,
+        },
+        {
+          id: GROUP_B_ID,
+          name: GROUP_B_NAME,
+          memberUserId: TEST_USER_ID,
+        },
+      ],
+    });
+
+    await gotoSharedAnalytics(page, GROUP_B_NAME);
+    await selectGroup(page, GROUP_B_NAME, GROUP_A_NAME);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (userId) =>
+            window.localStorage.getItem(`pfinance-active-group-${userId}`),
+          TEST_USER_ID
+        )
+      )
+      .toBe(GROUP_A_ID);
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(
+      page.getByRole('button', {
+        name: `Active finance group: ${GROUP_A_NAME}`,
+      })
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(
+      page.getByRole('heading', {
+        level: 2,
+        name: `${GROUP_A_NAME} analytics`,
+      })
+    ).toBeVisible({ timeout: 30_000 });
+
+    await page
+      .getByRole('button', {
+        name: `Active finance group: ${GROUP_A_NAME}`,
+      })
+      .click();
+    const groupItems = page.getByRole('menuitemradio');
+    await expect(groupItems).toHaveCount(2);
+    await expect(
+      page.getByRole('menuitemradio', { name: `${GROUP_A_NAME}, 1 member` })
+    ).toHaveAttribute('aria-checked', 'true');
+    await expect
+      .poll(async () => {
+        const checkedStates = await groupItems.evaluateAll((items) =>
+          items.map((item) => item.getAttribute('aria-checked'))
+        );
+        return checkedStates.filter((state) => state === 'true').length;
+      })
+      .toBe(1);
+  });
 
   test('shared analytics isolates active group responses', async ({ page }) => {
     const quarterRequestStarted = deferred();

@@ -8,6 +8,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -26,15 +28,17 @@ import {
   ChevronDown, 
   UserPlus,
   DollarSign,
-  Calendar,
-  Check
+  Calendar
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useRouter } from 'next/navigation';
+import { useFinance } from '../context/FinanceContext';
+import { createAnalyticsCurrencyContext } from './analytics/formatting';
 
 export default function EnhancedGroupSelector() {
   const { user } = useAuth();
   const { groups, activeGroup, setActiveGroup, createGroup } = useMultiUserFinance();
+  const { taxConfig } = useFinance();
   const { toast } = useToast();
   const router = useRouter();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -42,6 +46,9 @@ export default function EnhancedGroupSelector() {
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDescription, setNewGroupDescription] = useState('');
   const [creating, setCreating] = useState(false);
+  const displayCurrency = createAnalyticsCurrencyContext(
+    taxConfig.country
+  ).currency;
 
   const handleGroupChange = (group: typeof activeGroup) => {
     if (group && group.id !== activeGroup?.id) {
@@ -108,17 +115,27 @@ export default function EnhancedGroupSelector() {
 
   return (
     <>
-      <div className="w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10 border-b">
-        <div className="container flex h-16 items-center justify-between px-4">
-          <div className="flex items-center gap-4">
-            <h2 className="text-lg font-semibold">Shared Finance</h2>
+      <header className="sticky top-14 z-10 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 lg:top-0">
+        <div
+          role="toolbar"
+          aria-label="Shared finance controls"
+          className="container flex h-auto min-h-16 min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-3"
+        >
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3 sm:gap-4">
+            <h1 className="shrink-0 text-lg font-semibold">Shared Finance</h1>
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="min-w-[200px] justify-between">
+                <Button
+                  variant="outline"
+                  aria-label={activeGroup
+                    ? `Active finance group: ${activeGroup.name}`
+                    : 'Choose active finance group'}
+                  className="min-h-10 min-w-0 max-w-full flex-1 justify-between sm:w-auto sm:min-w-[200px] sm:flex-none"
+                >
                   {activeGroup ? (
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Avatar aria-hidden="true" className="h-6 w-6">
                         <AvatarFallback className="text-xs">
                           {getGroupInitials(activeGroup.name)}
                         </AvatarFallback>
@@ -131,7 +148,10 @@ export default function EnhancedGroupSelector() {
                   <ChevronDown className="h-4 w-4 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[300px]">
+              <DropdownMenuContent
+                align="start"
+                className="w-[300px] max-w-[calc(100vw-2rem)]"
+              >
                 <DropdownMenuLabel>Your Finance Groups</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 
@@ -140,38 +160,45 @@ export default function EnhancedGroupSelector() {
                     No groups yet. Create one to get started!
                   </div>
                 ) : (
-                  groups.map((group) => (
-                    <DropdownMenuItem
-                      key={group.id}
-                      onClick={() => handleGroupChange(group)}
-                      className="cursor-pointer"
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="text-xs">
-                              {getGroupInitials(group.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{group.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {group.members.length} member{group.members.length !== 1 ? 's' : ''}
-                            </span>
+                  <DropdownMenuRadioGroup
+                    value={activeGroup?.id ?? ''}
+                    onValueChange={(groupId) => {
+                      const group = groups.find(({ id }) => id === groupId);
+                      if (group) handleGroupChange(group);
+                    }}
+                  >
+                    {groups.map((group) => {
+                      const memberCount = `${group.members.length} member${group.members.length === 1 ? '' : 's'}`;
+                      return (
+                        <DropdownMenuRadioItem
+                          key={group.id}
+                          value={group.id}
+                          aria-label={`${group.name}, ${memberCount}`}
+                          className="min-h-10 min-w-0 cursor-pointer"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <Avatar aria-hidden="true" className="h-8 w-8">
+                              <AvatarFallback className="text-xs">
+                                {getGroupInitials(group.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex min-w-0 flex-col">
+                              <span className="truncate font-medium">{group.name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {memberCount}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                        {activeGroup?.id === group.id && (
-                          <Check className="h-4 w-4 text-primary" />
-                        )}
-                      </div>
-                    </DropdownMenuItem>
-                  ))
+                        </DropdownMenuRadioItem>
+                      );
+                    })}
+                  </DropdownMenuRadioGroup>
                 )}
                 
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => setShowCreateDialog(true)}
-                  className="cursor-pointer"
+                  className="min-h-10 cursor-pointer"
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Create new group
@@ -179,7 +206,7 @@ export default function EnhancedGroupSelector() {
                 {activeGroup && (
                   <DropdownMenuItem
                     onClick={() => setShowManageDialog(true)}
-                    className="cursor-pointer"
+                    className="min-h-10 cursor-pointer"
                   >
                     <Settings className="mr-2 h-4 w-4" />
                     Manage current group
@@ -190,8 +217,13 @@ export default function EnhancedGroupSelector() {
           </div>
 
           {activeGroup && (
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="gap-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <Badge
+                role="status"
+                aria-label={`${activeGroup.members.length} members in active group`}
+                variant="outline"
+                className="min-h-10 min-w-10 gap-1 border-primary/30 bg-primary/10 px-3 text-foreground"
+              >
                 <Users className="h-3 w-3" />
                 {activeGroup.members.length}
               </Badge>
@@ -199,6 +231,7 @@ export default function EnhancedGroupSelector() {
                 variant="ghost"
                 size="sm"
                 onClick={() => router.push('/shared/groups')}
+                className="min-h-10 min-w-10"
               >
                 <Settings className="h-4 w-4 mr-2" />
                 Settings
@@ -206,7 +239,7 @@ export default function EnhancedGroupSelector() {
             </div>
           )}
         </div>
-      </div>
+      </header>
 
       {/* Create Group Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
@@ -227,6 +260,7 @@ export default function EnhancedGroupSelector() {
                 value={newGroupName}
                 onChange={(e) => setNewGroupName(e.target.value)}
                 disabled={creating}
+                className="min-h-10"
               />
             </div>
             
@@ -248,10 +282,15 @@ export default function EnhancedGroupSelector() {
               variant="outline"
               onClick={() => setShowCreateDialog(false)}
               disabled={creating}
+              className="min-h-10"
             >
               Cancel
             </Button>
-            <Button onClick={handleCreateGroup} disabled={creating}>
+            <Button
+              onClick={handleCreateGroup}
+              disabled={creating}
+              className="min-h-10"
+            >
               {creating ? 'Creating...' : 'Create Group'}
             </Button>
           </DialogFooter>
@@ -282,6 +321,7 @@ export default function EnhancedGroupSelector() {
                         setShowManageDialog(false);
                         router.push('/shared/groups');
                       }}
+                      className="min-h-10"
                     >
                       <UserPlus className="h-4 w-4 mr-1" />
                       Invite
@@ -302,7 +342,12 @@ export default function EnhancedGroupSelector() {
                           </div>
                         </div>
                         {member.role === 'owner' && (
-                          <Badge variant="secondary" className="text-xs">Owner</Badge>
+                          <Badge
+                            variant="outline"
+                            className="border-primary/30 bg-primary/10 text-xs text-foreground"
+                          >
+                            Owner
+                          </Badge>
                         )}
                       </div>
                     ))}
@@ -323,10 +368,10 @@ export default function EnhancedGroupSelector() {
                       </p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Currency</p>
+                      <p className="text-sm text-muted-foreground">Display currency</p>
                       <p className="text-sm font-medium">
                         <DollarSign className="inline h-3 w-3 mr-1" />
-                        USD
+                        {displayCurrency}
                       </p>
                     </div>
                   </div>
@@ -339,10 +384,11 @@ export default function EnhancedGroupSelector() {
             <Button
               variant="outline"
               onClick={() => setShowManageDialog(false)}
+              className="min-h-10"
             >
               Close
             </Button>
-            <Button onClick={handleManageGroups}>
+            <Button onClick={handleManageGroups} className="min-h-10">
               Full Settings
             </Button>
           </DialogFooter>
