@@ -108,10 +108,21 @@ function deferred<T>() {
 }
 
 function GroupStateProbe() {
-  const { groups, activeGroup, setActiveGroup, refreshGroups } = useMultiUserFinance();
+  const {
+    groups,
+    activeGroup,
+    setActiveGroup,
+    createGroup,
+    updateGroup,
+    deleteGroup,
+    leaveGroup,
+    refreshGroups,
+    loading,
+  } = useMultiUserFinance();
 
   return (
     <div>
+      <div data-testid="probe-loading">{loading ? 'loading' : 'loaded'}</div>
       <div data-testid="probe-active-group">{activeGroup?.name ?? 'none'}</div>
       <div data-testid="probe-groups">{groups.map(group => group.name).join(',')}</div>
       {groups.map(group => (
@@ -125,6 +136,27 @@ function GroupStateProbe() {
       ))}
       <button data-testid="refresh-groups" onClick={() => void refreshGroups()}>
         Refresh
+      </button>
+      <button data-testid="probe-create-group" onClick={() => void createGroup('Created Group')}>
+        Create
+      </button>
+      <button
+        data-testid="probe-update-group"
+        onClick={() => activeGroup && void updateGroup(activeGroup.id, `${activeGroup.name} updated`)}
+      >
+        Update
+      </button>
+      <button
+        data-testid="probe-delete-group"
+        onClick={() => activeGroup && void deleteGroup(activeGroup.id)}
+      >
+        Delete
+      </button>
+      <button
+        data-testid="probe-leave-group"
+        onClick={() => activeGroup && void leaveGroup(activeGroup.id)}
+      >
+        Leave
       </button>
     </div>
   );
@@ -220,20 +252,90 @@ describe('MultiUserFinanceContext', () => {
   });
 
   it.each([
-    ['missing preference', null],
-    ['stale preference', 'missing-group'],
-  ])('falls back to group A for a %s', async (_case, persistedId) => {
+    ['missing preference', null, ['group-a', 'group-b'], 'Group A', 'group-a'],
+    ['stale preference', 'missing-group', ['group-a', 'group-b'], 'Group A', 'group-a'],
+    ['stale preference with no groups', 'missing-group', [], 'none', null],
+  ])('persists the fallback for a %s', async (_case, persistedId, groupIds, activeName, expectedId) => {
     mockUseAuth.mockReturnValue(createAuthValue('user123'));
     if (persistedId) {
       window.localStorage.setItem('pfinance-active-group-user123', persistedId);
     }
     (financeClient.listGroups as jest.Mock).mockResolvedValue({
-      groups: [createMockGroup('group-a', 'Group A'), createMockGroup('group-b', 'Group B')],
+      groups: groupIds.map(id => createMockGroup(id, id === 'group-a' ? 'Group A' : 'Group B')),
     });
 
     render(<MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>);
 
+    await waitFor(() => {
+      expect(screen.getByTestId('probe-active-group')).toHaveTextContent(activeName);
+      expect(window.localStorage.getItem('pfinance-active-group-user123')).toBe(expectedId);
+    });
+  });
+
+  it('selects and persists a newly created group when no group is active', async () => {
+    mockUseAuth.mockReturnValue(createAuthValue('user123'));
+    (financeClient.createGroup as jest.Mock).mockResolvedValue({
+      group: createMockGroup('created-group', 'Created Group'),
+    });
+
+    render(<MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>);
+    await waitFor(() => expect(screen.getByTestId('probe-loading')).toHaveTextContent('loaded'));
+    await act(async () => {
+      screen.getByTestId('probe-create-group').click();
+    });
+
+    expect(screen.getByTestId('probe-active-group')).toHaveTextContent('Created Group');
+    expect(window.localStorage.getItem('pfinance-active-group-user123')).toBe('created-group');
+  });
+
+  it('keeps the selected ID while replacing the group object after update', async () => {
+    mockUseAuth.mockReturnValue(createAuthValue('user123'));
+    (financeClient.listGroups as jest.Mock).mockResolvedValue({
+      groups: [createMockGroup('group-a', 'Group A'), createMockGroup('group-b', 'Group B')],
+    });
+    (financeClient.updateGroup as jest.Mock).mockResolvedValue({
+      group: createMockGroup('group-b', 'Group B updated'),
+    });
+
+    render(<MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>);
+    await waitFor(() => expect(screen.getByTestId('select-group-b')).toBeInTheDocument());
+    await act(async () => {
+      screen.getByTestId('select-group-b').click();
+    });
+    await act(async () => {
+      screen.getByTestId('probe-update-group').click();
+    });
+
+    expect(screen.getByTestId('probe-active-group')).toHaveTextContent('Group B updated');
+    expect(window.localStorage.getItem('pfinance-active-group-user123')).toBe('group-b');
+  });
+
+  it.each([
+    ['deleting', 'probe-delete-group'],
+    ['leaving', 'probe-leave-group'],
+  ])('persists the next group after %s the active group, then clears the final selection', async (_case, actionId) => {
+    mockUseAuth.mockReturnValue(createAuthValue('user123'));
+    window.localStorage.setItem('pfinance-active-group-user123', 'group-a');
+    (financeClient.listGroups as jest.Mock).mockResolvedValue({
+      groups: [createMockGroup('group-a', 'Group A'), createMockGroup('group-b', 'Group B')],
+    });
+    (financeClient.deleteGroup as jest.Mock).mockResolvedValue({});
+    (financeClient.removeFromGroup as jest.Mock).mockResolvedValue({});
+
+    render(<MultiUserFinanceProvider><GroupStateProbe /></MultiUserFinanceProvider>);
     await waitFor(() => expect(screen.getByTestId('probe-active-group')).toHaveTextContent('Group A'));
+    await act(async () => {
+      screen.getByTestId(actionId).click();
+    });
+
+    expect(screen.getByTestId('probe-active-group')).toHaveTextContent('Group B');
+    expect(window.localStorage.getItem('pfinance-active-group-user123')).toBe('group-b');
+
+    await act(async () => {
+      screen.getByTestId(actionId).click();
+    });
+    expect(screen.getByTestId('probe-active-group')).toHaveTextContent('none');
+    expect(window.localStorage.getItem('pfinance-active-group-user123')).toBeNull();
   });
 
   it('persists an explicit selection under the authenticated user key', async () => {

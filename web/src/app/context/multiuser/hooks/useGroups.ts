@@ -71,15 +71,21 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
   const [error, setError] = useState<string | null>(null);
 
   const currentUserIdRef = useRef<string | null>(userId);
+  const groupStateRef = useRef<GroupState>(groupState);
   const requestSequenceRef = useRef(0);
   const latestRequestRef = useRef<{ userId: string; sequence: number } | null>(null);
   currentUserIdRef.current = userId;
+
+  const commitGroupState = useCallback((nextState: GroupState) => {
+    groupStateRef.current = nextState;
+    setGroupState(nextState);
+  }, []);
 
   const refreshGroups = useCallback(async () => {
     const requestUserId = userId;
     if (!requestUserId) {
       if (currentUserIdRef.current === null) {
-        setGroupState({ userId: null, groups: [], activeGroup: null });
+        commitGroupState({ userId: null, groups: [], activeGroup: null });
       }
       return;
     }
@@ -101,25 +107,23 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
       if (!isCurrentRequest()) return;
 
       const refreshedGroups = response.groups.map(mapProtoGroupToLocal);
-      setGroupState(previous => {
-        if (!isCurrentRequest()) return previous;
+      const previous = groupStateRef.current;
+      const currentGroupId = previous.userId === requestUserId
+        ? previous.activeGroup?.id
+        : undefined;
+      const persistedGroupId = getPersistedActiveGroupId(requestUserId);
+      const activeGroup = (
+        refreshedGroups.find(group => group.id === currentGroupId)
+        ?? refreshedGroups.find(group => group.id === persistedGroupId)
+        ?? refreshedGroups[0]
+        ?? null
+      );
 
-        const currentGroupId = previous.userId === requestUserId
-          ? previous.activeGroup?.id
-          : undefined;
-        const persistedGroupId = getPersistedActiveGroupId(requestUserId);
-        const activeGroup = (
-          refreshedGroups.find(group => group.id === currentGroupId)
-          ?? refreshedGroups.find(group => group.id === persistedGroupId)
-          ?? refreshedGroups[0]
-          ?? null
-        );
-
-        return {
-          userId: requestUserId,
-          groups: refreshedGroups,
-          activeGroup,
-        };
+      persistActiveGroupId(requestUserId, activeGroup?.id ?? null);
+      commitGroupState({
+        userId: requestUserId,
+        groups: refreshedGroups,
+        activeGroup,
       });
       setError(null);
     } catch (err) {
@@ -127,12 +131,12 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
       console.error('[useGroups] refreshGroups: Failed to load groups:', err);
       setError(err instanceof Error ? err.message : 'Failed to load groups');
     }
-  }, [userId]);
+  }, [commitGroupState, userId]);
 
   // Bind all visible group state to the current authenticated user.
   useEffect(() => {
     const effectUserId = userId;
-    setGroupState({ userId: effectUserId, groups: [], activeGroup: null });
+    commitGroupState({ userId: effectUserId, groups: [], activeGroup: null });
     setError(null);
 
     if (!effectUserId) {
@@ -146,19 +150,20 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
         setLoading(false);
       }
     });
-  }, [userId, refreshGroups]);
+  }, [commitGroupState, userId, refreshGroups]);
 
   const setActiveGroup = useCallback((group: FinanceGroup | null) => {
     const selectionUserId = userId;
     if (!selectionUserId || currentUserIdRef.current !== selectionUserId) return;
 
     persistActiveGroupId(selectionUserId, group?.id ?? null);
-    setGroupState(previous => ({
+    const previous = groupStateRef.current;
+    commitGroupState({
       userId: selectionUserId,
       groups: previous.userId === selectionUserId ? previous.groups : [],
       activeGroup: group,
-    }));
-  }, [userId]);
+    });
+  }, [commitGroupState, userId]);
 
   const createGroup = useCallback(async (name: string, description?: string): Promise<string> => {
     const requestUserId = userId;
@@ -173,15 +178,21 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
     if (response.group) {
       const newGroup = mapProtoGroupToLocal(response.group);
       if (currentUserIdRef.current === requestUserId) {
-        setGroupState(previous => {
-          if (previous.userId !== requestUserId) return previous;
-          return { ...previous, groups: [...previous.groups, newGroup] };
-        });
+        const previous = groupStateRef.current;
+        if (previous.userId === requestUserId) {
+          const activeGroup = previous.activeGroup ?? newGroup;
+          persistActiveGroupId(requestUserId, activeGroup.id);
+          commitGroupState({
+            ...previous,
+            groups: [...previous.groups, newGroup],
+            activeGroup,
+          });
+        }
       }
       return newGroup.id;
     }
     throw new Error('Failed to create group');
-  }, [userId]);
+  }, [commitGroupState, userId]);
 
   const updateGroup = useCallback(async (groupId: string, name: string, description?: string): Promise<void> => {
     const requestUserId = userId;
@@ -195,36 +206,42 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
 
     if (response.group && currentUserIdRef.current === requestUserId) {
       const updatedGroup = mapProtoGroupToLocal(response.group);
-      setGroupState(previous => {
-        if (previous.userId !== requestUserId) return previous;
-        return {
+      const previous = groupStateRef.current;
+      if (previous.userId === requestUserId) {
+        const activeGroup = previous.activeGroup?.id === groupId
+          ? updatedGroup
+          : previous.activeGroup;
+        persistActiveGroupId(requestUserId, activeGroup?.id ?? null);
+        commitGroupState({
           ...previous,
           groups: previous.groups.map(group => group.id === groupId ? updatedGroup : group),
-          activeGroup: previous.activeGroup?.id === groupId ? updatedGroup : previous.activeGroup,
-        };
-      });
+          activeGroup,
+        });
+      }
     }
-  }, [userId]);
+  }, [commitGroupState, userId]);
+
+  const removeGroupFromState = useCallback((requestUserId: string, groupId: string) => {
+    if (currentUserIdRef.current !== requestUserId) return;
+
+    const previous = groupStateRef.current;
+    if (previous.userId !== requestUserId) return;
+
+    const groups = previous.groups.filter(group => group.id !== groupId);
+    const activeGroup = previous.activeGroup?.id === groupId
+      ? groups[0] ?? null
+      : previous.activeGroup ?? groups[0] ?? null;
+    persistActiveGroupId(requestUserId, activeGroup?.id ?? null);
+    commitGroupState({ ...previous, groups, activeGroup });
+  }, [commitGroupState]);
 
   const deleteGroup = useCallback(async (groupId: string): Promise<void> => {
     const requestUserId = userId;
     if (!requestUserId) throw new Error('User must be authenticated');
 
     await financeClient.deleteGroup({ groupId });
-    if (currentUserIdRef.current !== requestUserId) return;
-
-    if (getPersistedActiveGroupId(requestUserId) === groupId) {
-      persistActiveGroupId(requestUserId, null);
-    }
-    setGroupState(previous => {
-      if (previous.userId !== requestUserId) return previous;
-      return {
-        ...previous,
-        groups: previous.groups.filter(group => group.id !== groupId),
-        activeGroup: previous.activeGroup?.id === groupId ? null : previous.activeGroup,
-      };
-    });
-  }, [userId]);
+    removeGroupFromState(requestUserId, groupId);
+  }, [removeGroupFromState, userId]);
 
   const leaveGroup = useCallback(async (groupId: string): Promise<void> => {
     const requestUserId = userId;
@@ -234,20 +251,8 @@ export function useGroups({ user }: UseGroupsOptions): UseGroupsReturn {
       groupId,
       userId: requestUserId,
     });
-    if (currentUserIdRef.current !== requestUserId) return;
-
-    if (getPersistedActiveGroupId(requestUserId) === groupId) {
-      persistActiveGroupId(requestUserId, null);
-    }
-    setGroupState(previous => {
-      if (previous.userId !== requestUserId) return previous;
-      return {
-        ...previous,
-        groups: previous.groups.filter(group => group.id !== groupId),
-        activeGroup: previous.activeGroup?.id === groupId ? null : previous.activeGroup,
-      };
-    });
-  }, [userId]);
+    removeGroupFromState(requestUserId, groupId);
+  }, [removeGroupFromState, userId]);
 
   const stateBelongsToCurrentUser = groupState.userId === userId;
 
