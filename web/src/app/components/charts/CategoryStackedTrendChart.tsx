@@ -109,12 +109,12 @@ function parsePoints(
     .map((point): ChartPoint | null => {
       const dateValue = parseUtcDateKey(point.date);
       if (!dateValue || !Number.isFinite(point.total)) return null;
-      const copiedCategories = Object.fromEntries(
-        categories.map((category) => {
-          const amount = point.categories[category] ?? 0;
-          return [category, Number.isFinite(amount) ? amount : 0];
-        })
-      );
+      const copiedCategories: Record<string, number> = {};
+      for (const category of categories) {
+        const amount = point.categories[category];
+        if (amount !== undefined && !Number.isFinite(amount)) return null;
+        copiedCategories[category] = amount ?? 0;
+      }
       return {
         date: point.date,
         label: point.label,

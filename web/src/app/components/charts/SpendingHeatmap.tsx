@@ -184,6 +184,7 @@ function DayDetailCard({
     () =>
       (expenses ?? [])
         .filter((expense) => toUtcDateKey(expense.date) === activeDay.date)
+        .filter((expense) => Number.isFinite(expense.amount))
         .map((expense) => ({ ...expense, date: new Date(expense.date.getTime()) }))
         .sort((left, right) => right.amount - left.amount),
     [activeDay.date, expenses]
@@ -192,7 +193,10 @@ function DayDetailCard({
     () =>
       (activeDay.categories ?? [])
         .map((category) => ({ ...category }))
-        .filter((category) => Number.isFinite(category.amount))
+        .filter(
+          (category) =>
+            Number.isFinite(category.amount) && Number.isFinite(category.count)
+        )
         .sort((left, right) => right.amount - left.amount),
     [activeDay.categories]
   );

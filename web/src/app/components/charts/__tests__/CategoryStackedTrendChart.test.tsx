@@ -137,6 +137,7 @@ describe('CategoryStackedTrendChart', () => {
       <CategoryStackedTrendChart
         points={[
           { date: 'bad', label: 'Bad', total: Number.NaN, categories: { Food: 8 } },
+          { date: '2026-07-02', label: 'Bad category', total: 8, categories: { Food: Number.NaN } },
           { date: '2026-07-01', label: 'One', total: 8, categories: { Food: 8 } },
         ]}
         categories={['Food']}
@@ -145,6 +146,9 @@ describe('CategoryStackedTrendChart', () => {
     const chart = screen.getByRole('img', { name: /category spending over time/i });
     expect(Date.parse(chart.getAttribute('data-x-domain-start') ?? '')).toBeLessThan(
       Date.parse(chart.getAttribute('data-x-domain-end') ?? '')
+    );
+    expect(Date.parse(chart.getAttribute('data-x-domain-end') ?? '')).toBeLessThan(
+      Date.parse('2026-07-02T00:00:00.000Z')
     );
     expect(singleton.container.innerHTML).not.toMatch(/NaN|Infinity/);
   });

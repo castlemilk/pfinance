@@ -108,6 +108,14 @@ describe('SpendingHeatmap', () => {
         date: new Date('2026-07-01T23:30:00.000Z'),
         frequency: 'once',
       }),
+      Object.freeze({
+        id: 'expense-invalid',
+        description: 'Invalid amount',
+        amount: Number.NaN,
+        category: 'Other',
+        date: new Date('2026-07-01T12:00:00.000Z'),
+        frequency: 'once',
+      }),
     ]) as unknown as Expense[];
     const data = Object.freeze({
       maxValue: 9,
@@ -118,6 +126,7 @@ describe('SpendingHeatmap', () => {
           count: 1,
           categories: Object.freeze([
             Object.freeze({ category: 'Food', amount: 9, count: 1 }),
+            Object.freeze({ category: 'Invalid category', amount: 4, count: Number.NaN }),
           ]),
         }),
       ]),
@@ -134,6 +143,9 @@ describe('SpendingHeatmap', () => {
     );
 
     fireEvent.focus(screen.getByRole('button', { name: /day 2026-07-01, credits 9.00/i }));
+    expect(screen.queryByText('Invalid amount')).not.toBeInTheDocument();
+    expect(screen.queryByText('Invalid category')).not.toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('NaN');
     const expense = screen.getByRole('button', { name: /Frozen lunch.*credits 9.00/i });
     expect(expense).toHaveClass('min-h-10');
     fireEvent.click(expense);
