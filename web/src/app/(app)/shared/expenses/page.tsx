@@ -1,5 +1,7 @@
 'use client';
 
+import { useCallback, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import GroupExpenseForm from '../../../components/GroupExpenseForm';
 import GroupExpenseList from '../../../components/GroupExpenseList';
@@ -7,10 +9,21 @@ import { useMultiUserFinance } from '../../../context/MultiUserFinanceContext';
 import { useAuth } from '../../../context/AuthWithAdminContext';
 import { Users, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AnalyticsExpenseFilterSummary } from '../../../components/analytics/AnalyticsExpenseFilterSummary';
+import { parseAnalyticsExpenseFilters } from '../../../utils/analyticsExpenseFilters';
 
 export default function SharedExpensesPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const { user, loading } = useAuth();
   const { activeGroup, getUserOwedAmount, getUserOwesAmount } = useMultiUserFinance();
+  const analyticsFilters = useMemo(
+    () => parseAnalyticsExpenseFilters(searchParams),
+    [searchParams]
+  );
+  const handleClearAnalyticsFilters = useCallback(() => {
+    router.replace('/shared/expenses');
+  }, [router]);
 
   if (loading) {
     return null;
@@ -60,6 +73,11 @@ export default function SharedExpensesPage() {
           Upload receipts, import statements, and split expenses with your group
         </p>
       </div>
+
+      <AnalyticsExpenseFilterSummary
+        filters={analyticsFilters}
+        onClear={handleClearAnalyticsFilters}
+      />
 
       {/* Balance Summary */}
       <Card>
@@ -115,7 +133,10 @@ export default function SharedExpensesPage() {
         </Card>
       </div>
 
-      <GroupExpenseList groupId={activeGroup.id} />
+      <GroupExpenseList
+        groupId={activeGroup.id}
+        analyticsFilters={analyticsFilters}
+      />
     </div>
   );
 }

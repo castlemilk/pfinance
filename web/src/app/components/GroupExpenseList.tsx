@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthWithAdminContext';
 import { useMultiUserFinance } from '../context/MultiUserFinanceContext';
 import { Expense, ExpenseAllocation, SplitType, ExpenseCategory } from '@/gen/pfinance/v1/types_pb';
@@ -27,18 +27,80 @@ import {
   XCircle,
   DollarSign
 } from 'lucide-react';
+import {
+  hasAnalyticsExpenseFilters,
+  matchesAnalyticsExpenseFilters,
+  type AnalyticsExpenseFilters,
+} from '../utils/analyticsExpenseFilters';
 
 interface GroupExpenseListProps {
   groupId: string;
+  analyticsFilters?: AnalyticsExpenseFilters;
 }
 
-export default function GroupExpenseList({ }: GroupExpenseListProps) {
+const EMPTY_ANALYTICS_FILTERS: AnalyticsExpenseFilters = {};
+
+export default function GroupExpenseList({
+  groupId,
+  analyticsFilters,
+}: GroupExpenseListProps) {
   const { user } = useAuth();
   const { activeGroup, groupExpenses } = useMultiUserFinance();
-  const [loading] = useState(false);
+  const focusedExpenseRef = useRef<HTMLTableRowElement | null>(null);
+  const lastScrolledFocusKeyRef = useRef<string | null>(null);
+  const activeAnalyticsFilters =
+    analyticsFilters ?? EMPTY_ANALYTICS_FILTERS;
 
-  // Use expenses from context which are already being refreshed
-  const expenses = groupExpenses;
+  const filteredExpenses = useMemo(
+    () =>
+      groupExpenses.filter(
+        (expense) =>
+          expense.groupId === groupId &&
+          matchesAnalyticsExpenseFilters(expense, activeAnalyticsFilters)
+      ),
+    [activeAnalyticsFilters, groupExpenses, groupId]
+  );
+  const focusedExpense = activeAnalyticsFilters.expenseId
+    ? filteredExpenses.find(
+        (expense) => expense.id === activeAnalyticsFilters.expenseId
+      )
+    : undefined;
+  const focusedExpenseMissing =
+    activeAnalyticsFilters.expenseId !== undefined && !focusedExpense;
+  const expenses = focusedExpenseMissing ? [] : filteredExpenses;
+  const analyticsFilterKey = [
+    groupId,
+    activeAnalyticsFilters.date ?? '',
+    activeAnalyticsFilters.category ?? '',
+    activeAnalyticsFilters.from ?? '',
+    activeAnalyticsFilters.to ?? '',
+    activeAnalyticsFilters.expenseId ?? '',
+  ].join('|');
+
+  useEffect(() => {
+    if (!activeAnalyticsFilters.expenseId || focusedExpenseMissing) {
+      lastScrolledFocusKeyRef.current = null;
+      return;
+    }
+    if (
+      !focusedExpenseRef.current ||
+      lastScrolledFocusKeyRef.current === analyticsFilterKey
+    ) {
+      return;
+    }
+
+    const reduceMotion =
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    focusedExpenseRef.current.scrollIntoView({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      block: 'center',
+    });
+    lastScrolledFocusKeyRef.current = analyticsFilterKey;
+  }, [
+    activeAnalyticsFilters.expenseId,
+    analyticsFilterKey,
+    focusedExpenseMissing,
+  ]);
 
   const formatDate = (date: Timestamp | Date | string | number | undefined) => {
     if (!date) return '';
@@ -148,10 +210,6 @@ export default function GroupExpenseList({ }: GroupExpenseListProps) {
     };
   };
 
-  if (loading) {
-    return <div>Loading expenses...</div>;
-  }
-
   return (
     <Card className="w-full">
       <CardHeader>
@@ -174,7 +232,10 @@ export default function GroupExpenseList({ }: GroupExpenseListProps) {
             {expenses.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  No expenses yet
+                  {analyticsFilters &&
+                  hasAnalyticsExpenseFilters(activeAnalyticsFilters)
+                    ? 'No group expenses match the active analytics filters.'
+                    : 'No expenses yet'}
                 </TableCell>
               </TableRow>
             ) : (
@@ -183,7 +244,29 @@ export default function GroupExpenseList({ }: GroupExpenseListProps) {
                 const isUserPayer = expense.paidByUserId === user?.uid;
                 
                 return (
-                  <TableRow key={expense.id}>
+                  <TableRow
+                    key={expense.id}
+                    ref={
+                      activeAnalyticsFilters.expenseId === expense.id
+                        ? focusedExpenseRef
+                        : undefined
+                    }
+                    aria-current={
+                      activeAnalyticsFilters.expenseId === expense.id
+                        ? 'true'
+                        : undefined
+                    }
+                    aria-label={
+                      activeAnalyticsFilters.expenseId === expense.id
+                        ? `Focused expense ${expense.description}`
+                        : undefined
+                    }
+                    className={
+                      activeAnalyticsFilters.expenseId === expense.id
+                        ? 'bg-primary/10 ring-1 ring-inset ring-primary/40'
+                        : undefined
+                    }
+                  >
                     <TableCell className="font-medium">
                       {formatDate(expense.date)}
                     </TableCell>

@@ -5,6 +5,8 @@ import { FinanceProvider, useFinance } from '../context/FinanceContext';
 import { AdminProvider } from '../context/AdminContext';
 import { AuthWithAdminProvider } from '../context/AuthWithAdminContext';
 import { MultiUserFinanceProvider } from '../context/MultiUserFinanceContext';
+import type { Expense } from '../types';
+import { financeClient } from '@/lib/financeService';
 
 // Mock financeService to prevent network calls
 jest.mock('@/lib/financeService', () => ({
@@ -12,8 +14,26 @@ jest.mock('@/lib/financeService', () => ({
     listGroups: jest.fn().mockResolvedValue({ groups: [] }),
     listExpenses: jest.fn().mockResolvedValue({ expenses: [] }),
     listIncomes: jest.fn().mockResolvedValue({ incomes: [] }),
+    searchTransactions: jest.fn().mockResolvedValue({ results: [], totalCount: 0 }),
   },
 }));
+
+jest.mock('../context/AuthWithAdminContext', () => {
+  const originalModule = jest.requireActual(
+    '../context/AuthWithAdminContext'
+  );
+  const user = { uid: 'user-1' };
+
+  return {
+    ...originalModule,
+    AuthWithAdminProvider: ({ children }: { children: React.ReactNode }) =>
+      children,
+    useAuth: jest.fn(() => ({
+      user,
+      loading: false,
+    })),
+  };
+});
 
 // Mock the useFinance hook
 jest.mock('../context/FinanceContext', () => {
@@ -21,6 +41,7 @@ jest.mock('../context/FinanceContext', () => {
   
   return {
     ...originalModule,
+    FinanceProvider: ({ children }: { children: React.ReactNode }) => children,
     useFinance: jest.fn(() => ({
       expenses: [
         {
@@ -71,23 +92,54 @@ jest.mock('../context/FinanceContext', () => {
   };
 });
 
-const renderExpenseList = () => {
-  const result = render(
+jest.mock('../context/MultiUserFinanceContext', () => {
+  const originalModule = jest.requireActual(
+    '../context/MultiUserFinanceContext'
+  );
+
+  return {
+    ...originalModule,
+    MultiUserFinanceProvider: ({ children }: { children: React.ReactNode }) =>
+      children,
+    useMultiUserFinance: jest.fn(() => ({ groups: [] })),
+  };
+});
+
+const ExpenseListTestTree = (
+  props: React.ComponentProps<typeof ExpenseList> = {}
+) => (
     <AdminProvider>
       <AuthWithAdminProvider>
         <MultiUserFinanceProvider>
           <FinanceProvider>
-            <ExpenseList />
+            <ExpenseList {...props} />
           </FinanceProvider>
         </MultiUserFinanceProvider>
       </AuthWithAdminProvider>
     </AdminProvider>
-  );
-  return result;
-};
+);
+
+const renderExpenseList = (
+  props: React.ComponentProps<typeof ExpenseList> = {}
+) => render(<ExpenseListTestTree {...props} />);
 
 /** Returns queries scoped to the desktop table view (hidden md:block). */
 const getDesktopTable = () => within(screen.getByTestId('expense-table-desktop'));
+
+const financeMock = (expenses: Expense[]) => ({
+  expenses,
+  deleteExpense: jest.fn(),
+  deleteExpenses: jest.fn(),
+  updateExpense: jest.fn(),
+  taxConfig: { country: 'australia' },
+});
+
+beforeAll(() => {
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+    configurable: true,
+    value: jest.fn(),
+  });
+});
 
 describe('ExpenseList Component', () => {
   beforeEach(() => {
@@ -229,4 +281,271 @@ describe('ExpenseList Component', () => {
       'expense1', 'expense2', 'expense3', 'expense4', 'expense5'
     ]);
   });
-}); 
+
+  test('applies analytics date-range and category filters before pagination', async () => {
+    const expenses: Expense[] = [
+      {
+        id: 'matching-personal',
+        description: 'Matching personal groceries',
+        amount: 84,
+        category: 'Food',
+        frequency: 'once',
+        date: new Date('2026-07-13T23:59:59.999Z'),
+      },
+      {
+        id: 'outside-range',
+        description: 'Outside range groceries',
+        amount: 22,
+        category: 'Food',
+        frequency: 'once',
+        date: new Date('2026-08-01T00:00:00.000Z'),
+      },
+      {
+        id: 'wrong-category',
+        description: 'In-range personal rent',
+        amount: 900,
+        category: 'Housing',
+        frequency: 'once',
+        date: new Date('2026-07-13T12:00:00.000Z'),
+      },
+    ];
+    (useFinance as jest.Mock).mockImplementation(() => financeMock(expenses));
+
+    renderExpenseList({
+      analyticsFilters: {
+        category: 'food',
+        from: '2026-07-01',
+        to: '2026-07-31',
+      },
+    });
+
+    const desktop = getDesktopTable();
+    expect(await desktop.findByText('Matching personal groceries')).toBeVisible();
+    expect(desktop.queryByText('Outside range groceries')).not.toBeInTheDocument();
+    expect(desktop.queryByText('In-range personal rent')).not.toBeInTheDocument();
+  });
+
+  test('opens the page containing a focused analytics expense before highlighting it', async () => {
+    const expenses: Expense[] = Array.from({ length: 30 }, (_, index) => ({
+      id: index === 27 ? 'focus-me' : `personal-${index + 1}`,
+      description: index === 27 ? 'Later focused expense' : `Personal expense ${index + 1}`,
+      amount: index + 1,
+      category: 'Food',
+      frequency: 'once',
+      date: new Date(`2026-07-${String((index % 28) + 1).padStart(2, '0')}T12:00:00.000Z`),
+    }));
+    (useFinance as jest.Mock).mockImplementation(() => financeMock(expenses));
+
+    renderExpenseList({ analyticsFilters: { expenseId: 'focus-me' } });
+
+    const focusedRows = await screen.findAllByLabelText(
+      'Focused expense Later focused expense'
+    );
+    expect(focusedRows).toHaveLength(2);
+    focusedRows.forEach((row) => expect(row).toHaveAttribute('aria-current', 'true'));
+    expect(screen.getByText('Showing 26-30 of 30')).toBeVisible();
+    expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalledWith({
+      behavior: 'smooth',
+      block: 'center',
+    });
+  });
+
+  test('shift-selects only visible expenses on the focused filtered page', async () => {
+    const mockDeleteExpenses = jest.fn();
+    const expenses: Expense[] = [
+      {
+        id: 'hidden-housing',
+        description: 'Hidden housing expense',
+        amount: 900,
+        category: 'Housing',
+        frequency: 'once',
+        date: new Date('2026-07-01T12:00:00.000Z'),
+      },
+      ...Array.from({ length: 30 }, (_, index) => ({
+        id: `food-${index + 1}`,
+        description: `Food expense ${index + 1}`,
+        amount: index + 1,
+        category: 'Food' as const,
+        frequency: 'once' as const,
+        date: new Date(
+          `2026-07-${String((index % 28) + 1).padStart(2, '0')}T12:00:00.000Z`
+        ),
+      })),
+    ];
+    (useFinance as jest.Mock).mockImplementation(() => ({
+      ...financeMock(expenses),
+      deleteExpenses: mockDeleteExpenses,
+    }));
+
+    renderExpenseList({
+      analyticsFilters: { category: 'food', expenseId: 'food-28' },
+    });
+
+    expect(await screen.findByText('Showing 26-30 of 30')).toBeVisible();
+    const checkboxes = getDesktopTable().getAllByRole('checkbox');
+    fireEvent.click(checkboxes[1]);
+    fireEvent.keyDown(window, { key: 'Shift' });
+    fireEvent.click(checkboxes[3]);
+    fireEvent.keyUp(window, { key: 'Shift' });
+
+    const deleteButton = await screen.findByRole('button', {
+      name: /Delete Selected.*3/i,
+    });
+    fireEvent.click(deleteButton);
+
+    expect(mockDeleteExpenses).toHaveBeenCalledWith([
+      'food-26',
+      'food-27',
+      'food-28',
+    ]);
+    expect(mockDeleteExpenses).not.toHaveBeenCalledWith(
+      expect.arrayContaining(['hidden-housing'])
+    );
+  });
+
+  test('disables global search while analytics filters are active', async () => {
+    (useFinance as jest.Mock).mockImplementation(() =>
+      financeMock([
+        {
+          id: 'filtered-food',
+          description: 'Filtered groceries',
+          amount: 32,
+          category: 'Food',
+          frequency: 'once',
+          date: new Date('2026-07-13T12:00:00.000Z'),
+        },
+      ])
+    );
+
+    renderExpenseList({ analyticsFilters: { category: 'food' } });
+
+    const search = screen.getByRole('textbox', { name: 'Search expenses' });
+    expect(search).toBeDisabled();
+    expect(search).toHaveAttribute(
+      'placeholder',
+      'Clear analytics filters to search all expenses'
+    );
+    expect(await screen.findAllByText('Filtered groceries')).toHaveLength(2);
+    expect(financeClient.searchTransactions).not.toHaveBeenCalled();
+  });
+
+  test('restores a focused analytics row when filters replace an active search', async () => {
+    (financeClient.searchTransactions as jest.Mock).mockResolvedValueOnce({
+      results: [
+        {
+          id: 'search-result',
+          description: 'Unscoped search result',
+          amount: 19,
+          amountCents: BigInt(0),
+          category: 'Other',
+          groupId: '',
+        },
+      ],
+      totalCount: 1,
+    });
+    (useFinance as jest.Mock).mockImplementation(() =>
+      financeMock([
+        {
+          id: 'focus-after-search',
+          description: 'Focus after search',
+          amount: 32,
+          category: 'Food',
+          frequency: 'once',
+          date: new Date('2026-07-13T12:00:00.000Z'),
+        },
+      ])
+    );
+
+    const view = renderExpenseList();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search expenses' }), {
+      target: { value: 'unscoped' },
+    });
+    await waitFor(() => {
+      expect(financeClient.searchTransactions).toHaveBeenCalledTimes(1);
+    });
+
+    view.rerender(
+      <ExpenseListTestTree
+        analyticsFilters={{ expenseId: 'focus-after-search' }}
+      />
+    );
+
+    expect(
+      await screen.findAllByLabelText('Focused expense Focus after search')
+    ).toHaveLength(2);
+    expect(screen.queryByText('Unscoped search result')).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Search expenses' })).toBeDisabled();
+    await waitFor(() => {
+      expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalledWith({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    });
+  });
+
+  test('uses instant focus scrolling when reduced motion is requested', async () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = jest.fn().mockImplementation((query: string) => ({
+      matches: query === '(prefers-reduced-motion: reduce)',
+      media: query,
+      onchange: null,
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    }));
+    (useFinance as jest.Mock).mockImplementation(() => financeMock([
+      {
+        id: 'reduced-motion-focus',
+        description: 'Reduced motion focus',
+        amount: 18,
+        category: 'Food',
+        frequency: 'once',
+        date: new Date('2026-07-13T12:00:00.000Z'),
+      },
+    ]));
+
+    try {
+      renderExpenseList({
+        analyticsFilters: { expenseId: 'reduced-motion-focus' },
+      });
+
+      await screen.findAllByLabelText('Focused expense Reduced motion focus');
+      await waitFor(() => {
+        expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalledWith({
+          behavior: 'auto',
+          block: 'center',
+        });
+      });
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
+  });
+
+  test('shows a filtered-empty result when the focused ID is outside personal scope', async () => {
+    (useFinance as jest.Mock).mockImplementation(() => financeMock([
+      {
+        id: 'personal-only',
+        description: 'Scoped personal expense',
+        amount: 32,
+        category: 'Food',
+        frequency: 'once',
+        date: new Date('2026-07-13T12:00:00.000Z'),
+      },
+    ]));
+
+    renderExpenseList({
+      analyticsFilters: {
+        date: '2026-07-13',
+        expenseId: 'foreign-expense',
+      },
+    });
+
+    expect(
+      await screen.findByText('No expenses match the active analytics filters.')
+    ).toBeVisible();
+    expect(screen.queryByText('Scoped personal expense')).not.toBeInTheDocument();
+    expect(financeClient.searchTransactions).not.toHaveBeenCalled();
+  });
+});

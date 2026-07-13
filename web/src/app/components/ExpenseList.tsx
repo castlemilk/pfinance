@@ -48,6 +48,11 @@ import ContributeExpenseModal from './ContributeExpenseModal';
 import { useMultiUserFinance } from '../context/MultiUserFinanceContext';
 import { SearchResult, TransactionType } from '@/gen/pfinance/v1/types_pb';
 import { timestampDate } from '@bufbuild/protobuf/wkt';
+import {
+  hasAnalyticsExpenseFilters,
+  matchesAnalyticsExpenseFilters,
+  type AnalyticsExpenseFilters,
+} from '../utils/analyticsExpenseFilters';
 
 const PAGE_SIZE = 25;
 
@@ -60,6 +65,8 @@ type EditFormData = {
 
 interface ExpenseListProps {
   limit?: number;
+  /** Validated filters supplied by an analytics drill-down route. */
+  analyticsFilters?: AnalyticsExpenseFilters;
   /** YYYY-MM-DD date string to filter expenses to a specific day */
   filterDate?: string | null;
   /** Called when the user clears the date filter */
@@ -88,7 +95,12 @@ function searchResultToDisplay(result: SearchResult): {
   };
 }
 
-export default function ExpenseList({ limit, filterDate, onClearFilter }: ExpenseListProps = {}) {
+export default function ExpenseList({
+  limit,
+  analyticsFilters,
+  filterDate,
+  onClearFilter,
+}: ExpenseListProps = {}) {
   const { expenses, deleteExpense, deleteExpenses, updateExpense, taxConfig } = useFinance();
   const { user } = useAuth();
   const { groups } = useMultiUserFinance();
@@ -102,6 +114,10 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<Set<string>>(new Set());
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
   const [isShiftPressed, setIsShiftPressed] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
+  const mobileFocusedExpenseRef = useRef<HTMLDivElement | null>(null);
+  const desktopFocusedExpenseRef = useRef<HTMLTableRowElement | null>(null);
+  const lastScrolledFocusKeyRef = useRef<string | null>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -120,45 +136,159 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
   // Check if user has groups to share with
   const canShare = groups.length > 0;
 
-  // Filter expenses by date and/or category
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  const activeAnalyticsFilters = useMemo<AnalyticsExpenseFilters>(() => {
+    if (analyticsFilters) {
+      return analyticsFilters;
+    }
+
+    return filterDate ? { date: filterDate } : {};
+  }, [analyticsFilters, filterDate]);
+
+  const analyticsFilterKey = [
+    activeAnalyticsFilters.date ?? '',
+    activeAnalyticsFilters.category ?? '',
+    activeAnalyticsFilters.from ?? '',
+    activeAnalyticsFilters.to ?? '',
+    activeAnalyticsFilters.expenseId ?? '',
+  ].join('|');
+  const hasActiveAnalyticsFilters = hasAnalyticsExpenseFilters(
+    activeAnalyticsFilters
+  );
+
+  // Apply route filters and the local category control before pagination.
   const filteredExpenses = useMemo(() => {
     let out = expenses;
-    if (filterDate) {
-      out = out.filter((e) => {
-        const d = e.date;
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        return `${yyyy}-${mm}-${dd}` === filterDate;
-      });
+    if (hasAnalyticsExpenseFilters(activeAnalyticsFilters)) {
+      out = out.filter((expense) =>
+        matchesAnalyticsExpenseFilters(expense, activeAnalyticsFilters)
+      );
     }
     if (categoryFilter !== 'all') {
       out = out.filter((e) => e.category === categoryFilter);
     }
     return out;
-  }, [expenses, filterDate, categoryFilter]);
+  }, [activeAnalyticsFilters, categoryFilter, expenses]);
+
+  const focusedExpenseIndex = activeAnalyticsFilters.expenseId
+    ? filteredExpenses.findIndex(
+        (expense) => expense.id === activeAnalyticsFilters.expenseId
+      )
+    : -1;
+  const focusedExpenseMissing =
+    activeAnalyticsFilters.expenseId !== undefined && focusedExpenseIndex < 0;
+  const visibleFilteredExpenses = useMemo(
+    () => (focusedExpenseMissing ? [] : filteredExpenses),
+    [filteredExpenses, focusedExpenseMissing]
+  );
 
   // Pagination computed values
-  const totalPages = Math.max(1, Math.ceil(filteredExpenses.length / PAGE_SIZE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(visibleFilteredExpenses.length / PAGE_SIZE)
+  );
   const paginatedExpenses = useMemo(() => {
-    if (limit) return filteredExpenses.slice(0, limit);
+    if (limit) return visibleFilteredExpenses.slice(0, limit);
     const start = (currentPage - 1) * PAGE_SIZE;
-    return filteredExpenses.slice(start, start + PAGE_SIZE);
-  }, [filteredExpenses, currentPage, limit]);
+    return visibleFilteredExpenses.slice(start, start + PAGE_SIZE);
+  }, [currentPage, limit, visibleFilteredExpenses]);
 
-  // Reset page when filters or data change
   useEffect(() => {
-    setCurrentPage(1);
-  }, [filterDate, categoryFilter, expenses]);
+    setSelectedExpenseIds(new Set());
+    setLastSelectedIndex(null);
+  }, [analyticsFilterKey, categoryFilter]);
+
+  useEffect(() => {
+    setLastSelectedIndex(null);
+  }, [currentPage]);
+
+  useEffect(() => {
+    if (!hasActiveAnalyticsFilters) {
+      return;
+    }
+
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    setSearchQuery('');
+    setSearchResults([]);
+    setSearchTotalCount(0);
+    setSearchLoading(false);
+    setIsSearching(false);
+  }, [analyticsFilterKey, hasActiveAnalyticsFilters]);
+
+  // Reset for new filters, or reveal the page containing the focused row.
+  useEffect(() => {
+    const targetPage =
+      !limit && focusedExpenseIndex >= 0
+        ? Math.floor(focusedExpenseIndex / PAGE_SIZE) + 1
+        : 1;
+    setCurrentPage(targetPage);
+  }, [analyticsFilterKey, categoryFilter, expenses, focusedExpenseIndex, limit]);
+
+  const focusedExpenseIsOnPage =
+    activeAnalyticsFilters.expenseId !== undefined &&
+    paginatedExpenses.some(
+      (expense) => expense.id === activeAnalyticsFilters.expenseId
+    );
+
+  useEffect(() => {
+    const expenseId = activeAnalyticsFilters.expenseId;
+    if (
+      !hasMounted ||
+      !expenseId ||
+      focusedExpenseMissing ||
+      !focusedExpenseIsOnPage
+    ) {
+      if (!expenseId || focusedExpenseMissing) {
+        lastScrolledFocusKeyRef.current = null;
+      }
+      return;
+    }
+
+    const focusKey = `${analyticsFilterKey}:${currentPage}`;
+    if (lastScrolledFocusKeyRef.current === focusKey) {
+      return;
+    }
+
+    const prefersDesktop =
+      window.matchMedia?.('(min-width: 768px)').matches ?? false;
+    const target = prefersDesktop
+      ? desktopFocusedExpenseRef.current ?? mobileFocusedExpenseRef.current
+      : mobileFocusedExpenseRef.current ?? desktopFocusedExpenseRef.current;
+    if (!target) {
+      return;
+    }
+
+    const reduceMotion =
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    target.scrollIntoView({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      block: 'center',
+    });
+    lastScrolledFocusKeyRef.current = focusKey;
+  }, [
+    activeAnalyticsFilters.expenseId,
+    analyticsFilterKey,
+    currentPage,
+    focusedExpenseIsOnPage,
+    focusedExpenseMissing,
+    hasMounted,
+  ]);
 
   // Search display items
   const searchDisplayItems = useMemo(() => {
     return searchResults.map(searchResultToDisplay);
   }, [searchResults]);
+  const isSearchMode = isSearching && !hasActiveAnalyticsFilters;
 
   // Determine which items to display
-  const displayItems = isSearching ? searchDisplayItems : paginatedExpenses;
-  const displayExpenses = filteredExpenses;
+  const displayItems = isSearchMode ? searchDisplayItems : paginatedExpenses;
+  const displayExpenses = visibleFilteredExpenses;
 
   const form = useForm<EditFormData>({
     defaultValues: {
@@ -171,7 +301,7 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
 
   // Search function
   const performSearch = useCallback(async (query: string) => {
-    if (!user || !query.trim()) {
+    if (!user || !query.trim() || hasActiveAnalyticsFilters) {
       setSearchResults([]);
       setSearchTotalCount(0);
       setIsSearching(false);
@@ -195,12 +325,15 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
     } finally {
       setSearchLoading(false);
     }
-  }, [user]);
+  }, [hasActiveAnalyticsFilters, user]);
 
   // Debounced search on query change
   useEffect(() => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
+    }
+    if (hasActiveAnalyticsFilters) {
+      return;
     }
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -216,7 +349,7 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
         clearTimeout(debounceRef.current);
       }
     };
-  }, [searchQuery, performSearch]);
+  }, [hasActiveAnalyticsFilters, searchQuery, performSearch]);
 
   // Add event listeners for shift key
   useEffect(() => {
@@ -334,7 +467,9 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
         const end = Math.max(lastSelectedIndex, index);
 
         // Get all IDs in the range
-        const idsInRange = expenses.slice(start, end + 1).map(e => e.id);
+        const idsInRange = paginatedExpenses
+          .slice(start, end + 1)
+          .map((expense) => expense.id);
 
         // Create a new Set by spreading the existing selections
         const newSelections = new Set([...selectedExpenseIds]);
@@ -375,10 +510,12 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
 
   // Handler for selecting all expenses
   const handleSelectAll = () => {
-    if (selectedExpenseIds.size === filteredExpenses.length) {
+    if (selectedExpenseIds.size === visibleFilteredExpenses.length) {
       setSelectedExpenseIds(new Set());
     } else {
-      setSelectedExpenseIds(new Set(filteredExpenses.map(e => e.id)));
+      setSelectedExpenseIds(
+        new Set(visibleFilteredExpenses.map((expense) => expense.id))
+      );
     }
     // Reset last selected index when using select all
     setLastSelectedIndex(null);
@@ -432,17 +569,43 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
     return pages;
   };
 
-  const showPagination = !limit && !isSearching && totalPages > 1;
+  const showPagination = !limit && !isSearchMode && totalPages > 1;
   const paginationStart = (currentPage - 1) * PAGE_SIZE + 1;
-  const paginationEnd = Math.min(currentPage * PAGE_SIZE, filteredExpenses.length);
+  const paginationEnd = Math.min(
+    currentPage * PAGE_SIZE,
+    visibleFilteredExpenses.length
+  );
 
   // Render a row for either a full Expense or a search display item
-  const renderMobileCard = (item: { id: string; description: string; category: string; amount: number; date: Date }, index: number, isSearchResult: boolean) => (
-    <div
-      key={item.id}
-      className="flex items-start gap-3 p-3 rounded-lg border bg-background active:bg-accent/50 transition-colors cursor-pointer"
-      onClick={() => router.push(`/personal/expenses/${item.id}/`)}
-    >
+  const renderMobileCard = (
+    item: {
+      id: string;
+      description: string;
+      category: string;
+      amount: number;
+      date: Date;
+    },
+    index: number,
+    isSearchResult: boolean
+  ) => {
+    const isFocused =
+      !isSearchResult && activeAnalyticsFilters.expenseId === item.id;
+
+    return (
+      <div
+        key={item.id}
+        ref={isFocused ? mobileFocusedExpenseRef : undefined}
+        aria-current={isFocused ? 'true' : undefined}
+        aria-label={
+          isFocused ? `Focused expense ${item.description}` : undefined
+        }
+        className={`flex cursor-pointer items-start gap-3 rounded-lg border bg-background p-3 transition-colors active:bg-accent/50 ${
+          isFocused
+            ? 'border-primary/60 bg-primary/10 ring-1 ring-inset ring-primary/40'
+            : ''
+        }`}
+        onClick={() => router.push(`/personal/expenses/${item.id}/`)}
+      >
       {/* Checkbox - only in browse mode */}
       {!isSearchResult && (
         <div
@@ -516,8 +679,9 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
           </Button>
         </div>
       )}
-    </div>
-  );
+      </div>
+    );
+  };
 
   return (
     <>
@@ -526,7 +690,7 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
             <CardTitle className="text-lg sm:text-xl font-bold">Expense History</CardTitle>
             <div className="flex gap-2">
-              {!isSearching && selectedExpenseIds.size > 0 && (
+              {!isSearchMode && selectedExpenseIds.size > 0 && (
                 <Button
                   variant="destructive"
                   onClick={handleBatchDelete}
@@ -546,10 +710,16 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search expenses..."
+                  aria-label="Search expenses"
+                  placeholder={
+                    hasActiveAnalyticsFilters
+                      ? 'Clear analytics filters to search all expenses'
+                      : 'Search expenses...'
+                  }
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 pr-9"
+                  disabled={hasActiveAnalyticsFilters}
                 />
                 {searchQuery && (
                   <button
@@ -585,7 +755,7 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
           )}
 
           {/* Search status */}
-          {isSearching && (
+          {isSearchMode && (
             <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
               {searchLoading ? (
                 <>
@@ -600,7 +770,7 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
             </div>
           )}
 
-          {filterDate && !isSearching && (
+          {filterDate && !isSearchMode && (
             <div className="flex items-center gap-2 mt-2 p-2 rounded-md bg-accent/50 text-sm">
               <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
               <span className="text-xs sm:text-sm">
@@ -628,11 +798,20 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
           )}
         </CardHeader>
         <CardContent>
-          {!isSearching && displayExpenses.length === 0 ? (
+          {!hasMounted ? (
             <p className="text-center text-muted-foreground py-4">
-              {filterDate ? 'No expenses found for this date.' : 'No expenses recorded yet.'}
+              Loading expenses...
             </p>
-          ) : isSearching && searchResults.length === 0 && !searchLoading ? (
+          ) : !isSearchMode && displayExpenses.length === 0 ? (
+            <p className="text-center text-muted-foreground py-4">
+              {analyticsFilters &&
+              hasAnalyticsExpenseFilters(activeAnalyticsFilters)
+                ? 'No expenses match the active analytics filters.'
+                : filterDate
+                  ? 'No expenses found for this date.'
+                  : 'No expenses recorded yet.'}
+            </p>
+          ) : isSearchMode && searchResults.length === 0 && !searchLoading ? (
             <p className="text-center text-muted-foreground py-4">
               No results found for &ldquo;{searchQuery}&rdquo;
             </p>
@@ -640,12 +819,12 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
             <>
               {/* Mobile Card View */}
               <div className="md:hidden space-y-2">
-                {isSearching
+                {isSearchMode
                   ? searchDisplayItems.map((item, index) => renderMobileCard(item, index, true))
                   : paginatedExpenses.map((expense, index) => renderMobileCard(expense, index, false))
                 }
                 {/* Mobile select all - only in browse mode */}
-                {!isSearching && displayExpenses.length > 1 && !limit && (
+                {!isSearchMode && displayExpenses.length > 1 && !limit && (
                   <div className="flex items-center justify-between pt-2 border-t">
                     <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
                       <input
@@ -665,7 +844,7 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
-                      {!isSearching && (
+                      {!isSearchMode && (
                         <TableHead className="w-[50px]">
                           <input
                             type="checkbox"
@@ -678,13 +857,13 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
                       <TableHead>Date</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead>Category</TableHead>
-                      {!isSearching && <TableHead>Frequency</TableHead>}
+                      {!isSearchMode && <TableHead>Frequency</TableHead>}
                       <TableHead className="text-right">Amount</TableHead>
-                      {!isSearching && <TableHead className="w-[100px] text-right">Actions</TableHead>}
+                      {!isSearchMode && <TableHead className="w-[100px] text-right">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {isSearching
+                    {isSearchMode
                       ? searchDisplayItems.map((item) => (
                           <TableRow
                             key={item.id}
@@ -705,12 +884,29 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
                             </TableCell>
                           </TableRow>
                         ))
-                      : paginatedExpenses.map((expense, index) => (
-                          <TableRow
-                            key={expense.id}
-                            className="cursor-pointer"
-                            onClick={() => router.push(`/personal/expenses/${expense.id}/`)}
-                          >
+                      : paginatedExpenses.map((expense, index) => {
+                          const isFocused =
+                            activeAnalyticsFilters.expenseId === expense.id;
+
+                          return (
+                            <TableRow
+                              key={expense.id}
+                              ref={isFocused ? desktopFocusedExpenseRef : undefined}
+                              aria-current={isFocused ? 'true' : undefined}
+                              aria-label={
+                                isFocused
+                                  ? `Focused expense ${expense.description}`
+                                  : undefined
+                              }
+                              className={`cursor-pointer ${
+                                isFocused
+                                  ? 'bg-primary/10 ring-1 ring-inset ring-primary/40'
+                                  : ''
+                              }`}
+                              onClick={() =>
+                                router.push(`/personal/expenses/${expense.id}/`)
+                              }
+                            >
                             <TableCell onClick={(e) => e.stopPropagation()}>
                               <input
                                 type="checkbox"
@@ -778,8 +974,9 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
                                 </Button>
                               </div>
                             </TableCell>
-                          </TableRow>
-                        ))
+                            </TableRow>
+                          );
+                        })
                     }
                   </TableBody>
                 </Table>
@@ -789,7 +986,8 @@ export default function ExpenseList({ limit, filterDate, onClearFilter }: Expens
               {showPagination && (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t mt-4">
                   <span className="text-sm text-muted-foreground">
-                    Showing {paginationStart}&ndash;{paginationEnd} of {filteredExpenses.length}
+                    Showing {paginationStart}-{paginationEnd} of{' '}
+                    {visibleFilteredExpenses.length}
                   </span>
                   <div className="flex items-center gap-1">
                     <Button
