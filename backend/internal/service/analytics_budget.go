@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"math"
 	"math/big"
 	"sort"
 	"time"
@@ -41,17 +40,6 @@ func analyticsPeriodsPerYear(period string) int64 {
 	default:
 		return 12
 	}
-}
-
-func normaliseBudgetCents(amountCents int64, source pfinancev1.BudgetPeriod, target string) int64 {
-	result, err := normaliseBudgetCentsChecked(amountCents, source, target)
-	if err == nil {
-		return result
-	}
-	if amountCents < 0 {
-		return math.MinInt64
-	}
-	return math.MaxInt64
 }
 
 // normaliseBudgetCentsChecked converts a budget allowance between periods and
