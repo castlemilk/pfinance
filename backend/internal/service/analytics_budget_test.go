@@ -9,7 +9,6 @@ import (
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
 	"github.com/castlemilk/pfinance/backend/internal/store"
 	"go.uber.org/mock/gomock"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestNormaliseBudgetCentsCheckedRejectsOverflow(t *testing.T) {
@@ -94,6 +93,76 @@ func categoryComparisonFor(
 	return nil
 }
 
+func TestGetCategoryComparisonAtUsesPartialUTCPeriodBounds(t *testing.T) {
+	melbourne := time.FixedZone("AEST", 10*60*60)
+	now := time.Date(2026, time.July, 13, 20, 30, 0, 0, melbourne)
+
+	tests := []struct {
+		name   string
+		period string
+		bounds analyticsBounds
+	}{
+		{
+			name:   "month",
+			period: "month",
+			bounds: analyticsPeriodBounds(now, pfinancev1.AnalyticsPeriod_ANALYTICS_PERIOD_MONTH),
+		},
+		{
+			name:   "quarter",
+			period: "quarter",
+			bounds: analyticsPeriodBounds(now, pfinancev1.AnalyticsPeriod_ANALYTICS_PERIOD_QUARTER),
+		},
+		{
+			name:   "year",
+			period: "year",
+			bounds: analyticsPeriodBounds(now, pfinancev1.AnalyticsPeriod_ANALYTICS_PERIOD_YEAR),
+		},
+		{
+			name:   "unspecified defaults to month",
+			bounds: analyticsPeriodBounds(now, pfinancev1.AnalyticsPeriod_ANALYTICS_PERIOD_MONTH),
+		},
+		{
+			name:   "week",
+			period: "week",
+			bounds: analyticsBounds{
+				currentStart:  time.Date(2026, time.July, 12, 0, 0, 0, 0, time.UTC),
+				currentEnd:    time.Date(2026, time.July, 13, 10, 30, 0, 0, time.UTC),
+				previousStart: time.Date(2026, time.July, 5, 0, 0, 0, 0, time.UTC),
+				previousEnd:   time.Date(2026, time.July, 6, 10, 30, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			mockStore := store.NewMockStore(ctrl)
+			service := NewFinanceService(mockStore, nil, nil)
+
+			gomock.InOrder(
+				mockStore.EXPECT().
+					ListExpenses(gomock.Any(), "budget-user", "", &tt.bounds.currentStart, &tt.bounds.currentEnd, int32(1000), "").
+					Return(nil, "", nil),
+				mockStore.EXPECT().
+					ListExpenses(gomock.Any(), "budget-user", "", &tt.bounds.previousStart, &tt.bounds.previousEnd, int32(1000), "").
+					Return(nil, "", nil),
+			)
+
+			resp, err := service.getCategoryComparisonAt(
+				testProContext("budget-user"),
+				connect.NewRequest(&pfinancev1.GetCategoryComparisonRequest{CurrentPeriod: tt.period}),
+				now,
+			)
+			if err != nil {
+				t.Fatalf("getCategoryComparisonAt: %v", err)
+			}
+			if len(resp.Msg.Categories) != 0 {
+				t.Fatalf("categories = %v, want none", resp.Msg.Categories)
+			}
+		})
+	}
+}
+
 func TestCategoryComparisonBudgetOnlyCategoryAppearsWithZeroSpend(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := store.NewMockStore(ctrl)
@@ -105,9 +174,6 @@ func TestCategoryComparisonBudgetOnlyCategoryAppearsWithZeroSpend(t *testing.T) 
 			Return(nil, "", nil),
 		mockStore.EXPECT().
 			ListExpenses(gomock.Any(), "budget-user", "", gomock.Any(), gomock.Any(), gomock.Any(), "").
-			Return(nil, "", nil),
-		mockStore.EXPECT().
-			ListExpenses(gomock.Any(), "budget-user", "", nil, gomock.Any(), gomock.Any(), "").
 			Return(nil, "", nil),
 	)
 	mockStore.EXPECT().
@@ -229,26 +295,13 @@ func TestCategoryComparisonLoadsAllExpenseAndBudgetPages(t *testing.T) {
 	}
 }
 
-func TestCategoryComparisonLoadsAllHistoricalExpensePagesBeforeAnchoring(t *testing.T) {
+func TestCategoryComparisonDoesNotFetchHistoricalExpensesWhenCurrentWindowsEmpty(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := store.NewMockStore(ctrl)
 	service := NewFinanceService(mockStore, nil, nil)
 
-	oldDate := time.Date(2020, time.January, 10, 12, 0, 0, 0, time.UTC)
-	latestDate := time.Date(2025, time.October, 15, 12, 0, 0, 0, time.UTC)
-	food := pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD
 	gomock.InOrder(
 		mockStore.EXPECT().ListExpenses(gomock.Any(), "budget-user", "", gomock.Any(), gomock.Any(), int32(1000), "").Return(nil, "", nil),
-		mockStore.EXPECT().ListExpenses(gomock.Any(), "budget-user", "", gomock.Any(), gomock.Any(), int32(1000), "").Return(nil, "", nil),
-		mockStore.EXPECT().ListExpenses(gomock.Any(), "budget-user", "", nil, gomock.Any(), int32(1000), "").Return([]*pfinancev1.Expense{
-			{Id: "old", Date: timestamppb.New(oldDate), Category: food},
-		}, "historical-next", nil),
-		mockStore.EXPECT().ListExpenses(gomock.Any(), "budget-user", "", nil, gomock.Any(), int32(1000), "historical-next").Return([]*pfinancev1.Expense{
-			{Id: "latest", Date: timestamppb.New(latestDate), Category: food},
-		}, "", nil),
-		mockStore.EXPECT().ListExpenses(gomock.Any(), "budget-user", "", gomock.Any(), gomock.Any(), int32(1000), "").Return([]*pfinancev1.Expense{
-			{Id: "anchored", Date: timestamppb.New(latestDate), AmountCents: 500, Category: food},
-		}, "", nil),
 		mockStore.EXPECT().ListExpenses(gomock.Any(), "budget-user", "", gomock.Any(), gomock.Any(), int32(1000), "").Return(nil, "", nil),
 	)
 
@@ -258,8 +311,8 @@ func TestCategoryComparisonLoadsAllHistoricalExpensePagesBeforeAnchoring(t *test
 	if err != nil {
 		t.Fatalf("GetCategoryComparison: %v", err)
 	}
-	if got := categoryComparisonFor(t, resp.Msg, food).CurrentAmountCents; got != 500 {
-		t.Fatalf("anchored current amount = %d, want 500", got)
+	if len(resp.Msg.Categories) != 0 {
+		t.Fatalf("categories = %v, want none", resp.Msg.Categories)
 	}
 }
 

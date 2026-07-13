@@ -133,7 +133,14 @@ describe('CategoriesAnalyticsView', () => {
     expect(mockedOverview).toHaveBeenCalledWith(groupScope, 'quarter');
     expect(mockedComparison).toHaveBeenCalledWith(true, 'quarter', groupScope);
     expect(mockRadar).toHaveBeenCalledWith(
-      expect.objectContaining({ data: categories, formatMoney })
+      expect.objectContaining({
+        data: [
+          categories[1],
+          categories[0],
+          { ...categories[2], category: 'Unmapped Category' },
+        ],
+        formatMoney,
+      })
     );
 
     expect(
@@ -152,7 +159,7 @@ describe('CategoriesAnalyticsView', () => {
       screen.queryByRole('link', { name: /Unmapped category/ })
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText('Review Unmapped category spending')
+      screen.getByText('Review Unmapped Category spending')
     ).toHaveAttribute('aria-disabled', 'true');
 
     const budgetSection = screen.getByRole('region', {
@@ -166,7 +173,7 @@ describe('CategoriesAnalyticsView', () => {
     const rows = screen.getAllByRole('row');
     expect(rows[1]).toHaveTextContent('Housing');
     expect(rows[2]).toHaveTextContent('Food');
-    expect(rows[3]).toHaveTextContent('Unmapped category');
+    expect(rows[3]).toHaveTextContent('Unmapped Category');
     within(rows[1])
       .getAllByRole('cell')
       .forEach((cell) => expect(cell).toHaveClass('tabular-nums'));
@@ -175,11 +182,11 @@ describe('CategoriesAnalyticsView', () => {
   it('toggles only chart and summary budget presentation while always requesting budgets', () => {
     renderView();
 
-    const toggle = screen.getByRole('button', { name: 'Hide budget comparison' });
+    const toggle = screen.getByRole('button', { name: 'Hide category budgets' });
     expect(toggle).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(toggle);
     expect(
-      screen.getByRole('button', { name: 'Show budget comparison' })
+      screen.getByRole('button', { name: 'Show category budgets' })
     ).toHaveAttribute('aria-pressed', 'false');
     expect(
       mockedComparison.mock.calls.every(
@@ -188,13 +195,245 @@ describe('CategoriesAnalyticsView', () => {
       )
     ).toBe(true);
     const latestChartProps = mockRadar.mock.calls.at(-1)?.[0] as {
-      data: readonly { budgetValue?: number }[];
+      data: readonly {
+        currentValue: number;
+        previousValue: number;
+        budgetValue?: number;
+        maxValue: number;
+      }[];
     };
     expect(latestChartProps.data.every((axis) => axis.budgetValue === undefined)).toBe(true);
+    latestChartProps.data.forEach((axis) =>
+      expect(axis.maxValue).toBe(
+        Math.max(axis.currentValue, axis.previousValue)
+      )
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Show data table' }));
     expect(screen.queryByRole('columnheader', { name: 'Budget' })).not.toBeInTheDocument();
     expect(screen.getByText('Household essentials')).toBeInTheDocument();
+  });
+
+  it('uses one normalized axis model for empty state, chart, table, drivers, and links', () => {
+    mockedComparison.mockReturnValue({
+      ...loadedComparison(),
+      data: Object.freeze([
+        Object.freeze({
+          category: '  food ',
+          currentValue: 10,
+          previousValue: 4,
+          budgetValue: 20,
+          maxValue: 20,
+        }),
+        Object.freeze({
+          category: 'FOOD',
+          currentValue: 5,
+          previousValue: 6,
+          budgetValue: Number.NaN,
+          maxValue: 6,
+        }),
+        Object.freeze({
+          category: '   ',
+          currentValue: 999,
+          previousValue: 999,
+          maxValue: 999,
+        }),
+        Object.freeze({
+          category: 'Housing',
+          currentValue: -1,
+          previousValue: Number.POSITIVE_INFINITY,
+          maxValue: 4,
+        }),
+      ]),
+      combinedBudgets: [],
+    });
+
+    renderView();
+
+    const chartProps = mockRadar.mock.calls.at(-1)?.[0] as {
+      data: readonly {
+        category: string;
+        currentValue: number;
+        previousValue: number;
+        budgetValue?: number;
+        maxValue: number;
+      }[];
+    };
+    expect(chartProps.data).toEqual([
+      {
+        category: 'Food',
+        currentValue: 15,
+        previousValue: 10,
+        budgetValue: 20,
+        maxValue: 20,
+      },
+    ]);
+    expect(screen.getAllByRole('link', { name: 'Review Food spending' })).toHaveLength(1);
+    expect(screen.queryByText('Housing')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show data table' }));
+    const rows = screen.getAllByRole('row');
+    expect(rows).toHaveLength(2);
+    expect(rows[1]).toHaveTextContent('Food');
+    expect(rows[1]).toHaveTextContent('AUD 15.00');
+    expect(document.body).not.toHaveTextContent(/NaN|Infinity|999/);
+  });
+
+  it('recomputes hidden-budget maxima for three-axis radar data', () => {
+    mockedComparison.mockReturnValue({
+      ...loadedComparison(),
+      data: ['Food', 'Housing', 'Travel'].map((category, index) => ({
+        category,
+        currentValue: 100 + index,
+        previousValue: 50 + index,
+        budgetValue: 1_000 + index,
+        maxValue: 1_000 + index,
+      })),
+      combinedBudgets: [],
+    });
+    renderView();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide category budgets' }));
+    const latest = mockRadar.mock.calls.at(-1)?.[0] as {
+      data: readonly {
+        currentValue: number;
+        previousValue: number;
+        budgetValue?: number;
+        maxValue: number;
+      }[];
+    };
+    latest.data.forEach((axis) => {
+      expect(axis.budgetValue).toBeUndefined();
+      expect(axis.maxValue).toBe(Math.max(axis.currentValue, axis.previousValue));
+    });
+  });
+
+  it('omits the category-budget control and column when no valid axis budget exists', () => {
+    mockedComparison.mockReturnValue({
+      ...loadedComparison(),
+      data: categories.map((axis) => ({
+        category: axis.category,
+        currentValue: axis.currentValue,
+        previousValue: axis.previousValue,
+        maxValue: axis.maxValue,
+      })),
+      combinedBudgets,
+    });
+    renderView();
+
+    expect(screen.queryByRole('button', { name: /category budgets/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show data table' }));
+    expect(screen.queryByRole('columnheader', { name: 'Budget' })).not.toBeInTheDocument();
+    expect(screen.getByText('Household essentials')).toBeInTheDocument();
+  });
+
+  it('renders combined budgets once alongside a settled category-spending empty state', () => {
+    mockedComparison.mockReturnValue({
+      ...loadedComparison(),
+      data: [],
+      combinedBudgets,
+    });
+    renderView();
+
+    expect(screen.getByText('No spending for this period')).toBeInTheDocument();
+    expect(screen.getAllByText('Household essentials')).toHaveLength(1);
+    expect(screen.getByRole('region', { name: 'Combined budget context' })).toBeInTheDocument();
+    expect(screen.queryByTestId('category-radar')).not.toBeInTheDocument();
+  });
+
+  it('keeps view, section, and card headings subordinate in personal and group shells', () => {
+    const personal = renderView();
+    expect(screen.getByRole('heading', { name: 'Category comparison', level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Current and previous spending', level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Ranked category drivers', level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Combined budget context', level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Household essentials', level: 4 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Housing', level: 4 })).toBeInTheDocument();
+    personal.unmount();
+
+    renderView(groupScope);
+    expect(screen.getByRole('heading', { name: 'Category comparison', level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Current and previous spending', level: 4 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Ranked category drivers', level: 4 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Combined budget context', level: 4 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Household essentials', level: 5 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Housing', level: 5 })).toBeInTheDocument();
+  });
+
+  it('normalizes malformed and duplicate combined-budget records without validating bad money', () => {
+    mockedComparison.mockReturnValue({
+      ...loadedComparison(),
+      combinedBudgets: [
+        {
+          id: 'stable-budget',
+          name: '  Household essentials  ',
+          categories: [' Food ', 'food', '', ' HOUSING '],
+          allowance: -1,
+          currentSpend: Number.NaN,
+        },
+        {
+          id: 'stable-budget',
+          name: 'Duplicate response row',
+          categories: ['Travel', ' travel '],
+          allowance: -2,
+          currentSpend: Number.POSITIVE_INFINITY,
+        },
+        {
+          id: '   ',
+          name: '   ',
+          categories: ['', 'Utilities'],
+          allowance: 100,
+          currentSpend: 50,
+        },
+        {
+          id: '',
+          name: '',
+          categories: ['Travel'],
+          allowance: 200,
+          currentSpend: 100,
+        },
+      ],
+    });
+    renderView();
+
+    const section = screen.getByRole('region', { name: 'Combined budget context' });
+    expect(within(section).getAllByText('Household essentials')).toHaveLength(1);
+    expect(within(section).queryByText('Duplicate response row')).not.toBeInTheDocument();
+    expect(within(section).getByText('Food · Housing · Travel')).toBeInTheDocument();
+    expect(within(section).getAllByText('Not available')).toHaveLength(2);
+    expect(within(section).getByRole('heading', { name: 'Combined budget 3' })).toBeInTheDocument();
+    expect(within(section).getByRole('heading', { name: 'Combined budget 4' })).toBeInTheDocument();
+    expect(formatMoney).not.toHaveBeenCalledWith(-1);
+    expect(formatMoney).not.toHaveBeenCalledWith(-2);
+    expect(formatMoney).not.toHaveBeenCalledWith(Number.NaN);
+    expect(formatMoney).not.toHaveBeenCalledWith(Number.POSITIVE_INFINITY);
+  });
+
+  it('uses the same trimmed group-name fallback in loaded and empty states', () => {
+    const whitespaceGroup = {
+      kind: 'group',
+      groupId: 'group-blank-name',
+      groupName: '   ',
+    } as const satisfies AnalyticsScope;
+    const loaded = renderView(whitespaceGroup);
+    expect(screen.getByText('This group')).toBeInTheDocument();
+    loaded.unmount();
+
+    mockedComparison.mockReturnValue({
+      ...loadedComparison(),
+      data: [],
+      combinedBudgets: [],
+    });
+    renderView(whitespaceGroup);
+    expect(screen.getByText(/This group during this analytics period/)).toBeInTheDocument();
+  });
+
+  it('uses resilient chart and driver layouts for narrow text-heavy content', () => {
+    renderView();
+
+    expect(screen.getByTestId('category-chart-frame')).not.toHaveClass('overflow-hidden');
+    const housingAction = screen.getByRole('link', { name: 'Review Housing spending' });
+    expect(housingAction).toHaveClass('w-full', 'sm:w-auto');
+    expect(housingAction.parentElement).toHaveClass('flex-col', 'sm:flex-row');
   });
 
   it.each([

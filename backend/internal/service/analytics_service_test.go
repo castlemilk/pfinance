@@ -423,18 +423,62 @@ func TestAnalyticsGetCategoryComparison(t *testing.T) {
 	})
 }
 
-func TestAnalyticsCategoryViewsUseLatestExpenseWhenCurrentWindowEmpty(t *testing.T) {
+func TestAnalyticsCategoryComparisonDoesNotReanchorToHistoricalExpenses(t *testing.T) {
 	mem := store.NewMemoryStore()
 	service := NewFinanceService(mem, nil, nil)
 
 	userID := "historical-user"
 	ctx := testProContext(userID)
+	now := time.Date(2026, time.July, 13, 10, 30, 0, 0, time.UTC)
 
+	for _, expense := range []*pfinancev1.Expense{
+		{
+			Id:          "food-january",
+			UserId:      userID,
+			Description: "January groceries",
+			Amount:      120,
+			AmountCents: 12000,
+			Category:    pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
+			Date:        timestamppb.New(time.Date(2026, time.January, 15, 12, 0, 0, 0, time.UTC)),
+		},
+		{
+			Id:          "transport-january",
+			UserId:      userID,
+			Description: "January train",
+			Amount:      45,
+			AmountCents: 4500,
+			Category:    pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_TRANSPORTATION,
+			Date:        timestamppb.New(time.Date(2026, time.January, 17, 12, 0, 0, 0, time.UTC)),
+		},
+	} {
+		if err := mem.CreateExpense(ctx, expense); err != nil {
+			t.Fatalf("CreateExpense(%s): %v", expense.Id, err)
+		}
+	}
+
+	resp, err := service.getCategoryComparisonAt(ctx, connect.NewRequest(&pfinancev1.GetCategoryComparisonRequest{
+		UserId:        userID,
+		CurrentPeriod: "month",
+	}), now)
+	if err != nil {
+		t.Fatalf("getCategoryComparisonAt: %v", err)
+	}
+	if len(resp.Msg.Categories) != 0 {
+		t.Fatalf("categories = %v, want none for January-only data in July", resp.Msg.Categories)
+	}
+}
+
+func TestAnalyticsCategorySpendingTrendsUsesLatestExpenseWhenCurrentWindowEmpty(t *testing.T) {
+	mem := store.NewMemoryStore()
+	service := NewFinanceService(mem, nil, nil)
+
+	userID := "historical-trend-user"
+	ctx := testProContext(userID)
 	now := time.Now()
 	latestMonth := time.Date(now.Year(), now.Month(), 15, 12, 0, 0, 0, time.UTC).AddDate(0, -4, 0)
 	previousMonth := latestMonth.AddDate(0, -1, 0)
 
-	expenses := []*pfinancev1.Expense{
+	for _, expense := range []*pfinancev1.Expense{
 		{
 			Id:          "food-latest",
 			UserId:      userID,
@@ -445,15 +489,6 @@ func TestAnalyticsCategoryViewsUseLatestExpenseWhenCurrentWindowEmpty(t *testing
 			Date:        timestamppb.New(latestMonth),
 		},
 		{
-			Id:          "transport-latest",
-			UserId:      userID,
-			Description: "Historical train",
-			Amount:      45,
-			AmountCents: 4500,
-			Category:    pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_TRANSPORTATION,
-			Date:        timestamppb.New(latestMonth.AddDate(0, 0, 2)),
-		},
-		{
 			Id:          "food-previous",
 			UserId:      userID,
 			Description: "Earlier groceries",
@@ -462,61 +497,30 @@ func TestAnalyticsCategoryViewsUseLatestExpenseWhenCurrentWindowEmpty(t *testing
 			Category:    pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
 			Date:        timestamppb.New(previousMonth),
 		},
-	}
-
-	for _, expense := range expenses {
+	} {
 		if err := mem.CreateExpense(ctx, expense); err != nil {
 			t.Fatalf("CreateExpense(%s): %v", expense.Id, err)
 		}
 	}
 
-	t.Run("category comparison anchors to the latest expense period", func(t *testing.T) {
-		resp, err := service.GetCategoryComparison(ctx, connect.NewRequest(&pfinancev1.GetCategoryComparisonRequest{
-			UserId:        userID,
-			CurrentPeriod: "month",
-		}))
-		if err != nil {
-			t.Fatalf("GetCategoryComparison: %v", err)
-		}
-
-		var food *pfinancev1.CategorySpending
-		for _, category := range resp.Msg.Categories {
-			if category.Category == pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD {
-				food = category
-				break
-			}
-		}
-		if food == nil {
-			t.Fatalf("expected food category in historical comparison, got %v", resp.Msg.Categories)
-		}
-		if food.CurrentAmount != 120 {
-			t.Fatalf("current food amount = %.2f, want 120.00", food.CurrentAmount)
-		}
-		if food.PreviousAmount != 80 {
-			t.Fatalf("previous food amount = %.2f, want 80.00", food.PreviousAmount)
-		}
-	})
-
-	t.Run("category spending trends anchor to the latest matching category expense", func(t *testing.T) {
-		resp, err := service.GetSpendingTrends(ctx, connect.NewRequest(&pfinancev1.GetSpendingTrendsRequest{
-			UserId:      userID,
-			Granularity: pfinancev1.Granularity_GRANULARITY_MONTH,
-			Periods:     2,
-			Category:    pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
-		}))
-		if err != nil {
-			t.Fatalf("GetSpendingTrends: %v", err)
-		}
-		if len(resp.Msg.ExpenseSeries) != 2 {
-			t.Fatalf("expense series length = %d, want 2", len(resp.Msg.ExpenseSeries))
-		}
-		if resp.Msg.ExpenseSeries[0].Value != 80 {
-			t.Fatalf("previous food trend value = %.2f, want 80.00", resp.Msg.ExpenseSeries[0].Value)
-		}
-		if resp.Msg.ExpenseSeries[1].Value != 120 {
-			t.Fatalf("latest food trend value = %.2f, want 120.00", resp.Msg.ExpenseSeries[1].Value)
-		}
-	})
+	resp, err := service.GetSpendingTrends(ctx, connect.NewRequest(&pfinancev1.GetSpendingTrendsRequest{
+		UserId:      userID,
+		Granularity: pfinancev1.Granularity_GRANULARITY_MONTH,
+		Periods:     2,
+		Category:    pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
+	}))
+	if err != nil {
+		t.Fatalf("GetSpendingTrends: %v", err)
+	}
+	if len(resp.Msg.ExpenseSeries) != 2 {
+		t.Fatalf("expense series length = %d, want 2", len(resp.Msg.ExpenseSeries))
+	}
+	if resp.Msg.ExpenseSeries[0].Value != 80 {
+		t.Fatalf("previous food trend value = %.2f, want 80.00", resp.Msg.ExpenseSeries[0].Value)
+	}
+	if resp.Msg.ExpenseSeries[1].Value != 120 {
+		t.Fatalf("latest food trend value = %.2f, want 120.00", resp.Msg.ExpenseSeries[1].Value)
+	}
 }
 
 // --------------------------------------------------------------------------

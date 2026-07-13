@@ -381,11 +381,10 @@ func TestAnalyticsHandlerScopeCoversFallbackBranches(t *testing.T) {
 		}
 	})
 
-	t.Run("category_comparison_historical_anchored_and_budget_queries", func(t *testing.T) {
+	t.Run("category_comparison_bounded_and_budget_queries", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockStore := store.NewMockStore(ctrl)
 		service := NewFinanceService(mockStore, nil, nil)
-		anchor := time.Date(2025, time.October, 15, 12, 0, 0, 0, time.UTC)
 
 		gomock.InOrder(
 			mockStore.EXPECT().
@@ -398,29 +397,6 @@ func TestAnalyticsHandlerScopeCoversFallbackBranches(t *testing.T) {
 			mockStore.EXPECT().
 				ListExpenses(gomock.Any(), "", groupID, gomock.Any(), gomock.Any(), int32(1000), "").
 				Return(nil, "", nil),
-			mockStore.EXPECT().
-				ListExpenses(gomock.Any(), "", groupID, gomock.Any(), gomock.Any(), int32(1000), "").
-				Return(nil, "", nil),
-			mockStore.EXPECT().
-				ListExpenses(gomock.Any(), "", groupID, nil, nil, int32(1000), "").
-				Return([]*pfinancev1.Expense{{
-					Id:       "historical-expense",
-					UserId:   "another-member",
-					GroupId:  groupID,
-					Category: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
-					Date:     timestamppb.New(anchor),
-				}}, "", nil),
-			mockStore.EXPECT().
-				ListExpenses(gomock.Any(), "", groupID, gomock.Any(), gomock.Any(), int32(1000), "").
-				Return([]*pfinancev1.Expense{{
-					Id:          "anchored-expense",
-					UserId:      "another-member",
-					GroupId:     groupID,
-					Amount:      25,
-					AmountCents: 2500,
-					Category:    pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
-					Date:        timestamppb.New(anchor),
-				}}, "", nil),
 			mockStore.EXPECT().
 				ListExpenses(gomock.Any(), "", groupID, gomock.Any(), gomock.Any(), int32(1000), "").
 				Return(nil, "", nil),

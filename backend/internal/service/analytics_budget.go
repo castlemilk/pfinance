@@ -110,8 +110,40 @@ func (s *FinanceService) listAllAnalyticsBudgets(
 	}
 }
 
+func categoryComparisonPeriodBounds(now time.Time, period string) analyticsBounds {
+	if period != "week" {
+		analyticsPeriod := pfinancev1.AnalyticsPeriod_ANALYTICS_PERIOD_MONTH
+		switch period {
+		case "quarter":
+			analyticsPeriod = pfinancev1.AnalyticsPeriod_ANALYTICS_PERIOD_QUARTER
+		case "year":
+			analyticsPeriod = pfinancev1.AnalyticsPeriod_ANALYTICS_PERIOD_YEAR
+		}
+		return analyticsPeriodBounds(now, analyticsPeriod)
+	}
+
+	now = now.UTC()
+	currentStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).
+		AddDate(0, 0, -int(now.Weekday()))
+	previousStart := currentStart.AddDate(0, 0, -7)
+	return analyticsBounds{
+		currentStart:  currentStart,
+		currentEnd:    now,
+		previousStart: previousStart,
+		previousEnd:   previousStart.Add(now.Sub(currentStart)),
+	}
+}
+
 // GetCategoryComparison compares category spending between current and previous periods.
 func (s *FinanceService) GetCategoryComparison(ctx context.Context, req *connect.Request[pfinancev1.GetCategoryComparisonRequest]) (*connect.Response[pfinancev1.GetCategoryComparisonResponse], error) {
+	return s.getCategoryComparisonAt(ctx, req, time.Now())
+}
+
+func (s *FinanceService) getCategoryComparisonAt(
+	ctx context.Context,
+	req *connect.Request[pfinancev1.GetCategoryComparisonRequest],
+	now time.Time,
+) (*connect.Response[pfinancev1.GetCategoryComparisonResponse], error) {
 	claims, err := auth.RequireAuth(ctx)
 	if err != nil {
 		return nil, err
@@ -129,33 +161,15 @@ func (s *FinanceService) GetCategoryComparison(ctx context.Context, req *connect
 	if period == "" {
 		period = "month"
 	}
-	currentStart, currentEnd, prevStart, prevEnd := categoryComparisonBounds(time.Now(), period)
+	bounds := categoryComparisonPeriodBounds(now, period)
 
-	currentExpenses, err := s.listAllAnalyticsExpenses(ctx, scope, &currentStart, &currentEnd)
+	currentExpenses, err := s.listAllAnalyticsExpenses(ctx, scope, &bounds.currentStart, &bounds.currentEnd)
 	if err != nil {
 		return nil, err
 	}
-	previousExpenses, err := s.listAllAnalyticsExpenses(ctx, scope, &prevStart, &prevEnd)
+	previousExpenses, err := s.listAllAnalyticsExpenses(ctx, scope, &bounds.previousStart, &bounds.previousEnd)
 	if err != nil {
 		return nil, err
-	}
-
-	if len(currentExpenses) == 0 && len(previousExpenses) == 0 {
-		historicalExpenses, err := s.listAllAnalyticsExpenses(ctx, scope, nil, nil)
-		if err != nil {
-			return nil, err
-		}
-		if anchor, ok := latestExpenseDate(historicalExpenses, pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED); ok {
-			currentStart, currentEnd, prevStart, prevEnd = categoryComparisonBounds(anchor, period)
-			currentExpenses, err = s.listAllAnalyticsExpenses(ctx, scope, &currentStart, &currentEnd)
-			if err != nil {
-				return nil, err
-			}
-			previousExpenses, err = s.listAllAnalyticsExpenses(ctx, scope, &prevStart, &prevEnd)
-			if err != nil {
-				return nil, err
-			}
-		}
 	}
 
 	currentByCategory := make(map[pfinancev1.ExpenseCategory]int64)

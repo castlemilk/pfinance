@@ -5,6 +5,10 @@ import { Group } from '@visx/group';
 import { ParentSize } from '@visx/responsive';
 import { defaultStyles, TooltipWithBounds, useTooltip } from '@visx/tooltip';
 
+import {
+  categoryAxesSignature,
+  normalizeCategoryAxes,
+} from '@/app/components/analytics/categoryAnalyticsModel';
 import { createAnalyticsCurrencyContext } from '@/app/components/analytics/formatting';
 import type { AnalyticsCurrencyContext } from '@/app/components/analytics/types';
 import type { RadarAxis } from '@/app/metrics/types';
@@ -33,48 +37,6 @@ const tooltipStyles: React.CSSProperties = {
   padding: '10px 12px',
   boxShadow: 'var(--shadow-sm)',
 };
-
-function validatedAxes(data: readonly RadarAxis[]): RadarAxis[] {
-  return data.flatMap((source) => {
-    const category = source.category.trim();
-    if (
-      category.length === 0 ||
-      !Number.isFinite(source.currentValue) ||
-      !Number.isFinite(source.previousValue) ||
-      source.currentValue < 0 ||
-      source.previousValue < 0
-    ) {
-      return [];
-    }
-
-    const budgetValue =
-      source.budgetValue !== undefined &&
-      Number.isFinite(source.budgetValue) &&
-      source.budgetValue >= 0
-        ? source.budgetValue
-        : undefined;
-    const suppliedMaximum =
-      Number.isFinite(source.maxValue) && source.maxValue >= 0
-        ? source.maxValue
-        : 0;
-
-    return [
-      {
-        category,
-        currentValue: source.currentValue,
-        previousValue: source.previousValue,
-        ...(budgetValue === undefined ? {} : { budgetValue }),
-        maxValue: Math.max(
-          1,
-          suppliedMaximum,
-          source.currentValue,
-          source.previousValue,
-          budgetValue ?? 0
-        ),
-      },
-    ];
-  });
-}
 
 function comparisonLabel(data: readonly RadarAxis[]): string {
   return data.length === 1
@@ -145,30 +107,33 @@ function CompactCategoryComparison({
           ? 'single-category-comparison'
           : 'compact-category-comparison'
       }
-      className="flex h-full min-h-64 flex-col justify-center gap-6 rounded-[10px] bg-muted/20 p-4 sm:p-6"
+      className="flex h-auto min-h-full min-w-0 flex-col justify-center gap-6 overflow-visible rounded-[10px] bg-muted/20 p-4 sm:p-6"
     >
       <span id={descriptionId} className="sr-only">
         {comparisonDescription(data, formatMoney)}
       </span>
       {data.map((axis, axisIndex) => {
         const rows = amountRows(axis);
-        const maximum = Math.max(1, ...rows.map((row) => row.value));
+        const maximum = Math.max(0, ...rows.map((row) => row.value));
         return (
           <section
             key={`${axis.category}:${axisIndex}`}
             aria-hidden="true"
-            className="space-y-3"
+            className="min-w-0 space-y-3"
           >
-            <h3 className="text-sm font-semibold text-foreground">
+            <h3 className="break-words text-sm font-semibold text-foreground">
               {axis.category}
             </h3>
             {rows.map((row) => (
-              <div key={row.key} className="grid grid-cols-[7.5rem_1fr] items-center gap-3">
+              <div
+                key={row.key}
+                className="grid min-w-0 grid-cols-1 items-center gap-2 sm:grid-cols-[7.5rem_minmax(0,1fr)] sm:gap-3"
+              >
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-muted-foreground">
                     {row.label}
                   </p>
-                  <p className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
+                  <p className="mt-0.5 break-words text-sm font-semibold tabular-nums text-foreground">
                     {formatMoney(row.value)}
                   </p>
                 </div>
@@ -179,7 +144,7 @@ function CompactCategoryComparison({
                     style={{
                       backgroundColor: row.color,
                       width:
-                        row.value === 0
+                        row.value === 0 || maximum === 0
                           ? '0%'
                           : `${Math.max(2, (row.value / maximum) * 100)}%`,
                     }}
@@ -219,7 +184,8 @@ function polygonPath(
 ): string {
   const points = data.map((axis, index) => {
     const radius =
-      Math.min(1, value(axis) / axis.maxValue) * maximumRadius;
+      (axis.maxValue > 0 ? Math.min(1, value(axis) / axis.maxValue) : 0) *
+      maximumRadius;
     return polarToCartesian(
       angleSlice(index, data.length),
       radius,
@@ -254,13 +220,14 @@ function RadarPlot({
     showTooltip,
     hideTooltip,
   } = useTooltip<TooltipData>();
-  const size = Math.min(width, height, 420);
+  const plotHeight = Math.max(240, height - 40);
+  const size = Math.min(width, plotHeight, 420);
   const centerX = size / 2;
   const centerY = size / 2;
   const maximumRadius = size * 0.32;
   const labelRadius = maximumRadius + 24;
   const offsetX = (width - size) / 2;
-  const offsetY = (height - size) / 2;
+  const offsetY = (plotHeight - size) / 2;
   const hasBudget = data.some((axis) => axis.budgetValue !== undefined);
   const currentPath = polygonPath(
     data,
@@ -300,13 +267,43 @@ function RadarPlot({
   );
 
   return (
-    <div className="relative h-full min-h-0">
-      <svg
-        role="img"
-        aria-labelledby={`${titleId} ${descriptionId}`}
-        width={width}
-        height={height}
+    <div className="flex h-full min-h-0 flex-col">
+      <ul
+        data-testid="category-radar-legend"
+        aria-label="Category comparison series"
+        className="flex min-h-10 shrink-0 flex-wrap items-center justify-center gap-x-5 gap-y-2 px-2 text-xs font-medium text-muted-foreground"
       >
+        <li className="inline-flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="size-2.5 rounded-full bg-primary"
+          />
+          <span>Current</span>
+        </li>
+        <li className="inline-flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="size-2.5 rounded-full bg-muted-foreground"
+          />
+          <span>Previous</span>
+        </li>
+        {hasBudget ? (
+          <li className="inline-flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="size-2.5 rounded-full bg-[var(--chart-4)]"
+            />
+            <span>Budget</span>
+          </li>
+        ) : null}
+      </ul>
+      <div className="relative min-h-0 flex-1">
+        <svg
+          role="img"
+          aria-labelledby={`${titleId} ${descriptionId}`}
+          width={width}
+          height={plotHeight}
+        >
         <title id={titleId}>{comparisonLabel(data)}</title>
         <desc id={descriptionId}>{comparisonDescription(data, formatMoney)}</desc>
         <Group left={offsetX} top={offsetY}>
@@ -377,7 +374,8 @@ function RadarPlot({
             const angle = angleSlice(index, data.length);
             const point = polarToCartesian(
               angle,
-              (axis.currentValue / axis.maxValue) * maximumRadius,
+              (axis.maxValue > 0 ? axis.currentValue / axis.maxValue : 0) *
+                maximumRadius,
               centerX,
               centerY
             );
@@ -424,6 +422,7 @@ function RadarPlot({
                   {axis.category}
                 </text>
                 <line
+                  data-testid={`radar-axis-hit-${index}`}
                   aria-hidden="true"
                   x1={centerX}
                   y1={centerY}
@@ -439,25 +438,28 @@ function RadarPlot({
             );
           })}
         </Group>
-      </svg>
+        </svg>
 
-      {tooltipOpen && tooltipData ? (
-        <TooltipWithBounds left={tooltipLeft} top={tooltipTop} style={tooltipStyles}>
-          <p className="font-semibold">{tooltipData.category}</p>
-          <dl className="mt-1 grid grid-cols-[auto_auto] gap-x-3 gap-y-1 tabular-nums">
-            <dt>Current</dt>
-            <dd>{formatMoney(tooltipData.currentValue)}</dd>
-            <dt>Previous</dt>
-            <dd>{formatMoney(tooltipData.previousValue)}</dd>
-            {tooltipData.budgetValue === undefined ? null : (
-              <>
-                <dt>Budget</dt>
-                <dd>{formatMoney(tooltipData.budgetValue)}</dd>
-              </>
-            )}
-          </dl>
-        </TooltipWithBounds>
-      ) : null}
+        {tooltipOpen && tooltipData ? (
+          <TooltipWithBounds left={tooltipLeft} top={tooltipTop} style={tooltipStyles}>
+            <div role="tooltip">
+              <p className="font-semibold">{tooltipData.category}</p>
+              <dl className="mt-1 grid grid-cols-[auto_auto] gap-x-3 gap-y-1 tabular-nums">
+                <dt>Current</dt>
+                <dd>{formatMoney(tooltipData.currentValue)}</dd>
+                <dt>Previous</dt>
+                <dd>{formatMoney(tooltipData.previousValue)}</dd>
+                {tooltipData.budgetValue === undefined ? null : (
+                  <>
+                    <dt>Budget</dt>
+                    <dd>{formatMoney(tooltipData.budgetValue)}</dd>
+                  </>
+                )}
+              </dl>
+            </div>
+          </TooltipWithBounds>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -466,7 +468,8 @@ export default function CategoryRadarChart({
   data,
   formatMoney = DEFAULT_FORMATTERS.formatMoney,
 }: CategoryRadarChartProps) {
-  const axes = useMemo(() => validatedAxes(data), [data]);
+  const axes = useMemo(() => normalizeCategoryAxes(data), [data]);
+  const signature = useMemo(() => categoryAxesSignature(axes), [axes]);
 
   if (axes.length === 0) {
     return (
@@ -479,16 +482,22 @@ export default function CategoryRadarChart({
     );
   }
 
-  if (axes.length <= 2) {
-    return <CompactCategoryComparison data={axes} formatMoney={formatMoney} />;
-  }
-
   return (
     <ParentSize>
       {({ width, height }) => {
         if (width < 10) return null;
+        if (axes.length <= 2 || width < 480) {
+          return (
+            <CompactCategoryComparison
+              key={signature}
+              data={axes}
+              formatMoney={formatMoney}
+            />
+          );
+        }
         return (
           <RadarPlot
+            key={signature}
             data={axes}
             formatMoney={formatMoney}
             width={width}
