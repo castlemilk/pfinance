@@ -2,12 +2,12 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"connectrpc.com/connect"
 	pfinancev1 "github.com/castlemilk/pfinance/backend/gen/pfinance/v1"
-	"github.com/castlemilk/pfinance/backend/internal/auth"
 )
 
 func (s *FinanceService) listAllAnalyticsExpenses(
@@ -24,7 +24,10 @@ func (s *FinanceService) listAllAnalyticsExpenses(
 			ctx, scope.userID, scope.groupID, start, end, 1000, pageToken,
 		)
 		if err != nil {
-			return nil, auth.WrapStoreError("list expenses", err)
+			return nil, connect.NewError(
+				connect.CodeInternal,
+				errors.New("analytics expense data is unavailable"),
+			)
 		}
 		expenses = append(expenses, page...)
 		if nextPageToken == "" {
@@ -55,7 +58,10 @@ func (s *FinanceService) listAllAnalyticsIncomes(
 			ctx, scope.userID, scope.groupID, start, end, 1000, pageToken,
 		)
 		if err != nil {
-			return nil, auth.WrapStoreError("list incomes", err)
+			return nil, connect.NewError(
+				connect.CodeInternal,
+				errors.New("analytics income data is unavailable"),
+			)
 		}
 		incomes = append(incomes, page...)
 		if nextPageToken == "" {

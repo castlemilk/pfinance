@@ -128,6 +128,190 @@ func TestGetAnalyticsOverviewAtAggregatesAllPagesAndReturnsExactBounds(t *testin
 	}
 }
 
+func TestGetAnalyticsOverviewAtRejectsExpenseTotalOverflow(t *testing.T) {
+	const userID = "user-1"
+	now := time.Date(2026, time.July, 13, 10, 30, 0, 0, time.UTC)
+	bounds := analyticsPeriodBounds(now, pfinancev1.AnalyticsPeriod_ANALYTICS_PERIOD_MONTH)
+
+	ctrl := gomock.NewController(t)
+	mockStore := store.NewMockStore(ctrl)
+	service := NewFinanceService(mockStore, nil, nil)
+	expectOverviewWindows(
+		mockStore,
+		analyticsScope{userID: userID},
+		bounds,
+		[]*pfinancev1.Expense{
+			{Id: "max", Category: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD, AmountCents: math.MaxInt64},
+			{Id: "overflow", Category: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD, AmountCents: 1},
+		},
+		nil,
+		nil,
+		nil,
+	)
+
+	resp, err := service.getAnalyticsOverviewAt(
+		testProContext(userID),
+		connect.NewRequest(&pfinancev1.GetAnalyticsOverviewRequest{}),
+		now,
+	)
+	if resp != nil {
+		t.Fatalf("overflow response = %+v, want nil", resp.Msg)
+	}
+	assertAnalyticsInternalError(t, err)
+}
+
+func TestGetAnalyticsOverviewAtRejectsInvalidLegacyDollarAmounts(t *testing.T) {
+	const userID = "user-1"
+	now := time.Date(2026, time.July, 13, 10, 30, 0, 0, time.UTC)
+	bounds := analyticsPeriodBounds(now, pfinancev1.AnalyticsPeriod_ANALYTICS_PERIOD_MONTH)
+	outOfRangePositive := math.Ldexp(1, 63) / 100
+	outOfRangeNegative := -math.Ldexp(1, 63)/100 - 1000
+
+	tests := []struct {
+		name     string
+		expenses []*pfinancev1.Expense
+		incomes  []*pfinancev1.Income
+	}{
+		{
+			name:     "expense NaN",
+			expenses: []*pfinancev1.Expense{{Id: "invalid", Amount: math.NaN()}},
+		},
+		{
+			name:     "expense positive infinity",
+			expenses: []*pfinancev1.Expense{{Id: "invalid", Amount: math.Inf(1)}},
+		},
+		{
+			name:     "expense negative infinity",
+			expenses: []*pfinancev1.Expense{{Id: "invalid", Amount: math.Inf(-1)}},
+		},
+		{
+			name:     "expense rounded cents above int64",
+			expenses: []*pfinancev1.Expense{{Id: "invalid", Amount: outOfRangePositive}},
+		},
+		{
+			name:    "income rounded cents below int64",
+			incomes: []*pfinancev1.Income{{Id: "invalid", Amount: outOfRangeNegative}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			mockStore := store.NewMockStore(ctrl)
+			service := NewFinanceService(mockStore, nil, nil)
+			expectOverviewWindows(
+				mockStore,
+				analyticsScope{userID: userID},
+				bounds,
+				tt.expenses,
+				tt.incomes,
+				nil,
+				nil,
+			)
+
+			resp, err := service.getAnalyticsOverviewAt(
+				testProContext(userID),
+				connect.NewRequest(&pfinancev1.GetAnalyticsOverviewRequest{}),
+				now,
+			)
+			if resp != nil {
+				t.Fatalf("invalid legacy amount response = %+v, want nil", resp.Msg)
+			}
+			assertAnalyticsInternalError(t, err)
+		})
+	}
+}
+
+func TestGetAnalyticsOverviewAtSelectsLargestPresentCategory(t *testing.T) {
+	const userID = "user-1"
+	now := time.Date(2026, time.July, 13, 10, 30, 0, 0, time.UTC)
+	bounds := analyticsPeriodBounds(now, pfinancev1.AnalyticsPeriod_ANALYTICS_PERIOD_MONTH)
+	futureCategory := pfinancev1.ExpenseCategory(42)
+	negativeCategory := pfinancev1.ExpenseCategory(-1)
+
+	tests := []struct {
+		name         string
+		expenses     []*pfinancev1.Expense
+		wantCategory pfinancev1.ExpenseCategory
+		wantAmount   int64
+	}{
+		{
+			name: "single zero-cent category remains present",
+			expenses: []*pfinancev1.Expense{
+				{Id: "food", Category: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD},
+			},
+			wantCategory: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
+		},
+		{
+			name: "zero-cent tie uses lowest numeric enum",
+			expenses: []*pfinancev1.Expense{
+				{Id: "housing", Category: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_HOUSING},
+				{Id: "food", Category: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD},
+			},
+			wantCategory: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
+		},
+		{
+			name: "future enum key is eligible",
+			expenses: []*pfinancev1.Expense{
+				{Id: "future", Category: futureCategory},
+			},
+			wantCategory: futureCategory,
+		},
+		{
+			name: "negative enum key wins a numeric tie",
+			expenses: []*pfinancev1.Expense{
+				{Id: "food", Category: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD},
+				{Id: "negative-enum", Category: negativeCategory},
+			},
+			wantCategory: negativeCategory,
+		},
+		{
+			name: "greatest negative category total wins",
+			expenses: []*pfinancev1.Expense{
+				{Id: "housing", Category: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_HOUSING, AmountCents: -2},
+				{Id: "food", Category: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD, AmountCents: -1},
+			},
+			wantCategory: pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_FOOD,
+			wantAmount:   -1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			mockStore := store.NewMockStore(ctrl)
+			service := NewFinanceService(mockStore, nil, nil)
+			expectOverviewWindows(
+				mockStore,
+				analyticsScope{userID: userID},
+				bounds,
+				tt.expenses,
+				nil,
+				nil,
+				nil,
+			)
+
+			resp, err := service.getAnalyticsOverviewAt(
+				testProContext(userID),
+				connect.NewRequest(&pfinancev1.GetAnalyticsOverviewRequest{}),
+				now,
+			)
+			if err != nil {
+				t.Fatalf("getAnalyticsOverviewAt() unexpected error: %v", err)
+			}
+			if resp.Msg.LargestCategory != tt.wantCategory ||
+				resp.Msg.LargestCategoryAmountCents != tt.wantAmount {
+				t.Fatalf("largest category = (%v, %d), want (%v, %d)",
+					resp.Msg.LargestCategory,
+					resp.Msg.LargestCategoryAmountCents,
+					tt.wantCategory,
+					tt.wantAmount,
+				)
+			}
+		})
+	}
+}
+
 func TestGetAnalyticsOverviewAtPersonalScopeAndCurrentDataPresence(t *testing.T) {
 	const authenticatedUserID = "owner"
 	now := time.Date(2026, time.July, 13, 10, 30, 0, 0, time.UTC)
@@ -305,12 +489,11 @@ func TestGetAnalyticsOverviewAtMapsStoreErrors(t *testing.T) {
 	const userID = "user-1"
 	now := time.Date(2026, time.July, 13, 10, 30, 0, 0, time.UTC)
 	bounds := analyticsPeriodBounds(now, pfinancev1.AnalyticsPeriod_ANALYTICS_PERIOD_MONTH)
-	storeErr := errors.New("store unavailable")
+	storeErr := errors.New("backend secret: database password hunter2")
 
 	tests := []struct {
-		name        string
-		setup       func(*store.MockStore)
-		wantMessage string
+		name  string
+		setup func(*store.MockStore)
 	}{
 		{
 			name: "current expenses",
@@ -319,7 +502,6 @@ func TestGetAnalyticsOverviewAtMapsStoreErrors(t *testing.T) {
 					ListExpenses(gomock.Any(), userID, "", &bounds.currentStart, &bounds.currentEnd, int32(1000), "").
 					Return(nil, "", storeErr)
 			},
-			wantMessage: "failed to list expenses: store unavailable",
 		},
 		{
 			name: "current incomes",
@@ -333,7 +515,6 @@ func TestGetAnalyticsOverviewAtMapsStoreErrors(t *testing.T) {
 						Return(nil, "", storeErr),
 				)
 			},
-			wantMessage: "failed to list incomes: store unavailable",
 		},
 		{
 			name: "previous expenses",
@@ -350,7 +531,6 @@ func TestGetAnalyticsOverviewAtMapsStoreErrors(t *testing.T) {
 						Return(nil, "", storeErr),
 				)
 			},
-			wantMessage: "failed to list expenses: store unavailable",
 		},
 		{
 			name: "previous incomes",
@@ -370,7 +550,6 @@ func TestGetAnalyticsOverviewAtMapsStoreErrors(t *testing.T) {
 						Return(nil, "", storeErr),
 				)
 			},
-			wantMessage: "failed to list incomes: store unavailable",
 		},
 	}
 
@@ -389,11 +568,11 @@ func TestGetAnalyticsOverviewAtMapsStoreErrors(t *testing.T) {
 			if err == nil {
 				t.Fatal("getAnalyticsOverviewAt() error = nil, want store error")
 			}
-			if got := connect.CodeOf(err); got != connect.CodeUnknown {
-				t.Fatalf("store error code = %v, want %v", got, connect.CodeUnknown)
+			if got := connect.CodeOf(err); got != connect.CodeInternal {
+				t.Fatalf("store error code = %v, want %v", got, connect.CodeInternal)
 			}
-			if !strings.Contains(err.Error(), tt.wantMessage) {
-				t.Fatalf("store error = %q, want substring %q", err, tt.wantMessage)
+			if strings.Contains(err.Error(), storeErr.Error()) {
+				t.Fatalf("store error leaked backend detail: %q", err)
 			}
 		})
 	}
@@ -426,5 +605,15 @@ func assertFloatClose(t *testing.T, name string, got, want float64) {
 	t.Helper()
 	if math.Abs(got-want) > 1e-9 {
 		t.Fatalf("%s = %.12f, want %.12f", name, got, want)
+	}
+}
+
+func assertAnalyticsInternalError(t *testing.T, err error) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("analytics error = nil, want internal error")
+	}
+	if got := connect.CodeOf(err); got != connect.CodeInternal {
+		t.Fatalf("analytics error code = %v, want %v (error %v)", got, connect.CodeInternal, err)
 	}
 }

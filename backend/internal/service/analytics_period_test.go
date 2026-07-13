@@ -1,6 +1,7 @@
 package service
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -165,5 +166,45 @@ func TestSavingsRatePresence(t *testing.T) {
 	}
 	if got, ok := savingsRate(0, 250); ok || got != 0 {
 		t.Fatalf("savingsRate(0, 250) = (%v, %v), want (0, false)", got, ok)
+	}
+}
+
+func TestAnalyticsRatesAvoidSignedSubtractionOverflow(t *testing.T) {
+	if got, ok := percentageChange(math.MaxInt64, math.MinInt64); !ok || math.Abs(got-(-200)) > 1e-9 {
+		t.Fatalf("percentageChange(MaxInt64, MinInt64) = (%v, %v), want approximately (-200, true)", got, ok)
+	}
+	if got, ok := savingsRate(math.MaxInt64, math.MinInt64); !ok || math.Abs(got-200) > 1e-9 {
+		t.Fatalf("savingsRate(MaxInt64, MinInt64) = (%v, %v), want approximately (200, true)", got, ok)
+	}
+}
+
+func TestCheckedInt64ArithmeticRejectsOverflow(t *testing.T) {
+	if _, err := checkedAddInt64(math.MaxInt64, 1); err == nil {
+		t.Fatal("checkedAddInt64(MaxInt64, 1) error = nil, want overflow")
+	}
+	if _, err := checkedAddInt64(math.MinInt64, -1); err == nil {
+		t.Fatal("checkedAddInt64(MinInt64, -1) error = nil, want overflow")
+	}
+	if _, err := checkedSubInt64(math.MinInt64, 1); err == nil {
+		t.Fatal("checkedSubInt64(MinInt64, 1) error = nil, want net overflow")
+	}
+	if _, err := checkedSubInt64(math.MaxInt64, -1); err == nil {
+		t.Fatal("checkedSubInt64(MaxInt64, -1) error = nil, want net overflow")
+	}
+
+	if got, err := checkedAddInt64(math.MaxInt64-1, 1); err != nil || got != math.MaxInt64 {
+		t.Fatalf("checkedAddInt64(MaxInt64-1, 1) = (%d, %v), want (MaxInt64, nil)", got, err)
+	}
+	if got, err := checkedSubInt64(10, 4); err != nil || got != 6 {
+		t.Fatalf("checkedSubInt64(10, 4) = (%d, %v), want (6, nil)", got, err)
+	}
+}
+
+func TestCheckedAnalyticsTransactionCountRejectsNarrowingOverflow(t *testing.T) {
+	if _, err := checkedAnalyticsTransactionCount(math.MaxInt32, 1); err == nil {
+		t.Fatal("checkedAnalyticsTransactionCount(MaxInt32, 1) error = nil, want overflow")
+	}
+	if got, err := checkedAnalyticsTransactionCount(math.MaxInt32-1, 1); err != nil || got != math.MaxInt32 {
+		t.Fatalf("checkedAnalyticsTransactionCount(MaxInt32-1, 1) = (%d, %v), want (MaxInt32, nil)", got, err)
 	}
 }

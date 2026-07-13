@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"connectrpc.com/connect"
@@ -64,37 +65,82 @@ func (s *FinanceService) getAnalyticsOverviewAt(
 	categoryTotals := make(map[pfinancev1.ExpenseCategory]int64)
 	var currentExpenseTotal int64
 	for _, expense := range currentExpenses {
-		amount := expenseCents(expense)
-		currentExpenseTotal += amount
+		amount, err := checkedExpenseCents(expense)
+		if err != nil {
+			return nil, analyticsCalculationError()
+		}
+		currentExpenseTotal, err = checkedAddInt64(currentExpenseTotal, amount)
+		if err != nil {
+			return nil, analyticsCalculationError()
+		}
 		if expense != nil {
-			categoryTotals[expense.Category] += amount
+			categoryTotals[expense.Category], err = checkedAddInt64(
+				categoryTotals[expense.Category], amount,
+			)
+			if err != nil {
+				return nil, analyticsCalculationError()
+			}
 		}
 	}
 
 	var currentIncomeTotal int64
 	for _, income := range currentIncomes {
-		currentIncomeTotal += incomeCents(income)
+		amount, err := checkedIncomeCents(income)
+		if err != nil {
+			return nil, analyticsCalculationError()
+		}
+		currentIncomeTotal, err = checkedAddInt64(currentIncomeTotal, amount)
+		if err != nil {
+			return nil, analyticsCalculationError()
+		}
 	}
 
 	var previousExpenseTotal int64
 	for _, expense := range previousExpenses {
-		previousExpenseTotal += expenseCents(expense)
+		amount, err := checkedExpenseCents(expense)
+		if err != nil {
+			return nil, analyticsCalculationError()
+		}
+		previousExpenseTotal, err = checkedAddInt64(previousExpenseTotal, amount)
+		if err != nil {
+			return nil, analyticsCalculationError()
+		}
 	}
 
 	var previousIncomeTotal int64
 	for _, income := range previousIncomes {
-		previousIncomeTotal += incomeCents(income)
-	}
-
-	largestCategory := pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED
-	var largestCategoryAmount int64
-	for categoryValue := int32(pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED); categoryValue <= int32(pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_OTHER); categoryValue++ {
-		category := pfinancev1.ExpenseCategory(categoryValue)
-		if amount := categoryTotals[category]; amount > largestCategoryAmount {
-			largestCategory = category
-			largestCategoryAmount = amount
+		amount, err := checkedIncomeCents(income)
+		if err != nil {
+			return nil, analyticsCalculationError()
+		}
+		previousIncomeTotal, err = checkedAddInt64(previousIncomeTotal, amount)
+		if err != nil {
+			return nil, analyticsCalculationError()
 		}
 	}
+
+	currentNet, err := checkedSubInt64(currentIncomeTotal, currentExpenseTotal)
+	if err != nil {
+		return nil, analyticsCalculationError()
+	}
+	previousNet, err := checkedSubInt64(previousIncomeTotal, previousExpenseTotal)
+	if err != nil {
+		return nil, analyticsCalculationError()
+	}
+	currentTransactionCount, err := checkedAnalyticsTransactionCount(
+		len(currentExpenses), len(currentIncomes),
+	)
+	if err != nil {
+		return nil, analyticsCalculationError()
+	}
+	previousTransactionCount, err := checkedAnalyticsTransactionCount(
+		len(previousExpenses), len(previousIncomes),
+	)
+	if err != nil {
+		return nil, analyticsCalculationError()
+	}
+
+	largestCategory, largestCategoryAmount := largestPresentAnalyticsCategory(categoryTotals)
 
 	savingsRatePercent, hasSavingsRate := savingsRate(currentIncomeTotal, currentExpenseTotal)
 	incomeChangePercent, hasIncomeChange := percentageChange(currentIncomeTotal, previousIncomeTotal)
@@ -107,10 +153,10 @@ func (s *FinanceService) getAnalyticsOverviewAt(
 		PreviousEnd:                timestamppb.New(bounds.previousEnd),
 		CurrentIncomeCents:         currentIncomeTotal,
 		CurrentExpenseCents:        currentExpenseTotal,
-		CurrentNetCents:            currentIncomeTotal - currentExpenseTotal,
+		CurrentNetCents:            currentNet,
 		PreviousIncomeCents:        previousIncomeTotal,
 		PreviousExpenseCents:       previousExpenseTotal,
-		PreviousNetCents:           previousIncomeTotal - previousExpenseTotal,
+		PreviousNetCents:           previousNet,
 		SavingsRatePercent:         savingsRatePercent,
 		HasSavingsRate:             hasSavingsRate,
 		IncomeChangePercent:        incomeChangePercent,
@@ -119,8 +165,32 @@ func (s *FinanceService) getAnalyticsOverviewAt(
 		HasExpenseChange:           hasExpenseChange,
 		LargestCategory:            largestCategory,
 		LargestCategoryAmountCents: largestCategoryAmount,
-		CurrentTransactionCount:    int32(len(currentExpenses) + len(currentIncomes)),
-		PreviousTransactionCount:   int32(len(previousExpenses) + len(previousIncomes)),
+		CurrentTransactionCount:    currentTransactionCount,
+		PreviousTransactionCount:   previousTransactionCount,
 		HasCurrentData:             len(currentExpenses) > 0 || len(currentIncomes) > 0,
 	}), nil
+}
+
+func largestPresentAnalyticsCategory(
+	categoryTotals map[pfinancev1.ExpenseCategory]int64,
+) (pfinancev1.ExpenseCategory, int64) {
+	largestCategory := pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_UNSPECIFIED
+	var largestAmount int64
+	hasLargest := false
+	for category, amount := range categoryTotals {
+		if !hasLargest || amount > largestAmount ||
+			(amount == largestAmount && category < largestCategory) {
+			largestCategory = category
+			largestAmount = amount
+			hasLargest = true
+		}
+	}
+	return largestCategory, largestAmount
+}
+
+func analyticsCalculationError() error {
+	return connect.NewError(
+		connect.CodeInternal,
+		errors.New("analytics overview could not be calculated"),
+	)
 }

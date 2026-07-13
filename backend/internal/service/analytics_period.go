@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"math"
 	"time"
 
@@ -66,16 +67,78 @@ func incomeCents(income *pfinancev1.Income) int64 {
 	return int64(math.Round(income.Amount * 100))
 }
 
+func checkedExpenseCents(expense *pfinancev1.Expense) (int64, error) {
+	if expense == nil {
+		return 0, nil
+	}
+	if expense.AmountCents != 0 {
+		return expense.AmountCents, nil
+	}
+	return checkedLegacyDollarCents(expense.Amount)
+}
+
+func checkedIncomeCents(income *pfinancev1.Income) (int64, error) {
+	if income == nil {
+		return 0, nil
+	}
+	if income.AmountCents != 0 {
+		return income.AmountCents, nil
+	}
+	return checkedLegacyDollarCents(income.Amount)
+}
+
+func checkedLegacyDollarCents(amount float64) (int64, error) {
+	if math.IsNaN(amount) || math.IsInf(amount, 0) {
+		return 0, errors.New("invalid legacy dollar amount")
+	}
+
+	roundedCents := math.Round(amount * 100)
+	int64Limit := math.Ldexp(1, 63)
+	if math.IsNaN(roundedCents) || math.IsInf(roundedCents, 0) ||
+		roundedCents >= int64Limit || roundedCents < -int64Limit {
+		return 0, errors.New("legacy dollar amount is outside int64 cents range")
+	}
+	return int64(roundedCents), nil
+}
+
+func checkedAddInt64(left, right int64) (int64, error) {
+	if right > 0 && left > math.MaxInt64-right {
+		return 0, errors.New("int64 addition overflow")
+	}
+	if right < 0 && left < math.MinInt64-right {
+		return 0, errors.New("int64 addition overflow")
+	}
+	return left + right, nil
+}
+
+func checkedSubInt64(left, right int64) (int64, error) {
+	if right > 0 && left < math.MinInt64+right {
+		return 0, errors.New("int64 subtraction overflow")
+	}
+	if right < 0 && left > math.MaxInt64+right {
+		return 0, errors.New("int64 subtraction overflow")
+	}
+	return left - right, nil
+}
+
+func checkedAnalyticsTransactionCount(expenseCount, incomeCount int) (int32, error) {
+	if expenseCount < 0 || incomeCount < 0 ||
+		expenseCount > math.MaxInt32 || incomeCount > math.MaxInt32-expenseCount {
+		return 0, errors.New("analytics transaction count exceeds int32")
+	}
+	return int32(expenseCount + incomeCount), nil
+}
+
 func percentageChange(current, previous int64) (float64, bool) {
 	if previous == 0 {
 		return 0, false
 	}
-	return float64(current-previous) / float64(previous) * 100, true
+	return (float64(current) - float64(previous)) / float64(previous) * 100, true
 }
 
 func savingsRate(income, expenses int64) (float64, bool) {
 	if income == 0 {
 		return 0, false
 	}
-	return float64(income-expenses) / float64(income) * 100, true
+	return (float64(income) - float64(expenses)) / float64(income) * 100, true
 }

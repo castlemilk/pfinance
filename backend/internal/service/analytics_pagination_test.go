@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -84,6 +85,38 @@ func TestListAllAnalyticsIncomesRejectsRepeatedPaginationToken(t *testing.T) {
 	assertRepeatedPaginationTokenError(t, err)
 }
 
+func TestListAllAnalyticsExpensesSanitizesStoreError(t *testing.T) {
+	const secret = "backend secret: expense database password"
+	ctrl := gomock.NewController(t)
+	mockStore := store.NewMockStore(ctrl)
+	service := NewFinanceService(mockStore, nil, nil)
+
+	mockStore.EXPECT().
+		ListExpenses(gomock.Any(), "user-1", "", nil, nil, int32(1000), "").
+		Return(nil, "", errors.New(secret))
+
+	_, err := service.listAllAnalyticsExpenses(
+		context.Background(), analyticsScope{userID: "user-1"}, nil, nil,
+	)
+	assertSanitizedAnalyticsStoreError(t, err, secret)
+}
+
+func TestListAllAnalyticsIncomesSanitizesStoreError(t *testing.T) {
+	const secret = "backend secret: income database password"
+	ctrl := gomock.NewController(t)
+	mockStore := store.NewMockStore(ctrl)
+	service := NewFinanceService(mockStore, nil, nil)
+
+	mockStore.EXPECT().
+		ListIncomes(gomock.Any(), "user-1", "", nil, nil, int32(1000), "").
+		Return(nil, "", errors.New(secret))
+
+	_, err := service.listAllAnalyticsIncomes(
+		context.Background(), analyticsScope{userID: "user-1"}, nil, nil,
+	)
+	assertSanitizedAnalyticsStoreError(t, err, secret)
+}
+
 func assertRepeatedPaginationTokenError(t *testing.T, err error) {
 	t.Helper()
 	if err == nil {
@@ -94,6 +127,19 @@ func assertRepeatedPaginationTokenError(t *testing.T, err error) {
 	}
 	if !strings.Contains(err.Error(), "pagination token repeated") {
 		t.Fatalf("pagination loader error = %q, want repeated-token message", err)
+	}
+}
+
+func assertSanitizedAnalyticsStoreError(t *testing.T, err error, secret string) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("pagination loader error = nil, want store error")
+	}
+	if got := connect.CodeOf(err); got != connect.CodeInternal {
+		t.Fatalf("pagination loader code = %v, want %v", got, connect.CodeInternal)
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Fatalf("pagination loader leaked backend detail: %q", err)
 	}
 }
 
