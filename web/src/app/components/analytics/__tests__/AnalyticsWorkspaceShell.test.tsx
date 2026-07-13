@@ -490,13 +490,6 @@ describe('analytics states', () => {
     ],
     [
       PERSONAL_SCOPE,
-      'income',
-      '/personal/income',
-      'Add income',
-      'No income is available for this analytics period.',
-    ],
-    [
-      PERSONAL_SCOPE,
       'both',
       '/personal/expenses',
       'Add an expense',
@@ -508,13 +501,6 @@ describe('analytics states', () => {
       '/shared/expenses',
       'Add a group expense',
       'No expenses are available for Merri House during this analytics period.',
-    ],
-    [
-      GROUP_SCOPE,
-      'income',
-      '/shared/income',
-      'Add group income',
-      'No income is available for Merri House during this analytics period.',
     ],
     [
       GROUP_SCOPE,
@@ -543,23 +529,45 @@ describe('analytics states', () => {
     }
   );
 
+  it('keeps the valid personal income action', () => {
+    render(<AnalyticsEmptyState scope={PERSONAL_SCOPE} missing="income" />);
+
+    expect(screen.getByRole('link', { name: 'Add income' })).toHaveAttribute(
+      'href',
+      '/personal/income'
+    );
+  });
+
+  it('explains missing group income without linking to an unavailable route', () => {
+    render(<AnalyticsEmptyState scope={GROUP_SCOPE} missing="income" />);
+
+    const state = screen
+      .getByRole('heading', { level: 3, name: 'No income for this period' })
+      .closest('section');
+    expect(state).toHaveTextContent(
+      'No income is available for Merri House during this analytics period.'
+    );
+    expect(within(state as HTMLElement).queryByRole('link')).not.toBeInTheDocument();
+    expect(document.querySelector('a[href="/shared/income"]')).not.toBeInTheDocument();
+  });
+
   it('uses a custom empty action exactly without leaking the default action', () => {
     render(
       <AnalyticsEmptyState
-        scope={PERSONAL_SCOPE}
-        missing="expenses"
-        action={{ href: '/personal/import', label: 'Review imports' }}
+        scope={GROUP_SCOPE}
+        missing="income"
+        action={{ href: '/personal/income', label: 'Review personal income' }}
       />
     );
 
     const links = screen.getAllByRole('link');
     expect(links).toHaveLength(1);
-    expect(links[0]).toHaveAttribute('href', '/personal/import');
-    expect(links[0]).toHaveTextContent('Review imports');
-    expect(screen.queryByText('Add an expense')).not.toBeInTheDocument();
-    expect(document.querySelector('a[href="/personal/expenses"]')).not.toBeInTheDocument();
+    expect(links[0]).toHaveAttribute('href', '/personal/income');
+    expect(links[0]).toHaveTextContent('Review personal income');
+    expect(screen.queryByText('Add group income')).not.toBeInTheDocument();
+    expect(document.querySelector('a[href="/shared/income"]')).not.toBeInTheDocument();
     expect(links[0].closest('section')).toHaveTextContent(
-      'No expenses are available for this analytics period.'
+      'No income is available for Merri House during this analytics period.'
     );
     expect(links[0].closest('section')).not.toHaveTextContent(/recorded|\byet\b/i);
   });

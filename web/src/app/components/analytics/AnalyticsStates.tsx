@@ -161,9 +161,13 @@ function defaultEmptyAction(
   missing: AnalyticsEmptyStateProps['missing']
 ) {
   if (missing === 'income') {
+    if (scope.kind === 'group') {
+      return undefined;
+    }
+
     return {
-      href: scope.kind === 'group' ? '/shared/income' : '/personal/income',
-      label: scope.kind === 'group' ? 'Add group income' : 'Add income',
+      href: '/personal/income',
+      label: 'Add income',
     };
   }
 
@@ -221,16 +225,18 @@ export function AnalyticsEmptyState({
       <p className="mt-2 max-w-xl text-pretty text-sm leading-relaxed text-muted-foreground">
         {copy.description}
       </p>
-      <Button
-        asChild
-        variant="outline"
-        size="lg"
-        className="mt-5 min-h-10 normal-case tracking-normal transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100"
-      >
-        <Link href={resolvedAction.href} style={BUTTON_STYLE}>
-          {resolvedAction.label}
-        </Link>
-      </Button>
+      {resolvedAction ? (
+        <Button
+          asChild
+          variant="outline"
+          size="lg"
+          className="mt-5 min-h-10 normal-case tracking-normal transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100"
+        >
+          <Link href={resolvedAction.href} style={BUTTON_STYLE}>
+            {resolvedAction.label}
+          </Link>
+        </Button>
+      ) : null}
     </section>
   );
 }
