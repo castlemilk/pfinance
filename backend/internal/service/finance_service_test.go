@@ -2862,10 +2862,11 @@ func TestGetMemberBalances(t *testing.T) {
 			Id:           "exp-1",
 			GroupId:      "group-123",
 			Amount:       100.00,
+			AmountCents:  10000,
 			PaidByUserId: "user-123",
 			Allocations: []*pfinancev1.ExpenseAllocation{
-				{UserId: "user-123", Amount: 50.00, IsPaid: false},
-				{UserId: "user-456", Amount: 50.00, IsPaid: false},
+				{UserId: "user-123", Amount: 50.00, AmountCents: 5000, IsPaid: false},
+				{UserId: "user-456", Amount: 50.00, AmountCents: 5000, IsPaid: false},
 			},
 		},
 		{
@@ -3220,22 +3221,24 @@ func TestGetGroupSummary(t *testing.T) {
 			Id:           "exp-2",
 			GroupId:      "group-123",
 			Amount:       50.00,
+			AmountCents:  5000,
 			Category:     pfinancev1.ExpenseCategory_EXPENSE_CATEGORY_ENTERTAINMENT,
 			PaidByUserId: "user-456",
 			IsSettled:    true,
 			Allocations: []*pfinancev1.ExpenseAllocation{
-				{UserId: "user-123", Amount: 25.00, IsPaid: true},
-				{UserId: "user-456", Amount: 25.00, IsPaid: true},
+				{UserId: "user-123", Amount: 25.00, AmountCents: 2500, IsPaid: true},
+				{UserId: "user-456", Amount: 25.00, AmountCents: 2500, IsPaid: true},
 			},
 		},
 	}
 
 	mockIncomes := []*pfinancev1.Income{
 		{
-			Id:      "inc-1",
-			GroupId: "group-123",
-			Amount:  500.00,
-			Source:  "Shared",
+			Id:          "inc-1",
+			GroupId:     "group-123",
+			Amount:      500.00,
+			AmountCents: 50000,
+			Source:      "Shared",
 		},
 	}
 
@@ -3270,6 +3273,10 @@ func TestGetGroupSummary(t *testing.T) {
 			},
 			expectedError: false,
 			validate: func(t *testing.T, resp *pfinancev1.GetGroupSummaryResponse) {
+				if resp.TotalExpensesCents != 15000 || resp.TotalIncomeCents != 50000 || resp.UnsettledAmountCents != 10000 {
+					t.Errorf("Expected cents totals 15000/50000/10000, got %d/%d/%d",
+						resp.TotalExpensesCents, resp.TotalIncomeCents, resp.UnsettledAmountCents)
+				}
 				if resp.TotalExpenses != 150.00 {
 					t.Errorf("Expected total expenses 150.00, got %f", resp.TotalExpenses)
 				}

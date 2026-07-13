@@ -1904,16 +1904,27 @@ func (s *FinanceService) GetMemberBalances(ctx context.Context, req *connect.Req
 		return nil, auth.WrapStoreError("list expenses", err)
 	}
 
-	var totalExpenses float64
+	var totalExpensesCents int64
 	for _, expense := range expenses {
-		totalExpenses += expense.Amount
+		amount, err := checkedExpenseCents(expense)
+		if err != nil {
+			return nil, groupCalculationError()
+		}
+		totalExpensesCents, err = checkedAddInt64(totalExpensesCents, amount)
+		if err != nil {
+			return nil, groupCalculationError()
+		}
 	}
 
-	balances := computeMemberBalancesFromExpenses(expenses, req.Msg.GroupId)
+	balances, err := computeMemberBalancesFromExpenses(expenses, req.Msg.GroupId)
+	if err != nil {
+		return nil, groupCalculationError()
+	}
 
 	return connect.NewResponse(&pfinancev1.GetMemberBalancesResponse{
-		Balances:           balances,
-		TotalGroupExpenses: totalExpenses,
+		Balances:                balances,
+		TotalGroupExpenses:      float64(totalExpensesCents) / 100,
+		TotalGroupExpensesCents: totalExpensesCents,
 	}), nil
 }
 
@@ -1997,111 +2008,239 @@ func (s *FinanceService) GetGroupSummary(ctx context.Context, req *connect.Reque
 	}
 
 	startTime, endTime := auth.ConvertDateRange(req.Msg.StartDate, req.Msg.EndDate)
+	scope := analyticsScope{groupID: req.Msg.GroupId}
 
-	expenses, _, err := s.store.ListExpenses(ctx, "", req.Msg.GroupId, startTime, endTime, 1000, "")
+	expenses, err := s.listAllAnalyticsExpenses(ctx, scope, startTime, endTime)
 	if err != nil {
-		return nil, auth.WrapStoreError("list expenses", err)
+		return nil, err
 	}
 
-	incomes, _, err := s.store.ListIncomes(ctx, "", req.Msg.GroupId, startTime, endTime, 1000, "")
+	incomes, err := s.listAllAnalyticsIncomes(ctx, scope, startTime, endTime)
 	if err != nil {
-		return nil, auth.WrapStoreError("list incomes", err)
+		return nil, err
 	}
 
-	// Calculate totals
-	totalExpenses := 0.0
-	totalIncome := 0.0
+	var totalExpensesCents int64
+	var totalIncomeCents int64
 	unsettledCount := 0
-	unsettledAmount := 0.0
-	categoryBreakdown := make(map[pfinancev1.ExpenseCategory]float64)
+	var unsettledAmountCents int64
+	categoryBreakdown := make(map[pfinancev1.ExpenseCategory]int64)
 
 	for _, expense := range expenses {
-		totalExpenses += expense.Amount
-		categoryBreakdown[expense.Category] += expense.Amount
+		if expense == nil {
+			continue
+		}
+		amount, err := checkedExpenseCents(expense)
+		if err != nil {
+			return nil, groupCalculationError()
+		}
+		totalExpensesCents, err = checkedAddInt64(totalExpensesCents, amount)
+		if err != nil {
+			return nil, groupCalculationError()
+		}
+		categoryBreakdown[expense.Category], err = checkedAddInt64(categoryBreakdown[expense.Category], amount)
+		if err != nil {
+			return nil, groupCalculationError()
+		}
 
 		if !expense.IsSettled {
 			unsettledCount++
 			for _, alloc := range expense.Allocations {
-				if !alloc.IsPaid {
-					unsettledAmount += alloc.Amount
+				if alloc != nil && !alloc.IsPaid {
+					allocationAmount, err := checkedAllocationCents(alloc)
+					if err != nil {
+						return nil, groupCalculationError()
+					}
+					unsettledAmountCents, err = checkedAddInt64(unsettledAmountCents, allocationAmount)
+					if err != nil {
+						return nil, groupCalculationError()
+					}
 				}
 			}
 		}
 	}
 
 	for _, income := range incomes {
-		totalIncome += income.Amount
+		amount, err := checkedIncomeCents(income)
+		if err != nil {
+			return nil, groupCalculationError()
+		}
+		totalIncomeCents, err = checkedAddInt64(totalIncomeCents, amount)
+		if err != nil {
+			return nil, groupCalculationError()
+		}
 	}
 
-	// Build category breakdown
+	categories := make([]pfinancev1.ExpenseCategory, 0, len(categoryBreakdown))
+	for category := range categoryBreakdown {
+		categories = append(categories, category)
+	}
+	sort.Slice(categories, func(i, j int) bool { return categories[i] < categories[j] })
+
 	expenseByCategory := make([]*pfinancev1.ExpenseBreakdown, 0, len(categoryBreakdown))
-	for cat, amount := range categoryBreakdown {
+	for _, category := range categories {
+		amountCents := categoryBreakdown[category]
 		percentage := 0.0
-		if totalExpenses > 0 {
-			percentage = (amount / totalExpenses) * 100
+		if totalExpensesCents > 0 {
+			percentage = float64(amountCents) / float64(totalExpensesCents) * 100
 		}
 		expenseByCategory = append(expenseByCategory, &pfinancev1.ExpenseBreakdown{
-			Category:   cat,
-			Amount:     amount,
-			Percentage: percentage,
+			Category:    category,
+			Amount:      float64(amountCents) / 100,
+			Percentage:  percentage,
+			AmountCents: amountCents,
 		})
 	}
 
-	// Compute member balances from already-fetched expenses (avoids duplicate ListExpenses call)
-	memberBalances := computeMemberBalancesFromExpenses(expenses, req.Msg.GroupId)
+	memberBalances, err := computeMemberBalancesFromExpenses(expenses, req.Msg.GroupId)
+	if err != nil {
+		return nil, groupCalculationError()
+	}
+	unsettledExpenseCount, err := checkedAnalyticsTransactionCount(unsettledCount, 0)
+	if err != nil {
+		return nil, groupCalculationError()
+	}
 
 	return connect.NewResponse(&pfinancev1.GetGroupSummaryResponse{
-		TotalExpenses:         totalExpenses,
-		TotalIncome:           totalIncome,
+		TotalExpenses:         float64(totalExpensesCents) / 100,
+		TotalIncome:           float64(totalIncomeCents) / 100,
 		ExpenseByCategory:     expenseByCategory,
 		MemberBalances:        memberBalances,
-		UnsettledExpenseCount: int32(unsettledCount),
-		UnsettledAmount:       unsettledAmount,
+		UnsettledExpenseCount: unsettledExpenseCount,
+		UnsettledAmount:       float64(unsettledAmountCents) / 100,
+		TotalExpensesCents:    totalExpensesCents,
+		TotalIncomeCents:      totalIncomeCents,
+		UnsettledAmountCents:  unsettledAmountCents,
 	}), nil
 }
 
 // computeMemberBalancesFromExpenses calculates member balances from a pre-fetched list of expenses.
 // Used by both GetGroupSummary (reuses already-fetched data) and GetMemberBalances.
-func computeMemberBalancesFromExpenses(expenses []*pfinancev1.Expense, groupID string) []*pfinancev1.MemberBalance {
-	userPaid := make(map[string]float64)
-	userOwed := make(map[string]float64)
+func computeMemberBalancesFromExpenses(expenses []*pfinancev1.Expense, groupID string) ([]*pfinancev1.MemberBalance, error) {
+	userPaid := make(map[string]int64)
+	userOwed := make(map[string]int64)
+	type debtKey struct {
+		from string
+		to   string
+	}
+	type debtTotal struct {
+		amountCents  int64
+		expenseCount int
+	}
+	debts := make(map[debtKey]debtTotal)
 
 	for _, expense := range expenses {
-		userPaid[expense.PaidByUserId] += expense.Amount
+		if expense == nil {
+			continue
+		}
+		amount, err := checkedExpenseCents(expense)
+		if err != nil {
+			return nil, err
+		}
+		if expense.PaidByUserId != "" {
+			userPaid[expense.PaidByUserId], err = checkedAddInt64(userPaid[expense.PaidByUserId], amount)
+			if err != nil {
+				return nil, err
+			}
+		}
 		for _, alloc := range expense.Allocations {
-			if !alloc.IsPaid {
-				userOwed[alloc.UserId] += alloc.Amount
+			if alloc == nil || alloc.IsPaid {
+				continue
+			}
+			allocationAmount, err := checkedAllocationCents(alloc)
+			if err != nil {
+				return nil, err
+			}
+			if alloc.UserId != "" {
+				userOwed[alloc.UserId], err = checkedAddInt64(userOwed[alloc.UserId], allocationAmount)
+				if err != nil {
+					return nil, err
+				}
+			}
+			if alloc.UserId != "" && expense.PaidByUserId != "" && alloc.UserId != expense.PaidByUserId {
+				key := debtKey{from: alloc.UserId, to: expense.PaidByUserId}
+				total := debts[key]
+				total.amountCents, err = checkedAddInt64(total.amountCents, allocationAmount)
+				if err != nil {
+					return nil, err
+				}
+				total.expenseCount++
+				debts[key] = total
 			}
 		}
 	}
 
-	balances := make([]*pfinancev1.MemberBalance, 0)
+	userIDs := make(map[string]struct{}, len(userPaid)+len(userOwed))
 	for userID := range userPaid {
-		paid := userPaid[userID]
-		owed := userOwed[userID]
-		balances = append(balances, &pfinancev1.MemberBalance{
-			UserId:    userID,
-			GroupId:   groupID,
-			TotalPaid: paid,
-			TotalOwed: owed,
-			Balance:   paid - owed,
-			Debts:     make([]*pfinancev1.MemberDebt, 0),
-		})
+		userIDs[userID] = struct{}{}
 	}
 	for userID := range userOwed {
-		if _, exists := userPaid[userID]; !exists {
-			owed := userOwed[userID]
-			balances = append(balances, &pfinancev1.MemberBalance{
-				UserId:    userID,
-				GroupId:   groupID,
-				TotalPaid: 0,
-				TotalOwed: owed,
-				Balance:   -owed,
-				Debts:     make([]*pfinancev1.MemberDebt, 0),
+		userIDs[userID] = struct{}{}
+	}
+	orderedUserIDs := make([]string, 0, len(userIDs))
+	for userID := range userIDs {
+		orderedUserIDs = append(orderedUserIDs, userID)
+	}
+	sort.Strings(orderedUserIDs)
+
+	balances := make([]*pfinancev1.MemberBalance, 0, len(orderedUserIDs))
+	for _, userID := range orderedUserIDs {
+		paid := userPaid[userID]
+		owed := userOwed[userID]
+		balance, err := checkedSubInt64(paid, owed)
+		if err != nil {
+			return nil, err
+		}
+		memberDebts := make([]*pfinancev1.MemberDebt, 0)
+		for key, total := range debts {
+			if key.from != userID {
+				continue
+			}
+			expenseCount, err := checkedAnalyticsTransactionCount(total.expenseCount, 0)
+			if err != nil {
+				return nil, err
+			}
+			memberDebts = append(memberDebts, &pfinancev1.MemberDebt{
+				FromUserId:   key.from,
+				ToUserId:     key.to,
+				Amount:       float64(total.amountCents) / 100,
+				ExpenseCount: expenseCount,
+				AmountCents:  total.amountCents,
 			})
 		}
+		sort.Slice(memberDebts, func(i, j int) bool {
+			if memberDebts[i].ToUserId != memberDebts[j].ToUserId {
+				return memberDebts[i].ToUserId < memberDebts[j].ToUserId
+			}
+			return memberDebts[i].FromUserId < memberDebts[j].FromUserId
+		})
+		balances = append(balances, &pfinancev1.MemberBalance{
+			UserId:         userID,
+			GroupId:        groupID,
+			TotalPaid:      float64(paid) / 100,
+			TotalOwed:      float64(owed) / 100,
+			Balance:        float64(balance) / 100,
+			Debts:          memberDebts,
+			TotalPaidCents: paid,
+			TotalOwedCents: owed,
+			BalanceCents:   balance,
+		})
 	}
-	return balances
+	return balances, nil
+}
+
+func checkedAllocationCents(allocation *pfinancev1.ExpenseAllocation) (int64, error) {
+	if allocation == nil {
+		return 0, nil
+	}
+	if allocation.AmountCents != 0 {
+		return allocation.AmountCents, nil
+	}
+	return checkedLegacyDollarCents(allocation.Amount)
+}
+
+func groupCalculationError() error {
+	return connect.NewError(connect.CodeInternal, fmt.Errorf("group financial data could not be calculated"))
 }
 
 // Invite link operations

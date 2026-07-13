@@ -97,9 +97,14 @@ func anomaliesScopeFixture() analyticsHandlerScopeFixture {
 	return analyticsHandlerScopeFixture{
 		name: "anomalies",
 		expectQueries: func(mockStore *store.MockStore, userID, groupID string) {
-			mockStore.EXPECT().
-				ListExpenses(gomock.Any(), userID, groupID, gomock.Any(), gomock.Any(), int32(10000), "").
-				Return(nil, "", nil)
+			gomock.InOrder(
+				mockStore.EXPECT().
+					ListExpenses(gomock.Any(), userID, groupID, gomock.Any(), gomock.Any(), int32(1000), "").
+					Return(nil, "", nil),
+				mockStore.EXPECT().
+					ListExpenses(gomock.Any(), userID, groupID, nil, nil, int32(1000), "").
+					Return(nil, "", nil),
+			)
 		},
 		invoke: func(service *FinanceService, ctx context.Context, userID, groupID string) error {
 			_, err := service.DetectAnomalies(ctx, connect.NewRequest(&pfinancev1.DetectAnomaliesRequest{
@@ -152,9 +157,11 @@ func waterfallScopeFixture() analyticsHandlerScopeFixture {
 			mockStore.EXPECT().
 				ListExpenses(gomock.Any(), userID, groupID, gomock.Any(), gomock.Any(), int32(10000), "").
 				Return(nil, "", nil)
-			mockStore.EXPECT().
-				GetTaxConfig(gomock.Any(), userID, groupID).
-				Return(nil, errors.New("tax config not found"))
+			if groupID == "" {
+				mockStore.EXPECT().
+					GetTaxConfig(gomock.Any(), userID, "").
+					Return(nil, errors.New("tax config not found"))
+			}
 		},
 		invoke: func(service *FinanceService, ctx context.Context, userID, groupID string) error {
 			_, err := service.GetWaterfallData(ctx, connect.NewRequest(&pfinancev1.GetWaterfallDataRequest{

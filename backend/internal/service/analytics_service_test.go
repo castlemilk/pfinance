@@ -576,9 +576,14 @@ func TestAnalyticsDetectAnomalies(t *testing.T) {
 			CreatedAt:   timestamppb.New(now.AddDate(0, 0, -2)),
 		})
 
-		mockStore.EXPECT().
-			ListExpenses(gomock.Any(), userID, "", gomock.Any(), gomock.Any(), int32(10000), "").
-			Return(expenses, "", nil)
+		gomock.InOrder(
+			mockStore.EXPECT().
+				ListExpenses(gomock.Any(), userID, "", gomock.Any(), gomock.Any(), int32(1000), "").
+				Return(expenses, "", nil),
+			mockStore.EXPECT().
+				ListExpenses(gomock.Any(), userID, "", nil, nil, int32(1000), "").
+				Return(expenses, "", nil),
+		)
 
 		resp, err := service.DetectAnomalies(ctx, connect.NewRequest(&pfinancev1.DetectAnomaliesRequest{
 			UserId:       userID,
