@@ -47,10 +47,12 @@ test.describe('Application shell interactions', () => {
       dialog.getByRole('textbox', { name: 'Message finance assistant' })
     ).toBeVisible();
 
+    const close = dialog.getByRole('button', { name: 'Close' });
+    const newChat = dialog.getByRole('button', { name: 'Start new chat' });
     const controls = [
-      dialog.getByRole('button', { name: 'Close' }),
+      close,
       dialog.getByRole('button', { name: 'Show chat history' }),
-      dialog.getByRole('button', { name: 'Start new chat' }),
+      newChat,
       dialog.getByRole('button', { name: 'Send message' }),
     ];
     for (const control of controls) {
@@ -64,6 +66,13 @@ test.describe('Application shell interactions', () => {
         )
       ).not.toBe('all');
     }
+
+    const closeBox = await close.boundingBox();
+    const newChatBox = await newChat.boundingBox();
+    expect(closeBox).not.toBeNull();
+    expect(newChatBox).not.toBeNull();
+    expect(closeBox!.x - (newChatBox!.x + newChatBox!.width))
+      .toBeGreaterThanOrEqual(8);
   });
 
   test('navigation contains no nested interactive controls', async ({ page }) => {

@@ -251,8 +251,8 @@ export function ChatPanel({ compact = false, showHistory = false }: ChatPanelPro
 
   return (
     <div className={cn('flex flex-col overflow-hidden', compact ? 'h-full' : 'h-[calc(100vh-8rem)]')}>
-      {/* Header — pr-10 in compact mode to avoid overlap with Sheet close button */}
-      <div className={cn('skeu-card skeu-scanlines flex items-center justify-between px-4 py-3 rounded-none border-x-0 border-t-0 shrink-0', compact && 'pr-12')}>
+      {/* Header — pr-16 in compact mode keeps actions clear of the Sheet close target */}
+      <div className={cn('skeu-card skeu-scanlines flex items-center justify-between px-4 py-3 rounded-none border-x-0 border-t-0 shrink-0', compact && 'pr-16')}>
         <div className="flex items-center gap-2 min-w-0">
           <span className="chat-led text-green-500" />
           <div className="min-w-0">
