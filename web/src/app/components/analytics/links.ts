@@ -69,6 +69,10 @@ function isUtcCalendarDate(value: unknown): value is string {
   }
 
   const [, year, month, day] = match;
+  if (Number(year) < 1) {
+    return false;
+  }
+
   const parsed = new Date(`${value}T00:00:00.000Z`);
 
   return (

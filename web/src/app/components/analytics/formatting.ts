@@ -36,14 +36,20 @@ export function createAnalyticsCurrencyContext(
     currency,
     formatMoney: (amount, compact = false) =>
       formatCurrency(amount, currency, { locale, compact }),
-    formatDate: (date, options) =>
-      new Intl.DateTimeFormat(locale, {
-        timeZone: 'UTC',
+    formatDate: (date, options) => {
+      const resolvedDate = typeof date === 'string' ? new Date(date) : date;
+      if (Number.isNaN(resolvedDate.getTime())) {
+        return 'Not available';
+      }
+
+      return new Intl.DateTimeFormat(locale, {
         ...(options ?? {
           day: 'numeric',
           month: 'short',
           year: 'numeric',
         }),
-      }).format(typeof date === 'string' ? new Date(date) : date),
+        timeZone: 'UTC',
+      }).format(resolvedDate);
+    },
   };
 }

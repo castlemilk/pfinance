@@ -5,6 +5,23 @@ import {
 } from '../periods';
 import { scopeGroupId, type AnalyticsPeriod } from '../types';
 
+function assertReadonlyPeriodConfig(
+  config: (typeof ANALYTICS_PERIOD_CONFIG)['month']
+): void {
+  // @ts-expect-error Analytics period fields are compile-time readonly.
+  config.trendPeriods = 16;
+}
+
+function assertReadonlyPeriodRecord(
+  config: typeof ANALYTICS_PERIOD_CONFIG
+): void {
+  // @ts-expect-error Analytics period entries are compile-time readonly.
+  config.month = config.quarter;
+}
+
+void assertReadonlyPeriodConfig;
+void assertReadonlyPeriodRecord;
+
 describe('analytics period configuration', () => {
   it('maps month to the approved analytics windows', () => {
     expect(ANALYTICS_PERIOD_CONFIG.month).toEqual({
@@ -50,6 +67,36 @@ describe('analytics period configuration', () => {
       );
     }
   );
+
+  it('freezes the period record and every shared configuration entry', () => {
+    expect(Object.isFrozen(ANALYTICS_PERIOD_CONFIG)).toBe(true);
+    expect(Object.isFrozen(ANALYTICS_PERIOD_CONFIG.month)).toBe(true);
+    expect(Object.isFrozen(ANALYTICS_PERIOD_CONFIG.quarter)).toBe(true);
+    expect(Object.isFrozen(ANALYTICS_PERIOD_CONFIG.year)).toBe(true);
+  });
+
+  it('prevents mutation from changing values observed by later consumers', () => {
+    const config = ANALYTICS_PERIOD_CONFIG.month as unknown as {
+      trendPeriods: number;
+    };
+    const originalValue = config.trendPeriods;
+    const replacementValue = 24;
+    const didMutate = Reflect.set(config, 'trendPeriods', replacementValue);
+    const observedValue = config.trendPeriods;
+
+    if (didMutate) {
+      Reflect.set(config, 'trendPeriods', originalValue);
+    }
+
+    expect(didMutate).toBe(false);
+    expect(observedValue).toBe(originalValue);
+  });
+
+  it('rejects unknown runtime periods with a clear RangeError', () => {
+    expect(() =>
+      getAnalyticsPeriodConfig('week' as AnalyticsPeriod)
+    ).toThrow(new RangeError('Unsupported analytics period'));
+  });
 });
 
 describe('analyticsHeatmapRange', () => {
@@ -71,6 +118,18 @@ describe('analyticsHeatmapRange', () => {
       expect(now.getTime()).toBe(originalTime);
     }
   );
+
+  it('rejects an invalid request time with a clear RangeError', () => {
+    expect(() => analyticsHeatmapRange('month', new Date(Number.NaN))).toThrow(
+      new RangeError('Analytics heatmap range requires a valid date')
+    );
+  });
+
+  it('rejects an unknown runtime period before calculating a range', () => {
+    expect(() =>
+      analyticsHeatmapRange('week' as AnalyticsPeriod, new Date())
+    ).toThrow(new RangeError('Unsupported analytics period'));
+  });
 });
 
 describe('scopeGroupId', () => {

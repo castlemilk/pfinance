@@ -56,4 +56,28 @@ describe('createAnalyticsCurrencyContext', () => {
       })
     ).toBe('July 13');
   });
+
+  it('keeps analytics dates in UTC when callers supply another time zone', () => {
+    const context = createAnalyticsCurrencyContext('simple');
+
+    expect(
+      context.formatDate('2026-07-13T23:30:00.000Z', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: 'Pacific/Kiritimati',
+      })
+    ).toBe('07/13/2026');
+  });
+
+  it.each(['not-a-date', new Date(Number.NaN)])(
+    'returns accessible fallback text for invalid date input %p',
+    (date) => {
+      expect(contextForInvalidDates().formatDate(date)).toBe('Not available');
+    }
+  );
 });
+
+function contextForInvalidDates() {
+  return createAnalyticsCurrencyContext('australia');
+}

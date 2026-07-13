@@ -1,10 +1,9 @@
 import type { AnalyticsPeriod, AnalyticsPeriodConfig } from './types';
 
-export const ANALYTICS_PERIOD_CONFIG: Record<
-  AnalyticsPeriod,
-  AnalyticsPeriodConfig
-> = {
-  month: {
+export const ANALYTICS_PERIOD_CONFIG: Readonly<
+  Record<AnalyticsPeriod, AnalyticsPeriodConfig>
+> = Object.freeze({
+  month: Object.freeze({
     trendGranularity: 'week',
     trendPeriods: 8,
     heatmapMonths: 3,
@@ -12,8 +11,8 @@ export const ANALYTICS_PERIOD_CONFIG: Record<
     anomalyLookbackDays: 90,
     forecastDays: 30,
     waterfallDays: 30,
-  },
-  quarter: {
+  } satisfies AnalyticsPeriodConfig),
+  quarter: Object.freeze({
     trendGranularity: 'week',
     trendPeriods: 16,
     heatmapMonths: 6,
@@ -21,8 +20,8 @@ export const ANALYTICS_PERIOD_CONFIG: Record<
     anomalyLookbackDays: 180,
     forecastDays: 60,
     waterfallDays: 90,
-  },
-  year: {
+  } satisfies AnalyticsPeriodConfig),
+  year: Object.freeze({
     trendGranularity: 'month',
     trendPeriods: 24,
     heatmapMonths: 12,
@@ -30,12 +29,20 @@ export const ANALYTICS_PERIOD_CONFIG: Record<
     anomalyLookbackDays: 365,
     forecastDays: 90,
     waterfallDays: 365,
-  },
-};
+  } satisfies AnalyticsPeriodConfig),
+});
+
+function isAnalyticsPeriod(value: unknown): value is AnalyticsPeriod {
+  return value === 'month' || value === 'quarter' || value === 'year';
+}
 
 export function getAnalyticsPeriodConfig(
   period: AnalyticsPeriod
 ): AnalyticsPeriodConfig {
+  if (!isAnalyticsPeriod(period)) {
+    throw new RangeError('Unsupported analytics period');
+  }
+
   return ANALYTICS_PERIOD_CONFIG[period];
 }
 
@@ -59,11 +66,13 @@ function subtractUtcCalendarMonths(date: Date, months: number): Date {
 }
 
 export function analyticsHeatmapRange(period: AnalyticsPeriod, now: Date) {
+  if (!(now instanceof Date) || Number.isNaN(now.getTime())) {
+    throw new RangeError('Analytics heatmap range requires a valid date');
+  }
+
+  const { heatmapMonths } = getAnalyticsPeriodConfig(period);
   const endDate = new Date(now.getTime());
-  const startDate = subtractUtcCalendarMonths(
-    endDate,
-    getAnalyticsPeriodConfig(period).heatmapMonths
-  );
+  const startDate = subtractUtcCalendarMonths(endDate, heatmapMonths);
 
   return { startDate, endDate };
 }

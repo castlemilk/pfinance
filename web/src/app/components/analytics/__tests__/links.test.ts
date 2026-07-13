@@ -86,6 +86,19 @@ describe('buildAnalyticsExpenseUrl', () => {
     );
   });
 
+  it.each([
+    ['date', '0000-01-01'],
+    ['date', '0000-02-29'],
+    ['from', '0000-01-01'],
+    ['from', '0000-02-29'],
+    ['to', '0000-01-01'],
+    ['to', '0000-02-29'],
+  ] as const)('rejects year-zero %s value %s', (field, value) => {
+    expect(
+      buildAnalyticsExpenseUrl(personalScope, { [field]: value })
+    ).toBe('/personal/expenses');
+  });
+
   it('ignores non-canonical categories and empty identifiers at runtime', () => {
     const malformedFilters = {
       category: 'Food',

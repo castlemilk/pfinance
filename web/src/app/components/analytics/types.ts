@@ -5,13 +5,13 @@ export type AnalyticsScope =
 export type AnalyticsPeriod = 'month' | 'quarter' | 'year';
 
 export type AnalyticsPeriodConfig = {
-  trendGranularity: 'week' | 'month';
-  trendPeriods: 8 | 16 | 24;
-  heatmapMonths: 3 | 6 | 12;
-  categoryPeriod: AnalyticsPeriod;
-  anomalyLookbackDays: 90 | 180 | 365;
-  forecastDays: 30 | 60 | 90;
-  waterfallDays: 30 | 90 | 365;
+  readonly trendGranularity: 'week' | 'month';
+  readonly trendPeriods: 8 | 16 | 24;
+  readonly heatmapMonths: 3 | 6 | 12;
+  readonly categoryPeriod: AnalyticsPeriod;
+  readonly anomalyLookbackDays: 90 | 180 | 365;
+  readonly forecastDays: 30 | 60 | 90;
+  readonly waterfallDays: 30 | 90 | 365;
 };
 
 export type AnalyticsCurrencyContext = {
