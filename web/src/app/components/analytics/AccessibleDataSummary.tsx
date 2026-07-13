@@ -45,6 +45,10 @@ export function AccessibleDataSummary({
     rows.map((row) => JSON.stringify(row)),
     'row'
   );
+  const hasNoData = columns.length === 0 && rows.length === 0;
+  const hasValidShape =
+    columns.length > 0 &&
+    rows.every((row) => row.length === columns.length);
 
   return (
     <Collapsible
@@ -55,7 +59,7 @@ export function AccessibleDataSummary({
       <CollapsibleTrigger asChild>
         <button
           type="button"
-          className="flex min-h-10 w-full items-center justify-between gap-3 rounded-md bg-transparent px-4 py-2 text-left text-sm font-semibold text-foreground outline-none transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out hover:bg-muted/50 focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100"
+          className="flex min-h-10 w-full items-center justify-between gap-3 rounded-md bg-transparent px-4 py-2 text-left text-sm font-semibold text-foreground outline-none transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out hover:bg-muted/50 focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/50 active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100"
         >
           <span>{isOpen ? 'Hide data table' : 'Show data table'}</span>
           <ChevronDown
@@ -69,9 +73,24 @@ export function AccessibleDataSummary({
       </CollapsibleTrigger>
 
       <CollapsibleContent className="border-t border-border">
-        <Table className="min-w-max tabular-nums">
-          <TableCaption className="sr-only">{caption}</TableCaption>
-          {columns.length > 0 ? (
+        {hasNoData ? (
+          <p
+            role="status"
+            className="px-4 py-3 text-pretty text-sm text-muted-foreground"
+          >
+            No table data is available.
+          </p>
+        ) : !hasValidShape ? (
+          <p
+            role="status"
+            className="px-4 py-3 text-pretty text-sm text-muted-foreground"
+          >
+            This data table is unavailable because its rows do not match the
+            supplied columns.
+          </p>
+        ) : (
+          <Table className="min-w-max tabular-nums">
+            <TableCaption className="sr-only">{caption}</TableCaption>
             <TableHeader>
               <TableRow>
                 {columns.map((column, index) => (
@@ -81,29 +100,29 @@ export function AccessibleDataSummary({
                 ))}
               </TableRow>
             </TableHeader>
-          ) : null}
-          <TableBody>
-            {rows.map((row, rowIndex) => {
-              const cellKeys = duplicateSafeKeys(
-                row,
-                `cell:${rowKeys[rowIndex]}`
-              );
+            <TableBody>
+              {rows.map((row, rowIndex) => {
+                const cellKeys = duplicateSafeKeys(
+                  row,
+                  `cell:${rowKeys[rowIndex]}`
+                );
 
-              return (
-                <TableRow key={rowKeys[rowIndex]}>
-                  {row.map((cell, cellIndex) => (
-                    <TableCell
-                      key={cellKeys[cellIndex]}
-                      className="tabular-nums"
-                    >
-                      {cell}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                return (
+                  <TableRow key={rowKeys[rowIndex]}>
+                    {row.map((cell, cellIndex) => (
+                      <TableCell
+                        key={cellKeys[cellIndex]}
+                        className="tabular-nums"
+                      >
+                        {cell}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
       </CollapsibleContent>
     </Collapsible>
   );

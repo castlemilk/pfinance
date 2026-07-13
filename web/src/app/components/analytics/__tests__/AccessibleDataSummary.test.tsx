@@ -54,6 +54,7 @@ describe('AccessibleDataSummary', () => {
     const disclosure = screen.getByRole('button', { name: 'Show data table' });
     expect(disclosure).toHaveAttribute('aria-expanded', 'false');
     expect(disclosure).toHaveClass('min-h-10');
+    expect(disclosure).toHaveClass('focus-visible:ring-inset');
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
 
     await user.tab();
@@ -171,25 +172,80 @@ describe('AccessibleDataSummary', () => {
     consoleError.mockRestore();
   });
 
-  it('keeps empty and headerless data safe without inventing values', async () => {
+  it('fails safely for empty and populated headerless data', async () => {
     const user = userEvent.setup();
     const { rerender } = render(
       <AccessibleDataSummary caption="No rows yet" columns={[]} rows={[]} />
     );
 
     await user.click(screen.getByRole('button', { name: 'Show data table' }));
-    let table = screen.getByRole('table', { name: 'No rows yet' });
-    expect(within(table).queryByRole('columnheader')).not.toBeInTheDocument();
-    expect(within(table).queryByRole('cell')).not.toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'No table data is available.'
+    );
 
+    const headerlessRows = Object.freeze([
+      Object.freeze(['Supplied exactly']),
+    ]);
     rerender(
       <AccessibleDataSummary
         caption="Headerless values"
         columns={[]}
-        rows={[['Supplied exactly']]}
+        rows={headerlessRows}
       />
     );
-    table = screen.getByRole('table', { name: 'Headerless values' });
-    expect(within(table).getByRole('cell')).toHaveTextContent('Supplied exactly');
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      /data table is unavailable because its rows do not match the supplied columns/i
+    );
+    expect(screen.queryByText('Supplied exactly')).not.toBeInTheDocument();
+    expect(headerlessRows).toEqual([['Supplied exactly']]);
+  });
+
+  it.each([
+    ['shorter', Object.freeze([Object.freeze(['Food'])])],
+    [
+      'longer',
+      Object.freeze([Object.freeze(['Food', '$12.00', 'Unexpected'])]),
+    ],
+  ] as const)('rejects rows that are %s than the supplied columns', async (_, invalidRows) => {
+    const user = userEvent.setup();
+    const before = invalidRows.map((row) => [...row]);
+    render(
+      <AccessibleDataSummary
+        caption="Invalid category totals"
+        columns={['Category', 'Amount']}
+        rows={invalidRows}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Show data table' }));
+
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      /data table is unavailable because its rows do not match the supplied columns/i
+    );
+    expect(invalidRows).toEqual(before);
+  });
+
+  it('keeps an empty body valid when labelled columns are supplied', async () => {
+    const user = userEvent.setup();
+    render(
+      <AccessibleDataSummary
+        caption="Category totals"
+        columns={['Category', 'Amount']}
+        rows={[]}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Show data table' }));
+
+    const table = screen.getByRole('table', { name: 'Category totals' });
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((header) => header.textContent)
+    ).toEqual(['Category', 'Amount']);
+    expect(within(table).queryByRole('cell')).not.toBeInTheDocument();
   });
 });

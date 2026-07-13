@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 
@@ -80,9 +80,38 @@ export function AnalyticsWorkspaceShell({
   children,
 }: AnalyticsWorkspaceShellProps) {
   const scopedViews = availableViewsForScope(scope, availableViews);
-  const effectiveActiveView = scopedViews.includes(activeView)
+  const activeViewIsAvailable = scopedViews.includes(activeView);
+  const fallbackView = scopedViews[0];
+  const effectiveActiveView = activeViewIsAvailable
     ? activeView
-    : scopedViews[0];
+    : fallbackView;
+  const scopeIdentity =
+    scope.kind === 'personal' ? 'personal' : `group:${scope.groupId}`;
+  const normalizationKey =
+    !activeViewIsAvailable && fallbackView
+      ? JSON.stringify([scopeIdentity, activeView, fallbackView])
+      : null;
+  const lastNormalizationRef = useRef<string | null>(null);
+  const onViewChangeRef = useRef(onViewChange);
+
+  useEffect(() => {
+    onViewChangeRef.current = onViewChange;
+  }, [onViewChange]);
+
+  useEffect(() => {
+    if (!normalizationKey || !fallbackView) {
+      lastNormalizationRef.current = null;
+      return;
+    }
+
+    if (lastNormalizationRef.current === normalizationKey) {
+      return;
+    }
+
+    lastNormalizationRef.current = normalizationKey;
+    onViewChangeRef.current(fallbackView);
+  }, [fallbackView, normalizationKey]);
+
   const headingId =
     scope.kind === 'personal'
       ? 'personal-analytics-heading'
@@ -165,7 +194,19 @@ export function AnalyticsWorkspaceShell({
             />
             {scopedViews.map((view) => (
               <TabsContent key={view} value={view} className="mt-0 min-w-0">
-                {view === effectiveActiveView ? children : null}
+                {view === effectiveActiveView ? (
+                  activeViewIsAvailable ? (
+                    children
+                  ) : (
+                    <p
+                      aria-live="polite"
+                      role="status"
+                      className="text-pretty text-sm text-muted-foreground"
+                    >
+                      Updating the analytics view.
+                    </p>
+                  )
+                ) : null}
               </TabsContent>
             ))}
           </Tabs>
@@ -176,7 +217,9 @@ export function AnalyticsWorkspaceShell({
               availableViews={scopedViews}
             />
             <div aria-label="Analytics content" role="region" className="min-w-0">
-              {children}
+              <p className="text-pretty text-sm text-muted-foreground">
+                No analytics view is available.
+              </p>
             </div>
           </div>
         )}

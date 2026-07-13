@@ -147,24 +147,26 @@ function emptyStateCopy(
   scope: AnalyticsScope,
   missing: AnalyticsEmptyStateProps['missing']
 ) {
-  const scopeSuffix =
-    scope.kind === 'group' ? ` for ${scope.groupName || 'this group'}` : '';
+  const periodScope =
+    scope.kind === 'group'
+      ? `${scope.groupName || 'this group'} during this analytics period`
+      : 'this analytics period';
 
   switch (missing) {
     case 'expenses':
       return {
-        title: 'Spending needs transactions',
-        description: `No expenses have been recorded${scopeSuffix} yet.`,
+        title: 'No spending for this period',
+        description: `No expenses are available for ${periodScope}.`,
       };
     case 'income':
       return {
-        title: 'Income needs transactions',
-        description: `No income has been recorded${scopeSuffix} yet.`,
+        title: 'No income for this period',
+        description: `No income is available for ${periodScope}.`,
       };
     case 'both':
       return {
-        title: 'Analytics needs transactions',
-        description: `No income or expenses have been recorded${scopeSuffix} yet.`,
+        title: 'No activity for this period',
+        description: `No income or expenses are available for ${periodScope}.`,
       };
   }
 }

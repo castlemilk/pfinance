@@ -212,14 +212,16 @@ describe('AnalyticsWorkspaceShell', () => {
     ]);
   });
 
-  it('suppresses group data quality and safely falls back from a filtered active view', () => {
-    const onViewChange = jest.fn();
-    render(
+  it('withholds rejected group content and normalizes the controlled view at most once', async () => {
+    const firstOnViewChange = jest.fn();
+    const replacementOnViewChange = jest.fn();
+    const { rerender } = render(
       shell({
         scope: GROUP_SCOPE,
         activeView: 'data-quality',
-        onViewChange,
+        onViewChange: firstOnViewChange,
         availableViews: ['data-quality', 'overview', 'data-quality', 'forecast'],
+        children: <div>Data quality hooks mounted</div>,
       })
     );
 
@@ -228,11 +230,39 @@ describe('AnalyticsWorkspaceShell', () => {
       'aria-selected',
       'true'
     );
-    expect(screen.getAllByTestId('active-view-content')).toHaveLength(1);
-    expect(onViewChange).not.toHaveBeenCalled();
+    expect(screen.queryByText('Data quality hooks mounted')).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(firstOnViewChange).toHaveBeenCalledWith('overview')
+    );
+    expect(firstOnViewChange).toHaveBeenCalledTimes(1);
+
+    rerender(
+      shell({
+        scope: GROUP_SCOPE,
+        activeView: 'data-quality',
+        onViewChange: replacementOnViewChange,
+        availableViews: ['data-quality', 'overview', 'forecast'],
+        children: <div>Data quality hooks mounted</div>,
+      })
+    );
+    expect(screen.queryByText('Data quality hooks mounted')).not.toBeInTheDocument();
+    expect(firstOnViewChange).toHaveBeenCalledTimes(1);
+    expect(replacementOnViewChange).not.toHaveBeenCalled();
+
+    rerender(
+      shell({
+        scope: GROUP_SCOPE,
+        activeView: 'overview',
+        onViewChange: replacementOnViewChange,
+        availableViews: ['data-quality', 'overview', 'forecast'],
+        children: <div>Overview hooks mounted</div>,
+      })
+    );
+    expect(screen.getByText('Overview hooks mounted')).toBeInTheDocument();
+    expect(replacementOnViewChange).not.toHaveBeenCalled();
   });
 
-  it('keeps content accessible when no valid views remain', () => {
+  it('never mounts rejected content when no valid views remain', () => {
     const onViewChange = jest.fn();
     render(
       shell({
@@ -240,14 +270,15 @@ describe('AnalyticsWorkspaceShell', () => {
         activeView: 'data-quality',
         onViewChange,
         availableViews: ['data-quality'],
+        children: <div>Data quality hooks mounted</div>,
       })
     );
 
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('region', { name: 'Analytics content' })
-    ).toContainElement(screen.getByTestId('active-view-content'));
-    expect(screen.getAllByTestId('active-view-content')).toHaveLength(1);
+    expect(screen.queryByText('Data quality hooks mounted')).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Analytics content' })).toHaveTextContent(
+      /no analytics view is available/i
+    );
     expect(onViewChange).not.toHaveBeenCalled();
   });
 
@@ -358,32 +389,61 @@ describe('analytics states', () => {
   });
 
   it.each([
-    [PERSONAL_SCOPE, 'expenses', '/personal/expenses', 'Add an expense'],
-    [PERSONAL_SCOPE, 'income', '/personal/income', 'Add income'],
-    [PERSONAL_SCOPE, 'both', '/personal/expenses', 'Add an expense'],
-    [GROUP_SCOPE, 'expenses', '/shared/expenses', 'Add a group expense'],
-    [GROUP_SCOPE, 'income', '/shared/income', 'Add group income'],
-    [GROUP_SCOPE, 'both', '/shared/expenses', 'Add a group expense'],
+    [
+      PERSONAL_SCOPE,
+      'expenses',
+      '/personal/expenses',
+      'Add an expense',
+      'No expenses are available for this analytics period.',
+    ],
+    [
+      PERSONAL_SCOPE,
+      'income',
+      '/personal/income',
+      'Add income',
+      'No income is available for this analytics period.',
+    ],
+    [
+      PERSONAL_SCOPE,
+      'both',
+      '/personal/expenses',
+      'Add an expense',
+      'No income or expenses are available for this analytics period.',
+    ],
+    [
+      GROUP_SCOPE,
+      'expenses',
+      '/shared/expenses',
+      'Add a group expense',
+      'No expenses are available for Merri House during this analytics period.',
+    ],
+    [
+      GROUP_SCOPE,
+      'income',
+      '/shared/income',
+      'Add group income',
+      'No income is available for Merri House during this analytics period.',
+    ],
+    [
+      GROUP_SCOPE,
+      'both',
+      '/shared/expenses',
+      'Add a group expense',
+      'No income or expenses are available for Merri House during this analytics period.',
+    ],
   ] as const)(
     'uses the scope-aware default action for %o missing %s',
-    (scope, missing, href, label) => {
+    (scope, missing, href, label, expectedCopy) => {
       render(<AnalyticsEmptyState scope={scope} missing={missing} />);
 
       const action = screen.getByRole('link', { name: label });
       expect(action).toHaveAttribute('href', href);
       expect(action).toHaveClass('min-h-10');
-      expect(
-        screen.getByText(
-          new RegExp(
-            missing === 'both' ? 'income or expenses' : missing,
-            'i'
-          ),
-          { selector: 'p' }
-        )
-      ).toBeInTheDocument();
-      if (scope.kind === 'group') {
-        expect(screen.getByText(/Merri House/, { selector: 'p' })).toBeInTheDocument();
-      }
+      const state = action.closest('section');
+      expect(state).toHaveTextContent(expectedCopy);
+      expect(state).toHaveTextContent(/analytics period/i);
+      expect(state).not.toHaveTextContent(/recorded/i);
+      expect(state).not.toHaveTextContent(/\byet\b/i);
     }
   );
 
@@ -402,6 +462,10 @@ describe('analytics states', () => {
     expect(links[0]).toHaveTextContent('Review imports');
     expect(screen.queryByText('Add an expense')).not.toBeInTheDocument();
     expect(document.querySelector('a[href="/personal/expenses"]')).not.toBeInTheDocument();
+    expect(links[0].closest('section')).toHaveTextContent(
+      'No expenses are available for this analytics period.'
+    );
+    expect(links[0].closest('section')).not.toHaveTextContent(/recorded|\byet\b/i);
   });
 
   it('reports covered and uncovered categories without claiming a false all-clear', () => {
