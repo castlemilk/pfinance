@@ -409,6 +409,39 @@ describe('CashFlowForecast', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('clears a selected tooltip when confidence bounds change at the same date', () => {
+    const renderChart = (point: ForecastSeries) => (
+      <CashFlowForecast
+        incomeForecast={[point]}
+        expenseForecast={[]}
+        netForecast={[]}
+        formatMoney={(value) => `value ${value}`}
+        formatDate={(value) => {
+          const date = typeof value === 'string' ? new Date(value) : value;
+          return `day ${date.toISOString().slice(0, 10)}`;
+        }}
+      />
+    );
+    const { rerender } = render(
+      renderChart(forecastPoint('2026-07-20', 100, 80, 120, true))
+    );
+
+    fireEvent.focus(screen.getByTestId('forecast-chart-overlay'));
+    expect(screen.getByText('Income: value 100')).toBeInTheDocument();
+    expect(screen.getByTestId('forecast-range-income')).toHaveTextContent(
+      'value 80 to value 120'
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'day 2026-07-20. Income value 100.'
+    );
+
+    rerender(renderChart(forecastPoint('2026-07-20', 100, 0, 0, false)));
+
+    expect(screen.queryByText('Income: value 100')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('forecast-range-income')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  });
+
   it('reserves legend and summary space outside a bounded responsive plot', () => {
     mockParentSize = { width: 480, height: 120 };
     render(

@@ -268,6 +268,20 @@ function toTooltipMetric(point: ForecastSeries | undefined): TooltipMetric | und
   };
 }
 
+function forecastInteractionToken(
+  series: ForecastKey,
+  point: ForecastSeries
+): string {
+  return JSON.stringify([
+    series,
+    point.date.getTime(),
+    point.predicted,
+    point.hasBounds,
+    point.lowerBound,
+    point.upperBound,
+  ]);
+}
+
 function buildForecastModel(
   props: CashFlowForecastProps,
   today: Date,
@@ -513,13 +527,13 @@ function ForecastPlot({
           (point) => `expense-history:${point.date.getTime()}:${point.value}`
         ),
         ...model.incomeForecast.map(
-          (point) => `income-forecast:${point.date.getTime()}:${point.predicted}`
+          (point) => forecastInteractionToken('income', point)
         ),
         ...model.expenseForecast.map(
-          (point) => `expense-forecast:${point.date.getTime()}:${point.predicted}`
+          (point) => forecastInteractionToken('expenses', point)
         ),
         ...model.netForecast.map(
-          (point) => `net-forecast:${point.date.getTime()}:${point.predicted}`
+          (point) => forecastInteractionToken('net', point)
         ),
       ].join('|'),
     [
