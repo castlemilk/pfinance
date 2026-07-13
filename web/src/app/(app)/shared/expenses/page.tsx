@@ -51,7 +51,7 @@ export default function SharedExpensesPage() {
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
             <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Select a Finance Group</h3>
+            <h2 className="text-lg font-semibold mb-2">Select a Finance Group</h2>
             <p className="text-muted-foreground">
               Please select or create a finance group from the Groups page to track shared expenses.
             </p>

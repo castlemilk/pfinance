@@ -117,7 +117,7 @@ export default function EnhancedGroupSelector() {
     <>
       <header className="sticky top-14 z-10 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 lg:top-0">
         <div
-          role="toolbar"
+          role="group"
           aria-label="Shared finance controls"
           className="container flex h-auto min-h-16 min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-3"
         >

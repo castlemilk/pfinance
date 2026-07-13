@@ -169,11 +169,11 @@ describe('EnhancedGroupSelector', () => {
     expect(within(dialog).getByText(code, { exact: true })).toBeInTheDocument();
   });
 
-  it('keeps shared controls wrapping and locally touch-sized on mobile', () => {
+  it('uses an ordinary group landmark for wrapping, touch-sized shared controls', () => {
     renderSelector();
 
     const header = screen.getByRole('banner');
-    const toolbar = screen.getByRole('toolbar', {
+    const controls = screen.getByRole('group', {
       name: 'Shared finance controls',
     });
     const trigger = screen.getByRole('button', {
@@ -185,7 +185,8 @@ describe('EnhancedGroupSelector', () => {
     });
 
     expect(header).toHaveClass('top-14', 'lg:top-0');
-    expect(toolbar).toHaveClass('h-auto', 'min-h-16', 'min-w-0', 'flex-wrap');
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    expect(controls).toHaveClass('h-auto', 'min-h-16', 'min-w-0', 'flex-wrap');
     expect(trigger).toHaveClass('min-h-10', 'min-w-0', 'max-w-full');
     expect(settings).toHaveClass('min-h-10', 'min-w-10');
     expect(memberBadge).toHaveClass('min-h-10', 'min-w-10');
