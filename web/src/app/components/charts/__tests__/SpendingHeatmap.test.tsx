@@ -330,4 +330,92 @@ describe('SpendingHeatmap', () => {
     expect(consoleError.mock.calls.flat().join(' ')).not.toMatch(/same key/i);
     consoleError.mockRestore();
   });
+
+  it.each([
+    ['three months', '2026-04-13', '2026-07-13'],
+    ['one year', '2025-07-13', '2026-07-13'],
+  ])(
+    'keeps %s day targets usable in a labelled mobile scroll viewport',
+    (_label, start, end) => {
+      mockParentSize = { width: 320, height: 240 };
+
+      render(
+        <SpendingHeatmap
+          data={{
+            maxValue: 10,
+            days: [
+              { date: start, value: 5, count: 1 },
+              { date: end, value: 10, count: 1 },
+            ],
+          }}
+          onDayClick={jest.fn()}
+          formatMoney={formatMoney}
+          formatDate={formatDate}
+        />
+      );
+
+      const viewport = screen.getByRole('region', {
+        name: /scrollable daily spending calendar/i,
+      });
+      expect(viewport).toHaveClass('overflow-x-auto');
+      expect(Number(viewport.querySelector('svg')?.getAttribute('width'))).toBeGreaterThan(
+        mockParentSize.width
+      );
+      screen.getAllByRole('button', { name: /day 20/i }).forEach((cell) => {
+        expect(Number(cell.getAttribute('width'))).toBeGreaterThanOrEqual(24);
+      });
+    }
+  );
+
+  it('uses roving day focus, tabs directly into detail, and restores focus on Escape', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const onDayClick = jest.fn();
+    render(
+      <SpendingHeatmap
+        data={{
+          maxValue: 8,
+          days: [
+            { date: '2026-07-01', value: 5, count: 1 },
+            { date: '2026-07-02', value: 8, count: 1 },
+          ],
+        }}
+        expenses={[
+          {
+            id: 'first-expense',
+            description: 'First day lunch',
+            amount: 5,
+            category: 'Food',
+            date: new Date('2026-07-01T10:00:00.000Z'),
+            frequency: 'once',
+          },
+        ]}
+        onDayClick={onDayClick}
+        formatMoney={formatMoney}
+        formatDate={formatDate}
+      />
+    );
+
+    const first = screen.getByRole('button', { name: /day 2026-07-01/i });
+    const second = screen.getByRole('button', { name: /day 2026-07-02/i });
+    expect(first).toHaveAttribute('tabindex', '0');
+    expect(second).toHaveAttribute('tabindex', '-1');
+
+    await user.tab();
+    expect(first).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: /First day lunch/i })).toHaveFocus();
+
+    await user.keyboard('{Escape}');
+    expect(first).toHaveFocus();
+    expect(screen.queryByText('First day lunch')).not.toBeInTheDocument();
+
+    fireEvent.keyDown(first, { key: 'ArrowRight' });
+    expect(second).toHaveFocus();
+    expect(second).toHaveAttribute('tabindex', '0');
+    expect(first).toHaveAttribute('tabindex', '-1');
+    fireEvent.keyDown(second, { key: 'Home' });
+    expect(first).toHaveFocus();
+    fireEvent.keyDown(first, { key: 'End' });
+    expect(second).toHaveFocus();
+  });
 });

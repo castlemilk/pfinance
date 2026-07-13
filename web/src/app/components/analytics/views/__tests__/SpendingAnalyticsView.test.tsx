@@ -121,12 +121,12 @@ const heatmapData = Object.freeze({
   ]),
 });
 const expenseSeries = Object.freeze([
-  Object.freeze({ date: '2026-07-08', value: 20 }),
   Object.freeze({ date: '2026-07-01', value: 10 }),
+  Object.freeze({ date: '2026-07-08', value: 20 }),
 ]);
 const incomeSeries = Object.freeze([
-  Object.freeze({ date: '2026-07-15', value: 80 }),
   Object.freeze({ date: '2026-07-01', value: 70 }),
+  Object.freeze({ date: '2026-07-15', value: 80 }),
 ]);
 const categories = Object.freeze(['Housing', 'Food']);
 const categoryPoints = Object.freeze([
@@ -594,6 +594,8 @@ describe('SpendingAnalyticsView', () => {
       { date: '2026-07-01', value: 70 },
       { date: '2026-07-15', value: 80 },
     ]);
+    expect(trendProps.trendSlope).toBeUndefined();
+    expect(trendProps.trendRSquared).toBeUndefined();
     const categoryProps = mockCategoryChart.mock.calls.at(-1)?.[0];
     expect(categoryProps.categories).toEqual(['Food', 'Housing']);
     expect(categoryProps.points).toEqual([

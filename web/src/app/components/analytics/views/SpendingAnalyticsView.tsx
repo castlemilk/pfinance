@@ -6,8 +6,6 @@ import { useRouter } from 'next/navigation';
 import LazyCategoryStackedTrendChart from '@/app/components/charts/LazyCategoryStackedTrendChart';
 import LazySpendingHeatmap from '@/app/components/charts/LazySpendingHeatmap';
 import LazySpendingTrendChart from '@/app/components/charts/LazySpendingTrendChart';
-import { normalizeCategoryStackedTrendData } from '@/app/components/charts/CategoryStackedTrendChart';
-import { normalizeHeatmapData } from '@/app/components/charts/SpendingHeatmap';
 import {
   useCategorySpendingTrends,
   useHeatmapData,
@@ -17,6 +15,12 @@ import type {
   CategoryStackedTrendPoint,
   HeatmapData,
 } from '@/app/metrics/types';
+
+import {
+  normalizeCategoryStackedTrendData,
+  normalizeHeatmapData,
+  normalizeTrendSeries,
+} from '@/app/components/charts/spendingChartModels';
 
 import { AccessibleDataSummary } from '../AccessibleDataSummary';
 import { buildAnalyticsExpenseUrl } from '../links';
@@ -30,34 +34,6 @@ import type {
 } from '../types';
 
 type TrendPoint = Readonly<{ date: string; value: number }>;
-
-function isUtcDateKey(value: string): boolean {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) return false;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  if (year < 1 || year > 9_999) return false;
-  const parsed = new Date(0);
-  parsed.setUTCHours(0, 0, 0, 0);
-  parsed.setUTCFullYear(year, month - 1, day);
-  return (
-    parsed.getUTCFullYear() === year &&
-    parsed.getUTCMonth() === month - 1 &&
-    parsed.getUTCDate() === day
-  );
-}
-
-function normalizeTrendSeries<T extends TrendPoint>(series: readonly T[]): T[] {
-  const byDate = new Map<string, T>();
-  for (const point of series) {
-    if (!isUtcDateKey(point.date) || !Number.isFinite(point.value)) continue;
-    byDate.set(point.date, { ...point });
-  }
-  return [...byDate.values()].sort((left, right) =>
-    left.date.localeCompare(right.date)
-  );
-}
 
 function nextUtcMidnightDelay(nowMilliseconds: number): number {
   const now = new Date(nowMilliseconds);
@@ -239,14 +215,16 @@ function SpendingAnalyticsContent({
     () => (heatmap.data ? normalizeHeatmapData(heatmap.data) : null),
     [heatmap.data]
   );
-  const normalizedExpenseSeries = useMemo(
+  const expenseTrendModel = useMemo(
     () => normalizeTrendSeries(trends.expenseSeries),
     [trends.expenseSeries]
   );
-  const normalizedIncomeSeries = useMemo(
+  const incomeTrendModel = useMemo(
     () => normalizeTrendSeries(trends.incomeSeries),
     [trends.incomeSeries]
   );
+  const normalizedExpenseSeries = expenseTrendModel.series;
+  const normalizedIncomeSeries = incomeTrendModel.series;
   const normalizedCategoryTrends = useMemo(
     () =>
       normalizeCategoryStackedTrendData(
@@ -395,8 +373,14 @@ function SpendingAnalyticsContent({
                   <LazySpendingTrendChart
                     expenseSeries={normalizedExpenseSeries}
                     incomeSeries={normalizedIncomeSeries}
-                    trendSlope={trends.trendSlope}
-                    trendRSquared={trends.trendRSquared}
+                    trendSlope={
+                      expenseTrendModel.changed ? undefined : trends.trendSlope
+                    }
+                    trendRSquared={
+                      expenseTrendModel.changed
+                        ? undefined
+                        : trends.trendRSquared
+                    }
                     formatMoney={currency.formatMoney}
                     formatDate={currency.formatDate}
                   />

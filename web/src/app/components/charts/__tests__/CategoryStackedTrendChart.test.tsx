@@ -253,4 +253,41 @@ describe('CategoryStackedTrendChart', () => {
     expect(screen.queryByTestId('category-chart-legend')).not.toBeInTheDocument();
     expect(screen.queryByText('credits 10')).not.toBeInTheDocument();
   });
+
+  it('clears preformatted live status when currency or date formatters change', () => {
+    const points = [
+      {
+        date: '2026-07-01',
+        label: 'First',
+        total: 10,
+        categories: { Food: 10 },
+      },
+    ];
+    const categories = ['Food'];
+    const rendered = render(
+      <CategoryStackedTrendChart
+        points={points}
+        categories={categories}
+        formatMoney={formatMoney}
+        formatDate={formatDate}
+      />
+    );
+    const overlay = screen.getByTestId('category-chart-overlay');
+    fireEvent.focus(overlay);
+    expect(screen.getByRole('status')).toHaveTextContent('credits 10');
+
+    const nextMoney = (value: number) => `euros ${value}`;
+    const nextDate = () => 'new date';
+    rendered.rerender(
+      <CategoryStackedTrendChart
+        points={points}
+        categories={categories}
+        formatMoney={nextMoney}
+        formatDate={nextDate}
+      />
+    );
+
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+    expect(screen.queryByText(/credits 10/)).not.toBeInTheDocument();
+  });
 });

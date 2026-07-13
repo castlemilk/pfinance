@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useId, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { AxisBottom, AxisLeft } from '@visx/axis';
 import { curveMonotoneX } from '@visx/curve';
 import { localPoint } from '@visx/event';
@@ -21,6 +21,10 @@ import type { AnalyticsCurrencyContext } from '@/app/components/analytics/types'
 import type { CategoryStackedTrendPoint } from '@/app/metrics/types';
 
 import { forecastDomain } from './analyticsChartMath';
+import {
+  normalizeCategoryStackedTrendData,
+  parseUtcDateKey,
+} from './spendingChartModels';
 
 interface CategoryStackedTrendChartProps {
   points: CategoryStackedTrendPoint[];
@@ -75,94 +79,6 @@ const bisectDate = bisector<ChartPoint, Date>((point) => point.dateValue).left;
 
 function colorForCategory(category: string, index: number): string {
   return CATEGORY_TOKENS[category] ?? FALLBACK_TOKENS[index % FALLBACK_TOKENS.length];
-}
-
-function parseUtcDateKey(dateKey: string): Date | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
-  if (!match) return null;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  if (year < 1 || year > 9_999) return null;
-  const date = new Date(0);
-  date.setUTCHours(0, 0, 0, 0);
-  date.setUTCFullYear(year, month - 1, day);
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== month - 1 ||
-    date.getUTCDate() !== day
-  ) {
-    return null;
-  }
-  return date;
-}
-
-export type NormalizedCategoryStackedTrendData = Readonly<{
-  points: CategoryStackedTrendPoint[];
-  categories: string[];
-}>;
-
-export function normalizeCategoryStackedTrendData(
-  points: readonly CategoryStackedTrendPoint[],
-  categories: readonly string[]
-): NormalizedCategoryStackedTrendData {
-  const aliasesByCategory = new Map<string, Set<string>>();
-  for (const suppliedCategory of categories) {
-    const category = suppliedCategory.trim();
-    if (!category) continue;
-    const aliases = aliasesByCategory.get(category) ?? new Set<string>();
-    aliases.add(category);
-    aliases.add(suppliedCategory);
-    aliasesByCategory.set(category, aliases);
-  }
-  const normalizedCategories = [...aliasesByCategory.keys()];
-  if (normalizedCategories.length === 0) {
-    return { points: [], categories: [] };
-  }
-
-  const pointsByDate = new Map<string, CategoryStackedTrendPoint>();
-  for (const point of points) {
-    if (!parseUtcDateKey(point.date)) continue;
-    let valid = true;
-    const normalizedAmounts: Record<string, number> = {};
-    for (const category of normalizedCategories) {
-      let amount = 0;
-      for (const alias of aliasesByCategory.get(category) ?? []) {
-        const suppliedAmount = point.categories[alias];
-        if (suppliedAmount === undefined) continue;
-        if (!Number.isFinite(suppliedAmount)) {
-          valid = false;
-          break;
-        }
-        amount += suppliedAmount;
-        if (!Number.isFinite(amount)) {
-          valid = false;
-          break;
-        }
-      }
-      if (!valid) break;
-      normalizedAmounts[category] = amount;
-    }
-    if (!valid) continue;
-    const total = normalizedCategories.reduce(
-      (sum, category) => sum + normalizedAmounts[category],
-      0
-    );
-    if (!Number.isFinite(total)) continue;
-    pointsByDate.set(point.date, {
-      date: point.date,
-      label: point.label,
-      total,
-      categories: normalizedAmounts,
-    });
-  }
-
-  return {
-    categories: normalizedCategories,
-    points: [...pointsByDate.values()].sort((left, right) =>
-      left.date.localeCompare(right.date)
-    ),
-  };
 }
 
 function parsePoints(points: readonly CategoryStackedTrendPoint[]): ChartPoint[] {
@@ -326,6 +242,13 @@ function InnerCategoryStackedTrendChart({
     setSelectedStatus('');
     setInspectionModel(null);
   }, [hideTooltip]);
+
+  /* eslint-disable react-hooks/set-state-in-effect -- New evidence or formatting invalidates transient tooltip and screen-reader selection state. */
+  useEffect(() => {
+    setKeyboardIndex(0);
+    clearSelection();
+  }, [categories, clearSelection, formatDate, formatMoney, points]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleKeyboard = useCallback(
     (event: React.KeyboardEvent<HTMLButtonElement>) => {
