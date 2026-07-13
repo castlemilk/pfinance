@@ -99,6 +99,9 @@ describe('CashFlowForecast', () => {
     );
     expect(screen.getByTestId('today-marker')).toBeInTheDocument();
     expect(screen.getAllByTestId('income-confidence-band')).toHaveLength(1);
+    expect(
+      screen.getByText('Shading: expected range where available')
+    ).toBeInTheDocument();
     expect(screen.queryByTestId('expense-confidence-band')).not.toBeInTheDocument();
     expect(screen.queryByTestId('net-confidence-band')).not.toBeInTheDocument();
 
@@ -145,6 +148,9 @@ describe('CashFlowForecast', () => {
     );
 
     expect(screen.queryByTestId('net-confidence-band')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Shading: expected range where available')
+    ).not.toBeInTheDocument();
     fireEvent.focus(screen.getByTestId('forecast-chart-overlay'));
     expect(screen.queryByTestId('forecast-range-net')).not.toBeInTheDocument();
     expect(screen.queryByText(/\(.*0.*to.*0.*\)/i)).not.toBeInTheDocument();

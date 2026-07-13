@@ -292,6 +292,13 @@ function ForecastChart({
     ],
     [parsedExpenseForecast, parsedIncomeForecast, parsedNetForecast]
   );
+  const hasConfidenceArea = useMemo(
+    () =>
+      seriesConfigs.some(
+        (config) => boundedRuns(config.data, today).length > 0
+      ),
+    [seriesConfigs, today]
+  );
 
   const historyDates = useMemo(
     () =>
@@ -727,7 +734,7 @@ function ForecastChart({
         ))}
         <span>Solid lines: history</span>
         <span>Dashed lines: forecast</span>
-        <span>Shading: expected range where available</span>
+        {hasConfidenceArea && <span>Shading: expected range where available</span>}
       </div>
       <p data-testid="forecast-summary" className="mt-2 text-xs text-foreground">
         {forecastSummary}
