@@ -3,6 +3,11 @@ import { expect, test } from '@playwright/test';
 test('Firebase notice is singular, hydrated, and does not block top navigation', async ({
   page,
 }) => {
+  test.skip(
+    process.env.E2E_EXPECT_FIREBASE_INIT_ERROR !== '1',
+    'Set E2E_EXPECT_FIREBASE_INIT_ERROR=1 when the target intentionally has no Firebase configuration.'
+  );
+
   const response = await page.goto('/', { waitUntil: 'domcontentloaded' });
   expect(response).not.toBeNull();
 
