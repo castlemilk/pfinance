@@ -62,7 +62,7 @@ export function AnalyticsMetricStrip({ metrics }: AnalyticsMetricStripProps) {
                 <span className="sr-only">{tone.label}: </span>
                 {metric.value}
               </dd>
-              <dd className="mt-1 text-pretty text-xs leading-relaxed text-muted-foreground">
+              <dd className="mt-1 text-pretty text-xs leading-relaxed tabular-nums text-muted-foreground">
                 {metric.detail}
               </dd>
             </div>

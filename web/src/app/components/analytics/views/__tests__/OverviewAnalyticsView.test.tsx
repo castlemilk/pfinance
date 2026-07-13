@@ -346,6 +346,41 @@ describe('OverviewAnalyticsView', () => {
     expect(within(strip).queryByText(/999%/)).not.toBeInTheDocument();
   });
 
+  it('uses locale-native percent signs, placement, and spacing', () => {
+    const locale = 'de-DE';
+    const localizedCurrency = { ...currency, locale };
+    render(
+      <OverviewAnalyticsView
+        scope={personalScope}
+        period="month"
+        currency={localizedCurrency}
+      />
+    );
+
+    const signedPercent = (value: number) =>
+      new Intl.NumberFormat(locale, {
+        style: 'percent',
+        maximumFractionDigits: 1,
+        signDisplay: 'always',
+      }).format(value / 100);
+    const unsignedPercent = new Intl.NumberFormat(locale, {
+      style: 'percent',
+      maximumFractionDigits: 1,
+      signDisplay: 'auto',
+    }).format(40 / 100);
+
+    const metrics = screen.getAllByTestId('analytics-metric');
+    expect(within(metrics[0]).getByText(/^Change:/).textContent).toBe(
+      `Change: ${signedPercent(11.1)}`
+    );
+    expect(within(metrics[1]).getByText(/^Change:/).textContent).toBe(
+      `Change: ${signedPercent(-7.7)}`
+    );
+    expect(
+      within(metrics[3]).getByTestId('analytics-metric-value').textContent
+    ).toBe(`Positive: ${unsignedPercent}`);
+  });
+
   it.each([
     ['an unknown category', { largestCategory: 'Bespoke' }],
     ['a missing start bound', { currentStart: null }],
@@ -623,6 +658,8 @@ describe('AnalyticsMetricStrip', () => {
     within(strip)
       .getAllByTestId('analytics-metric-value')
       .forEach((value) => expect(value).toHaveClass('tabular-nums'));
+    expect(within(strip).getByText('Change: +5%')).toHaveClass('tabular-nums');
+    expect(within(strip).getByText('Change: -2%')).toHaveClass('tabular-nums');
     within(strip)
       .getAllByText(/^Positive/)
       .forEach((label) => expect(label).toHaveClass('sr-only'));
@@ -706,7 +743,7 @@ describe('AnalyticsAttentionSummary', () => {
     expect(screen.queryByText(/normal|safe|all clear/i)).not.toBeInTheDocument();
   });
 
-  it('does not render a base-path action when no exact attention URL is supplied', () => {
+  it('does not render an action for a blank expense ID even when an URL is supplied', () => {
     render(
       <AnalyticsAttentionSummary
         primary={{
@@ -721,7 +758,7 @@ describe('AnalyticsAttentionSummary', () => {
         coveredCategoryCount={1}
         uncoveredCategoryCount={0}
         formatMoney={formatMoney}
-        attentionUrl={null}
+        attentionUrl="/shared/expenses?expenseId=stale-id"
       />
     );
 

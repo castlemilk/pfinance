@@ -173,7 +173,7 @@ export function AnalyticsAttentionSummary({
           <span aria-hidden="true"> · </span>
           <span className="tabular-nums">{anomalousSpend} flagged</span>
         </div>
-        {attentionUrl ? (
+        {attentionUrl && primary.expenseId.trim().length > 0 ? (
           <Link
             href={attentionUrl}
             className="inline-flex min-h-10 items-center rounded-md px-3 text-sm font-semibold text-primary outline-none transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out hover:bg-primary/10 focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100"

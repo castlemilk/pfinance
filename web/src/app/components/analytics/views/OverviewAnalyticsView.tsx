@@ -50,9 +50,10 @@ function percentValue(
 ): string {
   return (
     new Intl.NumberFormat(locale, {
+      style: 'percent',
       maximumFractionDigits: 1,
       signDisplay,
-    }).format(value) + '%'
+    }).format(value / 100)
   );
 }
 
