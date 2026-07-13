@@ -15,7 +15,7 @@ import type {
 import { ExpenseCategory, Granularity } from '@/gen/pfinance/v1/types_pb';
 import {
   analyticsCategoryLabel,
-  analyticsMoney,
+  checkedCentsToDollars,
   mapAnomalyResponse,
   mapCashFlowForecastResponse,
   mapCategoryComparisonResponse,
@@ -52,52 +52,63 @@ function useRequestSequence() {
   return { beginRequest, isCurrentRequest, invalidateRequest };
 }
 
+function useLatestRef<T>(value: T) {
+  const valueRef = useRef(value);
+  // The ref is only read by async callbacks; assigning here prevents held
+  // callbacks from observing parameters from the previous committed render.
+  // eslint-disable-next-line react-hooks/refs
+  valueRef.current = value;
+  return valueRef;
+}
+
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
 function timestampFromDate(date: Date): Timestamp {
+  const milliseconds = date.getTime();
+  if (!Number.isFinite(milliseconds)) {
+    throw new RangeError('Invalid analytics date range');
+  }
+  const seconds = Math.floor(milliseconds / 1_000);
+  const remainingMilliseconds = milliseconds - seconds * 1_000;
   return create(TimestampSchema, {
-    seconds: BigInt(Math.floor(date.getTime() / 1000)),
-    nanos: 0,
+    seconds: BigInt(seconds),
+    nanos: remainingMilliseconds * 1_000_000,
   });
 }
 
-function localDateKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+function utcDateKey(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
-function startOfLocalDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+function startOfUtcDay(date: Date): Date {
+  const start = new Date(date.getTime());
+  start.setUTCHours(0, 0, 0, 0);
+  return start;
 }
 
-function endOfLocalDay(date: Date): Date {
-  return new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-    23,
-    59,
-    59,
-    999
-  );
+function endOfUtcDay(date: Date): Date {
+  const end = new Date(date.getTime());
+  end.setUTCHours(23, 59, 59, 999);
+  return end;
 }
 
 function dateKeysInRange(startDate: Date, endDate: Date): string[] {
-  const start = startOfLocalDay(startDate);
-  const end = startOfLocalDay(endDate);
+  const start = startOfUtcDay(startDate);
+  const end = startOfUtcDay(endDate);
   if (start > end) return [];
 
   const keys: string[] = [];
   for (
     const cursor = new Date(start);
     cursor <= end;
-    cursor.setDate(cursor.getDate() + 1)
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
   ) {
-    keys.push(localDateKey(cursor));
+    keys.push(utcDateKey(cursor));
   }
   return keys;
 }
@@ -112,6 +123,7 @@ function formatShortDate(date: Date): string {
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: '2-digit',
+    timeZone: 'UTC',
   });
 }
 
@@ -124,35 +136,36 @@ function buildTrendPeriods(
     const offset = periods - 1 - index;
 
     if (granularity === 'day') {
-      const start = startOfLocalDay(anchor);
-      start.setDate(start.getDate() - offset);
-      return { start, end: endOfLocalDay(start), label: localDateKey(start) };
+      const start = startOfUtcDay(anchor);
+      start.setUTCDate(start.getUTCDate() - offset);
+      return { start, end: endOfUtcDay(start), label: utcDateKey(start) };
     }
 
     if (granularity === 'week') {
-      const start = startOfLocalDay(anchor);
-      start.setDate(start.getDate() - start.getDay() - offset * 7);
-      const end = endOfLocalDay(start);
-      end.setDate(end.getDate() + 6);
+      const start = startOfUtcDay(anchor);
+      start.setUTCDate(start.getUTCDate() - start.getUTCDay() - offset * 7);
+      const end = endOfUtcDay(start);
+      end.setUTCDate(end.getUTCDate() + 6);
       return { start, end, label: formatShortDate(start) };
     }
 
-    const start = new Date(anchor.getFullYear(), anchor.getMonth() - offset, 1);
-    const end = new Date(
-      start.getFullYear(),
-      start.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-      999
+    const start = new Date(0);
+    start.setUTCHours(0, 0, 0, 0);
+    start.setUTCFullYear(
+      anchor.getUTCFullYear(),
+      anchor.getUTCMonth() - offset,
+      1
     );
+    const end = new Date(start.getTime());
+    end.setUTCMonth(end.getUTCMonth() + 1, 0);
+    end.setUTCHours(23, 59, 59, 999);
     return {
       start,
       end,
       label: start.toLocaleDateString('en-US', {
         month: 'short',
         year: 'numeric',
+        timeZone: 'UTC',
       }),
     };
   });
@@ -215,18 +228,27 @@ export function useHeatmapData(
   const endTime = endDate.getTime();
   const { beginRequest, isCurrentRequest, invalidateRequest } =
     useRequestSequence();
+  const parametersRef = useLatestRef({ startTime, endTime, groupId });
 
   const fetchData = useCallback(async () => {
     const requestId = beginRequest();
     setLoading(true);
     setError(null);
-    const requestStart = new Date(startTime);
-    const requestEnd = new Date(endTime);
 
     try {
+      const parameters = parametersRef.current;
+      if (
+        !Number.isFinite(parameters.startTime) ||
+        !Number.isFinite(parameters.endTime) ||
+        parameters.startTime > parameters.endTime
+      ) {
+        throw new RangeError('Invalid analytics date range');
+      }
+      const requestStart = new Date(parameters.startTime);
+      const requestEnd = new Date(parameters.endTime);
       const response = await financeClient.getDailyAggregates({
         userId: '',
-        groupId,
+        groupId: parameters.groupId,
         startDate: timestampFromDate(requestStart),
         endDate: timestampFromDate(requestEnd),
       });
@@ -236,14 +258,17 @@ export function useHeatmapData(
       for (const aggregate of response.aggregates as DailyAggregate[]) {
         aggregateByDate.set(aggregate.date, {
           date: aggregate.date,
-          value: analyticsMoney(
+          value: checkedCentsToDollars(
             aggregate.totalAmountCents,
             aggregate.totalAmount
           ),
           count: aggregate.transactionCount,
           categories: aggregate.categoryAmounts.map((category) => ({
             category: analyticsCategoryLabel(category.category),
-            amount: analyticsMoney(category.amountCents, category.amount),
+            amount: checkedCentsToDollars(
+              category.amountCents,
+              category.amount
+            ),
             count: category.count,
           })),
         });
@@ -269,12 +294,12 @@ export function useHeatmapData(
     } finally {
       if (isCurrentRequest(requestId)) setLoading(false);
     }
-  }, [beginRequest, endTime, groupId, isCurrentRequest, startTime]);
+  }, [beginRequest, isCurrentRequest, parametersRef]);
 
   useEffect(() => {
     void fetchData();
     return invalidateRequest;
-  }, [fetchData, invalidateRequest]);
+  }, [endTime, fetchData, groupId, invalidateRequest, startTime]);
 
   return { data, loading, error, refetch: fetchData };
 }
@@ -298,6 +323,12 @@ export function useSpendingTrends(
   const groupId = scopeGroupId(scope);
   const { beginRequest, isCurrentRequest, invalidateRequest } =
     useRequestSequence();
+  const parametersRef = useLatestRef({
+    granularity,
+    periods,
+    category,
+    groupId,
+  });
 
   const fetchData = useCallback(async () => {
     const requestId = beginRequest();
@@ -305,13 +336,14 @@ export function useSpendingTrends(
     setError(null);
 
     try {
+      const parameters = parametersRef.current;
       const response = await financeClient.getSpendingTrends({
         userId: '',
-        groupId,
-        granularity: granularityFromString(granularity),
-        periods,
-        category: category
-          ? categoryFromString(category)
+        groupId: parameters.groupId,
+        granularity: granularityFromString(parameters.granularity),
+        periods: parameters.periods,
+        category: parameters.category
+          ? categoryFromString(parameters.category)
           : ExpenseCategory.UNSPECIFIED,
       });
       if (!isCurrentRequest(requestId)) return;
@@ -328,19 +360,19 @@ export function useSpendingTrends(
     } finally {
       if (isCurrentRequest(requestId)) setLoading(false);
     }
-  }, [
-    beginRequest,
-    category,
-    granularity,
-    groupId,
-    isCurrentRequest,
-    periods,
-  ]);
+  }, [beginRequest, isCurrentRequest, parametersRef]);
 
   useEffect(() => {
     void fetchData();
     return invalidateRequest;
-  }, [fetchData, invalidateRequest]);
+  }, [
+    category,
+    fetchData,
+    granularity,
+    groupId,
+    invalidateRequest,
+    periods,
+  ]);
 
   return {
     expenseSeries: data?.expenseSeries ?? [],
@@ -396,7 +428,10 @@ async function listAllExpenses(groupId: string): Promise<Expense[]> {
     expenses.push(...response.expenses);
 
     const nextPageToken = response.nextPageToken;
-    if (!nextPageToken || seenPageTokens.has(nextPageToken)) break;
+    if (!nextPageToken) break;
+    if (seenPageTokens.has(nextPageToken)) {
+      throw new Error('Failed to load complete category spending history');
+    }
     seenPageTokens.add(nextPageToken);
     pageToken = nextPageToken;
   }
@@ -415,6 +450,7 @@ export function useCategorySpendingTrends(
   const groupId = scopeGroupId(scope);
   const { beginRequest, isCurrentRequest, invalidateRequest } =
     useRequestSequence();
+  const parametersRef = useLatestRef({ granularity, periods, groupId });
 
   const fetchData = useCallback(async () => {
     const requestId = beginRequest();
@@ -422,11 +458,16 @@ export function useCategorySpendingTrends(
     setError(null);
 
     try {
-      const expenses = await listAllExpenses(groupId);
+      const parameters = parametersRef.current;
+      const expenses = await listAllExpenses(parameters.groupId);
       if (!isCurrentRequest(requestId)) return;
 
       const now = new Date();
-      const currentPeriods = buildTrendPeriods(now, granularity, periods);
+      const currentPeriods = buildTrendPeriods(
+        now,
+        parameters.granularity,
+        parameters.periods
+      );
       const hasCurrentWindowData = expenses.some((expense) => {
         const date = expenseDate(expense);
         return date
@@ -436,10 +477,14 @@ export function useCategorySpendingTrends(
       const anchor = hasCurrentWindowData
         ? now
         : latestExpenseDate(expenses) ?? now;
-      const trendPeriods = buildTrendPeriods(anchor, granularity, periods);
+      const trendPeriods = buildTrendPeriods(
+        anchor,
+        parameters.granularity,
+        parameters.periods
+      );
       const totalsByCategory = new Map<string, number>();
       const points = trendPeriods.map((period) => ({
-        date: localDateKey(period.start),
+        date: utcDateKey(period.start),
         label: period.label,
         total: 0,
         categories: {} as Record<string, number>,
@@ -457,7 +502,10 @@ export function useCategorySpendingTrends(
         if (periodIndex === -1) continue;
 
         const category = analyticsCategoryLabel(expense.category);
-        const amount = analyticsMoney(expense.amountCents, expense.amount);
+        const amount = checkedCentsToDollars(
+          expense.amountCents,
+          expense.amount
+        );
         points[periodIndex].categories[category] =
           (points[periodIndex].categories[category] ?? 0) + amount;
         points[periodIndex].total += amount;
@@ -495,12 +543,12 @@ export function useCategorySpendingTrends(
     } finally {
       if (isCurrentRequest(requestId)) setLoading(false);
     }
-  }, [beginRequest, granularity, groupId, isCurrentRequest, periods]);
+  }, [beginRequest, isCurrentRequest, parametersRef]);
 
   useEffect(() => {
     void fetchData();
     return invalidateRequest;
-  }, [fetchData, invalidateRequest]);
+  }, [fetchData, granularity, groupId, invalidateRequest, periods]);
 
   return {
     points: data?.points ?? [],
@@ -527,6 +575,11 @@ export function useCategoryComparison(
   const groupId = scopeGroupId(scope);
   const { beginRequest, isCurrentRequest, invalidateRequest } =
     useRequestSequence();
+  const parametersRef = useLatestRef({
+    includeBudgets,
+    currentPeriod,
+    groupId,
+  });
 
   const fetchData = useCallback(async () => {
     const requestId = beginRequest();
@@ -534,11 +587,12 @@ export function useCategoryComparison(
     setError(null);
 
     try {
+      const parameters = parametersRef.current;
       const response = await financeClient.getCategoryComparison({
         userId: '',
-        groupId,
-        currentPeriod,
-        includeBudgets,
+        groupId: parameters.groupId,
+        currentPeriod: parameters.currentPeriod,
+        includeBudgets: parameters.includeBudgets,
       });
       if (!isCurrentRequest(requestId)) return;
 
@@ -553,18 +607,18 @@ export function useCategoryComparison(
     } finally {
       if (isCurrentRequest(requestId)) setLoading(false);
     }
-  }, [
-    beginRequest,
-    currentPeriod,
-    groupId,
-    includeBudgets,
-    isCurrentRequest,
-  ]);
+  }, [beginRequest, isCurrentRequest, parametersRef]);
 
   useEffect(() => {
     void fetchData();
     return invalidateRequest;
-  }, [fetchData, invalidateRequest]);
+  }, [
+    currentPeriod,
+    fetchData,
+    groupId,
+    includeBudgets,
+    invalidateRequest,
+  ]);
 
   return {
     data,
@@ -586,6 +640,7 @@ export function useAnomalies(
   const groupId = scopeGroupId(scope);
   const { beginRequest, isCurrentRequest, invalidateRequest } =
     useRequestSequence();
+  const parametersRef = useLatestRef({ lookbackDays, sensitivity, groupId });
 
   const fetchData = useCallback(async () => {
     const requestId = beginRequest();
@@ -593,11 +648,12 @@ export function useAnomalies(
     setError(null);
 
     try {
+      const parameters = parametersRef.current;
       const response = await financeClient.detectAnomalies({
         userId: '',
-        groupId,
-        lookbackDays,
-        sensitivity,
+        groupId: parameters.groupId,
+        lookbackDays: parameters.lookbackDays,
+        sensitivity: parameters.sensitivity,
       });
       if (!isCurrentRequest(requestId)) return;
       setResult(mapAnomalyResponse(response));
@@ -607,18 +663,18 @@ export function useAnomalies(
     } finally {
       if (isCurrentRequest(requestId)) setLoading(false);
     }
-  }, [
-    beginRequest,
-    groupId,
-    isCurrentRequest,
-    lookbackDays,
-    sensitivity,
-  ]);
+  }, [beginRequest, isCurrentRequest, parametersRef]);
 
   useEffect(() => {
     void fetchData();
     return invalidateRequest;
-  }, [fetchData, invalidateRequest]);
+  }, [
+    fetchData,
+    groupId,
+    invalidateRequest,
+    lookbackDays,
+    sensitivity,
+  ]);
 
   return {
     data: result?.data ?? null,
@@ -648,6 +704,7 @@ export function useCashFlowForecast(
   const groupId = scopeGroupId(scope);
   const { beginRequest, isCurrentRequest, invalidateRequest } =
     useRequestSequence();
+  const parametersRef = useLatestRef({ forecastDays, groupId });
 
   const fetchData = useCallback(async () => {
     const requestId = beginRequest();
@@ -655,10 +712,11 @@ export function useCashFlowForecast(
     setError(null);
 
     try {
+      const parameters = parametersRef.current;
       const response = await financeClient.getCashFlowForecast({
         userId: '',
-        groupId,
-        forecastDays,
+        groupId: parameters.groupId,
+        forecastDays: parameters.forecastDays,
       });
       if (!isCurrentRequest(requestId)) return;
       setResult(mapCashFlowForecastResponse(response));
@@ -670,12 +728,12 @@ export function useCashFlowForecast(
     } finally {
       if (isCurrentRequest(requestId)) setLoading(false);
     }
-  }, [beginRequest, forecastDays, groupId, isCurrentRequest]);
+  }, [beginRequest, isCurrentRequest, parametersRef]);
 
   useEffect(() => {
     void fetchData();
     return invalidateRequest;
-  }, [fetchData, invalidateRequest]);
+  }, [fetchData, forecastDays, groupId, invalidateRequest]);
 
   return {
     incomeForecast: result?.incomeForecast ?? null,
@@ -699,18 +757,24 @@ export function useWaterfallData(
   const groupId = scopeGroupId(scope);
   const { beginRequest, isCurrentRequest, invalidateRequest } =
     useRequestSequence();
+  const parametersRef = useLatestRef({ periodDays, groupId });
 
   const fetchData = useCallback(async () => {
     const requestId = beginRequest();
     setLoading(true);
     setError(null);
+    const parameters = parametersRef.current;
     const period =
-      periodDays > 180 ? 'year' : periodDays > 60 ? 'quarter' : 'month';
+      parameters.periodDays > 180
+        ? 'year'
+        : parameters.periodDays > 60
+          ? 'quarter'
+          : 'month';
 
     try {
       const response = await financeClient.getWaterfallData({
         userId: '',
-        groupId,
+        groupId: parameters.groupId,
         period,
       });
       if (!isCurrentRequest(requestId)) return;
@@ -721,12 +785,12 @@ export function useWaterfallData(
     } finally {
       if (isCurrentRequest(requestId)) setLoading(false);
     }
-  }, [beginRequest, groupId, isCurrentRequest, periodDays]);
+  }, [beginRequest, isCurrentRequest, parametersRef]);
 
   useEffect(() => {
     void fetchData();
     return invalidateRequest;
-  }, [fetchData, invalidateRequest]);
+  }, [fetchData, groupId, invalidateRequest, periodDays]);
 
   return {
     data: result?.data ?? null,

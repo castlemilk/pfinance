@@ -30,16 +30,34 @@ import type {
 } from './types';
 
 const ZERO = BigInt(0);
+const MAX_SAFE_CENTS = BigInt(Number.MAX_SAFE_INTEGER);
+const MIN_SAFE_CENTS = BigInt(Number.MIN_SAFE_INTEGER);
 const EPOCH_MILLISECONDS = 0;
 
 /** Prefer a populated integer-cents field, retaining legacy double compatibility. */
-export function analyticsMoney(
+export function checkedCentsToDollars(
   cents: bigint | undefined,
   legacyAmount = 0
 ): number {
-  return cents !== undefined && cents !== ZERO
-    ? Number(cents) / 100
-    : legacyAmount;
+  const authoritativeCents = cents ?? ZERO;
+  if (authoritativeCents !== ZERO) {
+    if (
+      authoritativeCents > MAX_SAFE_CENTS ||
+      authoritativeCents < MIN_SAFE_CENTS
+    ) {
+      throw new RangeError('Analytics data contains an unsafe monetary value');
+    }
+    return Number(authoritativeCents) / 100;
+  }
+
+  return checkedFiniteNumber(legacyAmount);
+}
+
+function checkedFiniteNumber(value: number): number {
+  if (!Number.isFinite(value)) {
+    throw new RangeError('Analytics data contains an invalid number');
+  }
+  return value;
 }
 
 /** Convert an expense category enum into its stable display label. */
@@ -91,11 +109,30 @@ function timestampDateOrEpoch(timestamp?: Timestamp): Date {
   return new Date(milliseconds ?? EPOCH_MILLISECONDS);
 }
 
-function deterministicDate(value: string): Date {
-  const milliseconds = Date.parse(value);
-  return new Date(
-    Number.isFinite(milliseconds) ? milliseconds : EPOCH_MILLISECONDS
-  );
+function strictUtcCalendarDate(value: string): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    throw new RangeError('Analytics data contains an invalid date');
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year < 1 || month < 1 || month > 12 || day < 1 || day > 31) {
+    throw new RangeError('Analytics data contains an invalid date');
+  }
+
+  const date = new Date(EPOCH_MILLISECONDS);
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCFullYear(year, month - 1, day);
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    throw new RangeError('Analytics data contains an invalid date');
+  }
+  return date;
 }
 
 function severityLabel(
@@ -169,21 +206,22 @@ export function mapAnalyticsOverviewResponse(
     currentEnd: nullableTimestampDate(response.currentEnd),
     previousStart: nullableTimestampDate(response.previousStart),
     previousEnd: nullableTimestampDate(response.previousEnd),
-    currentIncome: Number(response.currentIncomeCents) / 100,
-    currentExpense: Number(response.currentExpenseCents) / 100,
-    currentNet: Number(response.currentNetCents) / 100,
-    previousIncome: Number(response.previousIncomeCents) / 100,
-    previousExpense: Number(response.previousExpenseCents) / 100,
-    previousNet: Number(response.previousNetCents) / 100,
-    savingsRate: response.savingsRatePercent,
+    currentIncome: checkedCentsToDollars(response.currentIncomeCents),
+    currentExpense: checkedCentsToDollars(response.currentExpenseCents),
+    currentNet: checkedCentsToDollars(response.currentNetCents),
+    previousIncome: checkedCentsToDollars(response.previousIncomeCents),
+    previousExpense: checkedCentsToDollars(response.previousExpenseCents),
+    previousNet: checkedCentsToDollars(response.previousNetCents),
+    savingsRate: checkedFiniteNumber(response.savingsRatePercent),
     hasSavingsRate: response.hasSavingsRate,
-    incomeChange: response.incomeChangePercent,
+    incomeChange: checkedFiniteNumber(response.incomeChangePercent),
     hasIncomeChange: response.hasIncomeChange,
-    expenseChange: response.expenseChangePercent,
+    expenseChange: checkedFiniteNumber(response.expenseChangePercent),
     hasExpenseChange: response.hasExpenseChange,
     largestCategory: analyticsCategoryLabel(response.largestCategory),
-    largestCategoryAmount:
-      Number(response.largestCategoryAmountCents) / 100,
+    largestCategoryAmount: checkedCentsToDollars(
+      response.largestCategoryAmountCents
+    ),
     currentTransactionCount: response.currentTransactionCount,
     previousTransactionCount: response.previousTransactionCount,
     hasCurrentData: response.hasCurrentData,
@@ -195,15 +233,15 @@ export function mapCategoryComparisonResponse(
 ): CategoryComparisonData {
   return {
     categories: response.categories.map((category) => {
-      const currentValue = analyticsMoney(
+      const currentValue = checkedCentsToDollars(
         category.currentAmountCents,
         category.currentAmount
       );
-      const previousValue = analyticsMoney(
+      const previousValue = checkedCentsToDollars(
         category.previousAmountCents,
         category.previousAmount
       );
-      const budgetValue = analyticsMoney(
+      const budgetValue = checkedCentsToDollars(
         category.budgetAmountCents,
         category.budgetAmount
       );
@@ -220,8 +258,8 @@ export function mapCategoryComparisonResponse(
       id: budget.budgetId,
       name: budget.name,
       categories: budget.categories.map(analyticsCategoryLabel),
-      allowance: Number(budget.allowanceCents) / 100,
-      currentSpend: Number(budget.currentSpendCents) / 100,
+      allowance: checkedCentsToDollars(budget.allowanceCents),
+      currentSpend: checkedCentsToDollars(budget.currentSpendCents),
     })),
   };
 }
@@ -231,16 +269,16 @@ function mapAnomaly(anomaly: SpendingAnomaly) {
     id: anomaly.id,
     expenseId: anomaly.expenseId,
     description: anomaly.description,
-    amount: analyticsMoney(anomaly.amountCents, anomaly.amount),
+    amount: checkedCentsToDollars(anomaly.amountCents, anomaly.amount),
     category: analyticsCategoryLabel(anomaly.category),
     date: timestampDateOrEpoch(anomaly.date),
-    zScore: anomaly.zScore,
-    expectedAmount: analyticsMoney(
+    zScore: checkedFiniteNumber(anomaly.zScore),
+    expectedAmount: checkedCentsToDollars(
       anomaly.expectedAmountCents,
       anomaly.expectedAmount
     ),
-    expectedLowerAmount: Number(anomaly.expectedLowerCents) / 100,
-    expectedUpperAmount: Number(anomaly.expectedUpperCents) / 100,
+    expectedLowerAmount: checkedCentsToDollars(anomaly.expectedLowerCents),
+    expectedUpperAmount: checkedCentsToDollars(anomaly.expectedUpperCents),
     hasExpectedRange: anomaly.hasExpectedRange,
     anomalyType: anomalyTypeLabel(anomaly.anomalyType),
     severity: severityLabel(anomaly.severity),
@@ -300,7 +338,7 @@ export function mapAnomalyResponse(
 
   return {
     data,
-    totalAnomalousSpend: analyticsMoney(
+    totalAnomalousSpend: checkedCentsToDollars(
       response.anomalousSpendTotalCents,
       response.anomalousSpendTotal
     ),
@@ -326,20 +364,27 @@ function mapForecastPoint(point: ForecastPoint): ForecastSeries {
     point.upperBound !== 0;
 
   return {
-    date: deterministicDate(point.date),
-    predicted: analyticsMoney(point.predictedCents, point.predicted),
-    lowerBound: analyticsMoney(point.lowerBoundCents, point.lowerBound),
-    upperBound: analyticsMoney(point.upperBoundCents, point.upperBound),
+    date: strictUtcCalendarDate(point.date),
+    predicted: checkedCentsToDollars(point.predictedCents, point.predicted),
+    lowerBound: checkedCentsToDollars(
+      point.lowerBoundCents,
+      point.lowerBound
+    ),
+    upperBound: checkedCentsToDollars(
+      point.upperBoundCents,
+      point.upperBound
+    ),
     hasBounds,
     isRecurring: point.isRecurring,
   };
 }
 
 function mapHistoryPoint(point: TimeSeriesDataPoint): ForecastHistoryPoint {
+  strictUtcCalendarDate(point.date);
   return {
     date: point.date,
     label: point.label,
-    value: analyticsMoney(point.valueCents, point.value),
+    value: checkedCentsToDollars(point.valueCents, point.value),
   };
 }
 
@@ -361,9 +406,9 @@ export function mapWaterfallResponse(
   return {
     data: response.entries.map((entry) => ({
       label: entry.label,
-      amount: analyticsMoney(entry.amountCents, entry.amount),
+      amount: checkedCentsToDollars(entry.amountCents, entry.amount),
       type: waterfallTypeLabel(entry.entryType),
-      runningTotal: analyticsMoney(
+      runningTotal: checkedCentsToDollars(
         entry.runningTotalCents,
         entry.runningTotal
       ),
