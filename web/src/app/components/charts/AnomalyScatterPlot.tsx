@@ -9,6 +9,11 @@ import { scaleLinear, scaleTime } from '@visx/scale';
 
 import type { AnomalyPoint } from '@/app/metrics/types';
 
+import {
+  anomalyPointIdentity,
+  normalizeAnomalyPoints,
+} from './anomalyChartModels';
+
 interface NormalTransaction {
   readonly date: Date;
   readonly amount: number;
@@ -23,12 +28,6 @@ interface AnomalyScatterPlotProps {
     options?: Intl.DateTimeFormatOptions
   ) => string;
 }
-
-const SEVERITY_RANK = {
-  low: 1,
-  medium: 2,
-  high: 3,
-} as const;
 
 const SEVERITY_COLOR = {
   low: 'var(--chart-4)',
@@ -56,85 +55,6 @@ const DEFAULT_DATE_FORMATTER = (
 
 function finiteDate(value: unknown): value is Date {
   return value instanceof Date && Number.isFinite(value.getTime());
-}
-
-function identityForPoint(point: AnomalyPoint): string {
-  const expenseId = point.expenseId.trim();
-  if (expenseId) return `expense:${expenseId}`;
-  const anomalyId = point.id.trim();
-  if (anomalyId) return `anomaly:${anomalyId}`;
-  return [
-    point.description.trim(),
-    point.category.trim(),
-    point.date.getTime(),
-    point.amount,
-  ].join(':');
-}
-
-function compareCandidates(left: AnomalyPoint, right: AnomalyPoint): number {
-  return (
-    SEVERITY_RANK[right.severity] - SEVERITY_RANK[left.severity] ||
-    Math.abs(right.zScore) - Math.abs(left.zScore) ||
-    right.date.getTime() - left.date.getTime() ||
-    right.amount - left.amount ||
-    identityForPoint(left).localeCompare(identityForPoint(right)) ||
-    left.id.localeCompare(right.id)
-  );
-}
-
-/**
- * Produces the one-point-per-expense evidence model shared by charts and views.
- * The source array and its dates are always copied before sorting or filtering.
- */
-export function normalizeAnomalyPoints(
-  source: readonly AnomalyPoint[]
-): AnomalyPoint[] {
-  const candidates = source
-    .filter(
-      (point) =>
-        point !== null &&
-        typeof point === 'object' &&
-        finiteDate(point.date) &&
-        Number.isFinite(point.amount) &&
-        Number.isFinite(point.zScore) &&
-        point.severity in SEVERITY_RANK
-    )
-    .map((point) => {
-      const hasExpectedRange =
-        point.hasExpectedRange === true &&
-        Number.isFinite(point.expectedLowerAmount) &&
-        Number.isFinite(point.expectedUpperAmount) &&
-        point.expectedLowerAmount <= point.expectedUpperAmount;
-
-      return {
-        ...point,
-        id: point.id.trim(),
-        expenseId: point.expenseId.trim(),
-        description: point.description.trim() || 'Unlabelled expense',
-        category: point.category.trim() || 'Uncategorised',
-        date: new Date(point.date.getTime()),
-        expectedAmount: Number.isFinite(point.expectedAmount)
-          ? point.expectedAmount
-          : 0,
-        expectedLowerAmount: hasExpectedRange
-          ? point.expectedLowerAmount
-          : 0,
-        expectedUpperAmount: hasExpectedRange
-          ? point.expectedUpperAmount
-          : 0,
-        hasExpectedRange,
-        anomalyType: point.anomalyType.trim() || 'unusual_pattern',
-      };
-    })
-    .sort(compareCandidates);
-
-  const seen = new Set<string>();
-  return candidates.filter((point) => {
-    const identity = identityForPoint(point);
-    if (seen.has(identity)) return false;
-    seen.add(identity);
-    return true;
-  });
 }
 
 function normalizeNormalTransactions(
@@ -282,7 +202,7 @@ function ScatterPlot({
       data
         .map((point) =>
           [
-            identityForPoint(point),
+            anomalyPointIdentity(point),
             point.date.getTime(),
             point.amount,
             point.zScore,
@@ -300,8 +220,10 @@ function ScatterPlot({
     selection?.modelKey === modelKey ? selection.index : null;
 
   const margin = { top: 24, right: 20, bottom: 48, left: 72 };
+  const footerSpace = width < 640 ? 112 : 64;
+  const plotHeight = Math.max(160, height - footerSpace);
   const innerWidth = Math.max(width - margin.left - margin.right, 1);
-  const innerHeight = Math.max(height - margin.top - margin.bottom, 1);
+  const innerHeight = Math.max(plotHeight - margin.top - margin.bottom, 1);
   const dates = [
     ...data.map((point) => point.date),
     ...normalTransactions.map((point) => point.date),
@@ -370,7 +292,7 @@ function ScatterPlot({
           aria-labelledby={titleId}
           aria-describedby={descriptionId}
           width={width}
-          height={height}
+          height={plotHeight}
           data-x-domain-start={dateStart.toISOString()}
           data-x-domain-end={dateEnd.toISOString()}
           data-y-domain-min={amountMinimum}
@@ -409,7 +331,7 @@ function ScatterPlot({
 
             {data.map((point, index) => (
               <Marker
-                key={`${identityForPoint(point)}:${index}`}
+                key={`${anomalyPointIdentity(point)}:${index}`}
                 point={point}
                 x={xScale(point.date)}
                 y={yScale(point.amount)}
@@ -472,7 +394,7 @@ function ScatterPlot({
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <ul
           aria-label="Anomaly severity legend"
           className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground"
@@ -548,7 +470,7 @@ function ScatterPlot({
         </thead>
         <tbody>
           {data.map((point, index) => (
-            <tr key={`table:${identityForPoint(point)}:${index}`}>
+            <tr key={`table:${anomalyPointIdentity(point)}:${index}`}>
               <td>{formatDate(point.date)}</td>
               <td>{point.description}</td>
               <td>{formatMoney(point.amount)}</td>

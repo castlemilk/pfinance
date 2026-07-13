@@ -258,6 +258,38 @@ describe('AttentionAnalyticsView', () => {
     expect(within(coverage).getByText('10')).toHaveClass('tabular-nums');
   });
 
+  it('does not imply complete coverage when populated results omit coverage metadata', () => {
+    mockedAnomalies.mockReturnValue(
+      anomalyResult({ categoryCoverage: [], minimumSample: 0 })
+    );
+
+    renderView();
+
+    const coverage = screen.getByRole('region', { name: 'Anomaly coverage' });
+    expect(coverage).toHaveTextContent(/coverage details were not reported/i);
+    expect(coverage).not.toHaveTextContent(
+      /no under-sampled category was reported/i
+    );
+  });
+
+  it('conservatively consolidates duplicate category coverage rows', () => {
+    mockedAnomalies.mockReturnValue(
+      anomalyResult({
+        categoryCoverage: [
+          { category: ' Food ', sampleCount: 15, hasSufficientHistory: true },
+          { category: 'Food', sampleCount: 4, hasSufficientHistory: false },
+        ],
+      })
+    );
+
+    renderView();
+
+    const coverage = screen.getByRole('region', { name: 'Anomaly coverage' });
+    expect(coverage).toHaveTextContent('0 of 1 categories assessed');
+    expect(within(coverage).getAllByText('Food')).toHaveLength(1);
+    expect(coverage).toHaveTextContent('Food · 4 transactions');
+  });
+
   it.each([
     ['loading', anomalyResult({ loading: true })],
     ['unresolved', anomalyResult({ data: null, loading: false })],
@@ -355,5 +387,29 @@ describe('AttentionAnalyticsView', () => {
     expect(
       screen.getByRole('heading', { level: 3, name: 'Spending attention' })
     ).toBeInTheDocument();
+  });
+
+  it('uses unique sensitivity label relationships across mounted instances', () => {
+    render(
+      <>
+        <AttentionAnalyticsView
+          scope={personalScope}
+          period="month"
+          currency={currency}
+        />
+        <AttentionAnalyticsView
+          scope={groupScope}
+          period="month"
+          currency={currency}
+        />
+      </>
+    );
+
+    const sliders = screen.getAllByRole('slider', { name: 'Sensitivity' });
+    const labelIds = sliders.map((slider) =>
+      slider.getAttribute('aria-labelledby')
+    );
+    expect(labelIds.every(Boolean)).toBe(true);
+    expect(new Set(labelIds).size).toBe(sliders.length);
   });
 });

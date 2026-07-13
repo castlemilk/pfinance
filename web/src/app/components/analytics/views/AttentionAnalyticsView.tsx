@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import Link from 'next/link';
 import * as SliderPrimitive from '@radix-ui/react-slider';
 
 import LazyAnomalyScatterPlot from '@/app/components/charts/LazyAnomalyScatterPlot';
-import { normalizeAnomalyPoints } from '@/app/components/charts/AnomalyScatterPlot';
+import { normalizeAnomalyPoints } from '@/app/components/charts/anomalyChartModels';
 import { useAnomalies } from '@/app/metrics/hooks/useAnalyticsData';
 
 import { AccessibleDataSummary } from '../AccessibleDataSummary';
@@ -34,13 +34,26 @@ function clampSensitivity(value: number | undefined): number {
 function normalizeCoverage(
   source: readonly AnalyticsAnomalyCoverage[]
 ): AnalyticsAnomalyCoverage[] {
-  return source.map((coverage) => ({
-    category: coverage.category.trim() || 'Uncategorised',
-    sampleCount: Number.isFinite(coverage.sampleCount)
+  const byCategory = new Map<string, AnalyticsAnomalyCoverage>();
+  for (const coverage of source) {
+    const category = coverage.category.trim() || 'Uncategorised';
+    const identity = category.toLowerCase();
+    const sampleCount = Number.isFinite(coverage.sampleCount)
       ? Math.max(0, Math.trunc(coverage.sampleCount))
-      : 0,
-    hasSufficientHistory: coverage.hasSufficientHistory === true,
-  }));
+      : 0;
+    const existing = byCategory.get(identity);
+    byCategory.set(identity, {
+      category: existing?.category ?? category,
+      sampleCount:
+        existing === undefined
+          ? sampleCount
+          : Math.min(existing.sampleCount, sampleCount),
+      hasSufficientHistory:
+        (existing?.hasSufficientHistory ?? true) &&
+        coverage.hasSufficientHistory === true,
+    });
+  }
+  return [...byCategory.values()];
 }
 
 function plural(count: number, singular: string, pluralForm = `${singular}s`) {
@@ -73,6 +86,7 @@ function CoverageSummary({
   coverage: readonly AnalyticsAnomalyCoverage[];
   minimumSample: number;
 }>) {
+  const headingId = useId();
   const covered = coverage.filter((item) => item.hasSufficientHistory);
   const uncovered = coverage.filter((item) => !item.hasSufficientHistory);
   const safeMinimum = Number.isFinite(minimumSample)
@@ -81,22 +95,29 @@ function CoverageSummary({
 
   return (
     <section
-      aria-labelledby="attention-coverage-heading"
+      aria-labelledby={headingId}
       className="rounded-2xl border border-border bg-card p-5 shadow-sm"
     >
       <h3
-        id="attention-coverage-heading"
+        id={headingId}
         className="text-balance text-lg font-semibold text-foreground"
       >
         Anomaly coverage
       </h3>
-      <p className="mt-2 text-pretty text-sm text-muted-foreground">
-        <span className="tabular-nums">{covered.length}</span> of{' '}
-        <span className="tabular-nums">{coverage.length}</span> categories
-        assessed. Minimum sample{' '}
-        <span className="tabular-nums">{safeMinimum}</span>{' '}
-        {plural(safeMinimum, 'transaction')} per category.
-      </p>
+      {coverage.length === 0 ? (
+        <p className="mt-2 text-pretty text-sm text-muted-foreground">
+          Coverage details were not reported, so no conclusion can be made
+          about categories that may need more history.
+        </p>
+      ) : (
+        <p className="mt-2 text-pretty text-sm text-muted-foreground">
+          <span className="tabular-nums">{covered.length}</span> of{' '}
+          <span className="tabular-nums">{coverage.length}</span> categories
+          assessed. Minimum sample{' '}
+          <span className="tabular-nums">{safeMinimum}</span>{' '}
+          {plural(safeMinimum, 'transaction')} per category.
+        </p>
+      )}
       {uncovered.length > 0 ? (
         <ul
           aria-label="Categories needing more anomaly history"
@@ -113,11 +134,11 @@ function CoverageSummary({
             </li>
           ))}
         </ul>
-      ) : (
+      ) : coverage.length > 0 ? (
         <p className="mt-3 text-pretty text-sm text-muted-foreground">
           No under-sampled category was reported for this result.
         </p>
-      )}
+      ) : null}
     </section>
   );
 }
@@ -242,6 +263,7 @@ function AttentionHeader({
   onPreviewSensitivity: (value: number | undefined) => void;
   onCommitSensitivity: (value: number | undefined) => void;
 }>) {
+  const sensitivityLabelId = useId();
   const scopeLabel =
     scope.kind === 'group' ? scope.groupName.trim() || 'Group' : 'Your finances';
 
@@ -267,7 +289,7 @@ function AttentionHeader({
       <div className="w-full max-w-sm rounded-[10px] border border-border bg-card p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <label
-            id="attention-sensitivity-label"
+            id={sensitivityLabelId}
             className="text-sm font-semibold text-foreground"
           >
             Sensitivity
@@ -289,7 +311,7 @@ function AttentionHeader({
             <SliderPrimitive.Range className="absolute h-full bg-primary" />
           </SliderPrimitive.Track>
           <SliderPrimitive.Thumb
-            aria-labelledby="attention-sensitivity-label"
+            aria-labelledby={sensitivityLabelId}
             aria-valuetext={`${visualSensitivity.toFixed(1)} sensitivity`}
             className="block size-5 rounded-full border border-primary bg-background shadow-sm outline-none transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out hover:scale-110 focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-[0.96] motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100"
           />
@@ -307,6 +329,8 @@ function AttentionAnalyticsViewInner({
   period,
   currency,
 }: AnalyticsViewProps) {
+  const chartHeadingId = useId();
+  const listHeadingId = useId();
   const [visualSensitivity, setVisualSensitivity] = useState(
     DEFAULT_SENSITIVITY
   );
@@ -405,13 +429,13 @@ function AttentionAnalyticsViewInner({
       />
 
       <figure
-        aria-labelledby="attention-chart-heading"
+        aria-labelledby={chartHeadingId}
         className="rounded-2xl border border-border bg-card p-5 shadow-sm"
       >
         <figcaption className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h3
-              id="attention-chart-heading"
+              id={chartHeadingId}
               className="text-balance text-lg font-semibold text-foreground"
             >
               Flagged spending patterns
@@ -455,11 +479,11 @@ function AttentionAnalyticsViewInner({
       </figure>
 
       <section
-        aria-labelledby="attention-list-heading"
+        aria-labelledby={listHeadingId}
         className="rounded-2xl border border-border bg-card p-5 shadow-sm"
       >
         <h3
-          id="attention-list-heading"
+          id={listHeadingId}
           className="text-balance text-lg font-semibold text-foreground"
         >
           Expenses to review

@@ -1,8 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 
-import AnomalyScatterPlot, {
-  normalizeAnomalyPoints,
-} from '../AnomalyScatterPlot';
+import AnomalyScatterPlot from '../AnomalyScatterPlot';
+import { normalizeAnomalyPoints } from '../anomalyChartModels';
 
 import type { AnomalyPoint } from '@/app/metrics/types';
 
@@ -216,6 +215,31 @@ describe('AnomalyScatterPlot', () => {
     expect(Number.isFinite(yMin)).toBe(true);
     expect(Number.isFinite(yMax)).toBe(true);
     expect(yMin).toBeLessThan(yMax);
+  });
+
+  it('reserves measured height for the visible legend and keyboard explorer', () => {
+    mockParentSize = { width: 320, height: 300 };
+
+    render(
+      <AnomalyScatterPlot
+        data={[point()]}
+        formatMoney={formatMoney}
+        formatDate={formatDate}
+      />
+    );
+
+    const plot = screen.getByRole('img', {
+      name: 'Spending anomaly scatter plot',
+    });
+    expect(Number(plot.getAttribute('height'))).toBeLessThan(
+      mockParentSize.height
+    );
+    expect(
+      screen.getByRole('list', { name: 'Anomaly severity legend' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Explore spending anomalies' })
+    ).toBeInTheDocument();
   });
 
   it('resets keyboard inspection when the normalized model changes', () => {
