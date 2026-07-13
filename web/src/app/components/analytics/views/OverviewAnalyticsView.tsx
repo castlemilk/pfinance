@@ -296,6 +296,13 @@ function anomalyCents(amount: number): number {
     : Number.NaN;
 }
 
+function privateMemberLabel(userId: string, index: number): string {
+  const normalizedId = userId.trim();
+  return normalizedId.length > 4
+    ? `Member •••${normalizedId.slice(-4)}`
+    : `Member ${index + 1}`;
+}
+
 function GroupSettlementPanel({
   summary,
   formatMoney,
@@ -351,7 +358,7 @@ function GroupSettlementPanel({
       >
         {summary.memberBalances.length > 0 ? (
           <div className="divide-y divide-border">
-            {summary.memberBalances.map((member) => {
+            {summary.memberBalances.map((member, index) => {
               const status =
                 member.balance > 0
                   ? { label: 'Is owed', className: 'text-chart-2' }
@@ -360,13 +367,13 @@ function GroupSettlementPanel({
                     : { label: 'Settled', className: 'text-muted-foreground' };
               return (
                 <article
-                  key={JSON.stringify([member.groupId, member.userId])}
+                  key={JSON.stringify([member.groupId, member.userId, index])}
                   data-testid="member-balance"
                   className="grid gap-4 px-4 py-4 sm:grid-cols-[minmax(8rem,1.3fr)_repeat(3,minmax(6rem,1fr))] sm:items-center"
                 >
                   <div className="min-w-0">
                     <h3 className="truncate text-sm font-semibold text-foreground">
-                      {member.userId || 'Unknown member'}
+                      {privateMemberLabel(member.userId, index)}
                     </h3>
                     <p className={'mt-1 text-xs font-medium ' + status.className}>
                       {status.label}
@@ -428,6 +435,12 @@ function LoadedOverview({
     scope,
     start: overview.currentStart,
     end: overview.currentEnd,
+    ...(overview.currentStartTimestamp
+      ? { startTimestamp: overview.currentStartTimestamp }
+      : {}),
+    ...(overview.currentEndTimestamp
+      ? { endTimestamp: overview.currentEndTimestamp }
+      : {}),
     enabled:
       scope.kind === 'group' &&
       overview.currentStart !== null &&

@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { GetGroupSummaryResponse } from '@/gen/pfinance/v1/finance_service_pb';
 import type { AnalyticsScope } from '@/app/components/analytics/types';
+import type { AnalyticsTimestampBound } from '@/app/metrics/types';
 import { financeClient } from '@/lib/financeService';
 import { useGroupAnalyticsSummary } from '../useGroupAnalyticsSummary';
 
@@ -62,6 +63,8 @@ type HookProps = {
   start: Date | null;
   end: Date | null;
   enabled: boolean;
+  startTimestamp?: AnalyticsTimestampBound | null;
+  endTimestamp?: AnalyticsTimestampBound | null;
 };
 
 function renderSummaryHook(initialProps: HookProps) {
@@ -205,6 +208,88 @@ describe('useGroupAnalyticsSummary', () => {
     });
     expect(result.current.error).toBeNull();
     expect(result.current).not.toHaveProperty('key');
+  });
+
+  it('preserves exact sub-millisecond bounds and keys requests by seconds and nanos', async () => {
+    const firstStart = {
+      seconds: BigInt(1_775_001_600),
+      nanos: 123_456_789,
+    } as const;
+    const secondStart = { ...firstStart, nanos: 123_456_790 } as const;
+    const exactEnd = {
+      seconds: BigInt(1_782_863_999),
+      nanos: 987_654_321,
+    } as const;
+    getGroupSummary
+      .mockResolvedValueOnce(response({ totalIncomeCents: BigInt(10_000) }))
+      .mockResolvedValueOnce(response({ totalIncomeCents: BigInt(20_000) }));
+
+    const { result, rerender } = renderSummaryHook({
+      scope: homeScope,
+      start,
+      end,
+      startTimestamp: firstStart,
+      endTimestamp: exactEnd,
+      enabled: true,
+    });
+    await waitFor(() => expect(result.current.data?.totalIncome).toBe(100));
+
+    expect(getGroupSummary).toHaveBeenLastCalledWith({
+      groupId: 'group-home',
+      startDate: expect.objectContaining(firstStart),
+      endDate: expect.objectContaining(exactEnd),
+    });
+
+    rerender({
+      scope: homeScope,
+      start,
+      end,
+      startTimestamp: secondStart,
+      endTimestamp: exactEnd,
+      enabled: true,
+    });
+    expect(result.current).toMatchObject({
+      data: null,
+      loading: true,
+      error: null,
+    });
+    await waitFor(() => expect(result.current.data?.totalIncome).toBe(200));
+
+    expect(getGroupSummary).toHaveBeenLastCalledWith({
+      groupId: 'group-home',
+      startDate: expect.objectContaining(secondStart),
+      endDate: expect.objectContaining(exactEnd),
+    });
+    expect(getGroupSummary).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    [
+      'invalid nanos',
+      { seconds: BigInt(1_775_001_600), nanos: 1_000_000_000 },
+      { seconds: BigInt(1_782_863_999), nanos: 0 },
+    ],
+    [
+      'a reversed exact range',
+      { seconds: BigInt(1_782_863_999), nanos: 500 },
+      { seconds: BigInt(1_782_863_999), nanos: 499 },
+    ],
+  ] as const)('stays idle for %s even when fallback Dates are valid', (_, exactStart, exactEnd) => {
+    const { result } = renderSummaryHook({
+      scope: homeScope,
+      start,
+      end,
+      startTimestamp: exactStart,
+      endTimestamp: exactEnd,
+      enabled: true,
+    });
+
+    expect(result.current).toMatchObject({
+      data: null,
+      loading: false,
+      error: null,
+    });
+    expect(getGroupSummary).not.toHaveBeenCalled();
   });
 
   it('keeps a held refetch stable, uses the latest key, and clears a failure on retry', async () => {

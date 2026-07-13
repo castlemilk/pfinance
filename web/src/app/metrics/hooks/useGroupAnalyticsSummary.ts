@@ -1,9 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { timestampFromDate } from '@bufbuild/protobuf/wkt';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { create } from '@bufbuild/protobuf';
+import { TimestampSchema, timestampFromDate } from '@bufbuild/protobuf/wkt';
 
 import type { AnalyticsScope } from '@/app/components/analytics/types';
+import type { AnalyticsTimestampBound } from '@/app/metrics/types';
 import type { GetGroupSummaryResponse } from '@/gen/pfinance/v1/finance_service_pb';
 import { financeClient } from '@/lib/financeService';
 import { checkedCentsToDollars } from '../analyticsMappers';
@@ -36,6 +38,8 @@ export type UseGroupAnalyticsSummaryParameters = Readonly<{
   scope: AnalyticsScope;
   start: Date | null;
   end: Date | null;
+  startTimestamp?: AnalyticsTimestampBound | null;
+  endTimestamp?: AnalyticsTimestampBound | null;
   enabled: boolean;
 }>;
 
@@ -49,8 +53,18 @@ export type UseGroupAnalyticsSummaryResult = Readonly<{
 type ValidRequest = Readonly<{
   key: string;
   groupId: string;
-  startMilliseconds: number;
-  endMilliseconds: number;
+  startTimestamp: AnalyticsTimestampBound;
+  endTimestamp: AnalyticsTimestampBound;
+}>;
+
+type RequestInputs = Readonly<{
+  enabled: boolean;
+  scopeKind: AnalyticsScope['kind'];
+  groupId: string;
+  startMilliseconds: number | null;
+  endMilliseconds: number | null;
+  startTimestamp: AnalyticsTimestampBound | null;
+  endTimestamp: AnalyticsTimestampBound | null;
 }>;
 
 type RequestState = Readonly<{
@@ -67,35 +81,82 @@ const IDLE_STATE: RequestState = Object.freeze({
   error: null,
 });
 
-function validRequest({
-  scope,
-  start,
-  end,
-  enabled,
-}: UseGroupAnalyticsSummaryParameters): ValidRequest | null {
-  if (!enabled || scope.kind !== 'group' || scope.groupId.trim().length === 0) {
-    return null;
-  }
+const MIN_TIMESTAMP_SECONDS = BigInt(-62_135_596_800);
+const MAX_TIMESTAMP_SECONDS = BigInt(253_402_300_799);
 
-  const startMilliseconds = start?.getTime() ?? Number.NaN;
-  const endMilliseconds = end?.getTime() ?? Number.NaN;
+function validatedTimestamp(
+  timestamp: AnalyticsTimestampBound | null
+): AnalyticsTimestampBound | null {
   if (
-    !Number.isFinite(startMilliseconds) ||
-    !Number.isFinite(endMilliseconds) ||
-    startMilliseconds > endMilliseconds
+    !timestamp ||
+    typeof timestamp.seconds !== 'bigint' ||
+    timestamp.seconds < MIN_TIMESTAMP_SECONDS ||
+    timestamp.seconds > MAX_TIMESTAMP_SECONDS ||
+    !Number.isInteger(timestamp.nanos) ||
+    timestamp.nanos < 0 ||
+    timestamp.nanos >= 1_000_000_000
   ) {
     return null;
   }
 
   return {
+    seconds: timestamp.seconds,
+    nanos: timestamp.nanos,
+  };
+}
+
+function compareTimestamps(
+  left: AnalyticsTimestampBound,
+  right: AnalyticsTimestampBound
+): number {
+  if (left.seconds < right.seconds) return -1;
+  if (left.seconds > right.seconds) return 1;
+  return left.nanos - right.nanos;
+}
+
+function dateTimestamp(milliseconds: number | null) {
+  if (milliseconds === null || !Number.isFinite(milliseconds)) {
+    return null;
+  }
+  const timestamp = timestampFromDate(new Date(milliseconds));
+  return validatedTimestamp(timestamp);
+}
+
+function validRequest({
+  enabled,
+  scopeKind,
+  groupId,
+  startMilliseconds,
+  endMilliseconds,
+  startTimestamp,
+  endTimestamp,
+}: RequestInputs): ValidRequest | null {
+  if (!enabled || scopeKind !== 'group' || groupId.trim().length === 0) {
+    return null;
+  }
+
+  const hasExactBound = startTimestamp !== null || endTimestamp !== null;
+  const requestStart = hasExactBound
+    ? validatedTimestamp(startTimestamp)
+    : dateTimestamp(startMilliseconds);
+  const requestEnd = hasExactBound
+    ? validatedTimestamp(endTimestamp)
+    : dateTimestamp(endMilliseconds);
+  if (!requestStart || !requestEnd || compareTimestamps(requestStart, requestEnd) > 0) {
+    return null;
+  }
+
+  return {
     key: JSON.stringify([
-      scope.groupId,
-      startMilliseconds,
-      endMilliseconds,
+      groupId,
+      requestStart.seconds.toString(),
+      requestStart.nanos,
+      requestEnd.seconds.toString(),
+      requestEnd.nanos,
     ]),
-    groupId: scope.groupId,
-    startMilliseconds,
-    endMilliseconds,
+    groupId,
+    startTimestamp: requestStart,
+    endTimestamp: requestEnd,
   };
 }
 
@@ -147,19 +208,50 @@ function groupSummaryError(error: unknown): string {
 export function useGroupAnalyticsSummary(
   parameters: UseGroupAnalyticsSummaryParameters
 ): UseGroupAnalyticsSummaryResult {
-  const request = validRequest(parameters);
+  const scopeKind = parameters.scope.kind;
+  const groupId =
+    parameters.scope.kind === 'group' ? parameters.scope.groupId : '';
+  const startMilliseconds = parameters.start?.getTime() ?? null;
+  const endMilliseconds = parameters.end?.getTime() ?? null;
+  const startSeconds = parameters.startTimestamp?.seconds ?? null;
+  const startNanos = parameters.startTimestamp?.nanos ?? null;
+  const endSeconds = parameters.endTimestamp?.seconds ?? null;
+  const endNanos = parameters.endTimestamp?.nanos ?? null;
+  const request = useMemo(
+    () =>
+      validRequest({
+        enabled: parameters.enabled,
+        scopeKind,
+        groupId,
+        startMilliseconds,
+        endMilliseconds,
+        startTimestamp:
+          startSeconds === null || startNanos === null
+            ? null
+            : { seconds: startSeconds, nanos: startNanos },
+        endTimestamp:
+          endSeconds === null || endNanos === null
+            ? null
+            : { seconds: endSeconds, nanos: endNanos },
+      }),
+    [
+      endMilliseconds,
+      endNanos,
+      endSeconds,
+      groupId,
+      parameters.enabled,
+      scopeKind,
+      startMilliseconds,
+      startNanos,
+      startSeconds,
+    ]
+  );
   const requestKey = request?.key ?? null;
-  const latestRequestRef = useRef<ValidRequest | null>(request);
-  // The stable refetch callback reads this ref after render, so a held callback
-  // always observes the latest primitive request key and date values.
-  // eslint-disable-next-line react-hooks/refs
-  latestRequestRef.current = request;
-
+  const latestCommittedRequestRef = useRef<ValidRequest | null>(null);
   const requestIdRef = useRef(0);
   const [state, setState] = useState<RequestState>(IDLE_STATE);
 
-  const refetch = useCallback(async () => {
-    const activeRequest = latestRequestRef.current;
+  const executeRequest = useCallback(async (activeRequest: ValidRequest | null) => {
     requestIdRef.current += 1;
     const requestId = requestIdRef.current;
 
@@ -178,15 +270,13 @@ export function useGroupAnalyticsSummary(
     try {
       const response = await financeClient.getGroupSummary({
         groupId: activeRequest.groupId,
-        startDate: timestampFromDate(
-          new Date(activeRequest.startMilliseconds)
-        ),
-        endDate: timestampFromDate(new Date(activeRequest.endMilliseconds)),
+        startDate: create(TimestampSchema, activeRequest.startTimestamp),
+        endDate: create(TimestampSchema, activeRequest.endTimestamp),
       });
       const mapped = mapGroupSummary(response);
       if (
         requestIdRef.current !== requestId ||
-        latestRequestRef.current?.key !== activeRequest.key
+        latestCommittedRequestRef.current?.key !== activeRequest.key
       ) {
         return;
       }
@@ -199,7 +289,7 @@ export function useGroupAnalyticsSummary(
     } catch (error) {
       if (
         requestIdRef.current !== requestId ||
-        latestRequestRef.current?.key !== activeRequest.key
+        latestCommittedRequestRef.current?.key !== activeRequest.key
       ) {
         return;
       }
@@ -212,18 +302,29 @@ export function useGroupAnalyticsSummary(
     }
   }, []);
 
+  const refetch = useCallback(
+    () => executeRequest(latestCommittedRequestRef.current),
+    [executeRequest]
+  );
+
   useEffect(() => {
-    if (requestKey === null) {
+    latestCommittedRequestRef.current = request;
+    if (!request) {
       requestIdRef.current += 1;
-      setState((current) => (current === IDLE_STATE ? current : IDLE_STATE));
       return;
     }
 
-    void refetch();
+    // Fetch state must reset on each committed activation, including when the
+    // same request key is re-enabled after being idle.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void executeRequest(request);
     return () => {
       requestIdRef.current += 1;
+      if (latestCommittedRequestRef.current?.key === request.key) {
+        latestCommittedRequestRef.current = null;
+      }
     };
-  }, [refetch, requestKey]);
+  }, [executeRequest, request, requestKey]);
 
   if (requestKey === null) {
     return {

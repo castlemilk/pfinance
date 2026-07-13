@@ -1,9 +1,7 @@
 import Link from 'next/link';
 
-import type {
-  AnalyticsCurrencyContext,
-  PrimaryAnalyticsAttention,
-} from './types';
+import type { PrimaryAnalyticsAttention } from '@/app/metrics/types';
+import type { AnalyticsCurrencyContext } from './types';
 
 type AnalyticsAttentionSummaryProps = Readonly<{
   primary: PrimaryAnalyticsAttention | null;
@@ -130,6 +128,17 @@ export function AnalyticsAttentionSummary({
   const primaryAmount = Number.isFinite(primary.amount)
     ? formatMoney(primary.amount)
     : 'Not available';
+  const expectedLowerAmount = primary.expectedLowerAmount;
+  const expectedUpperAmount = primary.expectedUpperAmount;
+  const structuredExpectedRange =
+    typeof expectedLowerAmount === 'number' &&
+    Number.isFinite(expectedLowerAmount) &&
+    typeof expectedUpperAmount === 'number' &&
+    Number.isFinite(expectedUpperAmount)
+      ? `Expected range: ${formatMoney(expectedLowerAmount)} to ${formatMoney(
+          expectedUpperAmount
+        )}`
+      : null;
   const countLabel = `${safeCount} flagged ${
     safeCount === 1 ? 'transaction' : 'transactions'
   }`;
@@ -161,9 +170,20 @@ export function AnalyticsAttentionSummary({
       <p className="mt-3 text-pretty text-sm leading-relaxed text-foreground">
         {primary.reason}
       </p>
-      {primary.expectedContext ? (
+      {structuredExpectedRange ? (
+        <p className="mt-1 text-pretty text-xs leading-relaxed tabular-nums text-muted-foreground">
+          {structuredExpectedRange}
+        </p>
+      ) : primary.expectedContext ? (
         <p className="mt-1 text-pretty text-xs leading-relaxed text-muted-foreground">
           {primary.expectedContext}
+        </p>
+      ) : null}
+      {safeUncoveredCount > 0 ? (
+        <p className="mt-2 text-pretty text-xs leading-relaxed text-muted-foreground">
+          This flag does not cover {safeUncoveredCount}{' '}
+          {safeUncoveredCount === 1 ? 'category' : 'categories'} that still{' '}
+          {safeUncoveredCount === 1 ? 'needs' : 'need'} history.
         </p>
       ) : null}
 

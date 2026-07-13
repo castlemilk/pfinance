@@ -15,9 +15,13 @@ import {
   Income,
   Expense
 } from '../types';
-import type { PrimaryAnalyticsAttention } from '../components/analytics/types';
+import type { PrimaryAnalyticsAttention as BasePrimaryAnalyticsAttention } from '../components/analytics/types';
 
-export type { PrimaryAnalyticsAttention } from '../components/analytics/types';
+export type PrimaryAnalyticsAttention = BasePrimaryAnalyticsAttention &
+  Readonly<{
+    expectedLowerAmount?: number;
+    expectedUpperAmount?: number;
+  }>;
 
 // ============================================================================
 // Core Metric Types
@@ -496,11 +500,20 @@ export interface CategoryComparisonData {
 }
 
 /** Authoritative headline analytics for the selected period. */
+export interface AnalyticsTimestampBound {
+  readonly seconds: bigint;
+  readonly nanos: number;
+}
+
 export interface AnalyticsOverviewData {
   currentStart: Date | null;
   currentEnd: Date | null;
   previousStart: Date | null;
   previousEnd: Date | null;
+  readonly currentStartTimestamp?: AnalyticsTimestampBound | null;
+  readonly currentEndTimestamp?: AnalyticsTimestampBound | null;
+  readonly previousStartTimestamp?: AnalyticsTimestampBound | null;
+  readonly previousEndTimestamp?: AnalyticsTimestampBound | null;
   currentIncome: number;
   currentExpense: number;
   currentNet: number;

@@ -125,8 +125,8 @@ describe('analytics response mappers', () => {
   describe('mapAnalyticsOverviewResponse', () => {
     it('maps bounds with nanos, authoritative cents, and explicit presence flags', () => {
       const source = response<GetAnalyticsOverviewResponse>({
-        currentStart: { seconds: BigInt(1_700_000_000), nanos: 250_000_000 },
-        currentEnd: { seconds: BigInt(1_700_086_400), nanos: 500_000_000 },
+        currentStart: { seconds: BigInt(1_700_000_000), nanos: 250_123_456 },
+        currentEnd: { seconds: BigInt(1_700_086_400), nanos: 500_654_321 },
         previousStart: { seconds: BigInt(1_699_913_600), nanos: 0 },
         currentIncomeCents: BigInt(12_345),
         currentExpenseCents: BigInt(0),
@@ -173,6 +173,21 @@ describe('analytics response mappers', () => {
       expect(mapped.previousStart?.getTime()).toBe(1_699_913_600_000);
       expect(mapped.previousEnd).toBeNull();
       expect(mapped.currentStart).not.toBe(source.currentStart);
+      expect(mapped.currentStartTimestamp).toEqual({
+        seconds: BigInt(1_700_000_000),
+        nanos: 250_123_456,
+      });
+      expect(mapped.currentEndTimestamp).toEqual({
+        seconds: BigInt(1_700_086_400),
+        nanos: 500_654_321,
+      });
+      expect(mapped.previousStartTimestamp).toEqual({
+        seconds: BigInt(1_699_913_600),
+        nanos: 0,
+      });
+      expect(mapped.previousEndTimestamp).toBeNull();
+      expect(mapped.currentStartTimestamp).not.toBe(source.currentStart);
+      expect(Object.isFrozen(mapped.currentStartTimestamp)).toBe(true);
     });
 
     it('returns null for invalid timestamp bounds instead of using a changing current time', () => {
@@ -186,6 +201,34 @@ describe('analytics response mappers', () => {
 
       expect(mapped.currentStart).toBeNull();
       expect(mapped.currentEnd).toBeNull();
+      expect(mapped.currentStartTimestamp).toBeNull();
+      expect(mapped.currentEndTimestamp).toBeNull();
+    });
+
+    it('rejects non-canonical nanos from exact timestamp bounds', () => {
+      const mapped = mapAnalyticsOverviewResponse(
+        validOverviewResponse({
+          currentStart: response<
+            NonNullable<GetAnalyticsOverviewResponse['currentStart']>
+          >({ seconds: BigInt(1_700_000_000), nanos: 1_000_000_000 }),
+        })
+      );
+
+      expect(mapped.currentStart).toBeNull();
+      expect(mapped.currentStartTimestamp).toBeNull();
+    });
+
+    it('rejects seconds outside the canonical protobuf Timestamp range', () => {
+      const mapped = mapAnalyticsOverviewResponse(
+        validOverviewResponse({
+          currentStart: response<
+            NonNullable<GetAnalyticsOverviewResponse['currentStart']>
+          >({ seconds: BigInt(253_402_300_800), nanos: 0 }),
+        })
+      );
+
+      expect(mapped.currentStart).toBeNull();
+      expect(mapped.currentStartTimestamp).toBeNull();
     });
 
     it('rejects unsafe authoritative cents instead of silently rounding them', () => {
@@ -508,6 +551,8 @@ describe('analytics response mappers', () => {
           description: 'High A',
           reason: 'Amount Outlier',
           amount: 50,
+          expectedLowerAmount: 10,
+          expectedUpperAmount: 20,
           expectedContext: 'Expected range: 10 to 20',
           severity: 'high',
         },

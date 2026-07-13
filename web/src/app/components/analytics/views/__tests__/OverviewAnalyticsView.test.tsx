@@ -291,6 +291,31 @@ describe('OverviewAnalyticsView', () => {
     }
   );
 
+  it('passes authoritative sub-millisecond overview bounds to the group hook', () => {
+    const currentStartTimestamp = {
+      seconds: BigInt(1_782_864_000),
+      nanos: 250_123_456,
+    } as const;
+    const currentEndTimestamp = {
+      seconds: BigInt(1_785_542_399),
+      nanos: 999_654_321,
+    } as const;
+    setLoadedHooks(
+      overview({ currentStartTimestamp, currentEndTimestamp })
+    );
+
+    renderOverview(groupScope);
+
+    expect(mockedGroup).toHaveBeenCalledWith({
+      scope: groupScope,
+      start: new Date('2026-07-01T00:00:00.000Z'),
+      end: new Date('2026-07-31T23:59:59.999Z'),
+      startTimestamp: currentStartTimestamp,
+      endTimestamp: currentEndTimestamp,
+      enabled: true,
+    });
+  });
+
   it('renders four decision metrics, explicit changes, and an authoritative driver link', () => {
     renderOverview();
 
@@ -596,12 +621,91 @@ describe('OverviewAnalyticsView', () => {
     expect(screen.getByText('AUD 125.50')).toBeInTheDocument();
     const balances = screen.getByRole('region', { name: 'Member balances' });
     expect(within(balances).getAllByTestId('member-balance')).toHaveLength(2);
-    expect(within(balances).getByText('member-credit')).toBeInTheDocument();
-    expect(within(balances).getByText('member-debit')).toBeInTheDocument();
+    expect(within(balances).getByText('Member •••edit')).toBeInTheDocument();
+    expect(within(balances).getByText('Member •••ebit')).toBeInTheDocument();
+    expect(within(balances).queryByText('member-credit')).not.toBeInTheDocument();
+    expect(within(balances).queryByText('member-debit')).not.toBeInTheDocument();
     expect(within(balances).getByText('Is owed')).toHaveClass('text-chart-2');
     expect(within(balances).getByText('Owes')).toHaveClass('text-destructive');
     expect(within(balances).getAllByText('AUD 150.00')).toHaveLength(2);
     expect(within(balances).getAllByText('AUD 400.00')).toHaveLength(1);
+  });
+
+  it('uses private duplicate-safe member labels without React key warnings', () => {
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockedGroup.mockReturnValue({
+      data: {
+        totalExpenses: 0,
+        totalIncome: 0,
+        unsettledExpenseCount: 0,
+        unsettledAmount: 0,
+        memberBalances: [
+          {
+            userId: 'opaque-user-1234',
+            groupId: 'group-home',
+            totalPaid: 0,
+            totalOwed: 0,
+            balance: 0,
+            debts: [],
+          },
+          {
+            userId: 'opaque-user-1234',
+            groupId: 'group-home',
+            totalPaid: 0,
+            totalOwed: 0,
+            balance: 0,
+            debts: [],
+          },
+          {
+            userId: '   ',
+            groupId: 'group-home',
+            totalPaid: 0,
+            totalOwed: 0,
+            balance: 0,
+            debts: [],
+          },
+          {
+            userId: '',
+            groupId: 'group-home',
+            totalPaid: 0,
+            totalOwed: 0,
+            balance: 0,
+            debts: [],
+          },
+          {
+            userId: 'xy',
+            groupId: 'group-home',
+            totalPaid: 0,
+            totalOwed: 0,
+            balance: 0,
+            debts: [],
+          },
+        ],
+      },
+      loading: false,
+      error: null,
+      refetch: groupRefetch,
+    });
+
+    renderOverview(groupScope);
+
+    expect(screen.getAllByText('Member •••1234')).toHaveLength(2);
+    expect(screen.getByText('Member 3')).toBeInTheDocument();
+    expect(screen.getByText('Member 4')).toBeInTheDocument();
+    expect(screen.getByText('Member 5')).toBeInTheDocument();
+    expect(screen.queryByText('opaque-user-1234')).not.toBeInTheDocument();
+    expect(screen.queryByText('xy')).not.toBeInTheDocument();
+    expect(
+      consoleError.mock.calls.some((call) =>
+        call.some(
+          (value) =>
+            typeof value === 'string' && value.includes('unique "key" prop')
+        )
+      )
+    ).toBe(false);
+    consoleError.mockRestore();
   });
 
   it('remounts the overview gate so a new period or group cannot flash old metrics or links', () => {
@@ -643,7 +747,12 @@ describe('OverviewAnalyticsView', () => {
 describe('AnalyticsMetricStrip', () => {
   it('renders exactly four metrics in one tone-labelled divided surface', () => {
     const metrics = [
-      { label: 'Income', value: 'AUD 100.00', detail: 'Change: +5%', tone: 'positive' },
+      {
+        label: 'Income',
+        value: 'AUD 123456789012345678901234567890.00',
+        detail: 'Change: +5%',
+        tone: 'positive',
+      },
       { label: 'Spending', value: 'AUD 80.00', detail: 'Change: -2%', tone: 'attention' },
       { label: 'Net', value: 'AUD 20.00', detail: 'Income minus spending', tone: 'positive' },
       { label: 'Savings rate', value: '20%', detail: 'Share kept', tone: 'neutral' },
@@ -658,6 +767,11 @@ describe('AnalyticsMetricStrip', () => {
     within(strip)
       .getAllByTestId('analytics-metric-value')
       .forEach((value) => expect(value).toHaveClass('tabular-nums'));
+    const longValue = within(strip).getByText(
+      'AUD 123456789012345678901234567890.00'
+    );
+    expect(longValue).not.toHaveClass('truncate');
+    expect(longValue).toHaveClass('[overflow-wrap:anywhere]', 'leading-tight');
     expect(within(strip).getByText('Change: +5%')).toHaveClass('tabular-nums');
     expect(within(strip).getByText('Change: -2%')).toHaveClass('tabular-nums');
     within(strip)
@@ -682,6 +796,8 @@ describe('AnalyticsAttentionSummary', () => {
           reason: 'Higher than recent Food spending',
           amount: 90.5,
           expectedContext: 'Usually AUD 20.00 to AUD 45.00',
+          expectedLowerAmount: 20,
+          expectedUpperAmount: 45,
           severity: 'high',
         }}
         anomalyCount={3}
@@ -695,11 +811,23 @@ describe('AnalyticsAttentionSummary', () => {
 
     expect(screen.getByText('Large market shop')).toBeInTheDocument();
     expect(screen.getByText('Higher than recent Food spending')).toBeInTheDocument();
-    expect(screen.getByText('Usually AUD 20.00 to AUD 45.00')).toBeInTheDocument();
+    expect(
+      screen.getByText('Expected range: AUD 20.00 to AUD 45.00')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Usually AUD 20.00 to AUD 45.00')
+    ).not.toBeInTheDocument();
     expect(screen.getByText('AUD 90.50')).toBeInTheDocument();
+    expect(formatMoney).toHaveBeenCalledWith(20);
+    expect(formatMoney).toHaveBeenCalledWith(45);
     expect(screen.getByText('High severity')).toBeInTheDocument();
     expect(screen.getByText('3 flagged transactions')).toBeInTheDocument();
     expect(screen.getByText('AUD 123.45 flagged')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'This flag does not cover 1 category that still needs history.'
+      )
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Review expense' })).toHaveAttribute(
       'href',
       '/shared/expenses?expenseId=expense-7'

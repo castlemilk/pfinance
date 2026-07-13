@@ -21,6 +21,7 @@ import {
 import type {
   AnalyticsAnomalyData,
   AnalyticsOverviewData,
+  AnalyticsTimestampBound,
   CashFlowForecastData,
   CategoryComparisonData,
   ForecastHistoryPoint,
@@ -33,6 +34,8 @@ import type {
 const ZERO = BigInt(0);
 const MAX_SAFE_CENTS = BigInt(Number.MAX_SAFE_INTEGER);
 const MIN_SAFE_CENTS = BigInt(Number.MIN_SAFE_INTEGER);
+const MIN_TIMESTAMP_SECONDS = BigInt(-62_135_596_800);
+const MAX_TIMESTAMP_SECONDS = BigInt(253_402_300_799);
 const EPOCH_MILLISECONDS = 0;
 
 /** Prefer a populated integer-cents field, retaining legacy double compatibility. */
@@ -75,15 +78,24 @@ export function analyticsCategoryLabel(category: ExpenseCategory): string {
     .join(' ');
 }
 
-function timestampMilliseconds(timestamp?: Timestamp): number | null {
+function analyticsTimestampBound(
+  timestamp?: Timestamp
+): AnalyticsTimestampBound | null {
   if (!timestamp) {
+    return null;
+  }
+
+  if (
+    timestamp.seconds < MIN_TIMESTAMP_SECONDS ||
+    timestamp.seconds > MAX_TIMESTAMP_SECONDS
+  ) {
     return null;
   }
 
   const seconds = Number(timestamp.seconds);
   const nanos = timestamp.nanos;
   if (
-    !Number.isFinite(seconds) ||
+    !Number.isSafeInteger(seconds) ||
     !Number.isInteger(nanos) ||
     nanos < 0 ||
     nanos >= 1_000_000_000
@@ -97,7 +109,23 @@ function timestampMilliseconds(timestamp?: Timestamp): number | null {
   }
 
   const date = new Date(milliseconds);
-  return Number.isNaN(date.getTime()) ? null : date.getTime();
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return Object.freeze({
+    seconds: timestamp.seconds,
+    nanos,
+  });
+}
+
+function timestampMilliseconds(timestamp?: Timestamp): number | null {
+  const bound = analyticsTimestampBound(timestamp);
+  if (!bound) {
+    return null;
+  }
+
+  return Number(bound.seconds) * 1_000 + bound.nanos / 1_000_000;
 }
 
 export function analyticsTimestampDate(timestamp?: Timestamp): Date | null {
@@ -206,6 +234,10 @@ export function mapAnalyticsOverviewResponse(
     currentEnd: analyticsTimestampDate(response.currentEnd),
     previousStart: analyticsTimestampDate(response.previousStart),
     previousEnd: analyticsTimestampDate(response.previousEnd),
+    currentStartTimestamp: analyticsTimestampBound(response.currentStart),
+    currentEndTimestamp: analyticsTimestampBound(response.currentEnd),
+    previousStartTimestamp: analyticsTimestampBound(response.previousStart),
+    previousEndTimestamp: analyticsTimestampBound(response.previousEnd),
     currentIncome: checkedCentsToDollars(response.currentIncomeCents),
     currentExpense: checkedCentsToDollars(response.currentExpenseCents),
     currentNet: checkedCentsToDollars(response.currentNetCents),
@@ -340,6 +372,8 @@ function selectPrimaryAttention(
     amount: primary.amount,
     ...(primary.hasExpectedRange
       ? {
+          expectedLowerAmount: primary.expectedLowerAmount,
+          expectedUpperAmount: primary.expectedUpperAmount,
           expectedContext: `Expected range: ${stableNumber(
             primary.expectedLowerAmount
           )} to ${stableNumber(primary.expectedUpperAmount)}`,

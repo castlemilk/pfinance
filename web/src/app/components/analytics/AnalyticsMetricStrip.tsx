@@ -57,7 +57,7 @@ export function AnalyticsMetricStrip({ metrics }: AnalyticsMetricStripProps) {
               </dt>
               <dd
                 data-testid="analytics-metric-value"
-                className={`mt-2 truncate text-xl font-semibold tabular-nums sm:text-2xl ${tone.className}`}
+                className={`mt-2 break-words text-xl font-semibold leading-tight tabular-nums [overflow-wrap:anywhere] sm:text-2xl ${tone.className}`}
               >
                 <span className="sr-only">{tone.label}: </span>
                 {metric.value}
