@@ -243,6 +243,7 @@ test.describe('Application shell interactions', () => {
   });
 
   test('palette focus ring follows the alternate palette token', async ({
+    browserName,
     page,
   }) => {
     await page.evaluate(() => {
@@ -254,9 +255,14 @@ test.describe('Application shell interactions', () => {
       'midcentury'
     );
 
-    await page.keyboard.press('Tab');
+    await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
     const skipLink = page.getByRole('link', { name: 'Skip to main content' });
     await expect(skipLink).toBeFocused();
+    await skipLink.evaluate(async (element) => {
+      await Promise.allSettled(
+        element.getAnimations({ subtree: true }).map(({ finished }) => finished)
+      );
+    });
 
     const focusColors = await skipLink.evaluate((element) => {
       const probe = document.createElement('input');
@@ -266,20 +272,24 @@ test.describe('Application shell interactions', () => {
       const probeStyles = getComputedStyle(probe);
       const elementStyles = getComputedStyle(element);
       const result = {
-        boxShadow: elementStyles.boxShadow,
         caretColor: probeStyles.caretColor,
         expectedOutlineColor: probeStyles.outlineColor,
+        focusVisible: element.matches(':focus-visible'),
         outlineColor: elementStyles.outlineColor,
+        outlineStyle: elementStyles.outlineStyle,
+        outlineWidth: elementStyles.outlineWidth,
       };
       probe.remove();
       return result;
     });
 
+    expect(focusColors.focusVisible, JSON.stringify(focusColors)).toBe(true);
+    expect(focusColors.outlineStyle, JSON.stringify(focusColors)).toBe('solid');
+    expect(Number.parseFloat(focusColors.outlineWidth)).toBeGreaterThanOrEqual(
+      2
+    );
     expect(focusColors.outlineColor, JSON.stringify(focusColors)).toBe(
       focusColors.expectedOutlineColor
-    );
-    expect(focusColors.boxShadow, JSON.stringify(focusColors)).not.toBe(
-      'none'
     );
     expect(focusColors.caretColor).toBe(focusColors.expectedOutlineColor);
   });
@@ -292,18 +302,18 @@ test.describe('Application shell interactions', () => {
     const assertTouchSize = async (
       locator: import('@playwright/test').Locator
     ) => {
-      await locator.evaluate(async (element) => {
-        const menu = element.closest('[role="menu"]');
-        if (menu) {
-          await Promise.allSettled(
-            menu.getAnimations({ subtree: true }).map(({ finished }) => finished)
-          );
-        }
-      });
+      await expect(locator).toBeVisible();
       const box = await locator.boundingBox();
       expect(box).not.toBeNull();
       expect(box!.width).toBeGreaterThanOrEqual(40);
       expect(box!.height).toBeGreaterThanOrEqual(40);
+    };
+    const settleOpenMenuMotion = async () => {
+      await page.getByRole('menu').evaluate(async (menu) => {
+        await Promise.allSettled(
+          menu.getAnimations({ subtree: true }).map(({ finished }) => finished)
+        );
+      });
     };
 
     const themeTrigger = page.getByRole('button', {
@@ -316,6 +326,7 @@ test.describe('Application shell interactions', () => {
     await assertTouchSize(paletteTrigger);
 
     await themeTrigger.click();
+    await settleOpenMenuMotion();
     for (const name of ['Light', 'Dark', 'System']) {
       await assertTouchSize(
         page.getByRole('menuitemradio', { name })
@@ -324,6 +335,7 @@ test.describe('Application shell interactions', () => {
     await page.keyboard.press('Escape');
 
     await paletteTrigger.click();
+    await settleOpenMenuMotion();
     for (const name of [
       'Amber Terminal',
       'Soft Retro Chic',

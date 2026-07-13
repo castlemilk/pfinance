@@ -419,8 +419,8 @@
 
   /* Palette-aware focus treatment */
   :focus-visible {
-    @apply outline-2 outline-offset-2;
-    outline-color: var(--ring);
+    outline: 2px solid var(--ring) !important;
+    outline-offset: 2px;
     box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 20%, transparent);
   }
 
