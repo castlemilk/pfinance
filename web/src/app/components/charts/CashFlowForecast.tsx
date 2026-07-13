@@ -502,6 +502,43 @@ function ForecastPlot({
       ),
     [model.netForecast]
   );
+  const interactionSignature = useMemo(
+    () =>
+      [
+        `today:${today.getTime()}`,
+        ...model.incomeHistory.map(
+          (point) => `income-history:${point.date.getTime()}:${point.value}`
+        ),
+        ...model.expenseHistory.map(
+          (point) => `expense-history:${point.date.getTime()}:${point.value}`
+        ),
+        ...model.incomeForecast.map(
+          (point) => `income-forecast:${point.date.getTime()}:${point.predicted}`
+        ),
+        ...model.expenseForecast.map(
+          (point) => `expense-forecast:${point.date.getTime()}:${point.predicted}`
+        ),
+        ...model.netForecast.map(
+          (point) => `net-forecast:${point.date.getTime()}:${point.predicted}`
+        ),
+      ].join('|'),
+    [
+      model.expenseForecast,
+      model.expenseHistory,
+      model.incomeForecast,
+      model.incomeHistory,
+      model.netForecast,
+      today,
+    ]
+  );
+
+  /* eslint-disable react-hooks/set-state-in-effect -- A changed data timeline invalidates transient tooltip and screen-reader selection state. */
+  useEffect(() => {
+    hideTooltip();
+    setSelectedStatus('');
+    setKeyboardIndex(0);
+  }, [hideTooltip, interactionSignature]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const showTooltipForDate = useCallback(
     (date: Date) => {

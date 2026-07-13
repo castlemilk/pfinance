@@ -330,6 +330,11 @@ describe('CashFlowForecast', () => {
         ]}
         expenseForecast={[]}
         netForecast={[]}
+        formatMoney={(value) => `value ${value}`}
+        formatDate={(value) => {
+          const date = typeof value === 'string' ? new Date(value) : value;
+          return `day ${date.toISOString().slice(0, 10)}`;
+        }}
       />
     );
 
@@ -344,6 +349,11 @@ describe('CashFlowForecast', () => {
     expect(screen.getByTestId('income-forecast-line')).toHaveAttribute(
       'data-start-date',
       '2026-07-14T00:00:00.000Z'
+    );
+    fireEvent.focus(screen.getByTestId('forecast-chart-overlay'));
+    expect(screen.getByText('Income: value 100')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'day 2026-07-14. Income value 100.'
     );
 
     act(() => {
@@ -362,6 +372,41 @@ describe('CashFlowForecast', () => {
       'data-start-date',
       '2026-07-15T00:00:00.000Z'
     );
+    expect(screen.queryByText('Income: value 100')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  });
+
+  it.each([
+    {
+      name: 'duplicate timestamp',
+      points: [
+        forecastPoint('2026-07-20', 100, 80, 120, true),
+        forecastPoint('2026-07-20', 110, 90, 130, true),
+        forecastPoint('2026-07-21', 120, 100, 140, true),
+      ],
+    },
+    {
+      name: 'reversed input order',
+      points: [
+        forecastPoint('2026-07-22', 120, 100, 140, true),
+        forecastPoint('2026-07-20', 100, 80, 120, true),
+        forecastPoint('2026-07-21', 110, 90, 130, true),
+      ],
+    },
+  ])('fails confidence shading closed for $name', ({ points }) => {
+    render(
+      <CashFlowForecast
+        incomeForecast={points}
+        expenseForecast={[]}
+        netForecast={[]}
+      />
+    );
+
+    expect(screen.getByTestId('income-forecast-line')).toBeInTheDocument();
+    expect(screen.queryByTestId('income-confidence-band')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Shading: expected range where available')
+    ).not.toBeInTheDocument();
   });
 
   it('reserves legend and summary space outside a bounded responsive plot', () => {
