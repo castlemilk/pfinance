@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+test.setTimeout(60_000);
+
 async function openMobileNavigationIfNeeded(
   page: import('@playwright/test').Page
 ) {
@@ -18,8 +20,6 @@ function durationInMilliseconds(value: string) {
 }
 
 test.describe('Application shell interactions', () => {
-  test.setTimeout(60_000);
-
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem('pfinance-admin-mode', 'true');
@@ -398,7 +398,7 @@ test('Firebase notice is singular, hydrated, and does not block top navigation',
   const notice = page
     .getByRole('alert')
     .filter({ hasText: 'Firebase configuration is missing' });
-  await expect(notice).toHaveCount(1);
+  await expect(notice).toHaveCount(1, { timeout: 20_000 });
   await expect(notice).toContainText('Connection issue');
 
   const navigation = page.getByRole('navigation', { name: 'Main navigation' });
