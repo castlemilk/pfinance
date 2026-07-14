@@ -327,10 +327,16 @@ test.describe('Application shell interactions', () => {
       locator: import('@playwright/test').Locator
     ) => {
       await expect(locator).toBeVisible();
-      const box = await locator.boundingBox();
-      expect(box).not.toBeNull();
-      expect(box!.width).toBeGreaterThanOrEqual(40);
-      expect(box!.height).toBeGreaterThanOrEqual(40);
+      await expect
+        .poll(
+          () =>
+            locator.evaluate((element) => {
+              const { width, height } = element.getBoundingClientRect();
+              return Math.min(width, height);
+            }),
+          { timeout: 10_000 }
+        )
+        .toBeGreaterThanOrEqual(40);
     };
     const settleOpenMenuMotion = async () => {
       await page.getByRole('menu').evaluate(async (menu) => {
