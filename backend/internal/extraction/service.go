@@ -135,10 +135,10 @@ func (s *ExtractionService) StartWarmupScheduler(interval time.Duration) (stop f
 				return
 			case <-ticker.C:
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				// Only log failures. Logging every successful tick emitted
+				// ~1,920 lines/day per instance with no diagnostic value.
 				if _, err := s.mlClient.HealthCheck(ctx); err != nil {
 					log.Printf("[warmup] ML service health check failed: %v", err)
-				} else {
-					log.Printf("[warmup] ML service is warm")
 				}
 				cancel()
 			}
