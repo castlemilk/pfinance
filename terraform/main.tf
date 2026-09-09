@@ -30,7 +30,7 @@ resource "google_cloud_run_service" "backend" {
         resources {
           limits = {
             cpu    = "1000m"
-            memory = "512Mi"
+            memory = "256Mi"
           }
         }
         
@@ -57,7 +57,7 @@ resource "google_cloud_run_service" "backend" {
 # Allow unauthenticated invocations (public API)
 data "google_iam_policy" "noauth" {
   binding {
-    role = "roles/run.invoker"
+    role = "roles.run.invoker"
     members = [
       "allUsers",
     ]
