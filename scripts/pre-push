@@ -1,21 +1,40 @@
 #!/bin/bash
 
 # Pre-push hook for PFinance
-# Runs full validation before allowing a push
+# Checks what this push changes vs origin/main; `make pre-push` (CI's fast
+# lane) runs everything, as does PRE_PUSH_FULL=1 or a checkout without
+# origin/main. Skip with `git push --no-verify`.
+
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
 
 echo "🚀 Running pre-push checks..."
 echo "-------------------------------"
 
-make pre-push
-
-RESULT=$?
-
-echo "-------------------------------"
-if [ $RESULT -ne 0 ]; then
-  echo "❌ Pre-push checks failed!"
-  echo "Please fix the issues above or push with --no-verify if absolutely necessary."
-  exit 1
+BASE="$(git merge-base origin/main HEAD 2>/dev/null || true)"
+if [ -n "${PRE_PUSH_FULL:-}" ] || [ -z "$BASE" ]; then
+  make pre-push || { echo "❌ Pre-push checks failed!"; exit 1; }
+  exit 0
 fi
 
+CHANGED="$(git diff --name-only --diff-filter=ACMR "$BASE" HEAD)"
+
+# backend/tests/ is the integration/e2e suite; it stays out of the hook.
+PKGS="$(grep -E '^backend/.*\.go$' <<<"$CHANGED" | grep -v '^backend/tests/' | sed 's|^backend/||' |
+  while read -r f; do d="$(dirname "$f")"; [ -d "backend/$d" ] && echo "./$d"; done | sort -u || true)"
+if [ -n "$PKGS" ]; then
+  echo "=== Backend:" $PKGS
+  # shellcheck disable=SC2086
+  (cd backend && go vet $PKGS && go test -race -timeout=60s $PKGS) || { echo "❌ Backend checks failed!"; exit 1; }
+fi
+
+WEB_FILES="$(grep -E '^web/.*\.(ts|tsx|js|jsx)$' <<<"$CHANGED" | sed 's|^web/||' || true)"
+if [ -n "$WEB_FILES" ]; then
+  echo "=== Frontend: type-check + related tests"
+  # shellcheck disable=SC2086
+  (cd web && npm run type-check && npx jest --findRelatedTests $WEB_FILES --passWithNoTests --maxWorkers=2) ||
+    { echo "❌ Frontend checks failed!"; exit 1; }
+fi
+
+echo "-------------------------------"
 echo "✅ Pre-push checks passed!"
-exit 0
