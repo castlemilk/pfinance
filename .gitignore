@@ -71,3 +71,5 @@ web/testdata/
 
 # Agents
 agents/
+# Serena MCP tool workspace (local analysis cache, not project source)
+.serena/
