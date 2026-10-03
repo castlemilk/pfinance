@@ -1,26 +1,42 @@
 #!/bin/bash
 
 # Pre-commit hook for PFinance
-# Fast lint/format check only (~3s)
+# Fast lint/format check of staged files only. Install: make install-hooks
+# Skip with `git commit --no-verify`.
+
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
 
 echo "🔍 Running pre-commit checks..."
 
-# Check Go formatting
-GOFMT_OUTPUT=$(cd backend && gofmt -l . 2>/dev/null)
-if [ -n "$GOFMT_OUTPUT" ]; then
-  echo "❌ Go files not formatted:"
-  echo "$GOFMT_OUTPUT"
-  echo "Run 'cd backend && go fmt ./...' to fix"
-  exit 1
+STAGED="$(git diff --cached --name-only --diff-filter=ACMR)"
+
+GO_FILES="$(grep -E '^backend/.*\.go$' <<<"$STAGED" || true)"
+if [ -n "$GO_FILES" ]; then
+  GOFMT_OUTPUT="$(xargs gofmt -l <<<"$GO_FILES")"
+  if [ -n "$GOFMT_OUTPUT" ]; then
+    echo "❌ Go files not formatted:"
+    echo "$GOFMT_OUTPUT"
+    echo "Run 'cd backend && go fmt ./...' to fix"
+    exit 1
+  fi
+  # Only issues in uncommitted changes; go vet when golangci-lint is absent.
+  if command -v golangci-lint >/dev/null 2>&1; then
+    (cd backend && golangci-lint run --new-from-rev=HEAD ./...) || { echo "❌ golangci-lint failed"; exit 1; }
+  else
+    (cd backend && go vet ./...) || { echo "❌ go vet failed"; exit 1; }
+  fi
 fi
 
-# Check Go vet
-cd backend && go vet ./... 2>&1
-if [ $? -ne 0 ]; then
-  echo "❌ go vet failed"
-  exit 1
+WEB_FILES="$(grep -E '^web/.*\.(ts|tsx|js|jsx|mjs)$' <<<"$STAGED" | sed 's|^web/||' || true)"
+if [ -n "$WEB_FILES" ]; then
+  (cd web && xargs npx eslint --cache --cache-location node_modules/.cache/eslint/ <<<"$WEB_FILES") ||
+    { echo "❌ eslint failed"; exit 1; }
 fi
-cd ..
+
+PY_FILES="$(grep -E '^ml-service/.*\.py$' <<<"$STAGED" | sed 's|^ml-service/||' || true)"
+if [ -n "$PY_FILES" ] && command -v ruff >/dev/null 2>&1; then
+  (cd ml-service && xargs ruff check <<<"$PY_FILES") || { echo "❌ ruff failed"; exit 1; }
+fi
 
 echo "✅ Pre-commit checks passed!"
-exit 0
