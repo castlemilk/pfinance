@@ -1,0 +1,15 @@
+# Local prebuilt Vercel release
+
+The existing preview workflow already uses prebuilt tgz uploads. This change pins CLI 59.13.1, aligns Node 22, selects branch-specific preview settings, validates output, and keeps credentials out of arguments. The backend URL build override, server-side provider variables, PR-specific and latest-preview aliases remain. Production's existing prebuilt path is unchanged. This GitHub-shaped workflow is disabled on GitHub and hosted through Cuttlefish; live definition adoption needs separate verification.
+
+The sequence is `vercel pull --environment=<target>` (with `--git-branch` for previews), `vercel build` (`--prod` for production), output validation, then `vercel deploy --prebuilt --archive=tgz` with the matching target. Keep the selected environment cache local and temporary; never attach .vercel environment files or build output containing credentials to CI artifacts. Tokens are supplied through VERCEL_TOKEN.
+
+Use an existing Linux build runtime compatible with the selected project's Node major and the declared function architecture. Functions default to x86_64; an ARM runner must not silently ship ARM native dependencies for an x86_64 function. The output validator checks traced symlinks, ELF architecture, Darwin/addon files and accidental environment files. It does not establish libc compatibility or substitute for serving tests. Do not change function architecture to make validation pass without qualifying that runtime.
+
+Record the source SHA, CLI pin, build target, output-validation result and returned deployment ID/URL. Verify the same deployment serves the app's existing release checks and aliases before changing automatic Git deployment settings. CLI source or a READY deployment alone does not prove prebuilt execution. A live runner must show the build step and compressed prebuilt upload command.
+
+After a replacement release and existing smoke checks pass, suppress automatic Git builds using the project's supported git.deploymentEnabled configuration. Preserve the known-good production deployment for rollback. Roll back by promoting/re-aliasing a previously qualified production deployment through the existing release process; promoting a preview can rebuild against production settings. Retain Git deployment behavior until the replacement is proven.
+
+Vercel CLI tgz uploads use split archives internally. Compression changes upload packaging; it does not guarantee smaller transfers, faster releases, or resolve every /v2/files error. Official references: https://vercel.com/docs/cli/deploy, https://vercel.com/docs/cli/pull, https://vercel.com/docs/build-output-api/primitives, https://vercel.com/docs/project-configuration/git-configuration.
+
+Run deployment unit checks with `node --test scripts/*.node-tests.mjs`. These use Node’s test runner rather than the app’s Jest/Vitest suite. For Cuttlefish also run `node --test task-packages/pipeline/vercel-deploy/entrypoint.node-tests.mjs`.
