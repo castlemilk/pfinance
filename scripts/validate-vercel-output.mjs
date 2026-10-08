@@ -4,7 +4,25 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Vercel's Build Output API defaults functions to x86_64. Validate the files
-// that will be uploaded; never rewrite runtime architecture or read env values.
+// that will be uploaded; never rewrite runtime architecture, read env files or
+// log file contents. Pulled Secret values can be unresolved placeholders.
+const SENSITIVE_PLACEHOLDER = Buffer.from('[SENSITIVE]');
+function hasSensitivePlaceholder(filename) {
+  const fd = fs.openSync(filename, 'r');
+  const block = Buffer.alloc(65536);
+  let tail = Buffer.alloc(0);
+  try {
+    let length;
+    while ((length = fs.readSync(fd, block, 0, block.length, null)) > 0) {
+      const chunk = Buffer.concat([tail, block.subarray(0, length)]);
+      if (chunk.includes(SENSITIVE_PLACEHOLDER)) return true;
+      tail = chunk.subarray(-SENSITIVE_PLACEHOLDER.length + 1);
+    }
+    return false;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
 export function validateOutput(directory) {
   const root = path.resolve(directory);
   const config = JSON.parse(fs.readFileSync(path.join(root, 'config.json'), 'utf8'));
@@ -39,7 +57,11 @@ export function validateOutput(directory) {
       for (const child of fs.readdirSync(real)) walk(path.join(real, child), architecture);
       return;
     }
-    if (!stat.isFile() || !architecture) return;
+    if (!stat.isFile()) return;
+    if (hasSensitivePlaceholder(real)) {
+      throw new Error(`Refusing unresolved sensitive placeholder in build output: ${filename}`);
+    }
+    if (!architecture) return;
     const header = Buffer.alloc(20);
     const fd = fs.openSync(real, 'r');
     let length;

@@ -7,6 +7,48 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { validateOutput } from './validate-vercel-output.mjs';
 
+test('rejects unresolved sensitive values in a static browser bundle without exposing contents', t => {
+  const { root, fn } = fixture(t);
+  fs.rmSync(path.dirname(fn), { recursive: true });
+  const bundle = path.join(root, 'static', 'app.js');
+  fs.mkdirSync(path.dirname(bundle), { recursive: true });
+  fs.writeFileSync(bundle, 'const config = "[SENSITIVE]"; const adjacent = "private-fixture-value";');
+  assert.throws(() => validateOutput(root), error => {
+    assert.match(error.message, /unresolved sensitive placeholder/);
+    assert.ok(!error.message.includes('private-fixture-value'));
+    return true;
+  });
+});
+test('rejects unresolved sensitive values in server output', t => {
+  const { root, fn } = fixture(t);
+  fs.writeFileSync(path.join(fn, 'server.js'), 'const config = "[SENSITIVE]";');
+  assert.throws(() => validateOutput(root), /unresolved sensitive placeholder/);
+});
+test('rejects unresolved sensitive values in edge output', t => {
+  const { root, fn } = fixture(t);
+  fs.writeFileSync(path.join(fn, '.vc-config.json'), JSON.stringify({ runtime: 'edge' }));
+  fs.writeFileSync(path.join(fn, 'edge.js'), 'const config = "[SENSITIVE]";');
+  assert.throws(() => validateOutput(root), /unresolved sensitive placeholder/);
+});
+test('checks unresolved sensitive values reached through tracing symlinks', t => {
+  const { root, fn } = fixture(t);
+  const external = fs.mkdtempSync(path.join(os.tmpdir(), 'traced-config-'));
+  t.after(() => fs.rmSync(external, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(external, 'config.js'), 'const config = "[SENSITIVE]";');
+  fs.symlinkSync(external, path.join(fn, 'node_modules'));
+  assert.throws(() => validateOutput(root), /unresolved sensitive placeholder/);
+});
+test('rejects a sensitive placeholder spanning a read boundary', t => {
+  const { root, fn } = fixture(t);
+  fs.writeFileSync(path.join(fn, 'server.js'), 'x'.repeat(65533) + '[SENSITIVE]' + 'x'.repeat(65536));
+  assert.throws(() => validateOutput(root), /unresolved sensitive placeholder/);
+});
+test('accepts large output with resolved configuration', t => {
+  const { root, fn } = fixture(t);
+  fs.writeFileSync(path.join(fn, 'server.js'), 'x'.repeat(131072) + 'https://config.example.test');
+  assert.equal(validateOutput(root).functions, 1);
+});
+
 function fixture(t, architecture) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'prebuilt-output-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
