@@ -8,25 +8,26 @@ import { fileURLToPath } from 'node:url';
 
 const source = path.dirname(fileURLToPath(import.meta.url));
 // preview-fixture.sh is replaced when installing this fixture in a repository.
-const helper = 'preview-fixture.sh';
 const nested = '';
 const workflow = fs.readFileSync(path.join(source, '../.github/workflows/preview-deploy.yml'), 'utf8');
 const section = workflow.split('      - name: Deploy to Vercel')[1].split('      - name: Comment PR')[0];
 const commands = section.split('        run: |\n')[1].split('\n').map(line => line.slice(10)).join('\n').replace(/\$\{\{ github.event.pull_request.number \}\}/g, '123').replace(/\$\{\{ env.PREVIEW_DOMAIN \}\}/g, 'preview.fixture.test');
-const modes = JSON.parse('[{"target": "preview", "args": []}]');
+const modes = [{target: 'preview', args: []}, {target: 'production', args: []}];
 
 function run(mode, failure = '') {
+  const helper = mode.target === 'production' ? 'deploy-vercel-prebuilt.sh' : 'preview-fixture.sh';
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'vercel-sequence-'));
   try {
     fs.mkdirSync(path.join(root, 'scripts'), { recursive: true });
     for (const file of [helper, 'validate-vercel-output.mjs']) {
-      if (file === helper) fs.writeFileSync(path.join(root, 'scripts', file), commands);
+      if (file === 'preview-fixture.sh') fs.writeFileSync(path.join(root, 'scripts', file), commands);
       else fs.copyFileSync(path.join(source, file), path.join(root, 'scripts', file));
     }
     fs.mkdirSync(path.join(root, 'web'));
     const cwd = path.join(root, nested);
     fs.mkdirSync(path.join(cwd, '.vercel'), { recursive: true });
     fs.writeFileSync(path.join(cwd, '.vercel/project.json'), JSON.stringify({ orgId: 'team_fixture', projectId: 'prj_fixture' }));
+    if (failure === 'missing-binding') fs.unlinkSync(path.join(cwd, '.vercel/project.json'));
     const bin = path.join(root, 'bin');
     fs.mkdirSync(bin);
     fs.writeFileSync(path.join(bin, 'vercel'), `#!${process.execPath}
@@ -58,7 +59,7 @@ if (verb === 'deploy') {
   else console.log('https://fixture.vercel.app');
 }
 `);
-    for (const [name, body] of Object.entries({npm: 'exit 0', sleep: 'exit 0', curl: 'case "$*" in *http_code*) printf 200;; *) printf fixture-page;; esac'})) {
+    for (const [name, body] of Object.entries({npx: 'exec vercel "$@"', npm: 'exit 0', sleep: 'exit 0', curl: 'case "$*" in *http_code*) printf 200;; *) printf fixture-page;; esac'})) {
       fs.writeFileSync(path.join(bin, name), `#!/bin/sh\n${body}\n`);
     }
     for (const name of fs.readdirSync(bin)) fs.chmodSync(path.join(bin, name), 0o755);
@@ -103,10 +104,23 @@ for (const mode of modes) {
     });
   }
 }
-if (helper === 'preview-fixture.sh') {
+{
   for (const failure of ['json','state']) test(`reject ${failure} mismatch`, () => {
     const {result, calls} = run(modes[0], failure);
     assert.notEqual(result.status, 0);
     assert.ok(!calls.some(c => c.verb === 'alias'));
   });
 }
+test('local production: missing binding cannot auto-link or create a project', () => {
+  const { result, calls } = run(modes[1], 'missing-binding');
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /existing.*binding/i);
+  assert.deepEqual(calls, []);
+});
+test('local production: project rebinding during pull stops before build', () => {
+  const { result, calls, caches } = run(modes[1], 'binding');
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /binding changed/);
+  assert.ok(!calls.some(c => ['build', 'deploy'].includes(c.verb)));
+  assert.deepEqual(caches, []);
+});
