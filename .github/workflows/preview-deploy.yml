@@ -165,7 +165,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
@@ -176,10 +176,12 @@ jobs:
           VERCEL_ORG_ID: team_xE5DMN3hIo8aPqyHNkBybg8r
           VERCEL_PROJECT_ID: prj_TakUttZsa4fdddSwfVp08YFfyAdF
           BACKEND_URL: ${{ needs.backend.outputs.url }}
+          PR_BRANCH: ${{ github.head_ref }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          npm i -g vercel@latest
+          set -euo pipefail
+          npm i -g vercel@59.13.1
           cd web
 
           PR_NUMBER=${{ github.event.pull_request.number }}
@@ -188,22 +190,30 @@ jobs:
 
           # Link to Vercel project and pull config (run from repo root)
           cd ..
-          vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
+          trap 'rm -f .vercel/.env.preview.local' EXIT
+          vercel project inspect --non-interactive
+          vercel pull --non-interactive --yes --environment=preview --git-branch="$PR_BRANCH"
 
           # Build the project with the backend URL (NEXT_PUBLIC_ vars need to be set at build time)
-          NEXT_PUBLIC_API_URL=$BACKEND_URL GEMINI_API_KEY=$GEMINI_API_KEY OPENAI_API_KEY=$OPENAI_API_KEY vercel build --token=$VERCEL_TOKEN
+          NEXT_PUBLIC_API_URL=$BACKEND_URL GEMINI_API_KEY=$GEMINI_API_KEY OPENAI_API_KEY=$OPENAI_API_KEY VERCEL_TOKEN= vercel build --non-interactive
+          node scripts/validate-vercel-output.mjs
 
           # Deploy the prebuilt project with server-side env vars
-          DEPLOY_URL=$(vercel deploy --prebuilt --archive=tgz --token=$VERCEL_TOKEN --env GEMINI_API_KEY=$GEMINI_API_KEY --env OPENAI_API_KEY=$OPENAI_API_KEY)
+          DEPLOY_URL=$(vercel deploy --prebuilt --archive=tgz --non-interactive --yes --format=json --env GEMINI_API_KEY --env OPENAI_API_KEY | node -e '
+            const fs=require("node:fs");const r=JSON.parse(fs.readFileSync(0,"utf8"));const d=r.deployment||r;
+            if((r.status&&r.status!=="ok")||d.readyState!=="READY")throw Error("Deployment is not READY");
+            const u=new URL(d.url);if(u.protocol!=="https:"||u.origin!==d.url||!u.hostname.endsWith(".vercel.app"))throw Error("Invalid deployment URL");
+            console.log(u.origin);
+          ')
           echo "Deployed to: $DEPLOY_URL"
 
           # Alias to PR-specific preview domain (e.g., pr-123.preview.pfinance.dev)
           echo "Aliasing to $PR_ALIAS..."
-          vercel alias set $DEPLOY_URL $PR_ALIAS --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID
+          vercel alias set "$DEPLOY_URL" "$PR_ALIAS" --non-interactive --scope="$VERCEL_ORG_ID"
 
           # Also alias to latest preview domain (preview.pfinance.dev)
           echo "Aliasing to $LATEST_ALIAS..."
-          vercel alias set $DEPLOY_URL $LATEST_ALIAS --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID
+          vercel alias set "$DEPLOY_URL" "$LATEST_ALIAS" --non-interactive --scope="$VERCEL_ORG_ID"
 
           # Output URLs
           echo "deploy_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
@@ -291,9 +301,9 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          npm i -g vercel@latest
+          npm i -g vercel@59.13.1
           ALIAS="pr-${{ github.event.pull_request.number }}.${{ env.PREVIEW_DOMAIN }}"
-          vercel remove $ALIAS --token=$VERCEL_TOKEN --yes 2>/dev/null || true
+          vercel remove "$ALIAS" --non-interactive --yes 2>/dev/null || true
           echo "✓ Removed Vercel alias: $ALIAS"
 
       - name: Delete preview container images
