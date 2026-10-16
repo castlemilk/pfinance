@@ -1,4 +1,16 @@
 version: v2
+
+# Remote plugin versions are pinned deliberately.
+#
+# An unpinned "remote: buf.build/..." resolves to whatever is latest at the
+# moment you run it, so two people generating from the same .proto get
+# different output. web/src/gen is committed, so that surfaces as spurious
+# diffs: regenerating on a machine with a newer plugin rewrote the header from
+# protoc-gen-es v2.12.0 to v2.14.1 with no actual change to the types.
+#
+# These versions match the currently committed generated code, so regenerating
+# produces no diff. Bump them deliberately and commit the regenerated output in
+# the same change.
 clean: true
 managed:
   enabled: true
@@ -7,17 +19,17 @@ managed:
       value: github.com/castlemilk/pfinance/backend/gen
 plugins:
   # Go - Protocol Buffers message types
-  - remote: buf.build/protocolbuffers/go
+  - remote: buf.build/protocolbuffers/go:v1.36.12
     out: ../backend/gen
     opt:
       - paths=source_relative
   # Go - Connect-RPC service stubs (replaces grpc/go for Connect protocol)
-  - remote: buf.build/connectrpc/go
+  - remote: buf.build/connectrpc/go:v1.19.1
     out: ../backend/gen
     opt:
       - paths=source_relative
   # TypeScript/JavaScript - Protobuf-ES v2 (generates messages AND service definitions)
-  - remote: buf.build/bufbuild/es
+  - remote: buf.build/bufbuild/es:v2.12.0
     out: ../web/src/gen
     opt:
       - target=ts

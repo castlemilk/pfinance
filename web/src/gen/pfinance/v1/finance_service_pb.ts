@@ -8915,3 +8915,4 @@ export const FinanceService: GenService<{
   },
 }> = /*@__PURE__*/
   serviceDesc(file_pfinance_v1_finance_service, 0);
+
