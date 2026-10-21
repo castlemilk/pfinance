@@ -18,7 +18,8 @@
     "test:e2e:report": "playwright show-report",
     "test:e2e:preview": "PREVIEW_URL=$PREVIEW_URL playwright test --project=chromium",
     "deploy": "npm run deploy:vercel:prebuilt",
-    "deploy:vercel:prebuilt": "../scripts/deploy-vercel-prebuilt.sh"
+    "deploy:vercel:prebuilt": "../scripts/deploy-vercel-prebuilt.sh",
+    "prebuild": "node ../scripts/write-release-manifest.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.43",
