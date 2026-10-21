@@ -23,6 +23,11 @@ function run(mode, failure = '') {
       if (file === 'preview-fixture.sh') fs.writeFileSync(path.join(root, 'scripts', file), commands);
       else fs.copyFileSync(path.join(source, file), path.join(root, 'scripts', file));
     }
+    fs.writeFileSync(path.join(root, 'scripts/verify-production.mjs'), `
+import fs from 'node:fs';
+fs.appendFileSync(process.env.CALL_LOG, JSON.stringify({verb:'verify',args:process.argv.slice(2)}) + '\\n');
+if (process.env.FAILURE === 'verify') process.exit(42);
+`);
     fs.mkdirSync(path.join(root, 'web'));
     const cwd = path.join(root, nested);
     fs.mkdirSync(path.join(cwd, '.vercel'), { recursive: true });
@@ -59,7 +64,7 @@ if (verb === 'deploy') {
   else console.log('https://fixture.vercel.app');
 }
 `);
-    for (const [name, body] of Object.entries({npx: 'exec vercel "$@"', npm: 'exit 0', sleep: 'exit 0', curl: 'case "$*" in *http_code*) printf 200;; *) printf fixture-page;; esac'})) {
+    for (const [name, body] of Object.entries({git: 'printf aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', npx: 'exec vercel "$@"', npm: 'exit 0', sleep: 'exit 0', curl: 'case "$*" in *http_code*) printf 200;; *) printf fixture-page;; esac'})) {
       fs.writeFileSync(path.join(bin, name), `#!/bin/sh\n${body}\n`);
     }
     for (const name of fs.readdirSync(bin)) fs.chmodSync(path.join(bin, name), 0o755);
@@ -134,4 +139,15 @@ test('preview workflow qualifies release tooling and runs contracts before deplo
   const contracts = workflow.indexOf('      - name: Validate deployment contracts');
   assert.ok(contracts > 0 && contracts < workflow.indexOf('      - name: Deploy to Vercel'));
   assert.match(workflow.slice(contracts, workflow.indexOf('      - name: Deploy to Vercel')), /run: node --test scripts\/\*\.node-tests\.mjs/);
+});
+
+test('production verification follows deployment and fails the release on a bad smoke check', () => {
+  const success = run(modes[1]);
+  assert.equal(success.result.status, 0, success.result.stderr);
+  const verification = success.calls.find(c => c.verb === 'verify');
+  assert.deepEqual(verification.args, ['a'.repeat(40)]);
+  assert.ok(success.calls.indexOf(verification) > success.calls.findIndex(c => c.verb === 'deploy'));
+  const failure = run(modes[1], 'verify');
+  assert.notEqual(failure.result.status, 0);
+  assert.ok(failure.calls.some(c => c.verb === 'deploy'));
 });

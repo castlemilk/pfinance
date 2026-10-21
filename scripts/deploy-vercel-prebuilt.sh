@@ -40,9 +40,14 @@ node -e '
   }
 ' "$binding_before"
 
+expected_sha="$(git rev-parse HEAD)"
+
 echo "Building Vercel output locally..."
 VERCEL_TOKEN= cli build --prod
 node scripts/validate-vercel-output.mjs
 
 echo "Deploying prebuilt output to Vercel production..."
 cli deploy --prebuilt --prod --archive=tgz --yes
+
+echo "Verifying the exact production release and public routes..."
+node scripts/verify-production.mjs "$expected_sha"

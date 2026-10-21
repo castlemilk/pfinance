@@ -73,3 +73,6 @@ web/testdata/
 agents/
 # Serena MCP tool workspace (local analysis cache, not project source)
 .serena/
+
+# Generated public release identity (contains no environment values).
+web/public/release.json
