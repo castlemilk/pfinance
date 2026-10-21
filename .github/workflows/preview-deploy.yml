@@ -1,4 +1,4 @@
-name: Preview Deploy
+name: Release Validation (Hosted Previews Disabled)
 
 on:
   pull_request:
@@ -24,6 +24,16 @@ env:
   PREVIEW_DOMAIN: preview.pfinance.dev
 
 jobs:
+  release-contracts:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test scripts/*.node-tests.mjs
+
   # ===========================================
   # Change Detection
   # ===========================================
@@ -55,6 +65,8 @@ jobs:
   # Backend Preview → Cloud Run
   # ===========================================
   backend:
+    # Hosted preview resources are disabled by owner direction.
+    if: false
     needs: changes
     runs-on: ubuntu-latest
     permissions:
@@ -158,7 +170,8 @@ jobs:
   # ===========================================
   frontend:
     needs: [changes, backend]
-    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true'
+    # Keep source available while migrating; do not provision previews.
+    if: false
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -285,7 +298,8 @@ jobs:
   # Cleanup on PR Close
   # ===========================================
   cleanup:
-    if: github.event.action == 'closed'
+    # Existing preview inventory/cleanup requires a separate reviewed change.
+    if: false
     runs-on: ubuntu-latest
     permissions:
       contents: read
