@@ -40,6 +40,11 @@ jobs:
         with:
           filters: |
             frontend:
+              # Release tooling changes must qualify the preview they alter.
+              - '.github/workflows/preview-deploy.yml'
+              - 'scripts/deploy-vercel-prebuilt.sh'
+              - 'scripts/validate-vercel-output.mjs'
+              - 'scripts/*.node-tests.mjs'
               - 'web/**'
               - 'proto/**'
             backend:
@@ -168,6 +173,9 @@ jobs:
           node-version: '22'
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
+
+      - name: Validate deployment contracts
+        run: node --test scripts/*.node-tests.mjs
 
       - name: Deploy to Vercel
         id: deploy

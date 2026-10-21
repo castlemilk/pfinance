@@ -1,3 +1,5 @@
+# Keep generated APIs aligned with the repository's existing runtimes.
+# Update plugin versions and generated output together; never resolve latest implicitly.
 version: v2
 clean: true
 managed:
@@ -7,17 +9,17 @@ managed:
       value: github.com/castlemilk/pfinance/backend/gen
 plugins:
   # Go - Protocol Buffers message types
-  - remote: buf.build/protocolbuffers/go
+  - remote: buf.build/protocolbuffers/go:v1.36.12
     out: ../backend/gen
     opt:
       - paths=source_relative
   # Go - Connect-RPC service stubs (replaces grpc/go for Connect protocol)
-  - remote: buf.build/connectrpc/go
+  - remote: buf.build/connectrpc/go:v1.19.1
     out: ../backend/gen
     opt:
       - paths=source_relative
   # TypeScript/JavaScript - Protobuf-ES v2 (generates messages AND service definitions)
-  - remote: buf.build/bufbuild/es
+  - remote: buf.build/bufbuild/es:v2.12.0
     out: ../web/src/gen
     opt:
       - target=ts

@@ -12,6 +12,7 @@ const footerLinks = {
     { label: 'Blog', href: '/blog' },
     { label: 'Australian Salary Calculator', href: '/tools/australian-salary-calculator' },
     { label: 'Budget Calculator', href: '/tools/budget-calculator' },
+    { label: 'Super Calculator & Estimator', href: '/tools/super-calculator' },
     { label: 'Spreadsheets vs Apps', href: '/compare/spreadsheets-vs-finance-app' },
   ],
   legal: [

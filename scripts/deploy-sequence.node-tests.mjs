@@ -124,3 +124,14 @@ test('local production: project rebinding during pull stops before build', () =>
   assert.ok(!calls.some(c => ['build', 'deploy'].includes(c.verb)));
   assert.deepEqual(caches, []);
 });
+
+// Keep tooling-only PRs from falsely passing while the changed release is skipped.
+test('preview workflow qualifies release tooling and runs contracts before deployment', () => {
+  const frontendFilter = workflow.split('            frontend:\n')[1].split('            backend:\n')[0];
+  for (const input of ['.github/workflows/preview-deploy.yml', 'scripts/deploy-vercel-prebuilt.sh', 'scripts/validate-vercel-output.mjs', 'scripts/*.node-tests.mjs']) {
+    assert.ok(frontendFilter.includes(`- '${input}'`), `missing preview input: ${input}`);
+  }
+  const contracts = workflow.indexOf('      - name: Validate deployment contracts');
+  assert.ok(contracts > 0 && contracts < workflow.indexOf('      - name: Deploy to Vercel'));
+  assert.match(workflow.slice(contracts, workflow.indexOf('      - name: Deploy to Vercel')), /run: node --test scripts\/\*\.node-tests\.mjs/);
+});

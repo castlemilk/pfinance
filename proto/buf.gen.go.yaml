@@ -7,12 +7,12 @@ managed:
       value: github.com/castlemilk/pfinance/backend/gen
 plugins:
   # Go - Protocol Buffers message types
-  - remote: buf.build/protocolbuffers/go
+  - remote: buf.build/protocolbuffers/go:v1.36.12
     out: ../backend/gen
     opt:
       - paths=source_relative
   # Go - Connect-RPC service stubs
-  - remote: buf.build/connectrpc/go
+  - remote: buf.build/connectrpc/go:v1.19.1
     out: ../backend/gen
     opt:
       - paths=source_relative
