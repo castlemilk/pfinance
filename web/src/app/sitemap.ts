@@ -6,6 +6,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pfinance.dev';
 
   const staticPages: MetadataRoute.Sitemap = [
+    { url: `${baseUrl}/tools/super-calculator`, changeFrequency: 'monthly', priority: 0.85 },
     {
       url: baseUrl,
       lastModified: new Date(),
