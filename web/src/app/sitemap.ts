@@ -3,31 +3,27 @@ import { getAllPosts } from '@/lib/blog';
 import { discoveryPages } from '@/lib/marketing-pages';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pfinance.dev';
+  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://pfinance.dev').replace(/\/$/, '');
 
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${baseUrl}/tools/super-calculator`, changeFrequency: 'monthly', priority: 0.85 },
     {
       url: baseUrl,
-      lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 1,
     },
     {
       url: `${baseUrl}/blog`,
-      lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 0.9,
     },
     {
       url: `${baseUrl}/privacy`,
-      lastModified: new Date(),
       changeFrequency: 'yearly',
       priority: 0.4,
     },
     {
       url: `${baseUrl}/terms`,
-      lastModified: new Date(),
       changeFrequency: 'yearly',
       priority: 0.4,
     },
@@ -35,7 +31,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const discoverySitemapPages: MetadataRoute.Sitemap = discoveryPages.map((page) => ({
     url: `${baseUrl}${page.path}`,
-    lastModified: new Date(),
     changeFrequency: page.changeFrequency,
     priority: page.priority,
   }));
@@ -49,5 +44,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
-  return [...staticPages, ...discoverySitemapPages, ...blogPages];
+  // Static pages have no maintained content date; omitting lastmod is more
+  // accurate than claiming every deployment changed their content.
+  return [...staticPages, ...discoverySitemapPages, ...blogPages].map((entry) => ({
+    ...entry,
+    url: entry.url.endsWith('/') ? entry.url : `${entry.url}/`,
+  }));
 }

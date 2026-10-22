@@ -1,8 +1,6 @@
 import { Metadata } from 'next';
 import Hero from './components/Hero';
 import Features from './components/Features';
-import Stats from './components/Stats';
-import Testimonials from './components/Testimonials';
 import Pricing from './components/Pricing';
 import CTASection from './components/CTASection';
 import {
@@ -27,8 +25,6 @@ export default function LandingPage() {
       <SoftwareApplicationJsonLd />
       <Hero />
       <Features />
-      <Stats />
-      <Testimonials />
       <Pricing />
       <CTASection />
     </>

@@ -15,6 +15,7 @@ test('passes only matching release and both public pages', async () => {
   const fetchImpl = async (url, options) => { calls.push({ url, options }); return responses()(url); };
   assert.equal((await verifyProduction({ expectedSha: sha, fetchImpl })).status, 'passed');
   assert.equal(calls.length, 3);
+  assert.ok(calls.slice(1).every(c => c.url.pathname.endsWith('/')), 'public HTML checks must use canonical trailing-slash URLs without redirects');
   assert.ok(calls.every(c => c.url.origin === 'https://pfinance.dev' && c.options.redirect === 'error' && !c.options.method && !c.options.headers.Authorization));
 });
 for (const [name, config] of [['stale release', { stale: true }], ['HTTP error', { status: 500 }], ['missing content', { missing: true }], ['wrong type', { wrongType: true }]]) {

@@ -69,7 +69,6 @@ export default function CTASection() {
             transition={{ delay: 0.3 }}
             className="text-lg sm:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto"
           >
-            Join thousands of users who have already taken control of their finances.
             No credit card required to get started.
           </motion.p>
 
