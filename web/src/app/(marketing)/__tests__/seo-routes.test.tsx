@@ -1,4 +1,6 @@
 import { render } from '@testing-library/react';
+import { renderToStaticMarkup } from 'react-dom/server.node';
+import LandingPage from '../page';
 import robots from '@/app/robots';
 import sitemap from '@/app/sitemap';
 import { metadata as rootMetadata } from '@/app/layout';
@@ -20,6 +22,11 @@ import {
 } from '@/components/seo/JsonLd';
 
 const publicOrigin = 'https://pfinance.dev';
+
+jest.mock('next/dynamic', () => () => () => null);
+jest.mock('react-rough-notation', () => ({
+  RoughNotation: ({ children }: { children: React.ReactNode }) => children,
+}));
 
 function canonicalPath(metadata: typeof homeMetadata): string | undefined {
   return metadata.alternates?.canonical?.toString();
@@ -80,21 +87,79 @@ describe('marketing SEO routes', () => {
     expect(origins).toEqual(new Set([publicOrigin]));
     expect(paths).toEqual(expect.arrayContaining([
       '/',
-      '/blog',
-      '/privacy',
-      '/terms',
-      '/features/receipt-scanner',
-      '/features/bank-statement-import',
-      '/features/household-budgeting',
-      '/features/tax-deductions',
-      '/tools/australian-salary-calculator',
-      '/tools/budget-calculator',
-      '/compare/spreadsheets-vs-finance-app',
+      '/blog/',
+      '/privacy/',
+      '/terms/',
+      '/features/receipt-scanner/',
+      '/features/bank-statement-import/',
+      '/features/household-budgeting/',
+      '/features/tax-deductions/',
+      '/tools/australian-salary-calculator/',
+      '/tools/budget-calculator/',
+      '/compare/spreadsheets-vs-finance-app/',
     ]));
   });
 
   it('points robots.txt at the public sitemap domain', () => {
     expect(robots().sitemap).toBe(`${publicOrigin}/sitemap.xml`);
+  });
+
+  it('publishes canonical sitemap paths and preserves the public super calculator', () => {
+    const entries = sitemap();
+    expect(entries.some((entry) => entry.url === `${publicOrigin}/tools/super-calculator/`)).toBe(true);
+    for (const entry of entries) {
+      expect(new URL(entry.url).pathname.endsWith('/')).toBe(true);
+      expect(entry.url).not.toContain('dev//');
+      expect(new URL(entry.url).pathname).not.toMatch(/^\/(personal|shared|auth|admin|api)\//);
+    }
+  });
+
+  it('normalises a configured site origin with a trailing slash', () => {
+    const previous = process.env.NEXT_PUBLIC_SITE_URL;
+    process.env.NEXT_PUBLIC_SITE_URL = `${publicOrigin}/`;
+    try {
+      for (const entry of sitemap()) expect(entry.url).not.toContain('dev//');
+    } finally {
+      if (previous === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
+      else process.env.NEXT_PUBLIC_SITE_URL = previous;
+    }
+  });
+
+  it('does not invent build-time lastmod dates for static pages', () => {
+    for (const entry of sitemap()) {
+      if (!new URL(entry.url).pathname.startsWith('/blog/') || entry.url.endsWith('/blog/')) {
+        expect(entry.lastModified).toBeUndefined();
+      } else {
+        expect(entry.lastModified).toBeInstanceOf(Date);
+        expect(Number.isNaN(new Date(entry.lastModified!).getTime())).toBe(false);
+      }
+    }
+  });
+
+  it('lets crawlers render public assets while keeping private paths blocked', () => {
+    const rules = robots().rules;
+    const rule = Array.isArray(rules) ? rules[0] : rules;
+    const list = (value?: string | string[]) => typeof value === 'string' ? [value] : value ?? [];
+    const allows = (pathname: string) => {
+      const permitted = Math.max(0, ...list(rule.allow).filter((prefix) => pathname.startsWith(prefix)).map((prefix) => prefix.length));
+      const blocked = Math.max(-1, ...list(rule.disallow).filter((prefix) => pathname.startsWith(prefix)).map((prefix) => prefix.length));
+      return permitted >= blocked;
+    };
+    expect(allows('/_next/static/chunks/app.js')).toBe(true);
+    expect(allows('/_next/image?url=%2Flogo.png&w=64&q=75')).toBe(true);
+    expect(allows('/_next/image/?url=%2Flogo.png&w=64&q=75')).toBe(true);
+    for (const pathname of ['/personal/expenses/', '/shared/groups/', '/auth/', '/admin/', '/api/process-document/', '/_next/data/private.json']) {
+      expect(allows(pathname)).toBe(false);
+    }
+  });
+
+  it('does not present invented endorsements or usage counts on the landing page', () => {
+    const html = renderToStaticMarkup(<LandingPage />);
+    const container = new DOMParser().parseFromString(html, 'text/html').body;
+    expect(container.textContent).not.toMatch(/thousands|1,000\+|Transactions Tracked|User Rating|Average satisfaction|99\.9%/i);
+    expect(container.querySelector('img[src*="pravatar"]')).toBeNull();
+    expect(container.textContent).toContain('Track expenses');
+    expect(container.textContent).toContain('Expense Tracking');
   });
 });
 

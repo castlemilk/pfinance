@@ -7,7 +7,9 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: '/',
+        // Marketing pages need these assets to render. Other framework paths
+        // and authenticated application routes remain excluded below.
+        allow: ['/', '/_next/static/', '/_next/image'],
         disallow: [
           '/personal/',
           '/shared/',

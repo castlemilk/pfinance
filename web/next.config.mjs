@@ -1,5 +1,6 @@
 import createMDX from '@next/mdx';
 import remarkGfm from 'remark-gfm';
+import remarkFrontmatter from 'remark-frontmatter';
 import rehypeSlug from 'rehype-slug';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import bundleAnalyzer from '@next/bundle-analyzer';
@@ -44,14 +45,14 @@ const nextConfig = {
   },
 };
 
-const withMDX = createMDX({
-  options: {
-    remarkPlugins: [remarkGfm],
-    rehypePlugins: [
-      rehypeSlug,
-      [rehypeAutolinkHeadings, { behavior: 'wrap' }],
-    ],
-  },
-});
+export const mdxOptions = {
+  remarkPlugins: [remarkFrontmatter, remarkGfm],
+  rehypePlugins: [
+    rehypeSlug,
+    [rehypeAutolinkHeadings, { behavior: 'wrap' }],
+  ],
+};
+
+const withMDX = createMDX({ options: mdxOptions });
 
 export default withBundleAnalyzer(withMDX(nextConfig));

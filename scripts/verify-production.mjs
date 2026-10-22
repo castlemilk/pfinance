@@ -21,7 +21,7 @@ export async function verifyProduction({ expectedSha, fetchImpl = fetch, attempt
       if (manifest.schemaVersion !== 1 || manifest.application !== 'pfinance' || manifest.commit !== expectedSha) {
         throw new Error('Production is not serving the expected release');
       }
-      for (const [pathname, text] of [['/', 'PFinance'], ['/tools/super-calculator', 'Super growth calculator']]) {
+      for (const [pathname, text] of [['/', 'PFinance'], ['/tools/super-calculator/', 'Super growth calculator']]) {
         const response = await get(pathname);
         if (!(response.headers.get('content-type') || '').includes('text/html')) throw new Error(`${pathname}: expected HTML`);
         if (!(await response.text()).includes(text)) throw new Error(`${pathname}: expected page content missing`);

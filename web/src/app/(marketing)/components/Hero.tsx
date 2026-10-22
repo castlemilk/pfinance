@@ -1,8 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Sparkles, TrendingUp, PiggyBank, CreditCard } from 'lucide-react';
 import { RoughNotation } from 'react-rough-notation';
@@ -108,34 +107,6 @@ export default function Hero() {
               </Link>
             </motion.div>
 
-            {/* Social Proof */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="mt-10 flex flex-col sm:flex-row items-center gap-6 justify-center lg:justify-start"
-            >
-              <div className="flex -space-x-3">
-                {[1, 3, 5, 7, 9].map((i) => (
-                  <Image
-                    key={i}
-                    src={`https://i.pravatar.cc/40?img=${i}`}
-                    alt="User avatar"
-                    width={36}
-                    height={36}
-                    className="rounded-full border-2 border-background object-cover"
-                    style={{
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-                    }}
-                    loading="lazy"
-                    unoptimized
-                  />
-                ))}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                <span className="font-semibold text-foreground">1,000+</span> users tracking their finances
-              </div>
-            </motion.div>
           </div>
 
           {/* Right Column - CRT Dashboard Preview */}
