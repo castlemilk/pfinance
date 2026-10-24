@@ -226,10 +226,10 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             {/* CTA Section */}
             <div className="mt-12 p-8 bg-gradient-to-br from-primary/5 to-chart-2/5 rounded-xl text-center">
               <h3 className="text-2xl font-bold mb-3">
-                Ready to Take Control of Your Finances?
+                Put This Into Practice
               </h3>
               <p className="text-muted-foreground mb-6">
-                Start tracking your expenses and achieving your financial goals today.
+                Connect your accounts, track spending against a budget, and keep the receipts that matter at tax time.
               </p>
               <Link href="/personal/income/">
                 <Button variant="terminal" size="lg">

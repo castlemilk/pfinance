@@ -63,7 +63,7 @@ export default function Footer() {
               </span>
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-              Take control of your finances with intelligent tracking, beautiful insights, and collaborative tools.
+              Expense tracking, budgets, tax deductions, and shared household finance — built for Australia.
             </p>
           </div>
 
