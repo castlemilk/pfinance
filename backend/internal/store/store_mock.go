@@ -128,6 +128,20 @@ func (mr *MockStoreMockRecorder) CreateApiToken(ctx, token any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateApiToken", reflect.TypeOf((*MockStore)(nil).CreateApiToken), ctx, token)
 }
 
+// CreateAsset mocks base method.
+func (m *MockStore) CreateAsset(ctx context.Context, asset *pfinancev1.Asset) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateAsset", ctx, asset)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateAsset indicates an expected call of CreateAsset.
+func (mr *MockStoreMockRecorder) CreateAsset(ctx, asset any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAsset", reflect.TypeOf((*MockStore)(nil).CreateAsset), ctx, asset)
+}
+
 // CreateBudget mocks base method.
 func (m *MockStore) CreateBudget(ctx context.Context, budget *pfinancev1.Budget) error {
 	m.ctrl.T.Helper()
@@ -296,6 +310,20 @@ func (mr *MockStoreMockRecorder) CreateInviteLink(ctx, link any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInviteLink", reflect.TypeOf((*MockStore)(nil).CreateInviteLink), ctx, link)
 }
 
+// CreateLiability mocks base method.
+func (m *MockStore) CreateLiability(ctx context.Context, liability *pfinancev1.Liability) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateLiability", ctx, liability)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateLiability indicates an expected call of CreateLiability.
+func (mr *MockStoreMockRecorder) CreateLiability(ctx, liability any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateLiability", reflect.TypeOf((*MockStore)(nil).CreateLiability), ctx, liability)
+}
+
 // CreateNotification mocks base method.
 func (m *MockStore) CreateNotification(ctx context.Context, notification *pfinancev1.Notification) error {
 	m.ctrl.T.Helper()
@@ -336,6 +364,20 @@ func (m *MockStore) CreateRecurringTransaction(ctx context.Context, rt *pfinance
 func (mr *MockStoreMockRecorder) CreateRecurringTransaction(ctx, rt any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRecurringTransaction", reflect.TypeOf((*MockStore)(nil).CreateRecurringTransaction), ctx, rt)
+}
+
+// DeleteAsset mocks base method.
+func (m *MockStore) DeleteAsset(ctx context.Context, assetID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteAsset", ctx, assetID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteAsset indicates an expected call of DeleteAsset.
+func (mr *MockStoreMockRecorder) DeleteAsset(ctx, assetID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAsset", reflect.TypeOf((*MockStore)(nil).DeleteAsset), ctx, assetID)
 }
 
 // DeleteBudget mocks base method.
@@ -422,6 +464,20 @@ func (mr *MockStoreMockRecorder) DeleteIncome(ctx, incomeID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteIncome", reflect.TypeOf((*MockStore)(nil).DeleteIncome), ctx, incomeID)
 }
 
+// DeleteLiability mocks base method.
+func (m *MockStore) DeleteLiability(ctx context.Context, liabilityID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteLiability", ctx, liabilityID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteLiability indicates an expected call of DeleteLiability.
+func (mr *MockStoreMockRecorder) DeleteLiability(ctx, liabilityID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteLiability", reflect.TypeOf((*MockStore)(nil).DeleteLiability), ctx, liabilityID)
+}
+
 // DeleteRecurringTransaction mocks base method.
 func (m *MockStore) DeleteRecurringTransaction(ctx context.Context, rtID string) error {
 	m.ctrl.T.Helper()
@@ -493,6 +549,21 @@ func (m *MockStore) GetApiTokenByHash(ctx context.Context, tokenHash string) (*p
 func (mr *MockStoreMockRecorder) GetApiTokenByHash(ctx, tokenHash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApiTokenByHash", reflect.TypeOf((*MockStore)(nil).GetApiTokenByHash), ctx, tokenHash)
+}
+
+// GetAsset mocks base method.
+func (m *MockStore) GetAsset(ctx context.Context, assetID string) (*pfinancev1.Asset, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAsset", ctx, assetID)
+	ret0, _ := ret[0].(*pfinancev1.Asset)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAsset indicates an expected call of GetAsset.
+func (mr *MockStoreMockRecorder) GetAsset(ctx, assetID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAsset", reflect.TypeOf((*MockStore)(nil).GetAsset), ctx, assetID)
 }
 
 // GetBudget mocks base method.
@@ -705,6 +776,21 @@ func (mr *MockStoreMockRecorder) GetInviteLinkByCode(ctx, code any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInviteLinkByCode", reflect.TypeOf((*MockStore)(nil).GetInviteLinkByCode), ctx, code)
 }
 
+// GetLiability mocks base method.
+func (m *MockStore) GetLiability(ctx context.Context, liabilityID string) (*pfinancev1.Liability, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLiability", ctx, liabilityID)
+	ret0, _ := ret[0].(*pfinancev1.Liability)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLiability indicates an expected call of GetLiability.
+func (mr *MockStoreMockRecorder) GetLiability(ctx, liabilityID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLiability", reflect.TypeOf((*MockStore)(nil).GetLiability), ctx, liabilityID)
+}
+
 // GetMerchantMappings mocks base method.
 func (m *MockStore) GetMerchantMappings(ctx context.Context, userID string) ([]*pfinancev1.MerchantMapping, error) {
 	m.ctrl.T.Helper()
@@ -854,6 +940,22 @@ func (m *MockStore) ListApiTokens(ctx context.Context, userID string) ([]*pfinan
 func (mr *MockStoreMockRecorder) ListApiTokens(ctx, userID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListApiTokens", reflect.TypeOf((*MockStore)(nil).ListApiTokens), ctx, userID)
+}
+
+// ListAssets mocks base method.
+func (m *MockStore) ListAssets(ctx context.Context, userID, groupID string, pageSize int32, pageToken string) ([]*pfinancev1.Asset, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListAssets", ctx, userID, groupID, pageSize, pageToken)
+	ret0, _ := ret[0].([]*pfinancev1.Asset)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListAssets indicates an expected call of ListAssets.
+func (mr *MockStoreMockRecorder) ListAssets(ctx, userID, groupID, pageSize, pageToken any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAssets", reflect.TypeOf((*MockStore)(nil).ListAssets), ctx, userID, groupID, pageSize, pageToken)
 }
 
 // ListBudgets mocks base method.
@@ -1062,6 +1164,22 @@ func (mr *MockStoreMockRecorder) ListInviteLinks(ctx, groupID, includeInactive, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInviteLinks", reflect.TypeOf((*MockStore)(nil).ListInviteLinks), ctx, groupID, includeInactive, pageSize, pageToken)
 }
 
+// ListLiabilities mocks base method.
+func (m *MockStore) ListLiabilities(ctx context.Context, userID, groupID string, pageSize int32, pageToken string) ([]*pfinancev1.Liability, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListLiabilities", ctx, userID, groupID, pageSize, pageToken)
+	ret0, _ := ret[0].([]*pfinancev1.Liability)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListLiabilities indicates an expected call of ListLiabilities.
+func (mr *MockStoreMockRecorder) ListLiabilities(ctx, userID, groupID, pageSize, pageToken any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListLiabilities", reflect.TypeOf((*MockStore)(nil).ListLiabilities), ctx, userID, groupID, pageSize, pageToken)
+}
+
 // ListNotifications mocks base method.
 func (m *MockStore) ListNotifications(ctx context.Context, userID string, unreadOnly bool, typeFilter pfinancev1.NotificationType, pageSize int32, pageToken string) ([]*pfinancev1.Notification, string, error) {
 	m.ctrl.T.Helper()
@@ -1181,6 +1299,20 @@ func (mr *MockStoreMockRecorder) UpdateApiTokenLastUsed(ctx, tokenID, lastUsed a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApiTokenLastUsed", reflect.TypeOf((*MockStore)(nil).UpdateApiTokenLastUsed), ctx, tokenID, lastUsed)
 }
 
+// UpdateAsset mocks base method.
+func (m *MockStore) UpdateAsset(ctx context.Context, asset *pfinancev1.Asset) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateAsset", ctx, asset)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateAsset indicates an expected call of UpdateAsset.
+func (mr *MockStoreMockRecorder) UpdateAsset(ctx, asset any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAsset", reflect.TypeOf((*MockStore)(nil).UpdateAsset), ctx, asset)
+}
+
 // UpdateBudget mocks base method.
 func (m *MockStore) UpdateBudget(ctx context.Context, budget *pfinancev1.Budget) error {
 	m.ctrl.T.Helper()
@@ -1277,6 +1409,20 @@ func (m *MockStore) UpdateInviteLink(ctx context.Context, link *pfinancev1.Group
 func (mr *MockStoreMockRecorder) UpdateInviteLink(ctx, link any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateInviteLink", reflect.TypeOf((*MockStore)(nil).UpdateInviteLink), ctx, link)
+}
+
+// UpdateLiability mocks base method.
+func (m *MockStore) UpdateLiability(ctx context.Context, liability *pfinancev1.Liability) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateLiability", ctx, liability)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateLiability indicates an expected call of UpdateLiability.
+func (mr *MockStoreMockRecorder) UpdateLiability(ctx, liability any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLiability", reflect.TypeOf((*MockStore)(nil).UpdateLiability), ctx, liability)
 }
 
 // UpdateNotificationPreferences mocks base method.

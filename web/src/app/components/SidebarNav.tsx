@@ -31,6 +31,7 @@ import {
   Bot,
   Landmark,
   ClipboardCheck,
+  Scale,
   ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthWithAdminContext';
@@ -84,6 +85,11 @@ const personalNavItems: NavItem[] = [
     title: 'Goals',
     href: '/personal/goals',
     icon: <Target className="w-4 h-4" />
+  },
+  {
+    title: 'Net Worth',
+    href: '/personal/net-worth',
+    icon: <Scale className="w-4 h-4" />
   },
   {
     title: 'Insights',

@@ -38,6 +38,8 @@ type MemoryStore struct {
 	extractionEvents         map[string]*pfinancev1.ExtractionEvent
 	taxDeductibilityMappings map[string]*pfinancev1.TaxDeductibilityMapping
 	categoryOverrides        map[string]*pfinancev1.CategoryOverride
+	assets                   map[string]*pfinancev1.Asset
+	liabilities              map[string]*pfinancev1.Liability
 	apiTokens                map[string]*pfinancev1.ApiToken
 	processedStatements      []*pfinancev1.ProcessedStatement
 	salaryCalcStates         map[string]salaryCalcStateBlob
@@ -72,6 +74,8 @@ func NewMemoryStore() *MemoryStore {
 		extractionEvents:         make(map[string]*pfinancev1.ExtractionEvent),
 		taxDeductibilityMappings: make(map[string]*pfinancev1.TaxDeductibilityMapping),
 		categoryOverrides:        make(map[string]*pfinancev1.CategoryOverride),
+		assets:                   make(map[string]*pfinancev1.Asset),
+		liabilities:              make(map[string]*pfinancev1.Liability),
 		apiTokens:                make(map[string]*pfinancev1.ApiToken),
 		salaryCalcStates:         make(map[string]salaryCalcStateBlob),
 	}
@@ -2082,4 +2086,140 @@ func (m *MemoryStore) FindOverlappingStatements(ctx context.Context, userID, ban
 		}
 	}
 	return results, nil
+}
+
+// Net worth — asset operations
+
+func (m *MemoryStore) CreateAsset(ctx context.Context, asset *pfinancev1.Asset) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if asset.Id == "" {
+		asset.Id = uuid.New().String()
+	}
+
+	m.assets[asset.Id] = asset
+	return nil
+}
+
+func (m *MemoryStore) GetAsset(ctx context.Context, assetID string) (*pfinancev1.Asset, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	asset, ok := m.assets[assetID]
+	if !ok {
+		return nil, fmt.Errorf("asset not found: %s", assetID)
+	}
+	return asset, nil
+}
+
+func (m *MemoryStore) UpdateAsset(ctx context.Context, asset *pfinancev1.Asset) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.assets[asset.Id]; !ok {
+		return fmt.Errorf("asset not found: %s", asset.Id)
+	}
+	m.assets[asset.Id] = asset
+	return nil
+}
+
+func (m *MemoryStore) DeleteAsset(ctx context.Context, assetID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	delete(m.assets, assetID)
+	return nil
+}
+
+func (m *MemoryStore) ListAssets(ctx context.Context, userID, groupID string, pageSize int32, pageToken string) ([]*pfinancev1.Asset, string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var matchingIDs []string
+	for id, asset := range m.assets {
+		if groupID != "" {
+			if asset.GroupId != groupID {
+				continue
+			}
+		} else if userID != "" && asset.UserId != userID {
+			continue
+		}
+		matchingIDs = append(matchingIDs, id)
+	}
+
+	paginatedIDs, nextToken := paginateIDs(matchingIDs, pageSize, pageToken)
+	result := make([]*pfinancev1.Asset, 0, len(paginatedIDs))
+	for _, id := range paginatedIDs {
+		result = append(result, m.assets[id])
+	}
+	return result, nextToken, nil
+}
+
+// Net worth — liability operations
+
+func (m *MemoryStore) CreateLiability(ctx context.Context, liability *pfinancev1.Liability) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if liability.Id == "" {
+		liability.Id = uuid.New().String()
+	}
+
+	m.liabilities[liability.Id] = liability
+	return nil
+}
+
+func (m *MemoryStore) GetLiability(ctx context.Context, liabilityID string) (*pfinancev1.Liability, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	liability, ok := m.liabilities[liabilityID]
+	if !ok {
+		return nil, fmt.Errorf("liability not found: %s", liabilityID)
+	}
+	return liability, nil
+}
+
+func (m *MemoryStore) UpdateLiability(ctx context.Context, liability *pfinancev1.Liability) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.liabilities[liability.Id]; !ok {
+		return fmt.Errorf("liability not found: %s", liability.Id)
+	}
+	m.liabilities[liability.Id] = liability
+	return nil
+}
+
+func (m *MemoryStore) DeleteLiability(ctx context.Context, liabilityID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	delete(m.liabilities, liabilityID)
+	return nil
+}
+
+func (m *MemoryStore) ListLiabilities(ctx context.Context, userID, groupID string, pageSize int32, pageToken string) ([]*pfinancev1.Liability, string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var matchingIDs []string
+	for id, liability := range m.liabilities {
+		if groupID != "" {
+			if liability.GroupId != groupID {
+				continue
+			}
+		} else if userID != "" && liability.UserId != userID {
+			continue
+		}
+		matchingIDs = append(matchingIDs, id)
+	}
+
+	paginatedIDs, nextToken := paginateIDs(matchingIDs, pageSize, pageToken)
+	result := make([]*pfinancev1.Liability, 0, len(paginatedIDs))
+	for _, id := range paginatedIDs {
+		result = append(result, m.liabilities[id])
+	}
+	return result, nextToken, nil
 }
