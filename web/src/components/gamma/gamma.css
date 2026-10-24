@@ -130,6 +130,12 @@
 .choice-card-copy > span { color: var(--gamma-muted); font-size: 13px; line-height: 1.55; }
 .choice-card[data-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
 
+/* CountUp — the __sr span carries the end value for assistive tech; hide it */
+.gamma-count-up__sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
 /* Segmented meter */
 .segmented-meter { width: 100%; min-width: 0; color: var(--gamma-ink); font: 13px/1.5 var(--gamma-font-ui); --meter-color: var(--gamma-success); }
 .segmented-meter[data-tone="warning"] { --meter-color: var(--gamma-warning); }
