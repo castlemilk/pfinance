@@ -36,6 +36,9 @@ import BorrowingPowerCalculatorPage, { metadata as borrowingPowerMetadata } from
 import InvestmentRiskProfilePage, { metadata as riskProfileMetadata } from '../tools/investment-risk-profile/page';
 import StampDutyCalculatorPage, { metadata as stampDutyMetadata } from '../tools/stamp-duty-calculator/page';
 import RetirementCalculatorPage, { metadata as retirementMetadata } from '../tools/retirement-calculator/page';
+import ChildcareSubsidyCalculatorPage, { metadata as ccsMetadata } from '../tools/childcare-subsidy-calculator/page';
+import SuperCapCheckerPage, { metadata as superCapsMetadata } from '../tools/super-contribution-cap-checker/page';
+import RentVsBuyCalculatorPage, { metadata as rentVsBuyMetadata } from '../tools/rent-vs-buy-calculator/page';
 import { standardDuty, firstHomeDuty, foreignSurcharge } from '@/lib/stamp-duty';
 import BlogPage from '../blog/page';
 import { buildRssFeedXml } from '@/lib/rss';
@@ -125,6 +128,9 @@ describe('marketing SEO routes', () => {
       riskProfileMetadata,
       stampDutyMetadata,
       retirementMetadata,
+      ccsMetadata,
+      superCapsMetadata,
+      rentVsBuyMetadata,
       spreadsheetComparisonMetadata,
     ];
 
@@ -358,6 +364,41 @@ describe('marketing SEO routes', () => {
     // assets-tested pension $0, draw ≈ $76k/yr — funded vs comfortable should render
     expect(doc.querySelector('[data-testid="retire-nest-egg"]')?.textContent).toContain('$');
     expect(doc.querySelector('[data-testid="retire-pension"]')?.textContent).toContain('$');
+    expect(doc.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('mounts the interactive CCS estimator on /tools/childcare-subsidy-calculator/', () => {
+    expect(canonicalPath(ccsMetadata)).toBe('/tools/childcare-subsidy-calculator');
+    const html = renderToStaticMarkup(<ChildcareSubsidyCalculatorPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.body.textContent).toContain('Interactive CCS estimator');
+    // $150k income → 90 - floor((150000-85279)/5000) = 90-12 = 78% CCS
+    expect(doc.querySelector('[data-testid="ccs-pct"]')?.textContent).toContain('78%');
+    // fee $15.50 > cap $14.63 → subsidised rate 14.63*0.77 ≈ $11.27/h × 31.5h ≈ $354.9
+    // out-of-pocket = 15.50*31.5 − subsidy ≈ $133/wk
+    expect(doc.querySelector('[data-testid="ccs-weekly"]')?.textContent).toContain('$');
+    expect(doc.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('mounts the super cap checker on /tools/super-contribution-cap-checker/', () => {
+    expect(canonicalPath(superCapsMetadata)).toBe('/tools/super-contribution-cap-checker');
+    const html = renderToStaticMarkup(<SuperCapCheckerPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.body.textContent).toContain('Interactive contribution cap checker');
+    // $110k × 12% SG + $5k sacrifice = $18.2k → $11.8k headroom, no Div293
+    expect(doc.querySelector('[data-testid="caps-cc-headroom"]')?.textContent).toContain('11,800');
+    expect(doc.querySelector('[data-testid="caps-div293"]')?.textContent).toContain('No');
+    expect(doc.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('mounts the rent vs buy comparison on /tools/rent-vs-buy-calculator/', () => {
+    expect(canonicalPath(rentVsBuyMetadata)).toBe('/tools/rent-vs-buy-calculator');
+    const html = renderToStaticMarkup(<RentVsBuyCalculatorPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.body.textContent).toContain('Interactive rent vs buy comparison');
+    // $750k NSW: duty $27,937 → upfront ≈ $180,937
+    expect(doc.querySelector('[data-testid="rvb-upfront"]')?.textContent).toContain('180');
+    expect(doc.querySelector('[data-testid="rvb-gap"]')?.textContent).toContain('$');
     expect(doc.querySelectorAll('h1')).toHaveLength(1);
   });
 

@@ -15,7 +15,10 @@ export type CalculatorTool =
   | 'borrowing-power'
   | 'risk-profile'
   | 'stamp-duty'
-  | 'retirement';
+  | 'retirement'
+  | 'ccs'
+  | 'super-caps'
+  | 'rent-vs-buy';
 
 export interface CalculatorSnapshot {
   tool: CalculatorTool;

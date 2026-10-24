@@ -170,6 +170,27 @@ export default function BlogPage() {
               </Link>
               <span aria-hidden="true" className="text-muted-foreground">·</span>
               <Link
+                href="/tools/childcare-subsidy-calculator/"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                CCS Estimator
+              </Link>
+              <span aria-hidden="true" className="text-muted-foreground">·</span>
+              <Link
+                href="/tools/super-contribution-cap-checker/"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Super Caps
+              </Link>
+              <span aria-hidden="true" className="text-muted-foreground">·</span>
+              <Link
+                href="/tools/rent-vs-buy-calculator/"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Rent vs Buy
+              </Link>
+              <span aria-hidden="true" className="text-muted-foreground">·</span>
+              <Link
                 href="/features/tax-deductions/"
                 className="font-medium text-primary underline-offset-4 hover:underline"
               >
