@@ -12,8 +12,8 @@ import {
 import { createSeoMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = createSeoMetadata({
-  title: 'PFinance - Take Control of Your Personal Finances',
-  description: 'Track expenses, manage budgets, and collaborate with your household. Beautiful visualizations, AI-powered insights, and multi-user support.',
+  title: 'PFinance — Personal Finance for Australian Households',
+  description: 'Track expenses, budgets, tax deductions, and shared household spending — with an AI assistant, receipt scanning, and free ATO-aware calculators built for Australia.',
   path: '/',
   imageAlt: 'PFinance dashboard and personal finance tools',
 });

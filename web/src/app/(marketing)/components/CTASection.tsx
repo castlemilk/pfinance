@@ -57,8 +57,8 @@ export default function CTASection() {
             transition={{ delay: 0.2 }}
             className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-6 skeu-emboss"
           >
-            Ready to Transform Your{' '}
-            <span className="text-primary">Financial Future?</span>
+            Your Household Ledger,{' '}
+            <span className="text-primary">Ready in Two Minutes</span>
           </motion.h2>
 
           {/* Subheadline */}
