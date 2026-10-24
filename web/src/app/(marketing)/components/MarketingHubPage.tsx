@@ -107,7 +107,7 @@ export default function MarketingHubPage({ hub, extraSpokes = [] }: MarketingHub
 
         <div className="mx-auto mt-16 max-w-3xl rounded-xl border bg-muted/25 p-8 text-center">
           <h2 className="text-2xl font-bold tracking-tight">
-            Ready to organize your household finances?
+            Try it on your own numbers
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Start with our free in-browser calculators or open your personal workspace.
