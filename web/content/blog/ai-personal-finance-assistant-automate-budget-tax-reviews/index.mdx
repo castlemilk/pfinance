@@ -57,7 +57,7 @@ Because the assistant is wired directly into PFinance's Connect-RPC financial en
 
 Ask: *"What bills do I have coming up in the next 30 days, and are there any recurring subscriptions I should review?"*
 
-The assistant calls `get_upcoming_bills` and `detect_subscriptions` together—listing every scheduled bill due before next month alongside recurring card charges detected over the last six months (even if you haven't formally added them as recurring transactions yet).
+The assistant calls `get_upcoming_bills` and `detect_subscriptions` together—listing every scheduled bill due before next month alongside recurring card charges detected over the last six months (even if you haven't formally added them as recurring transactions yet). It is the same audit our [recurring subscriptions and bills guide](/blog/audit-recurring-subscriptions-household-bills/) walks through manually, compressed into one prompt.
 
 ### 2. Check Shared Household Group Balances
 
@@ -75,7 +75,7 @@ When you import PDF or CSV statements via [Bank Statement Import](/features/bank
 
 Ask: *"Based on my cash-flow forecast for the next 60 days, can I afford a $2,400 flight without missing my emergency fund goal?"*
 
-For Pro users, the assistant combines `get_cash_flow_forecast`, `get_budget_progress`, and `list_goals` to compare your projected net surplus over the next 60 days against your active savings targets.
+For Pro users, the assistant combines `get_cash_flow_forecast`, `get_budget_progress`, and `list_goals` to compare your projected net surplus over the next 60 days against your active savings targets — the same forward view our [cash flow forecasting and sinking funds guide](/blog/cash-flow-forecasting-sinking-funds-upcoming-bills-australia/) builds manually.
 
 ### 5. Run a Pre-EOFY Tax Deduction Sweep
 
@@ -93,4 +93,4 @@ The assistant calls `find_potential_deductions` and `get_tax_summary`, surfacing
   ]'
 />
 
-Want to benchmark your take-home pay or WFH claims before opening the assistant? Try our free [Australian Salary Calculator](/tools/australian-salary-calculator/), [WFH Deduction Calculator](/tools/wfh-deduction-calculator/), and [Budget Calculator](/tools/budget-calculator/).
+Before opening the assistant, you can benchmark take-home pay or WFH claims with the free [Australian Salary Calculator](/tools/australian-salary-calculator/), [WFH Deduction Calculator](/tools/wfh-deduction-calculator/), and [Budget Calculator](/tools/budget-calculator/).
