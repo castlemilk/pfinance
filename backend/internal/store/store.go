@@ -93,6 +93,20 @@ type Store interface {
 	CreateGoalContribution(ctx context.Context, contribution *pfinancev1.GoalContribution) error
 	ListGoalContributions(ctx context.Context, goalID string, pageSize int32, pageToken string) ([]*pfinancev1.GoalContribution, string, error)
 
+	// Net worth — asset operations
+	CreateAsset(ctx context.Context, asset *pfinancev1.Asset) error
+	GetAsset(ctx context.Context, assetID string) (*pfinancev1.Asset, error)
+	UpdateAsset(ctx context.Context, asset *pfinancev1.Asset) error
+	DeleteAsset(ctx context.Context, assetID string) error
+	ListAssets(ctx context.Context, userID, groupID string, pageSize int32, pageToken string) ([]*pfinancev1.Asset, string, error)
+
+	// Net worth — liability operations
+	CreateLiability(ctx context.Context, liability *pfinancev1.Liability) error
+	GetLiability(ctx context.Context, liabilityID string) (*pfinancev1.Liability, error)
+	UpdateLiability(ctx context.Context, liability *pfinancev1.Liability) error
+	DeleteLiability(ctx context.Context, liabilityID string) error
+	ListLiabilities(ctx context.Context, userID, groupID string, pageSize int32, pageToken string) ([]*pfinancev1.Liability, string, error)
+
 	// Search operations
 	SearchTransactions(ctx context.Context, userID, groupID, query, category string, amountMin, amountMax float64, startDate, endDate *time.Time, txType pfinancev1.TransactionType, pageSize int32, pageToken string) ([]*pfinancev1.SearchResult, string, int, error)
 

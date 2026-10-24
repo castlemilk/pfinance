@@ -34,6 +34,8 @@ import InsuranceNeedsCalculatorPage, { metadata as insuranceNeedsMetadata } from
 import CgtCalculatorPage, { metadata as cgtMetadata } from '../tools/cgt-calculator/page';
 import BorrowingPowerCalculatorPage, { metadata as borrowingPowerMetadata } from '../tools/borrowing-power-calculator/page';
 import InvestmentRiskProfilePage, { metadata as riskProfileMetadata } from '../tools/investment-risk-profile/page';
+import StampDutyCalculatorPage, { metadata as stampDutyMetadata } from '../tools/stamp-duty-calculator/page';
+import { standardDuty, firstHomeDuty, foreignSurcharge } from '@/lib/stamp-duty';
 import BlogPage from '../blog/page';
 import { buildRssFeedXml } from '@/lib/rss';
 import Footer, { footerLinks } from '../components/Footer';
@@ -120,6 +122,7 @@ describe('marketing SEO routes', () => {
       cgtMetadata,
       borrowingPowerMetadata,
       riskProfileMetadata,
+      stampDutyMetadata,
       spreadsheetComparisonMetadata,
     ];
 
@@ -306,6 +309,41 @@ describe('marketing SEO routes', () => {
     expect(doc.body.textContent).toContain('When will you need the money?');
     expect(doc.body.textContent).toContain('Answer the five questions');
     expect(doc.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('mounts the interactive stamp duty estimator on /tools/stamp-duty-calculator/', () => {
+    expect(canonicalPath(stampDutyMetadata)).toBe('/tools/stamp-duty-calculator');
+    const html = renderToStaticMarkup(<StampDutyCalculatorPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.body.textContent).toContain('Interactive stamp duty estimator');
+    expect(doc.body.textContent).toContain('State or territory');
+    // NSW at $750k standard: $11,602 + 4.5% over $387k = $11,602 + $16,335 = $27,937
+    expect(doc.querySelector('[data-testid="stamp-duty-standard"]')?.textContent).toContain('$27,937');
+    expect(doc.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('computes standard stamp duty tiers correctly per state', () => {
+    // NSW 2026-27: $11,602 + $4.50/$100 over $387k on $750k
+    expect(standardDuty('NSW', 750_000)).toBeCloseTo(27_937, 0);
+    // QLD: $17,325 + $4.50/$100 over $540k on $750k
+    expect(standardDuty('QLD', 750_000)).toBeCloseTo(26_775, 0);
+    // VIC: $2,870 + 6% over $130k on $650k
+    expect(standardDuty('VIC', 650_000)).toBeCloseTo(34_070, 0);
+    // SA: $21,330 + 5.5% over $500k on $600k
+    expect(standardDuty('SA', 600_000)).toBeCloseTo(26_830, 0);
+  });
+
+  it('applies first-home concessions and foreign surcharge', () => {
+    // NSW FHB exempt to $800k
+    expect(firstHomeDuty('NSW', 750_000, false)).toMatchObject({ duty: 0, exempt: true });
+    // VIC FHB exempt to $600k
+    expect(firstHomeDuty('VIC', 550_000, false).duty).toBe(0);
+    // NSW foreign surcharge: 9% on $750k = $67,500
+    expect(foreignSurcharge('NSW', 750_000)).toBeCloseTo(67_500, 0);
+    // SA new-home exemption
+    expect(firstHomeDuty('SA', 600_000, true).duty).toBe(0);
+    // SA established: full duty
+    expect(firstHomeDuty('SA', 600_000, false).duty).toBeCloseTo(26_830, 0);
   });
 
   it('serves a valid RSS 2.0 feed at /feed.xml and extracts blog TOC headings', () => {

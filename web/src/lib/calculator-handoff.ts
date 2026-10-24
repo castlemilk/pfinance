@@ -13,7 +13,8 @@ export type CalculatorTool =
   | 'insurance-needs'
   | 'cgt'
   | 'borrowing-power'
-  | 'risk-profile';
+  | 'risk-profile'
+  | 'stamp-duty';
 
 export interface CalculatorSnapshot {
   tool: CalculatorTool;

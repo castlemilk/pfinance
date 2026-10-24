@@ -2,11 +2,10 @@
 
 import { useId, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CountUp } from '@/components/gamma/CountUp';
+import { CalcField, CalcLayout, CalcPanel, ResultStat } from '@/app/components/calculator-ui';
 import CalculatorHandoffCta from '../calculator-handoff/CalculatorHandoffCta';
 import { getAustralianBrackets } from '@/app/constants/taxSystems';
 
@@ -97,36 +96,48 @@ export default function PublicCgtCalculator() {
         </Button>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(300px,1fr)_minmax(0,2fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">The asset</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor={`${id}-cost`}>Cost base (AUD)</Label>
-              <Input id={`${id}-cost`} type="number" min={0} step="1000" value={values.purchaseCost} onChange={update('purchaseCost')} />
-              <p className="text-xs text-muted-foreground">Purchase price plus buying and selling costs.</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor={`${id}-sale`}>Sale price (AUD)</Label>
-              <Input id={`${id}-sale`} type="number" min={0} step="1000" value={values.salePrice} onChange={update('salePrice')} />
-            </div>
+      <CalcLayout
+        inputs={
+          <CalcPanel title="The asset">
+            <CalcField
+              id={`${id}-cost`}
+              label="Cost base (AUD)"
+              hint="Purchase price plus buying and selling costs."
+              min={0}
+              step="1000"
+              value={values.purchaseCost}
+              onChange={update('purchaseCost')}
+            />
+            <CalcField
+              id={`${id}-sale`}
+              label="Sale price (AUD)"
+              min={0}
+              step="1000"
+              value={values.salePrice}
+              onChange={update('salePrice')}
+            />
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor={`${id}-months`}>Months held</Label>
-                <Input id={`${id}-months`} type="number" min={0} value={values.holdingMonths} onChange={update('holdingMonths')} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor={`${id}-income`}>Your taxable income</Label>
-                <Input id={`${id}-income`} type="number" min={0} step="1000" value={values.taxableIncome} onChange={update('taxableIncome')} />
-                <p className="text-xs text-muted-foreground">The gain stacks on top of this.</p>
-              </div>
+              <CalcField
+                id={`${id}-months`}
+                label="Months held"
+                min={0}
+                value={values.holdingMonths}
+                onChange={update('holdingMonths')}
+              />
+              <CalcField
+                id={`${id}-income`}
+                label="Your taxable income"
+                hint="The gain stacks on top of this."
+                min={0}
+                step="1000"
+                value={values.taxableIncome}
+                onChange={update('taxableIncome')}
+              />
             </div>
-          </CardContent>
-        </Card>
-
-        <div className="min-w-0 space-y-5">
+          </CalcPanel>
+        }
+        results={
+          <>
           {calculation.valid ? (
             calculation.isLoss ? (
               <Card className="border-primary/40 bg-primary/5">
@@ -172,26 +183,13 @@ export default function PublicCgtCalculator() {
                 </Card>
 
                 <div className="grid gap-4 sm:grid-cols-3">
-                  <Card>
-                    <CardContent className="pt-6">
-                      <p className="text-xs font-medium text-muted-foreground">Gross gain</p>
-                      <p className="mt-1 text-xl font-bold tabular-nums" data-testid="cgt-gross">{money(calculation.grossGain)}</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="pt-6">
-                      <p className="text-xs font-medium text-muted-foreground">CGT discount</p>
-                      <p className="mt-1 text-xl font-bold tabular-nums" data-testid="cgt-discount">
-                        {calculation.discountPercent}% (−{money(calculation.grossGain - calculation.taxableGain)})
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="pt-6">
-                      <p className="text-xs font-medium text-muted-foreground">Taxable gain</p>
-                      <p className="mt-1 text-xl font-bold tabular-nums" data-testid="cgt-taxable">{money(calculation.taxableGain)}</p>
-                    </CardContent>
-                  </Card>
+                  <ResultStat label="Gross gain" value={money(calculation.grossGain)} testId="cgt-gross" />
+                  <ResultStat
+                    label="CGT discount"
+                    value={`${calculation.discountPercent}% (−${money(calculation.grossGain - calculation.taxableGain)})`}
+                    testId="cgt-discount"
+                  />
+                  <ResultStat label="Taxable gain" value={money(calculation.taxableGain)} testId="cgt-taxable" />
                 </div>
 
                 <Card>
@@ -240,8 +238,9 @@ export default function PublicCgtCalculator() {
               </CardContent>
             </Card>
           )}
-        </div>
-      </div>
+          </>
+        }
+      />
     </section>
   );
 }

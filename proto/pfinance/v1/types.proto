@@ -1221,3 +1221,79 @@ message BankStatementResult {
   ExtractionMethod method_used = 9;      // Which method was used
   ExtractionMethod fallback_from = 10;   // If fallback was used, the original method
 }
+
+// ============================================================================
+// Net Worth — Assets & Liabilities
+// ============================================================================
+
+// AssetCategory classifies what kind of asset the entry represents
+enum AssetCategory {
+  ASSET_CATEGORY_UNSPECIFIED = 0;
+  ASSET_CATEGORY_CASH = 1;         // Savings, offset balances, term deposits
+  ASSET_CATEGORY_SUPER = 2;
+  ASSET_CATEGORY_PROPERTY = 3;
+  ASSET_CATEGORY_VEHICLE = 4;
+  ASSET_CATEGORY_SHARES = 5;       // ETFs, listed shares, managed funds
+  ASSET_CATEGORY_CRYPTO = 6;
+  ASSET_CATEGORY_OTHER = 7;
+}
+
+// LiabilityCategory classifies what kind of debt the entry represents
+enum LiabilityCategory {
+  LIABILITY_CATEGORY_UNSPECIFIED = 0;
+  LIABILITY_CATEGORY_MORTGAGE = 1;
+  LIABILITY_CATEGORY_HELP_DEBT = 2;      // HECS-HELP / student loans
+  LIABILITY_CATEGORY_CAR_LOAN = 3;
+  LIABILITY_CATEGORY_PERSONAL_LOAN = 4;
+  LIABILITY_CATEGORY_CREDIT_CARD = 5;
+  LIABILITY_CATEGORY_BNPL = 6;           // Buy now pay later balances
+  LIABILITY_CATEGORY_OTHER = 7;
+}
+
+// Asset is a manually-tracked asset entry in the user's net worth ledger
+message Asset {
+  string id = 1;
+  string user_id = 2;
+  string group_id = 3;                 // Optional: for household/shared assets
+  string name = 4;
+  AssetCategory category = 5;
+  int64 value_cents = 6;               // Current estimated value in cents
+  bool is_liquid = 7;                  // Reachable within ~30 days (emergency coverage)
+  string notes = 8;
+  google.protobuf.Timestamp valued_at = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+// Liability is a manually-tracked debt entry in the user's net worth ledger
+message Liability {
+  string id = 1;
+  string user_id = 2;
+  string group_id = 3;                 // Optional: for household/shared debts
+  string name = 4;
+  LiabilityCategory category = 5;
+  int64 balance_cents = 6;             // Current balance owed in cents
+  double interest_rate = 7;            // Annual rate % — 0 when unknown
+  int64 minimum_repayment_cents = 8;   // Monthly minimum — 0 when unknown
+  string notes = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+// NetWorthCategoryTotal aggregates entries by category for the breakdown chart
+message NetWorthCategoryTotal {
+  string category = 1;                 // Enum name, e.g. ASSET_CATEGORY_CASH
+  int64 total_cents = 2;
+  int32 count = 3;
+}
+
+// NetWorthSummary is the computed fact-find position
+message NetWorthSummary {
+  int64 total_assets_cents = 1;
+  int64 total_liabilities_cents = 2;
+  int64 net_worth_cents = 3;
+  int64 liquid_assets_cents = 4;
+  repeated NetWorthCategoryTotal assets_by_category = 5;
+  repeated NetWorthCategoryTotal liabilities_by_category = 6;
+  google.protobuf.Timestamp as_of = 7;
+}

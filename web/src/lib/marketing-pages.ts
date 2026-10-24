@@ -834,6 +834,57 @@ export const discoveryPages: MarketingPageData[] = [
     changeFrequency: 'weekly',
   },
   {
+    path: '/tools/stamp-duty-calculator',
+    category: 'tools',
+    hubPath: '/tools',
+    hubLabel: 'Tools',
+    navLabel: 'Stamp Duty Calculator',
+    title: 'Stamp Duty Calculator — All States',
+    description: 'Estimate transfer duty in any Australian state — first-home concessions, foreign surcharge, and the effective rate on your purchase.',
+    eyebrow: 'Stamp duty calculator',
+    heading: 'What will duty add to the purchase?',
+    body: 'Pick a state, enter the price, and flag first-home or foreign-purchaser status. The estimator applies the published transfer-duty scale for that state plus the simple price-threshold concessions.',
+    primaryCta: 'Check borrowing power',
+    primaryCtaHref: '/tools/borrowing-power-calculator/',
+    secondaryCta: 'Plan the deposit',
+    secondaryCtaHref: '/personal/goals/',
+    highlights: [
+      'All 8 states and territories, standard scales',
+      'First-home exemptions and concessions where price-based',
+      'Foreign purchaser surcharge toggle',
+    ],
+    sections: [
+      {
+        title: 'Duty is usually the biggest upfront cost after the deposit',
+        body: 'On a $750k purchase, transfer duty runs from roughly $20k to $40k depending on the state — before conveyancing, inspections, and LMI. It is cash you cannot borrow, so it directly lowers the deposit available to the lender.',
+      },
+      {
+        title: 'First-home concessions are worth tens of thousands',
+        body: 'Every state offers something: full exemptions in NSW (to $800k), VIC ($600k), QLD ($700k), WA ($500k metro), TAS ($750k, temporary), and the ACT\'s income-tested scheme; SA exempts new homes outright. The difference between buying at $799k and $801k in NSW is a full stamp duty bill.',
+      },
+      {
+        title: 'What this estimate leaves out',
+        body: 'Income-tested concessions (ACT), PPR/home concession rates (VIC, QLD), off-the-plan concessions, premium tiers above ~$3.5m, and registration fees all move the real figure. Treat this as a planning number — your conveyancer confirms the exact duty.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Can I add stamp duty to the loan?',
+        answer: 'Generally no — lenders expect duty paid from your own funds at settlement. It reduces the deposit you can put down, which can push you over an LVR threshold and trigger LMI.',
+      },
+      {
+        question: 'Which state has the lowest stamp duty?',
+        answer: 'It depends on price and buyer status. At $650k, ACT and QLD are typically cheapest for standard buyers, while first-home exemptions make several states free under their caps.',
+      },
+      {
+        question: 'When is duty actually paid?',
+        answer: 'At or shortly after settlement — typically within 30 days to 3 months depending on the state. Your conveyancer handles the lodgement.',
+      },
+    ],
+    priority: 0.88,
+    changeFrequency: 'weekly',
+  },
+  {
     path: '/compare/spreadsheets-vs-finance-app',
     category: 'compare',
     hubPath: '/compare',

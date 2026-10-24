@@ -2606,3 +2606,181 @@ func (s *FirestoreStore) FindOverlappingStatements(ctx context.Context, userID, 
 	}
 	return results, nil
 }
+
+// Net worth — asset operations
+
+func assetCollection(groupID string) string {
+	if groupID != "" {
+		return "groupAssets"
+	}
+	return "assets"
+}
+
+func (s *FirestoreStore) CreateAsset(ctx context.Context, asset *pfinancev1.Asset) error {
+	_, err := s.client.Collection(assetCollection(asset.GroupId)).Doc(asset.Id).Set(ctx, asset)
+	return err
+}
+
+func (s *FirestoreStore) GetAsset(ctx context.Context, assetID string) (*pfinancev1.Asset, error) {
+	doc, err := s.client.Collection("assets").Doc(assetID).Get(ctx)
+	if err == nil {
+		var asset pfinancev1.Asset
+		if err := doc.DataTo(&asset); err != nil {
+			return nil, fmt.Errorf("failed to parse asset: %w", err)
+		}
+		return &asset, nil
+	}
+
+	doc, err = s.client.Collection("groupAssets").Doc(assetID).Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("asset not found: %w", err)
+	}
+	var asset pfinancev1.Asset
+	if err := doc.DataTo(&asset); err != nil {
+		return nil, fmt.Errorf("failed to parse asset: %w", err)
+	}
+	return &asset, nil
+}
+
+func (s *FirestoreStore) UpdateAsset(ctx context.Context, asset *pfinancev1.Asset) error {
+	_, err := s.client.Collection(assetCollection(asset.GroupId)).Doc(asset.Id).Set(ctx, asset)
+	return err
+}
+
+func (s *FirestoreStore) DeleteAsset(ctx context.Context, assetID string) error {
+	_, err := s.client.Collection("assets").Doc(assetID).Delete(ctx)
+	if err == nil {
+		return nil
+	}
+	_, err = s.client.Collection("groupAssets").Doc(assetID).Delete(ctx)
+	return err
+}
+
+func (s *FirestoreStore) ListAssets(ctx context.Context, userID, groupID string, pageSize int32, pageToken string) ([]*pfinancev1.Asset, string, error) {
+	collection := assetCollection(groupID)
+	query := s.client.Collection(collection).Query
+
+	if groupID != "" {
+		query = query.Where("GroupId", "==", groupID)
+	} else if userID != "" {
+		query = query.Where("UserId", "==", userID)
+	}
+
+	query, err := s.applyCursorPagination(query, pageSize, pageToken)
+	if err != nil {
+		return nil, "", err
+	}
+
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to list assets: %w", err)
+	}
+
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+	var nextPageToken string
+	if len(docs) > int(pageSize) {
+		docs = docs[:pageSize]
+		nextPageToken = EncodePageToken(docs[pageSize-1].Ref.ID)
+	}
+
+	assets := make([]*pfinancev1.Asset, 0, len(docs))
+	for _, doc := range docs {
+		var asset pfinancev1.Asset
+		if err := doc.DataTo(&asset); err != nil {
+			return nil, "", fmt.Errorf("failed to parse asset: %w", err)
+		}
+		assets = append(assets, &asset)
+	}
+	return assets, nextPageToken, nil
+}
+
+// Net worth — liability operations
+
+func liabilityCollection(groupID string) string {
+	if groupID != "" {
+		return "groupLiabilities"
+	}
+	return "liabilities"
+}
+
+func (s *FirestoreStore) CreateLiability(ctx context.Context, liability *pfinancev1.Liability) error {
+	_, err := s.client.Collection(liabilityCollection(liability.GroupId)).Doc(liability.Id).Set(ctx, liability)
+	return err
+}
+
+func (s *FirestoreStore) GetLiability(ctx context.Context, liabilityID string) (*pfinancev1.Liability, error) {
+	doc, err := s.client.Collection("liabilities").Doc(liabilityID).Get(ctx)
+	if err == nil {
+		var liability pfinancev1.Liability
+		if err := doc.DataTo(&liability); err != nil {
+			return nil, fmt.Errorf("failed to parse liability: %w", err)
+		}
+		return &liability, nil
+	}
+
+	doc, err = s.client.Collection("groupLiabilities").Doc(liabilityID).Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("liability not found: %w", err)
+	}
+	var liability pfinancev1.Liability
+	if err := doc.DataTo(&liability); err != nil {
+		return nil, fmt.Errorf("failed to parse liability: %w", err)
+	}
+	return &liability, nil
+}
+
+func (s *FirestoreStore) UpdateLiability(ctx context.Context, liability *pfinancev1.Liability) error {
+	_, err := s.client.Collection(liabilityCollection(liability.GroupId)).Doc(liability.Id).Set(ctx, liability)
+	return err
+}
+
+func (s *FirestoreStore) DeleteLiability(ctx context.Context, liabilityID string) error {
+	_, err := s.client.Collection("liabilities").Doc(liabilityID).Delete(ctx)
+	if err == nil {
+		return nil
+	}
+	_, err = s.client.Collection("groupLiabilities").Doc(liabilityID).Delete(ctx)
+	return err
+}
+
+func (s *FirestoreStore) ListLiabilities(ctx context.Context, userID, groupID string, pageSize int32, pageToken string) ([]*pfinancev1.Liability, string, error) {
+	collection := liabilityCollection(groupID)
+	query := s.client.Collection(collection).Query
+
+	if groupID != "" {
+		query = query.Where("GroupId", "==", groupID)
+	} else if userID != "" {
+		query = query.Where("UserId", "==", userID)
+	}
+
+	query, err := s.applyCursorPagination(query, pageSize, pageToken)
+	if err != nil {
+		return nil, "", err
+	}
+
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to list liabilities: %w", err)
+	}
+
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+	var nextPageToken string
+	if len(docs) > int(pageSize) {
+		docs = docs[:pageSize]
+		nextPageToken = EncodePageToken(docs[pageSize-1].Ref.ID)
+	}
+
+	liabilities := make([]*pfinancev1.Liability, 0, len(docs))
+	for _, doc := range docs {
+		var liability pfinancev1.Liability
+		if err := doc.DataTo(&liability); err != nil {
+			return nil, "", fmt.Errorf("failed to parse liability: %w", err)
+		}
+		liabilities = append(liabilities, &liability)
+	}
+	return liabilities, nextPageToken, nil
+}
