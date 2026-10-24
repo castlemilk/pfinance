@@ -9,11 +9,11 @@
 
 'use client';
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, useContext } from 'react';
 import { useForm } from 'react-hook-form';
-import { TaxSettings, IncomeFrequency } from '@/app/types';
-import { useFinance } from '@/app/context/FinanceContext';
-import { useAuth } from '@/app/context/AuthWithAdminContext';
+import { TaxSettings, IncomeFrequency, TaxConfig } from '@/app/types';
+import { FinanceContext } from '@/app/context/FinanceContext';
+import { AuthContext } from '@/app/context/AuthWithAdminContext';
 import { financeClient } from '@/lib/financeService';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,8 +48,23 @@ import {
 const SalaryBreakdownChart = dynamic(() => import('../SalaryBreakdownChart'), { ssr: false });
 
 export function SalaryCalculatorNew() {
-  const { taxConfig, updateTaxConfig, addIncome, updateIncome, incomes } = useFinance();
-  const { user } = useAuth();
+  const financeContext = useContext(FinanceContext);
+  const authContext = useContext(AuthContext);
+  const [localTaxConfig, setLocalTaxConfig] = useState<TaxConfig>({
+    enabled: true,
+    country: 'australia',
+    taxRate: 30,
+    includeDeductions: true,
+  });
+  const taxConfig = financeContext?.taxConfig ?? localTaxConfig;
+  const updateTaxConfig = useCallback((partial: Partial<TaxConfig>) => {
+    if (financeContext) {
+      financeContext.updateTaxConfig(partial);
+    } else {
+      setLocalTaxConfig((prev) => ({ ...prev, ...partial }));
+    }
+  }, [financeContext]);
+  const user = authContext?.user ?? null;
   const { toast } = useToast();
   const calculatorRef = useRef<HTMLDivElement>(null);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -136,8 +151,9 @@ export function SalaryCalculatorNew() {
     }).format(amount);
   }, [taxConfig.country, taxYear, taxCategory]);
 
-  // Auto-save salary as income with debouncing
+  // Auto-save salary as income with debouncing (only when inside FinanceProvider)
   useEffect(() => {
+    if (!financeContext) return;
     // Only auto-save if there's a valid salary amount
     const annualSalary = calculations.annualSalary;
     if (annualSalary <= 0) return;
@@ -151,11 +167,11 @@ export function SalaryCalculatorNew() {
     autoSaveTimeoutRef.current = setTimeout(async () => {
       try {
         // Check if we already have a 'Salary' income entry
-        const existingSalaryIncome = incomes.find(i => i.source === 'Salary');
+        const existingSalaryIncome = financeContext.incomes.find(i => i.source === 'Salary');
         
         if (existingSalaryIncome) {
           // Update existing salary income
-          await updateIncome(
+          await financeContext.updateIncome(
             existingSalaryIncome.id,
             'Salary',
             annualSalary,
@@ -166,7 +182,7 @@ export function SalaryCalculatorNew() {
           console.log('[SalaryCalculator] Auto-updated salary income:', annualSalary);
         } else {
           // Create new salary income
-          await addIncome(
+          await financeContext.addIncome(
             'Salary',
             annualSalary,
             'annually',
@@ -186,7 +202,7 @@ export function SalaryCalculatorNew() {
         clearTimeout(autoSaveTimeoutRef.current);
       }
     };
-  }, [calculations.annualSalary, incomes, addIncome, updateIncome]);
+  }, [calculations.annualSalary, financeContext]);
 
   // Tax setting change handler
   const handleTaxSettingChange = useCallback((setting: keyof TaxSettings, value: boolean | number) => {
@@ -819,7 +835,7 @@ function SalaryPrintReport({ input }: { input: ReportInput }) {
       <header className="salary-print-header">
         <div>
           <p className="salary-print-kicker">PFinance</p>
-          <h1>{model.title}</h1>
+          <h2>{model.title}</h2>
           <p className="salary-print-meta">
             Generated {model.generatedDate} · {model.taxSystemLabel} · {model.taxYear}
           </p>

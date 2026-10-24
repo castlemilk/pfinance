@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useContext } from 'react';
 import { Pie } from '@visx/shape';
 import { Group } from '@visx/group';
 import { Text } from '@visx/text';
@@ -9,7 +9,7 @@ import { ParentSize } from '@visx/responsive';
 import { LegendOrdinal } from '@visx/legend';
 import { useTooltip, Tooltip, defaultStyles } from '@visx/tooltip';
 import { localPoint } from '@visx/event';
-import { useFinance } from '../context/FinanceContext';
+import { FinanceContext } from '../context/FinanceContext';
 import { getTaxSystem } from '../constants/taxSystems';
 
 interface SalaryBreakdownChartProps {
@@ -54,7 +54,8 @@ export default function SalaryBreakdownChart({
   fringeBenefits = 0,
   salarySacrifice = 0
 }: SalaryBreakdownChartProps) {
-  const { taxConfig } = useFinance();
+  const financeContext = useContext(FinanceContext);
+  const country = financeContext?.taxConfig.country ?? 'australia';
   
   const {
     tooltipData,
@@ -68,7 +69,7 @@ export default function SalaryBreakdownChart({
   // Format currency based on amount
   const formatCurrency = (amount: number) => {
     // Get currency code from tax system
-    const currencyCode = getTaxSystem(taxConfig.country).currency;
+    const currencyCode = getTaxSystem(country).currency;
     
     return new Intl.NumberFormat('en', {
       style: 'currency',

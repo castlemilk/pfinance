@@ -54,6 +54,21 @@ const categoryConfig: Record<string, {
     icon: Target,
     pattern: 'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.15) 0%, transparent 50%)',
   },
+  'tax & deductions': {
+    gradient: 'from-emerald-600 via-teal-600 to-cyan-600',
+    icon: Shield,
+    pattern: 'radial-gradient(circle at 25% 75%, rgba(255,255,255,0.14) 0%, transparent 50%)',
+  },
+  'household finance': {
+    gradient: 'from-amber-600 via-orange-600 to-rose-600',
+    icon: Landmark,
+    pattern: 'radial-gradient(circle at 75% 25%, rgba(255,255,255,0.14) 0%, transparent 50%)',
+  },
+  'income & tax': {
+    gradient: 'from-indigo-600 via-blue-600 to-sky-600',
+    icon: Calculator,
+    pattern: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.14) 0%, transparent 50%)',
+  },
   general: {
     gradient: 'from-slate-500 via-gray-500 to-zinc-500',
     icon: BarChart3,

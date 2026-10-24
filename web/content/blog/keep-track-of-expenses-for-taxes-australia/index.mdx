@@ -1,0 +1,128 @@
+---
+title: "The Best Way to Keep Track of Expenses for Taxes in Australia"
+description: "Learn how to track work-related tax deductions across the 1 July to 30 June Australian financial year, what evidence the ATO requires, and how to avoid the October scramble."
+date: "2026-10-20"
+author:
+  name: "PFinance Team"
+category: "Tax & Deductions"
+tags: ["tax deductions", "ato", "receipt scanner", "expense tracking", "eofy"]
+featured: true
+image: ""
+---
+
+Every July, millions of Australians sit down with twelve months of bank statements and an inbox search bar, trying to remember whether a $189 Officeworks charge from November was a printer monitor arm for work or back-to-school supplies. By the time you lodge your tax return—either yourself via myTax before 31 October or through a registered tax agent—faded thermal receipts and missing invoices mean legitimate deductions get left on the table.
+
+Here is how Australian tax substantiation actually works, why a bank statement alone is rarely enough, and how to set up a lightweight workflow that keeps your deduction evidence attached to the expense all year.
+
+<Callout type="note">
+This guide explains record-keeping mechanics and Australian Taxation Office (ATO) substantiation rules for general information. It is not personal tax advice—always confirm deduction eligibility with the ATO or a registered tax agent.
+</Callout>
+
+## The Three Rules Every Work-Related Deduction Must Pass
+
+Before worrying about apps or folders, every work-related expense claim for an Australian employee rests on three core tests:
+
+1. **You spent the money yourself and were not reimbursed** by your employer.
+2. **The expense directly relates to earning your assessable income**—meaning it is not private, domestic, or capital in nature.
+3. **You have a record to prove it** (substantiation).
+
+Most people trip up on the third rule—not because they didn't buy the item, but because they kept the wrong type of record or lost the apportionment calculation between work and private use.
+
+<GraphStat
+  title="Key Australian individual tax substantiation rules"
+  corner="ATO record-keeping baseline"
+  items='[
+    {"value":"$300","label":"written evidence threshold","hint":"Total work expenses above $300 require full receipts","accent":true},
+    {"value":"5 years","label":"retention period","hint":"From the date you lodge your tax return"},
+    {"value":"$2+","label":"DGR donation minimum","hint":"Must be to a Deductible Gift Recipient with no material benefit"}
+  ]'
+/>
+
+## Why a Bank Statement Line Is Usually Not Enough
+
+A common misconception is that downloading a CSV from your bank at the end of June satisfies the ATO's record-keeping rules. In most cases, a bank or credit card statement only proves **that** you paid a merchant on a date; it does not prove **what** you bought.
+
+To substantiate a work-related expense, written evidence from a supplier generally needs to show five details:
+
+| Required Detail | On a Tax Invoice / Receipt | On a Bank Statement Line |
+|---|---|---|
+| Name of the supplier | Yes | Usually (often truncated) |
+| Amount of the expense | Yes (including GST breakdown) | Total only |
+| Nature of the goods or services | Yes (itemized line items) | **No** |
+| Date the expense was incurred | Yes | Settlement date only |
+| Date of the document | Yes | Statement period |
+
+If your total claim for work-related expenses exceeds **$300** (excluding car expenses, meal allowances, award transport payments, and travel allowance expenses), you must have written evidence for **all** of your claims—not just the amount above $300.
+
+<Callout type="tip">
+Capture the receipt at the moment of purchase using PFinance's [Receipt Scanner](/features/receipt-scanner/). The digital photo stays attached directly to the transaction, so thermal paper fading in your wallet never costs you a deduction.
+</Callout>
+
+## Organizing Expenses by ATO Deduction Categories (D1 to D15)
+
+Instead of dumping every receipt into a single "Tax" folder, tagging expenses against the actual schedule categories used on the Australian individual tax return makes year-end review dramatically faster:
+
+- **D1 — Work-related car expenses**: Kilometres travelled for work between workplaces or client sites (excluding normal home-to-work commuting), using either the cents-per-kilometre method (up to 5,000 business km per car) or a 12-week logbook.
+- **D2 — Work-related travel expenses**: Public transport, flights, overnight accommodation, and meals on work trips where you sleep away from home.
+- **D3 — Work-related clothing, laundry, and dry-cleaning**: Occupation-specific clothing, protective gear (steel-capped boots, high-vis), or compulsory registered uniforms—never conventional business attire.
+- **D4 — Work-related self-education expenses**: Courses, textbooks, and student union fees that maintain or improve specific skills required in your *current* employment.
+- **D5 — Other work-related expenses**: Working from home running expenses, union fees, professional memberships, trade tools, technical subscriptions, and work-related portions of phone or internet bills.
+- **D10 — Cost of managing tax affairs**: Registered tax agent fees, accounting software, and travel to your tax advisor.
+- **D15 — Gifts or donations**: Donations of $2 or more to Deductible Gift Recipients (DGRs) where you receive no material benefit (such as raffle tickets or chocolates) in return.
+- **Income protection insurance**: Premiums paid for policies held *outside* of superannuation that replace your salary if you are unable to work due to illness or injury.
+
+## Handling Mixed Personal and Work Expenses
+
+Very few modern expenses are 100% work-related. You might use your home NBN connection, mobile phone plan, or laptop for both work and personal streaming.
+
+When an expense is partly private and partly work-related, you need two things attached to the record:
+
+1. **The supplier invoice or receipt** showing the total cost.
+2. **A reasonable apportionment basis**—such as a representative four-week diary showing what percentage of use was for work (for example, 40% work use on an $85/month mobile plan = $34/month deductible).
+
+In PFinance's [Tax Deduction Tracker](/features/tax-deductions/), you can set the exact **Deductible Percentage (0%–100%)** and save the apportionment note (`"4-week diary: 40% work calls & data"`) right on the transaction.
+
+## The Five-Year Retention Rule
+
+For most individual taxpayers, the ATO requires you to keep your written evidence for **five years** from the date you lodge your tax return. If you claim decline in value (depreciation) on a work asset over several years—such as a $2,400 laptop—the five-year clock starts from the date of your *last* claim for decline in value on that asset.
+
+<GraphFlow
+  title="PFinance receipt-to-tax-return evidence pipeline"
+  corner="Draft-first workflow"
+  rows='[
+    {"nodes":[
+      {"label":"1. Scan receipt or invoice"},
+      {"label":"2. Confirm draft & work %","tone":"accent"},
+      {"label":"3. Tag ATO category (D1-D15)"},
+      {"label":"4. Export schedule + receipt ZIP","tone":"accent"}
+    ]}
+  ]'
+/>
+
+<GraphTimeline
+  title="Australian financial year tax-evidence calendar"
+  corner="1 July – 30 June"
+  events='[
+    {"date":"1 July","label":"New Australian financial year begins; start logging WFH hours and scanning work receipts as they occur.","state":"done"},
+    {"date":"Monthly","label":"Import PDF/CSV bank statements to catch recurring subscriptions, union fees, and charitable donations.","state":"done"},
+    {"date":"June (Pre-EOFY)","label":"Run PFinance Tax Review Wizard to compare D1–D15 totals against last year and verify receipts over $300.","state":"now"},
+    {"date":"31 October","label":"Self-lodgement deadline via myTax (or later if registered on a tax agent client list before 31 October).","state":"next"},
+    {"date":"+5 Years","label":"Retain digital receipt archive for five years from the date your return is lodged.","state":"next"}
+  ]'
+/>
+
+## A Simple 3-Step Workflow That Eliminates EOFY Stress
+
+### 1. Capture Receipts as Drafts Immediately
+When you buy a work-related item or receive an email invoice, upload it through the [Receipt Scanner](/features/receipt-scanner/). PFinance extracts the merchant, date, and amount as a draft for you to confirm.
+
+### 2. Reconcile Monthly Statements for Missed Claims
+Once a month, upload your PDF or CSV statement via [Bank Statement Import](/features/bank-statement-import/). PFinance automatically flags duplicate entries against receipts you already scanned and highlights recurring professional subscriptions or union fees you might have overlooked.
+
+### 3. Run the Tax Review Wizard Before 30 June
+Instead of waiting until October, open the [Tax Deduction Tracker](/features/tax-deductions/) in June to:
+- Compare your D1–D15 totals against last financial year to spot missing recurring claims
+- Verify that every claim over $300 has an attached receipt image
+- Export a clean CSV/JSON schedule plus a categorized ZIP archive of all receipts for your tax agent or myTax preparation
+
+Want to see how your deductions affect your estimated refund or take-home pay? Test your numbers right now in our [Australian Salary Calculator](/tools/australian-salary-calculator/).

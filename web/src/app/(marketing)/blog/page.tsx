@@ -1,8 +1,11 @@
 import { Metadata } from 'next';
-import { getAllPosts, getFeaturedPosts } from '@/lib/blog';
+import Link from 'next/link';
+import { getAllPosts, getFeaturedPosts, getAllCategories } from '@/lib/blog';
 import BlogHeader from '@/components/blog/BlogHeader';
 import BlogCard from '@/components/blog/BlogCard';
-import { createSeoMetadata } from '@/lib/seo';
+import { Badge } from '@/components/ui/badge';
+import { BlogJsonLd, BreadcrumbJsonLd } from '@/components/seo/JsonLd';
+import { createSeoMetadata, getSiteUrl } from '@/lib/seo';
 
 export const metadata: Metadata = createSeoMetadata({
   title: 'Blog - Personal Finance Tips & Guides',
@@ -13,13 +16,23 @@ export const metadata: Metadata = createSeoMetadata({
 
 export default function BlogPage() {
   const allPosts = getAllPosts();
-  const featuredPosts = getFeaturedPosts();
-  const regularPosts = allPosts.filter((post) => !post.featured);
+  const featuredPosts = getFeaturedPosts().slice(0, 2);
+  const featuredSlugs = new Set(featuredPosts.map((post) => post.slug));
+  const regularPosts = allPosts.filter((post) => !featuredSlugs.has(post.slug));
+  const categories = getAllCategories();
+  const siteUrl = getSiteUrl().replace(/\/$/, '');
 
   // If no posts yet, show a coming soon message
   if (allPosts.length === 0) {
     return (
       <>
+        <BlogJsonLd url={`${siteUrl}/blog/`} />
+        <BreadcrumbJsonLd
+          items={[
+            { name: 'Home', url: `${siteUrl}/` },
+            { name: 'Blog', url: `${siteUrl}/blog/` },
+          ]}
+        />
         <BlogHeader />
         <section className="py-16">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -38,16 +51,76 @@ export default function BlogPage() {
 
   return (
     <>
-      <BlogHeader />
+      <BlogJsonLd url={`${siteUrl}/blog/`} />
+      <BreadcrumbJsonLd
+        items={[
+          { name: 'Home', url: `${siteUrl}/` },
+          { name: 'Blog', url: `${siteUrl}/blog/` },
+        ]}
+      />
+      <BlogHeader
+        title="Australian Personal & Household Finance Guides"
+        description="Practical guides on ATO tax deductions, working from home substantiation, shared household budgeting, salary sacrifice, and expense tracking."
+      />
 
       <section className="py-16">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Topics & Interactive Tools Strip */}
+          <div className="mb-12 flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-muted/20 p-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mr-1">
+                Topics:
+              </span>
+              {categories.map((category) => (
+                <Badge key={category} variant="secondary" className="text-xs">
+                  {category}
+                </Badge>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <Link
+                href="/tools/australian-salary-calculator/"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Salary Calculator
+              </Link>
+              <span aria-hidden="true" className="text-muted-foreground">·</span>
+              <Link
+                href="/tools/budget-calculator/"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Budget Calculator
+              </Link>
+              <span aria-hidden="true" className="text-muted-foreground">·</span>
+              <Link
+                href="/tools/super-calculator/"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Super Calculator
+              </Link>
+              <span aria-hidden="true" className="text-muted-foreground">·</span>
+              <Link
+                href="/tools/wfh-deduction-calculator/"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                WFH Deduction Calculator
+              </Link>
+              <span aria-hidden="true" className="text-muted-foreground">·</span>
+              <Link
+                href="/features/tax-deductions/"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Tax Deduction Tracker
+              </Link>
+            </div>
+          </div>
+
           {/* Featured Posts */}
           {featuredPosts.length > 0 && (
             <div className="mb-16">
-              <h2 className="text-2xl font-bold mb-6">Featured</h2>
+              <h2 className="text-2xl font-bold mb-6">Featured Guides</h2>
               <div className="grid md:grid-cols-2 gap-6">
-                {featuredPosts.slice(0, 2).map((post) => (
+                {featuredPosts.map((post) => (
                   <BlogCard key={post.slug} post={post} featured />
                 ))}
               </div>
@@ -56,7 +129,7 @@ export default function BlogPage() {
 
           {/* All Posts */}
           <div>
-            <h2 className="text-2xl font-bold mb-6">All Articles</h2>
+            <h2 className="text-2xl font-bold mb-6">All Articles ({allPosts.length})</h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {(featuredPosts.length > 0 ? regularPosts : allPosts).map((post) => (
                 <BlogCard key={post.slug} post={post} />

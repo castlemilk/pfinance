@@ -175,7 +175,7 @@ export function SoftwareApplicationJsonLd({
   description = 'Track expenses, manage budgets, and collaborate with your household.',
   applicationCategory = 'FinanceApplication',
   operatingSystem = 'Web',
-  offers = { price: 0, priceCurrency: 'USD' },
+  offers = { price: 0, priceCurrency: 'AUD' },
   aggregateRating,
 }: SoftwareApplicationJsonLdProps) {
   const jsonLd = {
@@ -197,6 +197,115 @@ export function SoftwareApplicationJsonLd({
         ratingCount: aggregateRating.ratingCount,
       },
     } : {}),
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
+  );
+}
+
+interface FAQPageJsonLdProps {
+  items: Array<{
+    question: string;
+    answer: string;
+  }>;
+}
+
+export function FAQPageJsonLd({ items }: FAQPageJsonLdProps) {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: items.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer,
+      },
+    })),
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
+  );
+}
+
+interface HowToJsonLdProps {
+  name?: string;
+  description?: string;
+  steps?: Array<{
+    name: string;
+    text: string;
+  }>;
+}
+
+export function HowToJsonLd({
+  name = 'How to track household expenses and ATO tax deductions in PFinance',
+  description = 'Capture spending from receipts or bank statements, confirm every draft transaction, and export tax-ready deduction evidence at 30 June.',
+  steps = [
+    {
+      name: 'Capture receipts, statements, or plain-English entries',
+      text: 'Upload a receipt photo, import a PDF or CSV bank statement, or type a purchase in plain English.',
+    },
+    {
+      name: 'Review and confirm draft transactions',
+      text: 'Inspect extracted merchant names, amounts, GST, shared household splits, and ATO deduction categories before saving to your ledger.',
+    },
+    {
+      name: 'Track budgets and export tax evidence at year end',
+      text: 'Monitor personal and shared household budgets throughout the year and export deduction schedules with attached receipt evidence for your tax return.',
+    },
+  ],
+}: HowToJsonLdProps) {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'HowTo',
+    name,
+    description,
+    step: steps.map((step, index) => ({
+      '@type': 'HowToStep',
+      position: index + 1,
+      name: step.name,
+      text: step.text,
+    })),
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
+  );
+}
+
+interface BlogJsonLdProps {
+  name?: string;
+  description?: string;
+  url?: string;
+}
+
+export function BlogJsonLd({
+  name = 'PFinance Guides & Personal Finance Blog',
+  description = 'Practical Australian personal and household finance guides covering budgeting, receipt retention, shared expenses, and tax-ready record keeping.',
+  url = 'https://pfinance.dev/blog/',
+}: BlogJsonLdProps) {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Blog',
+    name,
+    description,
+    url,
+    publisher: {
+      '@type': 'Organization',
+      name: 'PFinance',
+      url: 'https://pfinance.dev',
+    },
   };
 
   return (

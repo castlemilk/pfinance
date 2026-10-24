@@ -69,7 +69,7 @@ export default function BlogCard({ post, featured = false }: BlogCardProps) {
             featured ? 'text-2xl' : 'text-lg'
           )}
         >
-          <Link href={`/blog/${post.slug}`} className="after:absolute after:inset-0">
+          <Link href={`/blog/${post.slug}/`} className="after:absolute after:inset-0">
             {post.title}
           </Link>
         </h3>

@@ -1,0 +1,76 @@
+---
+title: "Cash Flow Forecasting and Sinking Funds: How to Stop Quarterly Bill Shock"
+description: "Why backward-looking monthly budgets fail when Australian quarterly strata, council rates, electricity, and annual car rego arrive together—and how to forecast 90 days ahead."
+date: "2026-10-22"
+author:
+  name: "PFinance Team"
+category: "Budgeting"
+tags: ["cash flow forecast", "sinking funds", "upcoming bills", "household budget", "australian bills"]
+featured: false
+image: ""
+---
+
+Almost every household has experienced the same frustrating paradox: your monthly budget says you should have $1,500 left over, yet by the third week of the quarter your transaction account feels tight.
+
+The culprit is rarely daily coffee or supermarket groceries. It is **billing cadence mismatch**: salaries typically arrive fortnightly or monthly, groceries happen weekly, and Australia's largest fixed household commitments—strata levies, council rates, water rates, energy bills, car registration, and insurance renewals—arrive in lumpy quarterly or annual spikes.
+
+Here is how to move from backward-looking expense tracking to **forward-looking cash-flow forecasting and sinking funds**.
+
+## Why Backward-Looking Monthly Budgets Miss Lumpy Bills
+
+A standard monthly budget only looks at what cleared your card between the 1st and the 30th of a single month:
+
+- In **Month 1** and **Month 2**, no quarterly bills fall due, creating an artificial "surplus" that looks like discretionary spending money.
+- In **Month 3**, a $1,350 strata levy, a $780 council & water notice, a $660 winter electricity bill, and a $1,450 annual car rego + CTP renewal land within fourteen days of each other—wiping out $4,240 in a single fortnight.
+
+<GraphWaterfall
+  title="How a 'normal' $6,200/month net household income gets ambushed in Quarter-End Month 3"
+  corner="Quarterly bill shock (AUD)"
+  items='[
+    {"label":"Monthly after-tax household pay","value":6200,"display":"$6,200","kind":"start"},
+    {"label":"Rent / mortgage & weekly groceries","value":-3800,"display":"-$3,800","kind":"out"},
+    {"label":"Normal monthly dining, transport & lifestyle","value":-1100,"display":"-$1,100","kind":"out"},
+    {"label":"Quarterly strata + council rates + winter electricity spike","value":-2130,"display":"-$2,130","kind":"out"},
+    {"label":"Month 3 net cash flow without a sinking fund","value":-830,"display":"-$830 deficit","kind":"end"}
+  ]'
+/>
+
+<Callout type="warning" title="The fake surplus trap" corner="Cash flow">
+If you don't set aside the monthly equivalent of quarterly and annual bills in Months 1 and 2, part of what looks like "free spending money" is actually an unpaid liability that has already accrued.
+</Callout>
+
+## Step 1: Convert Every Irregular Bill Into a True Payday Sinking Fund
+
+Instead of treating quarterly or annual bills as surprises, list every non-monthly bill your household pays across a 12-month cycle and divide the total by **12** (if paid monthly) or **26** (if paid fortnightly):
+
+<GraphStat
+  title="Sample Australian household annual irregular bill load ($15,000/yr)"
+  corner="Normalized by pay cycle"
+  items='[
+    {"value":"$15,000/yr","label":"total irregular bills","hint":"Strata, rates, energy, rego, insurance & holidays","accent":true},
+    {"value":"$1,250/mo","label":"monthly sinking transfer","hint":"Transferred on payday into offset/sinking bucket"},
+    {"value":"$577/fn","label":"fortnightly equivalent","hint":"Across 26 fortnightly pay cycles per year"}
+  ]'
+/>
+
+You can test how this sinking-fund allowance fits inside your 50/30/20 or 60/20/20 Needs bucket right now in our [Interactive Budget Calculator](/tools/budget-calculator/).
+
+## Step 2: Use a Rolling 30-to-90 Day Cash-Flow Forecast
+
+Once your recurring bills and income streams are entered (or automatically detected via [Bank Statement Import](/features/bank-statement-import/)), PFinance projects your upcoming commitments onto a forward calendar:
+
+<GraphTimeline
+  title="Rolling 90-day forward cash-flow view"
+  corner="Proactive planning"
+  events='[
+    {"date":"Next 7 days","label":"Check upcoming bill reminders so your everyday transaction account holds enough cash before direct debits run.","state":"done"},
+    {"date":"Next 30 days","label":"Compare predicted recurring expenses + baseline variable spending against your next two fortnightly paydays.","state":"now"},
+    {"date":"Next 60–90 days","label":"Spot quarterly strata, council rates, or insurance renewals early so you can benchmark rates before auto-renewal.","state":"next"}
+  ]'
+/>
+
+## Where to Hold Your Sinking Fund Cash
+
+If you have a variable-rate Australian home loan with a **100% mortgage offset account**, holding your sinking-fund balance inside your offset account (while tracking the virtual balance of your upcoming bills and goals inside [PFinance Household Budgeting](/features/household-budgeting/)) gives you the best of both worlds:
+- The cash sits ready to pay quarterly bills the day they fall due.
+- Every day the cash waits in the offset account, it reduces the principal on which your bank calculates daily mortgage interest—earning a tax-free effective return equal to your home loan rate.

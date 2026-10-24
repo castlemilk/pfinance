@@ -187,6 +187,105 @@ export function createMockClient(): Record<string, jest.Mock> {
     detectAnomalies: jest.fn().mockResolvedValue({
       anomalies: [mockAnomaly],
     }),
+    getUpcomingBills: jest.fn().mockResolvedValue({
+      upcomingBills: [
+        {
+          id: 'rec-1',
+          description: 'Electricity Bill',
+          amount: 180,
+          amountCents: BigInt(18000),
+          category: 6, // UTILITIES
+          frequency: 5, // MONTHLY
+          nextOccurrence: { seconds: JAN_1_2025_SECONDS, nanos: 0 },
+          isExpense: true,
+          status: 1,
+        },
+      ],
+    }),
+    listRecurringTransactions: jest.fn().mockResolvedValue({
+      recurringTransactions: [
+        {
+          id: 'rec-1',
+          description: 'Electricity Bill',
+          amount: 180,
+          amountCents: BigInt(18000),
+          category: 6,
+          frequency: 5,
+          nextOccurrence: { seconds: JAN_1_2025_SECONDS, nanos: 0 },
+          isExpense: true,
+          status: 1,
+        },
+      ],
+    }),
+    detectSubscriptions: jest.fn().mockResolvedValue({
+      subscriptions: [
+        {
+          merchantName: 'Netflix',
+          normalizedName: 'netflix',
+          category: 'EXPENSE_CATEGORY_ENTERTAINMENT',
+          averageAmount: 22.99,
+          averageAmountCents: BigInt(2299),
+          detectedFrequency: 5,
+          confidenceScore: 0.95,
+          occurrenceCount: 6,
+          isAlreadyTracked: false,
+        },
+      ],
+      totalMonthlyCost: 22.99,
+      totalMonthlyCostCents: BigInt(2299),
+      forgottenCount: 1,
+    }),
+    listGroups: jest.fn().mockResolvedValue({
+      groups: [
+        {
+          id: 'grp-1',
+          name: 'Household',
+          description: 'Shared home expenses',
+          members: [
+            { userId: 'user-123', displayName: 'Ben', email: 'ben@example.com' },
+            { userId: 'user-456', displayName: 'Partner', email: 'partner@example.com' },
+          ],
+        },
+      ],
+    }),
+    getGroupSummary: jest.fn().mockResolvedValue({
+      totalExpenses: 1200,
+      totalExpensesCents: BigInt(120000),
+      unsettledExpenseCount: 2,
+      unsettledAmount: 300,
+      unsettledAmountCents: BigInt(30000),
+      memberBalances: [
+        {
+          userId: 'user-123',
+          totalPaid: 900,
+          totalPaidCents: BigInt(90000),
+          totalOwed: 600,
+          totalOwedCents: BigInt(60000),
+          balance: 300,
+          balanceCents: BigInt(30000),
+        },
+      ],
+    }),
+    getCategoryOverrides: jest.fn().mockResolvedValue({
+      overrides: [
+        {
+          merchantNormalized: 'sydney water',
+          userCategory: 6, // UTILITIES
+          correctionCount: 3,
+        },
+      ],
+    }),
+    setCategoryOverride: jest.fn().mockResolvedValue({
+      override: {
+        merchantNormalized: 'sydney water',
+        userCategory: 6,
+      },
+    }),
+    getCashFlowForecast: jest.fn().mockResolvedValue({
+      incomeForecast: [{ date: '2025-01-15', predicted: 5000, predictedCents: BigInt(500000), isRecurring: true }],
+      expenseForecast: [{ date: '2025-01-20', predicted: 2200, predictedCents: BigInt(220000), isRecurring: true }],
+      netForecast: [],
+    }),
   } as any;
 }
 

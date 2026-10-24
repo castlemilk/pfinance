@@ -35,6 +35,11 @@ export const metadata: Metadata = {
     template: "%s | PFinance",
   },
   description: "Track expenses, manage budgets, and collaborate with your household. Beautiful visualizations, AI-powered insights, and multi-user support.",
+  alternates: {
+    types: {
+      'application/rss+xml': '/feed.xml',
+    },
+  },
   keywords: [
     "personal finance",
     "expense tracker",

@@ -1,6 +1,6 @@
 import { MetadataRoute } from 'next';
 import { getAllPosts } from '@/lib/blog';
-import { discoveryPages } from '@/lib/marketing-pages';
+import { discoveryPages, hubPages } from '@/lib/marketing-pages';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://pfinance.dev').replace(/\/$/, '');
@@ -29,6 +29,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ];
 
+  const hubSitemapPages: MetadataRoute.Sitemap = hubPages.map((hub) => ({
+    url: `${baseUrl}${hub.path}`,
+    changeFrequency: hub.changeFrequency,
+    priority: hub.priority,
+  }));
+
   const discoverySitemapPages: MetadataRoute.Sitemap = discoveryPages.map((page) => ({
     url: `${baseUrl}${page.path}`,
     changeFrequency: page.changeFrequency,
@@ -46,7 +52,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   // Static pages have no maintained content date; omitting lastmod is more
   // accurate than claiming every deployment changed their content.
-  return [...staticPages, ...discoverySitemapPages, ...blogPages].map((entry) => ({
+  return [...staticPages, ...hubSitemapPages, ...discoverySitemapPages, ...blogPages].map((entry) => ({
     ...entry,
     url: entry.url.endsWith('/') ? entry.url : `${entry.url}/`,
   }));

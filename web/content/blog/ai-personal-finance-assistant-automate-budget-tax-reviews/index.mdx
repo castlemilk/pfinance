@@ -1,0 +1,96 @@
+---
+title: "How an AI Personal Finance Assistant Automates Budget, Bill, and Tax Reviews"
+description: "See how PFinance Assistant uses draft-first tool calling to audit recurring subscriptions, forecast 30-to-90 day cash flow, settle household group balances, and find tax deductions."
+date: "2026-10-23"
+author:
+  name: "PFinance Team"
+category: "Expense Tracking"
+tags: ["ai assistant", "personal finance agent", "subscription audit", "cash flow forecast", "tax deductions"]
+featured: false
+image: ""
+---
+
+Most "AI" features in consumer finance apps are little more than a chatbot wrapper that repeats your account balance back to you—or worse, an opaque black box that miscategorizes transactions without asking.
+
+When we designed **PFinance Assistant**, we built it around two strict engineering principles:
+
+1. **Proactive multi-tool investigation**: When you ask a question like *"How are my finances looking this month?"*, the assistant doesn't ask if you want it to check—it autonomously queries your spending summary, active budget progress, income streams, savings goals, and upcoming bills in parallel to synthesize a complete answer.
+2. **Draft-first human confirmation for every change**: Any action that creates, updates, deletes, or reclassifies a financial record runs in preview mode (`confirmed=false`) first, showing you an interactive confirmation card with duplicate warnings before a single cent is written to your ledger.
+
+<GraphFlow
+  title="PFinance Assistant draft-first execution model"
+  corner="Human-in-the-loop safety"
+  rows='[
+    {"nodes":[
+      {"label":"1. Natural-language question or command"},
+      {"label":"2. Parallel read-only tool calls (up to 10/turn)","tone":"accent"},
+      {"label":"3. Preview card with duplicate & diff check"},
+      {"label":"4. User confirms → atomic ledger update","tone":"accent"}
+    ]}
+  ]'
+/>
+
+<Callout type="tip" title="Zero UUID noise, rich interactive cards" corner="Assistant UX">
+When PFinance Assistant calls tools to inspect your expenses, budgets, or upcoming bills, the UI renders structured visual cards automatically while the assistant focuses on the anomaly, trend, or action you need to take.
+</Callout>
+
+## Six High-Leverage Workflows You Can Run by Asking a Question
+
+Because the assistant is wired directly into PFinance's Connect-RPC financial engine, you can replace twenty minutes of clicking through tabs with a single prompt:
+
+<GraphCompare
+  title="What PFinance Assistant can inspect and manage for you"
+  corner="Tool capabilities"
+  accent="Draft Confirmation Guard"
+  columns='["Assistant Capability","Underlying Data Checked","Draft Confirmation Guard"]'
+  rows='[
+    {"label":"Upcoming bill radar (get_upcoming_bills)","values":["Next 30–90 days of recurring bills & paydays","Read-only"]},
+    {"label":"Subscription & trial audit (detect_subscriptions)","values":["6-month merchant cadence, average cost & forgotten trials","Read-only"]},
+    {"label":"Household group balances (get_household_groups)","values":["Shared group totals, unsettled bills & who-owes-whom","Read-only"]},
+    {"label":"Persistent merchant rules (set_merchant_category_rule)","values":["Normalized merchant → category override mapping",true]},
+    {"label":"Cash-flow forecasting (get_cash_flow_forecast)","values":["30–90 day predicted income, expenses & net surplus","Read-only (Pro)"]},
+    {"label":"ATO tax deduction sweep (find_potential_deductions)","values":["Occupation-aware D1–D15 classification & savings estimate",true]}
+  ]'
+/>
+
+### 1. Audit Forgotten Subscriptions and Upcoming Bills
+
+Ask: *"What bills do I have coming up in the next 30 days, and are there any recurring subscriptions I should review?"*
+
+The assistant calls `get_upcoming_bills` and `detect_subscriptions` together—listing every scheduled bill due before next month alongside recurring card charges detected over the last six months (even if you haven't formally added them as recurring transactions yet).
+
+### 2. Check Shared Household Group Balances
+
+Ask: *"How much do I owe in our Household group this month?"*
+
+Instead of opening a spreadsheet, the assistant calls `get_household_groups` to pull total shared spending, unsettled expense counts, and each member's total paid, total owed, and net balance from your [Household Budgeting](/features/household-budgeting/) workspace.
+
+### 3. Teach PFinance Permanent Merchant Rules
+
+Ask: *"Always categorize 'Sydney Water' as Utilities."*
+
+When you import PDF or CSV statements via [Bank Statement Import](/features/bank-statement-import/), merchant normalization cleans up raw bank strings. Telling the assistant to save a merchant category rule previews the mapping (`"sydney water" → UTILITIES`) and, once confirmed, applies it automatically to every future statement upload.
+
+### 4. Stress-Test Upcoming Purchases With Cash-Flow Forecasting
+
+Ask: *"Based on my cash-flow forecast for the next 60 days, can I afford a $2,400 flight without missing my emergency fund goal?"*
+
+For Pro users, the assistant combines `get_cash_flow_forecast`, `get_budget_progress`, and `list_goals` to compare your projected net surplus over the next 60 days against your active savings targets.
+
+### 5. Run a Pre-EOFY Tax Deduction Sweep
+
+Ask: *"I work as a software engineer—scan my expenses this financial year for potential tax deductions."*
+
+The assistant calls `find_potential_deductions` and `get_tax_summary`, surfacing unclassified expenses that match Australian Taxation Office categories (`D1` through `D15`) and letting you batch-confirm work-related claims in the [Tax Deduction Tracker](/features/tax-deductions/).
+
+<Steps
+  title="Try a 3-prompt monthly money checkup in PFinance Assistant"
+  corner="5-minute routine"
+  items='[
+    {"title":"Prompt 1: How are my finances this month?","description":"Triggers a parallel check across spending insights, category budgets, income, goals, and upcoming bills.","state":"done"},
+    {"title":"Prompt 2: Audit my subscriptions and upcoming bills","description":"Surfaces every recurring charge over the last 6 months plus bills due in the next 30 days.","state":"now"},
+    {"title":"Prompt 3: What work expenses can I claim for tax so far this FY?","description":"Summarizes your current D1–D15 deduction total and flags unclassified candidates needing a receipt or work-use percentage.","state":"next"}
+  ]'
+/>
+
+Want to benchmark your take-home pay or WFH claims before opening the assistant? Try our free [Australian Salary Calculator](/tools/australian-salary-calculator/), [WFH Deduction Calculator](/tools/wfh-deduction-calculator/), and [Budget Calculator](/tools/budget-calculator/).

@@ -1,23 +1,32 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { discoveryPages } from '@/lib/marketing-pages';
 
-const footerLinks = {
+const featureLinks = discoveryPages
+  .filter((page) => page.category === 'features')
+  .map((page) => ({ label: page.navLabel, href: `${page.path}/` }));
+
+const toolAndCompareLinks = discoveryPages
+  .filter((page) => page.category === 'tools' || page.category === 'compare')
+  .map((page) => ({ label: page.navLabel, href: `${page.path}/` }));
+
+export const footerLinks = {
   product: [
-    { label: 'Receipt Scanner', href: '/features/receipt-scanner' },
-    { label: 'Statement Import', href: '/features/bank-statement-import' },
-    { label: 'Household Budgeting', href: '/features/household-budgeting' },
+    { label: 'All Features', href: '/features/' },
+    ...featureLinks,
     { label: 'Pricing', href: '/#pricing' },
   ],
   resources: [
-    { label: 'Blog', href: '/blog' },
-    { label: 'Australian Salary Calculator', href: '/tools/australian-salary-calculator' },
-    { label: 'Budget Calculator', href: '/tools/budget-calculator' },
-    { label: 'Super Calculator & Estimator', href: '/tools/super-calculator' },
-    { label: 'Spreadsheets vs Apps', href: '/compare/spreadsheets-vs-finance-app' },
+    { label: 'Free Calculators', href: '/tools/' },
+    ...toolAndCompareLinks.filter((link) => link.href.startsWith('/tools/')),
+    { label: 'Super Calculator & Estimator', href: '/tools/super-calculator/' },
+    { label: 'Comparisons', href: '/compare/' },
+    ...toolAndCompareLinks.filter((link) => link.href.startsWith('/compare/')),
+    { label: 'Blog', href: '/blog/' },
   ],
   legal: [
-    { label: 'Privacy Policy', href: '/privacy' },
-    { label: 'Terms of Service', href: '/terms' },
+    { label: 'Privacy Policy', href: '/privacy/' },
+    { label: 'Terms of Service', href: '/terms/' },
   ],
 };
 
@@ -63,7 +72,7 @@ export default function Footer() {
             <h3 className="text-sm font-semibold text-foreground mb-4 skeu-emboss">Product</h3>
             <ul className="space-y-3">
               {footerLinks.product.map((link) => (
-                <li key={link.label}>
+                <li key={link.href}>
                   <Link
                     href={link.href}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
@@ -80,7 +89,7 @@ export default function Footer() {
             <h3 className="text-sm font-semibold text-foreground mb-4 skeu-emboss">Resources</h3>
             <ul className="space-y-3">
               {footerLinks.resources.map((link) => (
-                <li key={link.label}>
+                <li key={link.href}>
                   <Link
                     href={link.href}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
@@ -97,7 +106,7 @@ export default function Footer() {
             <h3 className="text-sm font-semibold text-foreground mb-4 skeu-emboss">Legal</h3>
             <ul className="space-y-3">
               {footerLinks.legal.map((link) => (
-                <li key={link.label}>
+                <li key={link.href}>
                   <Link
                     href={link.href}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"

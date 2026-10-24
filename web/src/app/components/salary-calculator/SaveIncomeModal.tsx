@@ -4,7 +4,8 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useContext } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -26,7 +27,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Wallet, Check } from 'lucide-react';
-import { useFinance } from '@/app/context/FinanceContext';
+import { FinanceContext } from '@/app/context/FinanceContext';
 import { IncomeFrequency, TaxStatus, Deduction } from '@/app/types';
 import { SalaryBreakdown } from './types';
 
@@ -39,7 +40,7 @@ interface SaveIncomeModalProps {
 }
 
 export function SaveIncomeModal({ breakdown, formatCurrency }: SaveIncomeModalProps) {
-  const { addIncome } = useFinance();
+  const financeContext = useContext(FinanceContext);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -127,13 +128,14 @@ export function SaveIncomeModal({ breakdown, formatCurrency }: SaveIncomeModalPr
   };
 
   const handleSave = async () => {
+    if (!financeContext) return;
     setSaving(true);
     try {
       const amount = getAmount();
       const taxStatus: TaxStatus = amountType === 'gross' ? 'preTax' : 'postTax';
       const deductions = includeDeductions ? buildDeductions() : undefined;
       
-      await addIncome(
+      await financeContext.addIncome(
         sourceName,
         amount,
         frequency as IncomeFrequency,
@@ -163,6 +165,17 @@ export function SaveIncomeModal({ breakdown, formatCurrency }: SaveIncomeModalPr
     monthly: 'Month',
     annually: 'Year',
   };
+
+  if (!financeContext) {
+    return (
+      <Link href="/personal/income/">
+        <Button variant="default" size="sm" className="gap-2">
+          <Wallet className="h-4 w-4" />
+          Save as Income
+        </Button>
+      </Link>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

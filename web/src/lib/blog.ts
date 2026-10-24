@@ -135,6 +135,38 @@ export function getAllTags(): string[] {
   return Array.from(tags).sort();
 }
 
+export interface TocHeading {
+  id: string;
+  text: string;
+  level: 2 | 3;
+}
+
+// Matches github-slugger (used by rehype-slug): punctuation is stripped
+// entirely and each whitespace character becomes its own hyphen, so
+// "A & B" produces "a--b" rather than "a-b".
+export function slugifyHeading(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[`*_~]/g, '')
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s/g, '-');
+}
+
+export function extractTocHeadings(markdown: string): TocHeading[] {
+  const headings: TocHeading[] = [];
+  const regex = /^(#{2,3})\s+(.+)$/gm;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(markdown)) !== null) {
+    const level = match[1].length as 2 | 3;
+    const rawText = match[2].replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
+    const id = slugifyHeading(rawText);
+    if (id && rawText) {
+      headings.push({ id, text: rawText, level });
+    }
+  }
+  return headings;
+}
+
 export function formatDate(dateString: string): string {
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {

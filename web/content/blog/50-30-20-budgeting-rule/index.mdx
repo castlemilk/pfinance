@@ -28,39 +28,39 @@ This framework was popularized by Senator Elizabeth Warren in her book "All Your
 
 Needs are expenses that are essential for your basic living and working requirements. These include:
 
-- **Housing**: Rent or mortgage payments, property taxes, basic home insurance
-- **Utilities**: Electricity, water, gas, basic internet
-- **Transportation**: Car payment, insurance, gas, public transit passes
-- **Groceries**: Basic food essentials (not dining out)
-- **Health insurance**: Premiums and essential medical costs
+- **Housing**: Rent or mortgage payments, council rates, strata levies, basic home insurance
+- **Utilities**: Electricity, water, gas, basic NBN internet
+- **Transportation**: Car repayment, compulsory third-party (CTP) and rego, fuel, public transport (Opal/Myki/Go Card)
+- **Groceries**: Supermarket essentials (not dining out or Uber Eats)
+- **Health**: Essential medical costs, prescriptions, and private hospital cover
 - **Minimum debt payments**: Required monthly payments on loans and credit cards
 
 <Callout type="tip">
-If your needs exceed 50% of your income, look for ways to reduce fixed costs. Consider downsizing your living space, refinancing loans, or finding a more affordable car insurance policy.
+If your needs exceed 50% of your take-home pay—which is common in Sydney, Melbourne, and Brisbane housing markets—use the 60/20/20 preset in our [Interactive Budget Calculator](/tools/budget-calculator/) and look for fixed-cost wins across utilities and insurance.
 </Callout>
 
 ### 30% — Wants
 
 Wants are non-essential expenses that enhance your quality of life but aren't strictly necessary:
 
-- **Dining out and entertainment**: Restaurants, movies, concerts
-- **Subscriptions**: Streaming services, gym memberships, magazines
+- **Dining out and entertainment**: Restaurants, pubs, movies, concerts
+- **Subscriptions**: Streaming services, gym memberships, apps
 - **Shopping**: Clothing beyond basics, gadgets, home decor
 - **Hobbies**: Sports equipment, craft supplies, gaming
-- **Travel**: Vacations and weekend getaways
-- **Upgraded services**: Premium internet, phone plans with more data
+- **Travel**: Holidays and weekend getaways
+- **Upgraded services**: High-tier NBN or mobile plans with extra data
 
-The key is being honest with yourself. A basic phone plan is a need; the latest smartphone with unlimited data is a want.
+The key is being honest with yourself. A basic mobile plan is a need; the latest flagship smartphone on a high-cost plan is a want.
 
 ### 20% — Savings and Debt Repayment
 
-This category focuses on building financial security:
+This category focuses on building financial security beyond your compulsory employer Superannuation Guarantee:
 
-- **Emergency fund**: Aim for 3-6 months of expenses
-- **Retirement savings**: 401(k), IRA contributions
-- **Extra debt payments**: Paying more than the minimum
-- **Investments**: Brokerage accounts, index funds
-- **Short-term savings goals**: Down payment, car fund, vacation fund
+- **Emergency fund**: Aim for 3-6 months of essential expenses in a high-interest savings or mortgage offset account
+- **Voluntary superannuation**: Concessional (salary sacrifice) contributions or First Home Super Saver (FHSS) contributions, which you can project with our [Super Calculator](/tools/super-calculator/)
+- **Extra debt payments**: Paying more than the minimum on credit cards, car loans, or your mortgage
+- **Investments**: Broad-market ASX and international index ETFs
+- **Short-term savings goals**: Home deposit, car replacement fund, or holiday sinking fund
 
 <Callout type="warning">
 Minimum debt payments go under "Needs." Extra payments beyond the minimum count toward this 20% category.
@@ -70,20 +70,44 @@ Minimum debt payments go under "Needs." Extra payments beyond the minimum count 
 
 ### Step 1: Calculate Your After-Tax Income
 
-Start with your take-home pay—the amount deposited into your bank account after taxes, health insurance, and other automatic deductions.
+Start with your take-home pay—the amount deposited into your bank account after income tax, the Medicare levy, and any compulsory HELP/HECS repayments. You can model your exact weekly, fortnightly, or monthly net pay using our [Australian Salary Calculator](/tools/australian-salary-calculator/).
 
-**Example**: If your gross salary is $60,000/year, your after-tax income might be around $4,000/month.
+**Example**: If your gross salary is $90,000/year (plus super), your after-tax take-home income is roughly $5,600/month.
 
 ### Step 2: Apply the Percentages
 
-Using the $4,000 example:
+Using a $4,000/month take-home example (or enter your own pay in the [Budget Calculator](/tools/budget-calculator/)):
 - **Needs (50%)**: $2,000
 - **Wants (30%)**: $1,200
 - **Savings (20%)**: $800
 
+<GraphRank
+  title="50/30/20 allocation on $5,600/month Australian take-home pay ($90k gross)"
+  corner="Monthly target (AUD)"
+  max="3000"
+  items='[
+    {"label":"50% Needs (Rent/mortgage, rates, groceries, utilities, transport)","value":2800,"display":"$2,800/mo","accent":true},
+    {"label":"30% Wants (Dining out, streaming, hobbies, shopping, travel)","value":1680,"display":"$1,680/mo"},
+    {"label":"20% Savings & Extra Debt (Offset account, emergency buffer, voluntary super)","value":1120,"display":"$1,120/mo"}
+  ]'
+/>
+
+<GraphCompare
+  title="Adapting the 50/30/20 diagnostic to Australian household realities"
+  corner="Preset comparison"
+  accent="60 / 20 / 20 Capital City"
+  columns='["50 / 30 / 20 Standard","60 / 20 / 20 Capital City","70 / 10 / 20 Debt Sprint"]'
+  rows='[
+    {"label":"Essential Needs share","values":["50%","60%","70%"]},
+    {"label":"Discretionary Wants share","values":["30%","20%","10%"]},
+    {"label":"Savings & Extra Debt share","values":["20%","20%","20%"]},
+    {"label":"Best suited for","values":["Moderate housing costs","Sydney/Melbourne rent or mortgage","High-cost living + debt payoff"]}
+  ]'
+/>
+
 ### Step 3: Track Your Spending
 
-Use PFinance to categorize your expenses and see how your actual spending compares to the 50/30/20 targets. Our automatic categorization makes this effortless.
+Use PFinance to [import your bank statements](/features/bank-statement-import/), [scan paper receipts](/features/receipt-scanner/), or share a [household budget](/features/household-budgeting/) with your partner to see how your actual spending compares to your targets.
 
 ### Step 4: Make Adjustments
 

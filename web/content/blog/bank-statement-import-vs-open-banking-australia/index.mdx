@@ -1,0 +1,86 @@
+---
+title: "Importing Bank Statements vs Open Banking (CDR) in Australia"
+description: "Why raw bank statements pollute spreadsheets, how staged PDF and CSV imports catch duplicates, and how Australia's Consumer Data Right (CDR) Open Banking works."
+date: "2026-10-06"
+author:
+  name: "PFinance Team"
+category: "Expense Tracking"
+tags: ["bank statement import", "open banking", "cdr", "expense tracker", "duplicate detection"]
+featured: false
+image: ""
+---
+
+Every personal finance system faces the same foundational question: **how do transactions get from your bank into your ledger without hours of manual typing—or a mess of miscategorized junk?**
+
+In Australia, there are three ways people bring banking data into a budget: manual entry (or receipt capture), uploading PDF/CSV bank statements, and Consumer Data Right (CDR) Open Banking feeds. Each has distinct trade-offs in privacy, accuracy, and control.
+
+## Why Raw Bank Statements Break Naive Trackers
+
+If you have ever downloaded a CSV from CommBank, Westpac, ANZ, NAB, Macquarie, or Up and pasted it straight into a spreadsheet, you have seen the four classic failure modes:
+
+1. **Cryptic merchant strings**: A simple cafe breakfast appears as `VISA PURCHASE 0412 SQ *THE GRAIN STORE SYDNEY AUS CARD 4412`. Without merchant normalization, your tracker creates twenty different merchant names for the same shop.
+2. **Internal transfers counted as spending**: Moving $1,500 from your everyday account to your high-interest savings or mortgage offset account looks like a $1,500 expense unless internal transfers are filtered out before import.
+3. **Overlapping date ranges and duplicates**: If you logged a $140 Bunnings receipt on Saturday and then import your monthly statement on the 1st, a naive import counts the $140 twice—especially because the receipt shows the purchase date while the statement often shows the settlement date two days later.
+4. **Zero line-item context**: A $210 pharmacy or department store charge gives you no idea whether it was a deductible work item, a medical expense, or a gift.
+
+<Callout type="tip">
+Never import bank transactions straight into your live ledger without a staging step. PFinance's [Bank Statement Import](/features/bank-statement-import/) stages every extracted row first so you can review categories, skip internal transfers, and resolve duplicates before committing.
+</Callout>
+
+## How Staged Statement Import and Duplicate Detection Work
+
+When you upload a PDF or CSV statement into PFinance, the extraction pipeline runs four steps before a single transaction touches your budgets:
+
+1. **Extraction & validation**: Statement rows are parsed (with dates, debit/credit signs, and exact cent amounts) and cross-checked against statement metadata.
+2. **Merchant normalization**: Payment processor prefixes (`SQ *`, `SP *`, `STRIPE*`, `PAYPAL *`), terminal IDs, and state suffixes are stripped to produce a clean merchant name and apply your saved category overrides.
+3. **Fuzzy duplicate matching**: Each staged row is compared against your existing expenses using amount-in-cents, a multi-day settlement window, and merchant similarity—flagging likely duplicates (such as a receipt you already scanned with the [Receipt Scanner](/features/receipt-scanner/)).
+4. **Human confirmation**: You review the staged table, bulk-assign categories or tax flags, and import the batch in one atomic operation.
+
+<GraphFlow
+  title="PFinance staged bank statement import & deduplication pipeline"
+  corner="Zero ledger pollution"
+  rows='[
+    {"nodes":[
+      {"label":"Upload PDF / CSV Statement"},
+      {"label":"Strip EFTPOS & Normalize Merchant","tone":"accent"},
+      {"label":"Match Against Scanned Receipts"},
+      {"label":"Human Review & Batch Commit","tone":"accent"}
+    ]}
+  ]'
+/>
+
+<GraphCompare
+  title="Comparing Australian transaction import approaches"
+  corner="Privacy, detail & control"
+  accent="PFinance Staged Import + Receipts"
+  columns='["Raw CSV in Spreadsheet","Screen Scraping (Legacy)","PFinance Staged Import + Receipts","CDR Open Banking API"]'
+  rows='[
+    {"label":"Requires sharing bank login password","values":["No","Yes (High Risk)","No","No"]},
+    {"label":"Strips EFTPOS noise & normalizes merchants","values":[false,true,true,true]},
+    {"label":"Stages transactions before altering budget","values":["Manual",false,true,"Varies"]},
+    {"label":"Detects duplicates across overlapping files","values":[false,false,true,true]},
+    {"label":"Includes line-item receipt proof for ATO (> $300)","values":[false,false,true,false]}
+  ]'
+/>
+
+## How Open Banking (Consumer Data Right) Works in Australia
+
+In the past, some finance apps asked users to hand over their actual internet banking username and password ("screen scraping"). Sharing banking credentials violates most bank terms of service and creates severe security exposure.
+
+Australia's **Consumer Data Right (CDR)**—often called **Open Banking**—was created by the Australian Government and regulated by the ACCC to replace screen scraping with a regulated, consent-driven API standard:
+
+- **No password sharing**: You authenticate directly with your bank using one-time passcodes and biometric/app approval, never giving your password to a third party.
+- **Granular, time-bounded consent**: You choose exactly which accounts and data clusters to share (such as account balances and transaction history) for up to 12 months, and you can revoke consent with one click at any time.
+- **Strict accreditation**: Only entities that have completed ACCC accreditation (or operate under a regulated CDR arrangement) and passed conformance testing on the CDR Register can receive live CDR data.
+
+<Callout type="note">
+Gamma Systems Pty Ltd (the company behind PFinance) is still completing its Consumer Data Right accreditation, Register onboarding, and conformance testing. PFinance is **not** currently an Accredited Data Recipient—which is why staged PDF and CSV [Bank Statement Imports](/features/bank-statement-import/) are our primary, zero-credential way to bring any Australian bank statement into your workspace today.
+</Callout>
+
+## Combining Statement Imports with Receipt Capture
+
+Even when live bank feeds are present, a bank transaction line still only carries the merchant name and total amount—never the itemized tax invoice required by the ATO for work-related deductions over $300.
+
+The cleanest workflow for Australian households combines both:
+- Use the [Receipt Scanner](/features/receipt-scanner/) at the time of purchase for any work-related deduction or warranty item, tagging the ATO category in the [Tax Deduction Tracker](/features/tax-deductions/).
+- Use [Bank Statement Import](/features/bank-statement-import/) at month-end to sweep in all remaining everyday groceries, utilities, and subscriptions—letting duplicate detection automatically link or skip the receipts you already captured.
