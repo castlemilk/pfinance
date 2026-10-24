@@ -9,17 +9,20 @@ managed:
       value: github.com/castlemilk/pfinance/backend/gen
 plugins:
   # Go - Protocol Buffers message types
-  - remote: buf.build/protocolbuffers/go:v1.36.12
+  # Local plugins, not BSR remote: remote generation gets rate-limited and CI
+  # already installs these binaries on PATH before running buf generate.
+  - local: protoc-gen-go
     out: ../backend/gen
     opt:
       - paths=source_relative
   # Go - Connect-RPC service stubs (replaces grpc/go for Connect protocol)
-  - remote: buf.build/connectrpc/go:v1.19.1
+  - local: protoc-gen-connect-go
     out: ../backend/gen
     opt:
       - paths=source_relative
   # TypeScript/JavaScript - Protobuf-ES v2 (generates messages AND service definitions)
-  - remote: buf.build/bufbuild/es:v2.12.0
+  # Binary comes from web/node_modules/.bin (@bufbuild/protoc-gen-es devDependency).
+  - local: protoc-gen-es
     out: ../web/src/gen
     opt:
       - target=ts
