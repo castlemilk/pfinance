@@ -1,0 +1,102 @@
+---
+title: "HECS-HELP Repayment Changes 2025–26: Marginal Rates, Indexation, and Your Take-Home Pay"
+description: "From 1 July 2025, HELP repayments moved to a marginal system charged only on income above $67,000. Worked examples, the repayment income add-backs that catch salary sacrificers, and when a voluntary repayment still makes sense."
+date: "2026-10-24"
+author:
+  name: "PFinance Team"
+category: "Income & Tax"
+tags: ["HECS-HELP", "HELP repayment 2025", "student loan indexation", "repayment income", "salary sacrifice HELP", "australia"]
+featured: false
+image: ""
+---
+
+If you hold a HELP debt, the 2025–26 financial year changed how your compulsory repayment is calculated. The old system charged a percentage of your *entire* repayment income once you crossed a threshold. The new system is marginal: you only repay on the slice of income **above** $67,000.
+
+Most holders now pay less per year, and anyone earning under $67,000 in repayment income pays nothing at all. Here is the new schedule, worked examples, and the two traps that still surprise people at tax time.
+
+## The 2025–26 Marginal Repayment Schedule
+
+| Repayment income | Compulsory repayment |
+| --- | --- |
+| $0 – $67,000 | Nil |
+| $67,001 – $125,000 | 15c for each $1 over $67,000 |
+| $125,001 – $179,285 | $8,700 + 17c for each $1 over $125,000 |
+| $179,286 and over | 10% of total repayment income |
+
+Under the old rules, a single rate applied to your total income — crossing a threshold by one dollar could add hundreds to the bill. Marginal slices remove that cliff.
+
+<GraphCompare
+  title="Old vs new: compulsory HELP repayment by income"
+  corner="2025-26 vs prior system"
+  columns='["Repayment income", "Old system (2024-25)", "New marginal system", "Difference"]'
+  rows='[
+    ["$54,000", "$0 (below $54,435)", "$0", "$0"],
+    ["$60,000", "$1,200 (2%)", "$0 (below $67,000)", "-$1,200"],
+    ["$80,000", "$2,800 (3.5%)", "$1,950 (15% of $13,000)", "-$850"],
+    ["$110,000", "$6,050 (5.5%)", "$6,450 (15% of $43,000)", "+$400"],
+    ["$140,000", "$9,800 (7%)", "$11,250 ($8,700 + 17% of $15,000)", "+$1,450"],
+    ["$190,000", "$17,100 (9%)", "$19,000 (10%)", "+$1,900"]
+  ]'
+/>
+
+The crossover sits near $108,000: below it most people pay less than before, and above it the new tiers cost more until the top rate reverts to a flat 10% for everyone.
+
+<Callout type="tip">
+The thresholds are indexed annually. For 2026–27 the minimum repayment income rises to **$69,528**, with the 17c tier starting at $129,718 and the 10% rate applying above $186,050.
+</Callout>
+
+## Repayment Income Is Not Taxable Income
+
+Your compulsory repayment is assessed on **repayment income**, which is your taxable income plus four add-backs:
+
+1. Reportable fringe benefits (regardless of employer exemption status)
+2. Total net investment losses (including negatively geared rental losses)
+3. **Reportable super contributions — including salary sacrifice**
+4. Exempt foreign employment income
+
+That third item is the trap. Salary sacrificing $10,000 into super cuts your income tax but does nothing for your HELP repayment — the ATO adds it straight back. The same applies to a novated car lease's fringe benefit value. If you package benefits, enter your repayment income (not the taxable figure on your payslip) into the [HECS-HELP Calculator](/tools/hecs-help-calculator/) or the estimate will understate the bill. Our [salary sacrifice and HELP guide](/blog/salary-sacrifice-super-hecs-medicare-australia/) walks through the add-back mechanics in detail.
+
+## Indexation: The 1 June Rule
+
+Each 1 June, your outstanding balance is indexed by the **lower of CPI or WPI** — a cap legislated after the 7.1% CPI indexation shock of 2023. Indexation applies to whatever balance exists on that date, *before* the year's repayments are credited.
+
+That ordering creates one timing lever: a voluntary repayment made **before 1 June** shrinks the base that indexation multiplies. On a $28,000 debt at 3.2% indexation, paying $5,000 on 30 May rather than 2 June avoids $160 of indexation. Small, but free.
+
+<GraphStat
+  title="Worked example: $28,000 debt on an $85,000 repayment income"
+  corner="2025-26 projection"
+  items='[
+    {"value":"$2,700","label":"compulsory repayment","hint":"15c per $1 over $67,000 on $18,000 of excess income","accent":true},
+    {"value":"$104","label":"per fortnight withheld","hint":"Roughly what payroll deducts each pay cycle"},
+    {"value":"$896","label":"1 June indexation at 3.2%","hint":"Applied to the balance before repayments credit"},
+    {"value":"$26,196","label":"projected year-end balance","hint":"$28,000 + $896 indexation − $2,700 compulsory"}
+  ]'
+/>
+
+## Should You Make Voluntary Repayments?
+
+Under the new rules the honest answer is: rarely, unless the debt bothers you.
+
+- **HELP is indexed, not interest-bearing.** A 3.2% indexation rate is cheaper than virtually every other debt a household carries — mortgages near 6%, car loans near 8%, cards near 20%.
+- **The debt dies with you.** It is cancelled on death and does not form part of your estate.
+- **Compulsory repayments are capped by design.** At an $85,000 repayment income you pay $2,700 whether your balance is $5,000 or $50,000; clearing the balance early just ends the withholding sooner.
+- **Opportunity cost is real.** The same $5,000 parked in a mortgage offset saves ~5.9% tax-free ([run the offset maths](/tools/mortgage-offset-calculator/)), and concessional super contributions save your full marginal rate. Both beat the ~3% effective saving from repaying HELP early.
+
+Voluntary repayments make sense in narrower cases: you are about to apply for a home loan and want the withholding gone from your serviceability assessment, the balance is small enough to clear outright before indexation, or the psychological weight is worth more to you than the arithmetic.
+
+<Steps
+  title="A five-minute HELP checkup before 1 June"
+  corner="Annual rhythm"
+  steps='[
+    {"label":"Check your balance on myGov","detail":"ATO online services shows the live figure including pending indexation.","state":"done"},
+    {"label":"Estimate your repayment income","detail":"Taxable income + reportable super + fringe benefits + net investment losses + exempt foreign income — not just the payslip figure.","state":"now"},
+    {"label":"Model the year-end position","detail":"Run the HECS-HELP calculator for compulsory repayment, indexation, and projected balance.","state":"now"},
+    {"label":"Decide voluntary repayments before 1 June","detail":"If you plan to clear or reduce the debt, payments before indexation day shrink the indexed base.","state":"next"}
+  ]'
+/>
+
+## Where the Withholding Shows Up
+
+Employers withhold HELP amounts inside your PAYG withholding throughout the year. Under the new marginal tables, most workers now see slightly more per pay than before. Any over- or under-withholding settles when you lodge: too little withheld means a tax bill, too much means a refund.
+
+Run your own numbers in the [HECS-HELP Repayment Calculator](/tools/hecs-help-calculator/) — repayment income, current balance, indexation rate, and any voluntary amount — then, if payoff is your plan, set it as a dated goal in [PFinance Goals](/personal/goals/) so the balance decline is tracked rather than hoped for.

@@ -1,0 +1,105 @@
+---
+title: "Mortgage Offset vs High-Interest Savings Account: The After-Tax Maths for Australians"
+description: "A 100% offset account earns a tax-free return equal to your home loan rate, while HISA interest is taxed at your marginal rate. Here is the after-tax comparison, when each option wins, and how to run the numbers yourself."
+date: "2026-10-24"
+author:
+  name: "PFinance Team"
+category: "Saving"
+tags: ["mortgage offset account", "offset vs savings account", "high interest savings account", "home loan offset", "emergency fund", "australia"]
+featured: false
+image: ""
+---
+
+If you hold a variable-rate Australian home loan and keep a cash buffer: an emergency fund, sinking funds for quarterly bills, or savings for a renovation — that money is quietly making a decision for you. Every dollar sitting in a savings account earns taxable interest. Every dollar sitting in a **100% mortgage offset account** earns nothing on paper but saves you mortgage interest that is never taxed, because it was never income.
+
+The comparison is not close in most cases. Here is the after-tax maths, the situations where a savings account genuinely wins, and how to model your own numbers.
+
+## The Core Insight: Saved Interest Is Untaxed
+
+Interest you *earn* is assessable income taxed at your marginal rate (plus the 2% Medicare levy). Interest you *save* is not income at all. It is an expense that never existed.
+
+<GraphCompare
+  title="$40,000 parked for a year: offset vs high-interest savings"
+  corner="After-tax value (AUD)"
+  columns='["Scenario", "Gross benefit", "Tax payable", "Effective return"]'
+  rows='[
+    ["4.5% HISA at 32% marginal rate + Medicare", "$1,800 interest", "-$612 tax", "3.06%"],
+    ["4.5% HISA at 47% top marginal rate", "$1,800 interest", "-$846 tax", "2.39%"],
+    ["Offset against a 5.9% home loan", "$2,360 interest saved", "$0", "5.90%"],
+    ["Offset against a 6.4% home loan", "$2,560 interest saved", "$0", "6.40%"]
+  ]'
+/>
+
+At a 32% marginal rate, your offset needs to beat the *after-tax* savings rate, which on a 4.5% HISA is only about 3.06%. Since variable home loan rates currently sit well above that, the offset wins on every dollar, every day the cash sits there.
+
+<GraphStat
+  title="Why the comparison favours offset at current rates"
+  corner="Effective returns on the same cash"
+  items='[
+    {"value":"5.90%","label":"offset effective return","hint":"Equals your loan rate — guaranteed and untaxed","accent":true},
+    {"value":"3.06%","label":"4.5% HISA after 32% tax","hint":"$1,800 gross interest − $612 tax on $40k"},
+    {"value":"$1,136","label":"year-1 offset advantage","hint":"Extra after-tax value per $40,000 parked"}
+  ]'
+/>
+
+## The Compounding Bonus Most Comparisons Miss
+
+The year-one comparison understates the offset benefit. Every dollar of interest not charged flows into principal reduction, which shrinks the interest base for the following month. A persistent offset balance shortens the loan itself.
+
+<GraphFlow
+  title="How offset cash compounds inside the loan"
+  corner="Month-by-month effect"
+  steps='[
+    {"label":"Offset balance reduces interest-bearing principal","detail":"Interest is calculated daily on (loan balance − offset balance).","state":"done"},
+    {"label":"Same repayment, more principal","detail":"Your fixed repayment stays the same, so more of it attacks principal each month.","state":"now"},
+    {"label":"Loan ends months or years early","detail":"The compounding gap widens over time — the saving is largest in the final years you skip entirely.","state":"next"}
+  ]'
+/>
+
+On a $650,000 loan at 5.9% with 25 years remaining, a persistent $40,000 offset saves roughly **$2,360 in avoided interest in year one alone**. Because the loan repays sooner, the lifetime saving runs into the tens of thousands of dollars. Our [Mortgage Offset Calculator](/tools/mortgage-offset-calculator/) simulates the full month-by-month amortization for your exact loan so you can see the actual payoff-date difference.
+
+## When a High-Interest Savings Account Actually Wins
+
+Offset is not universally better. A HISA (or term deposit) can be the right home for cash when:
+
+- **You have no home loan, or a fixed-rate loan.** Most fixed-rate Australian mortgages either lack an offset facility entirely or only allow a partial offset (for example, 40% of the balance). A partial offset cuts the effective benefit proportionally.
+- **Your offset product charges a premium.** Some loans add a higher rate or a monthly package fee for offset features. If the fee exceeds roughly $10–$15/month per $10,000 of average offset balance, a free HISA can beat it.
+- **The cash is not really spare.** If there is a real chance you will spend the buffer on a holiday, keeping it psychologically "out of sight" in a separate savings account can be worth the small rate sacrifice.
+- **You are on a low marginal rate.** Below the tax-free threshold and effective LITO zone, the tax cost of HISA interest shrinks toward zero, though your loan rate would still usually beat the gross HISA rate anyway.
+
+<Callout type="tip">
+Check whether your "offset" is genuine. Some products marketed as offset are actually **redraw facilities**: extra repayments you can pull back, subject to bank approval, minimum amounts, and processing delays. A genuine 100% offset is a separate transaction account with instant access. The distinction matters for an emergency fund.
+</Callout>
+
+## Offset vs Redraw vs Paying Down the Loan
+
+Putting the same $40,000 *inside* the loan as extra repayments saves the same interest as offsetting it, but the money stops being yours to access freely. Redraw usually requires a request, can carry minimums, and is not guaranteed.
+
+| Approach | Interest saved | Access to cash | Risk |
+| --- | --- | --- | --- |
+| **100% offset account** | Same as repaying | Instant (it is your transaction account) | None beyond normal deposit risk |
+| **Extra repayments + redraw** | Same as offset | Delayed, conditional | Bank can restrict or remove redraw |
+| **HISA / term deposit** | None — taxed interest instead | Instant / locked | Rate risk on rollover |
+
+For investors, there is a second-order consideration: parking personal cash in an offset against an **investment-property** loan preserves deductible interest if you later convert the property, whereas paying it down permanently reduces future deductible debt. That is a structural decision worth discussing with an accountant.
+
+## Where to Put the Buffer: A Practical Order
+
+<Steps
+  title="Where household cash should live, in order"
+  corner="Liquidity + after-tax return"
+  steps='[
+    {"label":"Everyday transaction account","detail":"One pay cycle of expenses — enough to cover direct debits without embarrassment.","state":"done"},
+    {"label":"100% offset account","detail":"Emergency fund + sinking funds for quarterly bills, while the mortgage exists. Tax-free return equal to the loan rate, fully accessible.","state":"now"},
+    {"label":"HISA / term deposits","detail":"Once the mortgage is gone — or for money genuinely earmarked and locked — chase the highest after-tax rate.","state":"next"},
+    {"label":"Super and investments","detail":"Longer horizons only; concessional super contributions beat both options on tax, but the money is locked until preservation age.","state":"next"}
+  ]'
+/>
+
+## Run Your Own Numbers
+
+The [Mortgage Offset Calculator](/tools/mortgage-offset-calculator/) takes your loan balance, rate, remaining term, and the cash you could park, then simulates the full amortization schedule both ways. You get the exact interest saved, the months or years cut from the loan, and the after-tax comparison against a savings account at your marginal rate.
+
+Once you have the answer, the natural next step is turning the buffer into a tracked goal: earmarking it as an emergency fund or a bill sinking-fund balance inside [PFinance Goals](/personal/goals/) so a "spare" $40,000 does not quietly dissolve into spending.
+
+If you are still deciding whether to prioritise the mortgage at all (versus attacking a HELP debt or investing), our [HECS-HELP repayment guide](/blog/hecs-help-repayment-changes-2025-26-marginal-rates-indexation/) and [emergency fund guide](/blog/emergency-fund-guide/) cover the trade-offs.
