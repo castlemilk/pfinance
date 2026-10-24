@@ -10,7 +10,10 @@ export type CalculatorTool =
   | 'mortgage-offset'
   | 'hecs-help'
   | 'debt-payoff'
-  | 'insurance-needs';
+  | 'insurance-needs'
+  | 'cgt'
+  | 'borrowing-power'
+  | 'risk-profile';
 
 export interface CalculatorSnapshot {
   tool: CalculatorTool;

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Space_Mono } from "next/font/google";
 import "./globals.css";
+import "@/components/gamma/gamma.css";
 import { ThemeProvider } from './context/ThemeContext';
 import { Toaster } from "../components/ui/toaster";
 import { FirebaseInitBanner } from './components/FirebaseInitBanner';

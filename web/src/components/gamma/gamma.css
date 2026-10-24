@@ -1,0 +1,150 @@
+/* Gamma component port — token bridge maps --gamma-* onto the PFinance
+   shadcn/Tailwind theme so the ported components render in brand. */
+
+:root {
+  --gamma-ink: var(--foreground);
+  --gamma-muted: var(--muted-foreground);
+  --gamma-bg: var(--background);
+  --gamma-surface: var(--card);
+  --gamma-surface-2: color-mix(in srgb, var(--muted) 55%, transparent);
+  --gamma-accent: var(--primary);
+  --gamma-accent-ink: var(--primary-foreground);
+  --gamma-accent-soft: color-mix(in srgb, var(--primary) 14%, transparent);
+  --gamma-border: var(--border);
+  --gamma-hairline: 1px;
+  --gamma-success: oklch(0.62 0.14 155);
+  --gamma-success-soft: oklch(0.62 0.14 155 / 0.15);
+  --gamma-warning: oklch(0.72 0.14 75);
+  --gamma-danger: var(--destructive);
+  --gamma-radius-panel: var(--radius-xl);
+  --gamma-radius-control: var(--radius-lg);
+  --gamma-radius-small: var(--radius-sm);
+  --gamma-radius-pill: 999px;
+  --gamma-font-ui: var(--font-sans);
+  --gamma-font-display: var(--font-sans);
+  --gamma-tracking-display: -0.02em;
+  --gamma-duration-base: 200ms;
+  --gamma-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Guided steps */
+.guided-steps {
+  width: min(100%, 420px);
+  padding: 20px;
+  border-radius: var(--gamma-radius-panel);
+  background: var(--gamma-surface);
+  border: var(--gamma-hairline) solid var(--gamma-border);
+  font-family: var(--gamma-font-ui);
+}
+.guided-steps-progress {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--gamma-ink);
+  font: 500 12px var(--gamma-font-ui);
+}
+.guided-steps-progress strong { color: var(--gamma-accent); font-weight: 500; }
+.guided-steps-track { display: flex; gap: 5px; margin: 11px 0 17px; }
+.guided-steps-track span {
+  flex: 1; height: 4px;
+  border-radius: var(--gamma-radius-pill);
+  background: var(--gamma-border);
+  transition: background var(--gamma-duration-base) var(--gamma-ease-standard);
+}
+.guided-steps-track span.is-current { background: var(--gamma-accent); }
+.guided-steps-content { animation: guided-step-in 0.25s ease both; }
+@keyframes guided-step-in {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.guided-steps h3 {
+  margin: 7px 0 5px; color: var(--gamma-ink);
+  font-size: 20px; font-family: var(--gamma-font-display);
+  letter-spacing: var(--gamma-tracking-display); line-height: 1.15;
+}
+.guided-steps-content > p, .guided-steps-complete > p {
+  margin: 0 0 14px; color: var(--gamma-ink); font-size: 16px; line-height: 1.55;
+}
+.guided-steps-choices { display: grid; gap: 7px; margin: 0; padding: 0; border: 0; }
+.guided-steps-choices legend {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap;
+}
+.guided-steps-choices label {
+  position: relative; display: flex; justify-content: space-between;
+  align-items: center; gap: 12px; min-height: 48px; padding: 9px 10px;
+  border-radius: var(--gamma-radius-control); background: var(--gamma-surface);
+  border: var(--gamma-hairline) solid var(--gamma-border); cursor: pointer;
+}
+.guided-steps-choices label.is-selected { background: var(--gamma-accent-soft); border-color: var(--gamma-accent); }
+.guided-steps-choices label:focus-within { outline: 2px solid var(--gamma-accent); outline-offset: 2px; }
+.guided-steps-choices input { position: absolute; opacity: 0; }
+.guided-steps-choices label > span:first-of-type { display: grid; gap: 2px; }
+.guided-steps-choices strong { color: var(--gamma-ink); font-size: 14px; }
+.guided-steps-choices small { color: var(--gamma-muted); font-size: 11px; }
+.guided-steps-radio {
+  flex: none; width: 15px; height: 15px;
+  border: 1.5px solid var(--gamma-muted); border-radius: 50%;
+}
+.guided-steps-choices .is-selected .guided-steps-radio { border: 5px solid var(--gamma-accent); }
+.guided-steps-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 15px; }
+.guided-steps-actions button, .guided-steps-complete button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 34px; padding: 0 12px; border: 0;
+  border-radius: var(--gamma-radius-control);
+  font: 600 11px var(--gamma-font-ui); cursor: pointer;
+}
+.guided-steps-back { background: var(--gamma-surface-2); color: var(--gamma-ink); }
+.guided-steps-next, .guided-steps-complete button { background: var(--gamma-accent); color: var(--gamma-accent-ink); }
+.guided-steps-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+.guided-steps-actions button:focus-visible, .guided-steps-complete button:focus-visible {
+  outline: 2px solid var(--gamma-accent); outline-offset: 2px;
+}
+.guided-steps-complete { text-align: center; padding: 10px 4px 5px; }
+.guided-steps-success {
+  display: grid; place-items: center; width: 39px; height: 39px; margin: auto;
+  border-radius: 50%; background: var(--gamma-success-soft); color: var(--gamma-success);
+}
+.guided-steps-complete p { margin: 0 auto 14px; max-width: 260px; }
+
+/* Choice card group */
+.choice-card-group {
+  min-width: 0; width: 100%; margin: 0; padding: 0; border: 0;
+  color: var(--gamma-ink); font: 14px/1.55 var(--gamma-font-ui);
+}
+.choice-card-group legend { padding: 0; font-weight: 600; }
+.choice-card-group-description { margin: 6px 0 0; color: var(--gamma-muted); font-size: 14px; line-height: 1.6; }
+.choice-card-options { display: grid; gap: 9px; margin-top: 13px; }
+.choice-card {
+  display: flex; align-items: start; gap: 11px; min-width: 0; padding: 14px;
+  border: var(--gamma-hairline) solid var(--gamma-border);
+  border-radius: var(--gamma-radius-control); background: var(--gamma-surface);
+  cursor: pointer; touch-action: manipulation;
+}
+.choice-card:hover:not([data-disabled="true"]) { border-color: var(--gamma-accent); }
+.choice-card:has(input:checked) { border-color: var(--gamma-accent); background: var(--gamma-accent-soft); }
+.choice-card input { flex: 0 0 auto; width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--gamma-accent); cursor: inherit; }
+.choice-card input:focus-visible { outline: 2px solid var(--gamma-accent); outline-offset: 3px; }
+.choice-card-copy { display: grid; min-width: 0; gap: 4px; }
+.choice-card-copy strong { font-size: 13px; font-weight: 600; }
+.choice-card-copy > span { color: var(--gamma-muted); font-size: 13px; line-height: 1.55; }
+.choice-card[data-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+
+/* Segmented meter */
+.segmented-meter { width: 100%; min-width: 0; color: var(--gamma-ink); font: 13px/1.5 var(--gamma-font-ui); --meter-color: var(--gamma-success); }
+.segmented-meter[data-tone="warning"] { --meter-color: var(--gamma-warning); }
+.segmented-meter[data-tone="danger"] { --meter-color: var(--gamma-danger); }
+.segmented-meter-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 9px; }
+.segmented-meter-heading label { font-weight: 600; }
+.segmented-meter-heading strong { flex: 0 0 auto; color: var(--gamma-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.segmented-meter-native {
+  position: absolute; width: 1px; height: 1px; padding: 0; border: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+.segmented-meter-segments { display: flex; gap: 3px; width: 100%; }
+.segmented-meter-segments > span {
+  flex: 1 1 0; min-width: 0; height: 13px; overflow: hidden;
+  border-radius: var(--gamma-radius-small); background: var(--gamma-surface-2);
+}
+.segmented-meter-segments i { display: block; width: var(--meter-part); height: 100%; background: var(--meter-color); }
+.segmented-meter-description { margin: 9px 0 0; color: var(--gamma-muted); font-size: 12px; line-height: 1.6; }
