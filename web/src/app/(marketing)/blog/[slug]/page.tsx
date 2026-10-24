@@ -29,7 +29,9 @@ export async function generateMetadata({
   const { slug } = await params;
   const post = getPostBySlug(slug);
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pfinance.dev';
-  const image = post?.image || '/og-image.png';
+  // When a post has no explicit cover image, omit og/twitter images so the
+  // route's generated opengraph-image.tsx card is used instead.
+  const image = post?.image || undefined;
 
   if (!post) {
     return {
@@ -50,7 +52,7 @@ export async function generateMetadata({
       type: 'article',
       publishedTime: post.date,
       authors: [post.author.name],
-      images: [{ url: image, width: 1200, height: 630, alt: post.title }],
+      ...(image ? { images: [{ url: image, width: 1200, height: 630, alt: post.title }] } : {}),
       tags: post.tags,
       url: `${siteUrl}/blog/${slug}/`,
     },
@@ -58,7 +60,7 @@ export async function generateMetadata({
       card: 'summary_large_image',
       title: post.title,
       description: post.description,
-      images: [image],
+      ...(image ? { images: [image] } : {}),
     },
   };
 }
