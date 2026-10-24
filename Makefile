@@ -339,7 +339,7 @@ install-hooks:
 
 proto:
 	@echo "🔧 Generating protobuf code..."
-	@cd proto && buf generate
+	@cd proto && PATH="$(CURDIR)/web/node_modules/.bin:$$PATH" buf generate
 
 generate: proto
 	@echo "🏗️  Running all code generation..."
