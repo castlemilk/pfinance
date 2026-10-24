@@ -48,6 +48,7 @@ import {
   ClipboardCheck,
 } from 'lucide-react';
 import DeductionFinder from '../../../components/tax/DeductionFinder';
+import PendingCalculatorBanner from '../../../components/calculator-handoff/PendingCalculatorBanner';
 import TaxYearComparison from '../../../components/tax/TaxYearComparison';
 import ATODeadlineCard from '../../../components/tax/ATODeadlineCard';
 
@@ -172,6 +173,8 @@ function SummaryTab() {
 
   return (
     <div className="space-y-4">
+      <PendingCalculatorBanner tools={['wfh']} />
+
       {/* Stat Cards */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <Card>

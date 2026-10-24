@@ -29,6 +29,7 @@ import { Switch } from '@/components/ui/switch';
 import { Wallet, Check } from 'lucide-react';
 import { FinanceContext } from '@/app/context/FinanceContext';
 import { IncomeFrequency, TaxStatus, Deduction } from '@/app/types';
+import { saveCalculatorSnapshot } from '@/lib/calculator-handoff';
 import { SalaryBreakdown } from './types';
 
 // Backend-supported frequencies (proto enum doesn't include hourly/daily)
@@ -168,7 +169,30 @@ export function SaveIncomeModal({ breakdown, formatCurrency }: SaveIncomeModalPr
 
   if (!financeContext) {
     return (
-      <Link href="/personal/income/">
+      <Link
+        href="/personal/income/"
+        onClick={() =>
+          saveCalculatorSnapshot({
+            tool: 'salary',
+            title: 'Australian Salary Calculator',
+            summary: `${formatCurrency(breakdown.netIncome)} net / ${frequencyDisplayMap[breakdown.frequency]} on ${formatCurrency(breakdown.grossIncome)} gross`,
+            metrics: [
+              { label: 'Gross', value: formatCurrency(breakdown.grossIncome) },
+              { label: 'Net', value: formatCurrency(breakdown.netIncome) },
+              { label: 'Tax + Medicare', value: formatCurrency(breakdown.tax + breakdown.medicare) },
+              ...(breakdown.studentLoan > 0
+                ? [{ label: 'HELP', value: formatCurrency(breakdown.studentLoan) }]
+                : []),
+            ],
+            fields: {
+              grossIncome: breakdown.grossIncome,
+              netIncome: breakdown.netIncome,
+              frequency: breakdown.frequency,
+            },
+            targetPath: '/personal/income/',
+          })
+        }
+      >
         <Button variant="default" size="sm" className="gap-2">
           <Wallet className="h-4 w-4" />
           Save as Income

@@ -2,16 +2,41 @@
 
 import { useState } from 'react';
 import GoalList from '../../../components/goals/GoalList';
-import GoalCreator from '../../../components/goals/GoalCreator';
+import GoalCreator, { type GoalInitialValues } from '../../../components/goals/GoalCreator';
 import ContributeModal from '../../../components/goals/ContributeModal';
 import { useGoals, FinancialGoal } from '../../../context/GoalContext';
+import PendingCalculatorBanner from '../../../components/calculator-handoff/PendingCalculatorBanner';
+import type { CalculatorSnapshot } from '@/lib/calculator-handoff';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
+
+const GOAL_NAMES: Record<string, string> = {
+  super: 'Super balance target',
+  'mortgage-offset': 'Mortgage offset buffer',
+  'hecs-help': 'Pay down HELP debt',
+};
+
+const GOAL_AMOUNT_FIELDS: Record<string, string> = {
+  super: 'projectedBalance',
+  'mortgage-offset': 'offsetBalance',
+  'hecs-help': 'helpBalance',
+};
 
 export default function GoalsPage() {
   const { refreshGoals } = useGoals();
   const [creatorOpen, setCreatorOpen] = useState(false);
+  const [creatorInitial, setCreatorInitial] = useState<GoalInitialValues | undefined>();
   const [contributeGoal, setContributeGoal] = useState<FinancialGoal | null>(null);
+
+  const applySnapshot = (snapshot: CalculatorSnapshot) => {
+    const amount = Number(snapshot.fields[GOAL_AMOUNT_FIELDS[snapshot.tool] ?? '']);
+    setCreatorInitial({
+      name: GOAL_NAMES[snapshot.tool] ?? snapshot.title,
+      targetAmount: Number.isFinite(amount) && amount > 0 ? String(Math.round(amount)) : '',
+      description: snapshot.summary,
+    });
+    setCreatorOpen(true);
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -29,6 +54,12 @@ export default function GoalsPage() {
         </Button>
       </div>
 
+      <PendingCalculatorBanner
+        tools={['super', 'mortgage-offset', 'hecs-help']}
+        applyLabel="Create a goal from this"
+        onApply={applySnapshot}
+      />
+
       {/* Goal List */}
       <GoalList
         showFilters
@@ -41,6 +72,7 @@ export default function GoalsPage() {
         open={creatorOpen}
         onOpenChange={setCreatorOpen}
         onGoalCreated={refreshGoals}
+        initial={creatorInitial}
       />
 
       {/* Contribute Modal */}

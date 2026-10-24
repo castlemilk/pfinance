@@ -3,12 +3,43 @@
 import { useState } from 'react';
 import SuperCalculator from '@/app/components/super-calculator/SuperCalculator';
 import { Button } from '@/components/ui/button';
+import PendingCalculatorBanner from '@/app/components/calculator-handoff/PendingCalculatorBanner';
+import type { CalculatorSnapshot } from '@/lib/calculator-handoff';
 import IncomeForm from '../../../components/IncomeForm';
 import IncomeList from '../../../components/IncomeList';
 import { SalaryCalculator } from '../../../components/SalaryCalculator';
+import { IncomeFrequency, TaxStatus } from '../../../types';
+
+interface IncomePrefill {
+  source: string;
+  amount: string;
+  frequency: IncomeFrequency;
+  taxStatus: TaxStatus;
+  key: number;
+}
+
+const SUPPORTED_FREQUENCIES = ['weekly', 'fortnightly', 'monthly', 'annually'] as const;
 
 export default function PersonalIncomePage() {
   const [activeView, setActiveView] = useState<'income' | 'salary' | 'super'>('salary');
+  const [prefill, setPrefill] = useState<IncomePrefill | null>(null);
+
+  const applySnapshot = (snapshot: CalculatorSnapshot) => {
+    const frequency = SUPPORTED_FREQUENCIES.includes(
+      snapshot.fields.frequency as (typeof SUPPORTED_FREQUENCIES)[number]
+    )
+      ? (snapshot.fields.frequency as IncomeFrequency)
+      : 'monthly';
+    const net = Number(snapshot.fields.netIncome);
+    setPrefill({
+      source: 'Salary',
+      amount: Number.isFinite(net) && net > 0 ? String(Math.round(net * 100) / 100) : '',
+      frequency,
+      taxStatus: 'postTax',
+      key: Date.now(),
+    });
+    setActiveView('income');
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -18,6 +49,12 @@ export default function PersonalIncomePage() {
           Track income, calculate take-home pay and project your super
         </p>
       </div>
+
+      <PendingCalculatorBanner
+        tools={['salary']}
+        applyLabel="Apply to income form"
+        onApply={applySnapshot}
+      />
 
       <div className="flex justify-center">
         <div className="grid grid-cols-3 gap-1 p-1 bg-muted rounded-lg w-full sm:w-auto">
@@ -57,7 +94,19 @@ export default function PersonalIncomePage() {
         <SuperCalculator />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-          <IncomeForm />
+          <IncomeForm
+            key={prefill?.key ?? 'default'}
+            initialValues={
+              prefill
+                ? {
+                    source: prefill.source,
+                    amount: prefill.amount,
+                    frequency: prefill.frequency,
+                    taxStatus: prefill.taxStatus,
+                  }
+                : undefined
+            }
+          />
           <IncomeList />
         </div>
       )}

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import CalculatorHandoffCta from '../calculator-handoff/CalculatorHandoffCta';
 
 const FIXED_RATE_PER_HOUR = 0.67;
 
@@ -362,6 +363,44 @@ export default function PublicWfhCalculator() {
                     </ul>
                   </CardContent>
                 </Card>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <CalculatorHandoffCta
+                  tool="wfh"
+                  title="WFH Deduction Calculator"
+                  summary={`${calculation.winner} wins: ${money(Math.max(calculation.fixedRateDeduction, calculation.actualCostDeduction))}/yr deduction across ${calculation.totalHours} WFH hours`}
+                  metrics={[
+                    {
+                      label: 'Best method',
+                      value: calculation.winner.replace(' Method', ''),
+                    },
+                    {
+                      label: 'Deduction',
+                      value: `${money(Math.max(calculation.fixedRateDeduction, calculation.actualCostDeduction))}/yr`,
+                    },
+                    { label: 'WFH hours', value: `${calculation.totalHours}/yr` },
+                    {
+                      label: 'Est. tax saving',
+                      value: money(
+                        Math.max(calculation.fixedRateTaxSaving, calculation.actualCostTaxSaving)
+                      ),
+                    },
+                  ]}
+                  fields={{
+                    hoursPerWeek: Number(values.hoursPerWeek),
+                    weeksWorked: Number(values.weeksWorked),
+                    totalHours: calculation.totalHours,
+                    recommendedMethod: calculation.winner,
+                    fixedRateDeduction: Math.round(calculation.fixedRateDeduction),
+                    actualCostDeduction: Math.round(calculation.actualCostDeduction),
+                  }}
+                  targetPath="/personal/tax/"
+                  label="Track WFH deductions in PFinance"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Compare both methods at 30 June — keep bills either way.
+                </p>
               </div>
             </>
           ) : (
