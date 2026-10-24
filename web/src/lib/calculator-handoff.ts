@@ -14,7 +14,8 @@ export type CalculatorTool =
   | 'cgt'
   | 'borrowing-power'
   | 'risk-profile'
-  | 'stamp-duty';
+  | 'stamp-duty'
+  | 'retirement';
 
 export interface CalculatorSnapshot {
   tool: CalculatorTool;

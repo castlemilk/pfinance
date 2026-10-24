@@ -885,6 +885,57 @@ export const discoveryPages: MarketingPageData[] = [
     changeFrequency: 'weekly',
   },
   {
+    path: '/tools/retirement-calculator',
+    category: 'tools',
+    hubPath: '/tools',
+    hubLabel: 'Tools',
+    navLabel: 'Retirement Calculator',
+    title: 'Retirement Readiness Calculator',
+    description: 'Project your super to retirement, add an Age Pension estimate, and compare against the ASFA comfortable and modest standards.',
+    eyebrow: 'Retirement calculator',
+    heading: 'Will the money outlast you?',
+    body: 'Enter age, balance, contributions and an assumed real return. The projection runs in today\u2019s dollars, layers an assets-tested Age Pension estimate on top, and benchmarks the result against the ASFA Retirement Standard.',
+    primaryCta: 'Open the super calculator',
+    primaryCtaHref: '/tools/super-calculator/',
+    secondaryCta: 'Set a retirement goal',
+    secondaryCtaHref: '/personal/goals/',
+    highlights: [
+      'Super projection with a constant real return',
+      'Age Pension estimate via the assets test',
+      'Funded % vs ASFA modest and comfortable',
+    ],
+    sections: [
+      {
+        title: 'The ASFA benchmark is the honest yardstick',
+        body: 'ASFA publishes quarterly budgets for a modest and a comfortable retirement — June quarter 2026 puts comfortable at $56,166/yr for a single and $78,998 for a couple, assuming home ownership. A projected income above that line means the plan clears the standard; below it, the gap shows how far contributions or the retirement date need to move.',
+      },
+      {
+        title: 'The Age Pension still does heavy lifting',
+        body: 'The full pension pays around $31,223/yr for a single and $47,070 for a couple — over half of the comfortable standard before super draws a dollar. The assets test tapers it by $3/fortnight per $1,000 above the free area, so most households land on a part pension plus super drawdown.',
+      },
+      {
+        title: 'What this estimate leaves out',
+        body: 'The income test (deeming), contribution caps, sequencing risk, inflation shocks, and housing costs for renters all move the real outcome. Treat the funded percentage as a planning signal, then pressure-test it with Moneysmart\u2019s planner or an adviser.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Why a real return instead of nominal?',
+        answer: 'Expressing everything in today\u2019s dollars keeps the ASFA targets comparable — a 5% real assumption nets inflation out of both sides of the equation.',
+      },
+      {
+        question: 'Is the pension estimate reliable?',
+        answer: 'It applies the assets test to your projected nest egg at the published thresholds. The income test and deeming rules can reduce it further — Services Australia\u2019s estimator gives the exact figure.',
+      },
+      {
+        question: 'What if I rent in retirement?',
+        answer: 'The ASFA modest-renter budget is much higher (~$51k single) and Commonwealth Rent Assistance only partly offsets it. Non-homeowners should read the result conservatively.',
+      },
+    ],
+    priority: 0.88,
+    changeFrequency: 'weekly',
+  },
+  {
     path: '/compare/spreadsheets-vs-finance-app',
     category: 'compare',
     hubPath: '/compare',

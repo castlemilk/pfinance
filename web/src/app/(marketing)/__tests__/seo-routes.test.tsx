@@ -35,6 +35,7 @@ import CgtCalculatorPage, { metadata as cgtMetadata } from '../tools/cgt-calcula
 import BorrowingPowerCalculatorPage, { metadata as borrowingPowerMetadata } from '../tools/borrowing-power-calculator/page';
 import InvestmentRiskProfilePage, { metadata as riskProfileMetadata } from '../tools/investment-risk-profile/page';
 import StampDutyCalculatorPage, { metadata as stampDutyMetadata } from '../tools/stamp-duty-calculator/page';
+import RetirementCalculatorPage, { metadata as retirementMetadata } from '../tools/retirement-calculator/page';
 import { standardDuty, firstHomeDuty, foreignSurcharge } from '@/lib/stamp-duty';
 import BlogPage from '../blog/page';
 import { buildRssFeedXml } from '@/lib/rss';
@@ -123,6 +124,7 @@ describe('marketing SEO routes', () => {
       borrowingPowerMetadata,
       riskProfileMetadata,
       stampDutyMetadata,
+      retirementMetadata,
       spreadsheetComparisonMetadata,
     ];
 
@@ -344,6 +346,19 @@ describe('marketing SEO routes', () => {
     expect(firstHomeDuty('SA', 600_000, true).duty).toBe(0);
     // SA established: full duty
     expect(firstHomeDuty('SA', 600_000, false).duty).toBeCloseTo(26_830, 0);
+  });
+
+  it('mounts the interactive retirement calculator on /tools/retirement-calculator/', () => {
+    expect(canonicalPath(retirementMetadata)).toBe('/tools/retirement-calculator');
+    const html = renderToStaticMarkup(<RetirementCalculatorPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.body.textContent).toContain('Interactive retirement readiness calculator');
+    expect(doc.body.textContent).toContain('ASFA');
+    // 35yo → 32yrs of $14.4k/yr at 5% real on $120k + $40k other → nest egg ≈ $1.26m,
+    // assets-tested pension $0, draw ≈ $76k/yr — funded vs comfortable should render
+    expect(doc.querySelector('[data-testid="retire-nest-egg"]')?.textContent).toContain('$');
+    expect(doc.querySelector('[data-testid="retire-pension"]')?.textContent).toContain('$');
+    expect(doc.querySelectorAll('h1')).toHaveLength(1);
   });
 
   it('serves a valid RSS 2.0 feed at /feed.xml and extracts blog TOC headings', () => {
