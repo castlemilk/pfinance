@@ -11,9 +11,10 @@ import { ThemeToggle } from '@/app/components/ThemeToggle';
 import { cn } from '@/lib/utils';
 
 const navLinks = [
-  { href: '/#features', label: 'Features' },
+  { href: '/features/', label: 'Features' },
+  { href: '/tools/', label: 'Calculators' },
   { href: '/#pricing', label: 'Pricing' },
-  { href: '/blog', label: 'Blog' },
+  { href: '/blog/', label: 'Blog' },
 ];
 
 export default function Navbar() {

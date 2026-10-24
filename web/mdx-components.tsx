@@ -1,49 +1,18 @@
 import type { MDXComponents } from 'mdx/types';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
-
-// Custom components for MDX content
-function Callout({
-  type = 'info',
-  children,
-}: {
-  type?: 'info' | 'warning' | 'tip' | 'note';
-  children: React.ReactNode;
-}) {
-  const styles = {
-    info: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100',
-    warning: 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-100',
-    tip: 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 text-green-900 dark:text-green-100',
-    note: 'bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100',
-  };
-
-  const icons = {
-    info: '💡',
-    warning: '⚠️',
-    tip: '✨',
-    note: '📝',
-  };
-
-  return (
-    <div className={cn('my-6 rounded-lg border p-4', styles[type])}>
-      <div className="flex items-start gap-3">
-        <span className="text-xl">{icons[type]}</span>
-        <div className="flex-1 [&>p]:m-0">{children}</div>
-      </div>
-    </div>
-  );
-}
+import { articleFigureComponents } from '@/components/mdx/article-figures';
+import { ArticleTable } from '@/components/mdx/article-table';
 
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
     // Override default HTML elements with styled versions
     h1: ({ children, ...props }) => (
-      <h1
-        className="mt-8 mb-4 text-4xl font-bold tracking-tight scroll-mt-24"
+      <h2
+        className="mt-10 mb-4 text-3xl font-bold tracking-tight scroll-mt-24 border-b border-border pb-2"
         {...props}
       >
         {children}
-      </h1>
+      </h2>
     ),
     h2: ({ children, ...props }) => (
       <h2
@@ -138,13 +107,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
         {children}
       </pre>
     ),
-    table: ({ children, ...props }) => (
-      <div className="my-6 overflow-x-auto">
-        <table className="w-full border-collapse" {...props}>
-          {children}
-        </table>
-      </div>
-    ),
+    table: ArticleTable,
     th: ({ children, ...props }) => (
       <th
         className="border border-border bg-muted px-4 py-2 text-left font-semibold"
@@ -163,8 +126,8 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       // eslint-disable-next-line @next/next/no-img-element
       <img className="my-6 rounded-lg border border-border" alt="" {...props} />
     ),
-    // Custom components
-    Callout,
+    // Rich article figure components (Callout, Quote, Steps, GraphStat, GraphRank, GraphWaterfall, GraphFlow, GraphTimeline, GraphCompare, GraphSlope, GraphKpi, GraphSpark, GraphMeter, GraphTable)
+    ...articleFigureComponents,
     ...components,
   };
 }

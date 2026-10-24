@@ -498,6 +498,77 @@ describe('Chat Tools - Unit Tests', () => {
       expect(result.anomalies[0].amount).toBe(200);
       expect(result.anomalies[0].expectedAmount).toBe(50);
     });
+
+    it('get_cash_flow_forecast summarizes predicted income, expenses, and net cash flow', async () => {
+      const tools = createTools(mockClient as unknown as BackendClient, TEST_USER_ID, true);
+      const result = await tools.get_cash_flow_forecast.execute!({ forecastDays: 30 }, execOpts) as any;
+
+      expect(mockClient.getCashFlowForecast).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: TEST_USER_ID, forecastDays: 30 })
+      );
+      expect(result.projectedIncome).toBe(5000);
+      expect(result.projectedExpenses).toBe(2200);
+      expect(result.projectedNetCashFlow).toBe(2800);
+    });
+  });
+
+  // =========================================================================
+  // Recurring bills, subscriptions, household groups & merchant rules
+  // =========================================================================
+
+  describe('Recurring bills, subscriptions, groups & merchant rules', () => {
+    it('get_upcoming_bills returns formatted bills and total upcoming expenses', async () => {
+      const tools = createTools(mockClient as unknown as BackendClient, TEST_USER_ID, false);
+      const result = await tools.get_upcoming_bills.execute!({ daysAhead: 30 }, execOpts) as any;
+
+      expect(mockClient.getUpcomingBills).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: TEST_USER_ID, daysAhead: 30 })
+      );
+      expect(result.upcomingBills).toHaveLength(1);
+      expect(result.upcomingBills[0].description).toBe('Electricity Bill');
+      expect(result.upcomingBills[0].amount).toBe(180);
+      expect(result.totalUpcomingExpenses).toBe(180);
+    });
+
+    it('detect_subscriptions returns subscription list and monthly cost', async () => {
+      const tools = createTools(mockClient as unknown as BackendClient, TEST_USER_ID, false);
+      const result = await tools.detect_subscriptions.execute!({ lookbackMonths: 6 }, execOpts) as any;
+
+      expect(result.subscriptions).toHaveLength(1);
+      expect(result.subscriptions[0].merchantName).toBe('Netflix');
+      expect(result.totalMonthlyCost).toBe(22.99);
+      expect(result.forgottenCount).toBe(1);
+    });
+
+    it('get_household_groups returns group summaries and member balances', async () => {
+      const tools = createTools(mockClient as unknown as BackendClient, TEST_USER_ID, false);
+      const result = await tools.get_household_groups.execute!({}, execOpts) as any;
+
+      expect(result.groups).toHaveLength(1);
+      expect(result.groups[0].name).toBe('Household');
+      expect(result.groups[0].totalExpenses).toBe(1200);
+      expect(result.groups[0].balances[0].member).toBe('Ben');
+      expect(result.groups[0].balances[0].netBalance).toBe(300);
+    });
+
+    it('set_merchant_category_rule previews when confirmed=false and saves when confirmed=true', async () => {
+      const tools = createTools(mockClient as unknown as BackendClient, TEST_USER_ID, false);
+      const preview = await tools.set_merchant_category_rule.execute!(
+        { merchantNormalized: 'Sydney Water', category: 'UTILITIES', confirmed: false },
+        execOpts
+      ) as any;
+      expect(preview.status).toBe('pending_confirmation');
+      expect(mockClient.setCategoryOverride).not.toHaveBeenCalled();
+
+      const saved = await tools.set_merchant_category_rule.execute!(
+        { merchantNormalized: 'Sydney Water', category: 'UTILITIES', confirmed: true },
+        execOpts
+      ) as any;
+      expect(saved.status).toBe('success');
+      expect(mockClient.setCategoryOverride).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: TEST_USER_ID, merchantNormalized: 'sydney water' })
+      );
+    });
   });
 
   // =========================================================================

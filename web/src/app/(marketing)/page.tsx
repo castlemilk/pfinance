@@ -7,6 +7,7 @@ import {
   OrganizationJsonLd,
   WebsiteJsonLd,
   SoftwareApplicationJsonLd,
+  HowToJsonLd,
 } from '@/components/seo/JsonLd';
 import { createSeoMetadata } from '@/lib/seo';
 
@@ -23,6 +24,7 @@ export default function LandingPage() {
       <OrganizationJsonLd />
       <WebsiteJsonLd />
       <SoftwareApplicationJsonLd />
+      <HowToJsonLd />
       <Hero />
       <Features />
       <Pricing />

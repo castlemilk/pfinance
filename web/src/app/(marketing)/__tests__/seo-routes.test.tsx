@@ -15,10 +15,28 @@ import { metadata as taxDeductionsMetadata } from '../features/tax-deductions/pa
 import { metadata as salaryCalculatorMetadata } from '../tools/australian-salary-calculator/page';
 import { metadata as budgetCalculatorMetadata } from '../tools/budget-calculator/page';
 import { metadata as spreadsheetComparisonMetadata } from '../compare/spreadsheets-vs-finance-app/page';
+import { metadata as featuresHubMetadata } from '../features/page';
+import { metadata as toolsHubMetadata } from '../tools/page';
+import { metadata as compareHubMetadata } from '../compare/page';
+import FeaturesHubPage from '../features/page';
+import ToolsHubPage from '../tools/page';
+import CompareHubPage from '../compare/page';
+import TaxDeductionsPage from '../features/tax-deductions/page';
+import BudgetCalculatorPage from '../tools/budget-calculator/page';
+import AustralianSalaryCalculatorPage from '../tools/australian-salary-calculator/page';
+import WfhDeductionCalculatorPage, { metadata as wfhCalculatorMetadata } from '../tools/wfh-deduction-calculator/page';
+import BlogPage from '../blog/page';
+import { buildRssFeedXml } from '@/lib/rss';
+import Footer, { footerLinks } from '../components/Footer';
+import { discoveryPages, hubPages } from '@/lib/marketing-pages';
+import { getAllPosts, extractTocHeadings } from '@/lib/blog';
 import {
   OrganizationJsonLd,
   SoftwareApplicationJsonLd,
   WebsiteJsonLd,
+  FAQPageJsonLd,
+  HowToJsonLd,
+  BlogJsonLd,
 } from '@/components/seo/JsonLd';
 
 const publicOrigin = 'https://pfinance.dev';
@@ -90,14 +108,124 @@ describe('marketing SEO routes', () => {
       '/blog/',
       '/privacy/',
       '/terms/',
+      '/features/',
+      '/tools/',
+      '/compare/',
       '/features/receipt-scanner/',
       '/features/bank-statement-import/',
       '/features/household-budgeting/',
       '/features/tax-deductions/',
       '/tools/australian-salary-calculator/',
       '/tools/budget-calculator/',
+      '/tools/super-calculator/',
       '/compare/spreadsheets-vs-finance-app/',
     ]));
+  });
+
+  it('defines metadata and substantive content for all three hub pages', () => {
+    expect(canonicalPath(featuresHubMetadata)).toBe('/features');
+    expect(canonicalPath(toolsHubMetadata)).toBe('/tools');
+    expect(canonicalPath(compareHubMetadata)).toBe('/compare');
+
+    for (const HubComponent of [FeaturesHubPage, ToolsHubPage, CompareHubPage]) {
+      const html = renderToStaticMarkup(<HubComponent />);
+      const body = new DOMParser().parseFromString(html, 'text/html').body;
+      const wordCount = (body.textContent || '').trim().split(/\s+/).length;
+      expect(wordCount).toBeGreaterThanOrEqual(200);
+      expect(body.querySelectorAll('h1')).toHaveLength(1);
+    }
+  });
+
+  it('links every discovery page, hub, and calculator in the footer with trailing slashes', () => {
+    const allHrefs = [
+      ...footerLinks.product.map((l) => l.href),
+      ...footerLinks.resources.map((l) => l.href),
+      ...footerLinks.legal.map((l) => l.href),
+    ];
+
+    for (const page of discoveryPages) {
+      expect(allHrefs).toContain(`${page.path}/`);
+    }
+    for (const hub of hubPages) {
+      expect(allHrefs).toContain(`${hub.path}/`);
+    }
+    expect(allHrefs).toContain('/tools/super-calculator/');
+
+    for (const href of allHrefs) {
+      if (!href.includes('#')) {
+        expect(href.endsWith('/')).toBe(true);
+      }
+    }
+
+    const { container } = render(<Footer />);
+    expect(container.textContent).toContain('Tax Deductions');
+    expect(container.textContent).toContain('Super Calculator & Estimator');
+  });
+
+  it('renders substantive content, FAQ schema, and breadcrumbs on discovery pages', () => {
+    const html = renderToStaticMarkup(<TaxDeductionsPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const wordCount = (doc.body.textContent || '').trim().split(/\s+/).length;
+    expect(wordCount).toBeGreaterThanOrEqual(350);
+
+    const scripts = Array.from(doc.querySelectorAll('script[type="application/ld+json"]')).map((el) =>
+      JSON.parse(el.innerHTML)
+    );
+    const types = scripts.map((s) => s['@type']);
+    expect(types).toEqual(expect.arrayContaining(['BreadcrumbList', 'FAQPage']));
+  });
+
+  it('mounts the interactive budget calculator on /tools/budget-calculator/', () => {
+    const html = renderToStaticMarkup(<BudgetCalculatorPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.body.textContent).toContain('Interactive household budget calculator');
+    expect(doc.querySelector('[data-testid="budget-needs-monthly"]')?.textContent).toContain('$3,250');
+  });
+
+  it('mounts the interactive Australian salary calculator on /tools/australian-salary-calculator/ without requiring auth or finance providers', () => {
+    const html = renderToStaticMarkup(<AustralianSalaryCalculatorPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.body.textContent).toContain('Gross Salary');
+    expect(doc.body.textContent).toContain('Pay Cycle');
+    expect(doc.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('mounts the interactive ATO WFH deduction calculator on /tools/wfh-deduction-calculator/', () => {
+    expect(canonicalPath(wfhCalculatorMetadata)).toBe('/tools/wfh-deduction-calculator');
+    const html = renderToStaticMarkup(<WfhDeductionCalculatorPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.body.textContent).toContain('Interactive WFH deduction comparison calculator');
+    expect(doc.querySelector('[data-testid="wfh-recommended-method"]')?.textContent).toContain('Actual Cost Method');
+    expect(doc.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('serves a valid RSS 2.0 feed at /feed.xml and extracts blog TOC headings', () => {
+    const xml = buildRssFeedXml();
+    expect(xml).toContain('<rss version="2.0"');
+    expect(xml).toContain('https://pfinance.dev/blog/keep-track-of-expenses-for-taxes-australia/');
+
+    const toc = extractTocHeadings('## Section One\n### Sub A\n## Section Two');
+    expect(toc).toEqual([
+      { id: 'section-one', text: 'Section One', level: 2 },
+      { id: 'sub-a', text: 'Sub A', level: 3 },
+      { id: 'section-two', text: 'Section Two', level: 2 },
+    ]);
+  });
+
+  it('publishes all blog guides in the sitemap and renders them on the blog index', () => {
+    const posts = getAllPosts();
+    expect(posts.length).toBeGreaterThanOrEqual(11);
+
+    const sitemapPaths = sitemap().map((entry) => new URL(entry.url).pathname);
+    for (const post of posts) {
+      expect(sitemapPaths).toContain(`/blog/${post.slug}/`);
+    }
+
+    const html = renderToStaticMarkup(<BlogPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    for (const post of posts) {
+      expect(doc.body.textContent).toContain(post.title);
+    }
   });
 
   it('points robots.txt at the public sitemap domain', () => {
@@ -171,11 +299,25 @@ describe('marketing JSON-LD trust signals', () => {
     expect(json.potentialAction).toBeUndefined();
   });
 
-  it('does not publish unverifiable ratings by default', () => {
+  it('does not publish unverifiable ratings by default and uses AUD currency', () => {
     const { container } = render(<SoftwareApplicationJsonLd />);
     const json = scriptJson(container);
 
     expect(json.aggregateRating).toBeUndefined();
+    expect((json.offers as { priceCurrency?: string })?.priceCurrency).toBe('AUD');
+  });
+
+  it('renders FAQPage, HowTo, and Blog structured data schemas', () => {
+    const { container: faqContainer } = render(
+      <FAQPageJsonLd items={[{ question: 'Q1?', answer: 'A1.' }]} />
+    );
+    expect(scriptJson(faqContainer)['@type']).toBe('FAQPage');
+
+    const { container: howToContainer } = render(<HowToJsonLd />);
+    expect(scriptJson(howToContainer)['@type']).toBe('HowTo');
+
+    const { container: blogContainer } = render(<BlogJsonLd />);
+    expect(scriptJson(blogContainer)['@type']).toBe('Blog');
   });
 
   it('does not publish placeholder social profiles', () => {

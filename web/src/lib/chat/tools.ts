@@ -323,6 +323,242 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
       },
     }),
 
+    get_upcoming_bills: tool({
+      description: 'Get upcoming recurring bills and income due within the next N days (default 30 days). Use this when the user asks what bills are coming up or due soon.',
+      inputSchema: z.object({
+        daysAhead: z.number().optional().describe('Number of days ahead to look (default 30, max 90)'),
+        limit: z.number().optional().describe('Maximum number of upcoming bills to return (default 15)'),
+      }),
+      execute: async (args) => {
+        try {
+          const res = await client.getUpcomingBills({
+            userId,
+            daysAhead: Math.min(args.daysAhead || 30, 90),
+            limit: Math.min(args.limit || 15, 50),
+          });
+          const bills = res.upcomingBills.map((b) => {
+            const amount = Number(b.amountCents) !== 0 ? centsToDollars(b.amountCents) : b.amount;
+            const nextDate = b.nextOccurrence
+              ? timestampDate(b.nextOccurrence as Parameters<typeof timestampDate>[0]).toISOString().split('T')[0]
+              : 'unknown';
+            return {
+              id: b.id,
+              description: b.description,
+              amount,
+              category: ExpenseCategory[b.category] || 'OTHER',
+              frequency: ExpenseFrequency[b.frequency] || 'MONTHLY',
+              nextOccurrence: nextDate,
+              isExpense: b.isExpense,
+            };
+          });
+          const totalUpcomingExpenses = bills
+            .filter((b) => b.isExpense)
+            .reduce((sum, b) => sum + b.amount, 0);
+          return {
+            upcomingBills: bills,
+            count: bills.length,
+            totalUpcomingExpenses,
+          };
+        } catch (err: unknown) {
+          return { error: String(err) };
+        }
+      },
+    }),
+
+    list_recurring_transactions: tool({
+      description: 'List all active or paused recurring transactions (subscriptions, rent, utilities, regular bills, recurring salary).',
+      inputSchema: z.object({
+        expensesOnly: z.boolean().optional().describe('When true, only return recurring expenses (default: false)'),
+      }),
+      execute: async (args) => {
+        try {
+          const res = await client.listRecurringTransactions({
+            userId,
+            filterIsExpense: Boolean(args.expensesOnly),
+            isExpense: Boolean(args.expensesOnly),
+            pageSize: 50,
+          });
+          const items = res.recurringTransactions.map((r) => {
+            const amount = Number(r.amountCents) !== 0 ? centsToDollars(r.amountCents) : r.amount;
+            const nextDate = r.nextOccurrence
+              ? timestampDate(r.nextOccurrence as Parameters<typeof timestampDate>[0]).toISOString().split('T')[0]
+              : 'unknown';
+            return {
+              id: r.id,
+              description: r.description,
+              amount,
+              category: ExpenseCategory[r.category] || 'OTHER',
+              frequency: ExpenseFrequency[r.frequency] || 'MONTHLY',
+              nextOccurrence: nextDate,
+              isExpense: r.isExpense,
+              status: r.status,
+            };
+          });
+          return { recurringTransactions: items, count: items.length };
+        } catch (err: unknown) {
+          return { error: String(err) };
+        }
+      },
+    }),
+
+    detect_subscriptions: tool({
+      description: 'Analyze expense history to detect recurring subscriptions, forgotten trials, and monthly subscription cost.',
+      inputSchema: z.object({
+        lookbackMonths: z.number().optional().describe('Months of history to analyze (default 6)'),
+      }),
+      execute: async (args) => {
+        try {
+          const res = await client.detectSubscriptions({
+            userId,
+            lookbackMonths: args.lookbackMonths || 6,
+          });
+          const subscriptions = res.subscriptions.map((s) => ({
+            merchantName: s.merchantName,
+            normalizedName: s.normalizedName,
+            category: cleanEnumName(s.category),
+            averageAmount: Number(s.averageAmountCents) !== 0 ? centsToDollars(s.averageAmountCents) : s.averageAmount,
+            frequency: ExpenseFrequency[s.detectedFrequency] || 'MONTHLY',
+            confidenceScore: s.confidenceScore,
+            occurrenceCount: s.occurrenceCount,
+            isAlreadyTracked: s.isAlreadyTracked,
+          }));
+          const totalMonthlyCost =
+            Number(res.totalMonthlyCostCents) !== 0
+              ? centsToDollars(res.totalMonthlyCostCents)
+              : res.totalMonthlyCost;
+          return {
+            subscriptions,
+            count: subscriptions.length,
+            totalMonthlyCost,
+            forgottenCount: res.forgottenCount,
+          };
+        } catch (err: unknown) {
+          return { error: String(err) };
+        }
+      },
+    }),
+
+    get_household_groups: tool({
+      description: 'List the user’s shared household finance groups, group spending summaries, and member balances (who owes whom).',
+      inputSchema: z.object({
+        query: z.string().optional().describe('Optional group name filter'),
+      }),
+      execute: async (args) => {
+        try {
+          const listRes = await client.listGroups({ userId, pageSize: 20 });
+          const q = args.query?.toLowerCase().trim();
+          const filtered = q
+            ? listRes.groups.filter(
+                (g) =>
+                  g.name.toLowerCase().includes(q) ||
+                  (g.description?.toLowerCase().includes(q) ?? false)
+              )
+            : listRes.groups;
+
+          const groups = [];
+          for (const g of filtered) {
+            const memberNames: Record<string, string> = {};
+            for (const m of g.members) {
+              memberNames[m.userId] = m.displayName || m.email || m.userId;
+            }
+            try {
+              const summary = await client.getGroupSummary({ groupId: g.id });
+              const totalExpenses =
+                Number(summary.totalExpensesCents) !== 0
+                  ? centsToDollars(summary.totalExpensesCents)
+                  : summary.totalExpenses;
+              const unsettledAmount =
+                Number(summary.unsettledAmountCents) !== 0
+                  ? centsToDollars(summary.unsettledAmountCents)
+                  : summary.unsettledAmount;
+              const balances = summary.memberBalances.map((b) => ({
+                member: memberNames[b.userId] || b.userId,
+                totalPaid:
+                  Number(b.totalPaidCents) !== 0 ? centsToDollars(b.totalPaidCents) : b.totalPaid,
+                totalOwed:
+                  Number(b.totalOwedCents) !== 0 ? centsToDollars(b.totalOwedCents) : b.totalOwed,
+                netBalance:
+                  Number(b.balanceCents) !== 0 ? centsToDollars(b.balanceCents) : b.balance,
+              }));
+              groups.push({
+                id: g.id,
+                name: g.name,
+                description: g.description,
+                memberCount: g.members.length,
+                totalExpenses,
+                unsettledExpenseCount: summary.unsettledExpenseCount,
+                unsettledAmount,
+                balances,
+              });
+            } catch {
+              groups.push({
+                id: g.id,
+                name: g.name,
+                description: g.description,
+                memberCount: g.members.length,
+              });
+            }
+          }
+          return { groups, count: groups.length };
+        } catch (err: unknown) {
+          return { error: String(err) };
+        }
+      },
+    }),
+
+    list_merchant_category_rules: tool({
+      description: 'List saved merchant-to-category override rules for automatic transaction categorization.',
+      inputSchema: z.object({}),
+      execute: async () => {
+        try {
+          const res = await client.getCategoryOverrides({ userId });
+          const rules = res.overrides.map((o) => ({
+            merchantNormalized: o.merchantNormalized,
+            category: ExpenseCategory[o.userCategory] || 'OTHER',
+            correctionCount: o.correctionCount,
+          }));
+          return { rules, count: rules.length };
+        } catch (err: unknown) {
+          return { error: String(err) };
+        }
+      },
+    }),
+
+    set_merchant_category_rule: tool({
+      description: 'Save a persistent merchant-to-category rule so future imports from that merchant automatically use the chosen category. Use confirmed=false/true pattern.',
+      inputSchema: z.object({
+        merchantNormalized: z.string().describe('Normalized lowercase merchant name (e.g. "sydney water", "bunnings")'),
+        category: categoryEnum.describe('Target expense category'),
+        confirmed: z.boolean().describe('Set to false to preview, true to execute'),
+      }),
+      execute: async (args) => {
+        const cleanMerchant = args.merchantNormalized.trim().toLowerCase();
+        if (!args.confirmed) {
+          return {
+            status: 'pending_confirmation' as const,
+            action: 'set_merchant_category_rule',
+            details: { merchantNormalized: cleanMerchant, category: args.category },
+            message: `Always categorize "${cleanMerchant}" as ${args.category}?`,
+          };
+        }
+        try {
+          await client.setCategoryOverride({
+            userId,
+            merchantNormalized: cleanMerchant,
+            category: categoryFromString(args.category),
+          });
+          return {
+            status: 'success',
+            merchantNormalized: cleanMerchant,
+            category: args.category,
+            message: `Saved rule: "${cleanMerchant}" → ${args.category}`,
+          };
+        } catch (err: unknown) {
+          return { status: 'error', error: String(err) };
+        }
+      },
+    }),
+
     // --- Mutation tools (require confirmation) ---
 
     create_expense: tool({
@@ -973,6 +1209,40 @@ export function createTools(client: BackendClient, userId: string, isPro: boolea
             suggestions,
             totalPotentialSavings: res.totalPotentialSavings,
             scannedCount: res.scannedCount,
+          };
+        } catch (err: unknown) {
+          return { error: String(err) };
+        }
+      },
+    });
+
+    tools.get_cash_flow_forecast = tool({
+      description: 'Forecast daily income, expenses, and net cash flow over the next N days (default 30). Pro feature. Use to answer "can I afford X next month?" or "what is my projected cash flow?"',
+      inputSchema: z.object({
+        forecastDays: z.number().optional().describe('Number of days ahead to forecast (default 30, max 90)'),
+      }),
+      execute: async (args) => {
+        try {
+          const days = Math.min(args.forecastDays || 30, 90);
+          const res = await client.getCashFlowForecast({
+            userId,
+            forecastDays: days,
+          });
+          const sumPoints = (pts: typeof res.incomeForecast) =>
+            pts.reduce(
+              (acc, p) =>
+                acc + (Number(p.predictedCents) !== 0 ? centsToDollars(p.predictedCents) : p.predicted),
+              0
+            );
+          const projectedIncome = sumPoints(res.incomeForecast);
+          const projectedExpenses = sumPoints(res.expenseForecast);
+          const projectedNetCashFlow = projectedIncome - projectedExpenses;
+          return {
+            forecastDays: days,
+            projectedIncome: Math.round(projectedIncome * 100) / 100,
+            projectedExpenses: Math.round(projectedExpenses * 100) / 100,
+            projectedNetCashFlow: Math.round(projectedNetCashFlow * 100) / 100,
+            recurringDrivenPoints: res.expenseForecast.filter((p) => p.isRecurring).length,
           };
         } catch (err: unknown) {
           return { error: String(err) };

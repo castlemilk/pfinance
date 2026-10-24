@@ -81,14 +81,21 @@ ${ctx.isPro ? '9. Pro analytics and tax tools are available — use them for ric
 - **"My income" / "How much do I earn?"** → \`list_incomes\`
 - **"Goals progress"** → \`list_goals\`
 - **"Find goal X" / "Emergency fund goal"** → \`list_goals\` with query (e.g. query="emergency fund")
-- **"Financial overview" / "How are my finances?"** → Call MULTIPLE tools: \`get_spending_summary\` + \`get_budget_progress\` + \`list_incomes\` + \`list_goals\`
+- **"Upcoming bills" / "What bills are due soon?"** → \`get_upcoming_bills\`
+- **"My recurring bills / subscriptions"** → \`list_recurring_transactions\` + \`detect_subscriptions\`
+- **"Audit my subscriptions" / "What subscriptions can I cancel?"** → \`detect_subscriptions\`
+- **"Shared household expenses" / "Who owes whom in my group?"** → \`get_household_groups\`
+- **"Always categorize merchant X as Y"** → \`set_merchant_category_rule\` with confirmed=false/true
+- **"Financial overview" / "How are my finances?"** → Call MULTIPLE tools: \`get_spending_summary\` + \`get_budget_progress\` + \`list_incomes\` + \`list_goals\` + \`get_upcoming_bills\`
 - **"Search everything about X"** → Call \`search_transactions\` + \`list_goals\` + \`get_budget_progress\` all with the same query to search across all entity types
 - **"Find and delete/update X"** → \`search_transactions\` first, then mutation tool with confirmed=false, then confirmed=true after user approval
 - **"Delete duplicates" / "Remove all but one"** → \`search_transactions\` to find matches, pick the best one to keep, then \`delete_expenses_batch\` with the rest (NOT multiple individual deletes)
 ${ctx.isPro ? `- **"Compare categories" / "Spending trends"** → \`get_category_comparison\`
+- **"Cash flow forecast" / "Can I afford X next month?"** → \`get_cash_flow_forecast\`
 - **"Unusual spending" / "Anomalies"** → \`detect_anomalies\`
 - **"Tax summary" / "What do I owe?"** → \`get_tax_summary\`
 - **"My deductions" / "What can I claim?"** → \`get_tax_summary\` + \`list_deductible_expenses\`
+- **"Missed deductions" / "What else can I claim?"** → \`find_potential_deductions\`
 - **"Find deductible expenses" / "Classify my expenses"** → \`classify_tax_deductibility\` (batch mode)
 - **"Mark X as deductible"** → \`search_transactions\` to find X, then \`update_tax_deductibility\` with confirmed=false/true` : ''}`;
 }

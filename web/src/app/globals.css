@@ -840,7 +840,8 @@ select {
     text-transform: uppercase;
   }
 
-  .salary-print-header h1 {
+  .salary-print-header h1,
+  .salary-print-header h2 {
     margin: 0;
     color: #fff7e9 !important;
     font-size: 26pt;

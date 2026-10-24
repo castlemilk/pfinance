@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   Wallet,
@@ -17,16 +18,18 @@ const features = [
   {
     icon: Wallet,
     title: 'Expense Tracking',
-    description: 'Log expenses quickly with smart categorization. Track recurring payments and one-time purchases effortlessly.',
+    description: 'Log expenses quickly with smart categorization. Capture receipts and track recurring payments effortlessly.',
     color: 'text-primary',
     glowVar: 'var(--primary)',
+    href: '/features/receipt-scanner/',
   },
   {
     icon: PieChart,
     title: 'Beautiful Insights',
-    description: 'Visualize your spending patterns with stunning charts. Understand where your money goes at a glance.',
+    description: 'Visualize your spending patterns and model your take-home pay with interactive calculators and charts.',
     color: 'text-chart-2',
     glowVar: 'var(--chart-2)',
+    href: '/tools/australian-salary-calculator/',
   },
   {
     icon: Users,
@@ -34,27 +37,31 @@ const features = [
     description: 'Collaborate with family or roommates. Share expenses, split costs, and manage household finances together.',
     color: 'text-chart-3',
     glowVar: 'var(--chart-3)',
+    href: '/features/household-budgeting/',
   },
   {
     icon: Brain,
     title: 'AI-Powered',
-    description: 'Smart categorization learns your habits. Import bank statements with AI that understands your transactions.',
+    description: 'Smart categorization learns your habits. Import bank statements with AI that stages and deduplicates transactions.',
     color: 'text-chart-4',
     glowVar: 'var(--chart-4)',
+    href: '/features/bank-statement-import/',
   },
   {
     icon: Bell,
     title: 'Budget Alerts',
-    description: 'Set spending limits and get notified before you overspend. Stay on track with personalized alerts.',
+    description: 'Set spending limits and get notified before you overspend. Plan category budgets that fit your household.',
     color: 'text-chart-5',
     glowVar: 'var(--chart-5)',
+    href: '/tools/budget-calculator/',
   },
   {
     icon: Shield,
-    title: 'Privacy First',
-    description: 'Your financial data stays secure. Bank-level encryption with optional local-only storage.',
+    title: 'Tax-Ready Records',
+    description: 'Keep receipt evidence and ATO deduction categories attached to expenses all year for cleaner tax exports.',
     color: 'text-secondary',
     glowVar: 'var(--secondary)',
+    href: '/features/tax-deductions/',
   },
 ];
 
@@ -172,7 +179,9 @@ export default function Features() {
 
                 {/* Content */}
                 <h3 className="text-lg font-semibold mb-2 group-hover:text-primary transition-colors crt-text-glow">
-                  {feature.title}
+                  <Link href={feature.href} className="hover:underline underline-offset-4">
+                    {feature.title}
+                  </Link>
                 </h3>
                 <p className="text-muted-foreground text-sm leading-relaxed">
                   {feature.description}

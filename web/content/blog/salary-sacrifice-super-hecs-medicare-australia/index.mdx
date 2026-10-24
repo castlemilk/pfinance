@@ -1,0 +1,97 @@
+---
+title: "Salary Sacrifice, Superannuation, and the HECS & Medicare Trap"
+description: "How pre-tax salary sacrifice into super or a novated lease reduces Australian income tax—and why it does not reduce your HELP/HECS repayment or Medicare Levy Surcharge income."
+date: "2026-10-10"
+author:
+  name: "PFinance Team"
+category: "Income & Tax"
+tags: ["salary sacrifice", "superannuation", "hecs help", "medicare levy surcharge", "salary calculator"]
+featured: false
+image: ""
+---
+
+Salary sacrificing into superannuation—or packaging a car on a novated lease—is one of the most popular ways for Australian employees to reduce their income tax. By directing pre-tax dollars into super up to the annual concessional contributions cap, those dollars are generally taxed at 15% inside the super fund instead of your marginal tax rate plus Medicare levy.
+
+However, thousands of Australians get an unexpected bill at tax time because they assume reducing their **Taxable Income** also reduces their **HELP/HECS repayment** or keeps them below the **Medicare Levy Surcharge (MLS)** threshold. It does not.
+
+Here is how the math actually works—and how to model it before you change your payroll settings.
+
+<Callout type="note">
+This guide explains Australian payroll and tax calculation mechanics for general information only. It is not personal financial or tax advice.
+</Callout>
+
+## How Pre-Tax Super Salary Sacrifice Reduces Income Tax
+
+When your employer pays your salary, they must pay the compulsory **Superannuation Guarantee (SG)** on top of your ordinary time earnings. Both your employer's SG contributions and any voluntary pre-tax salary sacrifice (or personal deductible super contributions) count toward your **annual concessional contributions cap**.
+
+### Example: $110,000 Base Salary
+
+Suppose you earn $110,000 and decide to salary sacrifice **$10,000** into super over the financial year:
+
+1. Your **Taxable Income** drops from $110,000 to **$100,000**.
+2. Instead of paying your marginal income tax rate plus the 2% Medicare levy on that $10,000, your super fund deducts **15% contributions tax** ($1,500), putting **$8,500 net** into your retirement balance.
+3. Your immediate annual tax saving is the difference between your marginal tax rate (plus Medicare levy) and the 15% super tax rate.
+
+You can test the exact impact on your weekly, fortnightly, or monthly take-home pay in our [Australian Salary Calculator](/tools/australian-salary-calculator/), and project how that extra $8,500/year compounds over 20 years in the [Super Calculator & Estimator](/tools/super-calculator/).
+
+## The Repayment Income Trap: Why Salary Sacrifice Does Not Lower HECS/HELP
+
+If you have a **HELP, HECS, VSL, or STSL student loan**, the ATO does **not** calculate your compulsory repayment using your Taxable Income. Instead, it uses **Repayment Income (RI)**:
+
+> **Repayment Income** = Taxable Income + Reportable Super Contributions + Reportable Fringe Benefits + Total Net Investment Loss + Exempt Foreign Employment Income
+
+What does this mean in practice?
+
+- When you salary sacrifice $10,000 into super, your Taxable Income drops by $10,000—**but** your employer reports that $10,000 as a **Reportable Employer Superannuation Contribution (RESC)** on your income statement.
+- The ATO adds that $10,000 right back in when calculating your HELP repayment!
+- Even worse: if your payroll software only withholds PAYG tax based on your reduced $100,000 cash salary, **too little HELP repayment may be withheld during the year**, leaving you with a tax bill when you lodge your return.
+
+<GraphWaterfall
+  title="How $10,000 super salary sacrifice affects Taxable Income vs Repayment Income"
+  corner="$110,000 base salary example"
+  items='[
+    {"label":"Gross base salary","value":110000,"display":"$110,000","kind":"start"},
+    {"label":"Pre-tax super salary sacrifice","value":-10000,"display":"-$10,000","kind":"out"},
+    {"label":"Reduced Taxable Income (used for income tax)","value":100000,"display":"$100,000","kind":"end"},
+    {"label":"Reportable super contribution (RESC) added back","value":10000,"display":"+$10,000","kind":"in"},
+    {"label":"HELP & MLS Repayment Income (unchanged!)","value":110000,"display":"$110,000","kind":"end"}
+  ]'
+/>
+
+<GraphCompare
+  title="What actually lowers Taxable Income vs HELP Repayment Income vs MLS Income?"
+  corner="ATO income tests"
+  accent="Reduces HELP Repayment Income"
+  columns='["Reduces Taxable Income","Reduces HELP Repayment Income","Reduces MLS Income"]'
+  rows='[
+    {"label":"Work-related deductions (D1–D5)","values":[true,true,true]},
+    {"label":"DGR charity donations (D15)","values":[true,true,true]},
+    {"label":"Tax agent & accounting fees (D10)","values":[true,true,true]},
+    {"label":"Pre-tax super salary sacrifice (RESC)","values":[true,false,false]},
+    {"label":"Personal deductible super contributions","values":[true,false,false]},
+    {"label":"Reportable fringe benefits / packaging","values":[true,false,false]},
+    {"label":"Negative gearing (net investment loss)","values":[true,false,false]}
+  ]'
+/>
+
+<Callout type="warning">
+Always check both your reduced Taxable Income and your full Repayment Income in the [Australian Salary Calculator](/tools/australian-salary-calculator/) when you have a HELP debt and use salary sacrifice or fringe benefits.
+</Callout>
+
+## The Medicare Levy Surcharge (MLS) and Reportable Fringe Benefits
+
+The same "add-back" rule applies to the **Medicare Levy Surcharge (MLS)**—the extra 1% to 1.5% surcharge levied on higher earners who do not hold an appropriate level of private patient hospital cover for the full financial year.
+
+Income for MLS purposes adds back:
+- Reportable super contributions (salary sacrifice and personal deductible super)
+- Reportable fringe benefits (such as charity/NFP salary packaging or a taxable novated lease)
+- Net investment losses
+
+As a result, you **cannot** use super salary sacrifice to drop below the Medicare Levy Surcharge threshold. In fact, if you package a benefit that creates a grossed-up Reportable Fringe Benefit Amount (RFBA)—including certain FBT-exempt electric vehicle novated leases, which are still reportable on your income statement!—your Income for MLS Purposes and Repayment Income can actually **increase**.
+
+## Checklist Before Setting Up Salary Sacrifice
+
+1. **Check your remaining concessional super cap**: Ensure your employer SG plus your proposed salary sacrifice will not exceed the annual concessional cap (unless you are eligible to use carry-forward unused concessional cap amounts from the prior 5 years and your Total Super Balance was under $500,000 at 30 June).
+2. **Model your net pay and HELP repayment**: Enter your salary, student loan toggle, and voluntary super amount in the [Australian Salary Calculator](/tools/australian-salary-calculator/).
+3. **Project your long-term retirement balance**: See what an extra $100 or $200 a fortnight does to your future balance in the [Super Calculator](/tools/super-calculator/).
+4. **Track your work-related tax deductions**: Unlike salary sacrifice, legitimate work-related deductions (D1–D15) reduce **both** your Taxable Income and your Repayment Income. Keep your receipts organized all year with PFinance's [Tax Deduction Tracker](/features/tax-deductions/).

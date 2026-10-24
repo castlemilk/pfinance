@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft, Calendar, Clock } from 'lucide-react';
-import { getPostBySlug, getAllPosts, getRelatedPosts, formatDate } from '@/lib/blog';
+import { getPostBySlug, getAllPosts, getRelatedPosts, formatDate, extractTocHeadings } from '@/lib/blog';
 import AuthorCard from '@/components/blog/AuthorCard';
 import ShareButtons from '@/components/blog/ShareButtons';
 import RelatedPosts from '@/components/blog/RelatedPosts';
@@ -72,6 +72,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   }
 
   const relatedPosts = getRelatedPosts(slug, 3);
+  const tocHeadings = extractTocHeadings(post.content);
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pfinance.dev';
   const postUrl = `${siteUrl}/blog/${slug}/`;
 
@@ -107,7 +108,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
       <article className="py-16">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           {/* Back Link */}
-          <Link href="/blog">
+          <Link href="/blog/">
             <Button variant="ghost" size="sm" className="mb-8 -ml-2">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Blog
@@ -175,6 +176,33 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                 />
               )}
             </div>
+
+            {/* Table of Contents for SERP jump links and reader navigation */}
+            {tocHeadings.length > 1 && (
+              <nav
+                aria-label="Table of contents"
+                className="mb-10 rounded-xl border border-border bg-muted/25 p-5"
+              >
+                <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-3">
+                  On this page
+                </p>
+                <ol className="space-y-2 text-sm">
+                  {tocHeadings.map((item) => (
+                    <li
+                      key={item.id}
+                      className={item.level === 3 ? 'pl-4 text-muted-foreground' : 'font-medium'}
+                    >
+                      <a
+                        href={`#${item.id}`}
+                        className="hover:text-primary transition-colors underline-offset-4 hover:underline"
+                      >
+                        {item.text}
+                      </a>
+                    </li>
+                  ))}
+                </ol>
+              </nav>
+            )}
 
             {/* Content */}
             <div className="prose prose-lg max-w-none dark:prose-invert">
