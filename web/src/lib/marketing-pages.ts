@@ -681,6 +681,159 @@ export const discoveryPages: MarketingPageData[] = [
     changeFrequency: 'weekly',
   },
   {
+    path: '/tools/cgt-calculator',
+    category: 'tools',
+    hubPath: '/tools',
+    hubLabel: 'Tools',
+    navLabel: 'CGT Calculator',
+    title: 'Capital Gains Tax (CGT) Calculator',
+    description: 'Estimate CGT on an asset sale — the 50% discount at 12 months, your taxable gain, and the tax at your marginal rate.',
+    eyebrow: 'CGT calculator',
+    heading: 'What will tax take from your sale?',
+    body: 'Enter your cost base, sale price, holding period, and taxable income. The calculator applies the 12-month CGT discount and estimates tax at your marginal rate including the Medicare levy.',
+    primaryCta: 'Log the sale in PFinance',
+    primaryCtaHref: '/personal/expenses/',
+    secondaryCta: 'Read the investing basics guide',
+    secondaryCtaHref: '/blog/investment-basics-beginners/',
+    highlights: [
+      'Automatic 50% discount when held 12+ months',
+      'Tax stacked on your marginal rate incl. Medicare levy',
+      'Capital loss handling explained',
+    ],
+    sections: [
+      {
+        title: 'CGT is income tax, not a separate tax',
+        body: 'A capital gain is added to your taxable income and taxed at whatever marginal rate it lands on. That is why the same gain costs a $45k earner far less than a $180k earner — and why timing a sale into a lower-income year is one of the few levers that materially changes the bill.',
+      },
+      {
+        title: 'The 12-month discount is the big lever',
+        body: 'Hold an asset at least 12 months and an individual taxpayer only declares half the gain. Selling at 11 months on a $140,000 gain versus waiting a month can cost over $20,000 in extra tax — the largest single date-sensitivity in personal tax.',
+      },
+      {
+        title: 'Losses carry forward indefinitely',
+        body: 'A capital loss cannot reduce salary income, but it offsets capital gains in the same year or any future year. If you are carrying losses, the taxable-gain figure the calculator shows is your starting point before losses apply.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Does the 50% discount apply to shares and ETFs too?',
+        answer: 'Yes — for assets held 12 months or more by an individual or trust. Companies do not get the discount, and foreign residents have had limited access since 2020.',
+      },
+      {
+        question: 'Is my home subject to CGT?',
+        answer: 'Your main residence is generally exempt. Investment properties, shares, crypto, and managed funds are the common CGT assets.',
+      },
+      {
+        question: 'When is the CGT event?',
+        answer: 'At contract date for most assets — for property, the contract signing date, not settlement. Selling just before 30 June lands the tax bill a year earlier than a July sale.',
+      },
+    ],
+    priority: 0.87,
+    changeFrequency: 'weekly',
+  },
+  {
+    path: '/tools/borrowing-power-calculator',
+    category: 'tools',
+    hubPath: '/tools',
+    hubLabel: 'Tools',
+    navLabel: 'Borrowing Power Calculator',
+    title: 'Borrowing Power & Home Loan Calculator',
+    description: 'Estimate how much you could borrow — lender-style serviceability with after-tax income, expenses, card-limit loadings, and the 3% APRA buffer.',
+    eyebrow: 'Borrowing power calculator',
+    heading: 'How much could a lender offer?',
+    body: 'Enter income, living expenses, existing debts, card limits, and your deposit. The estimator nets your income, applies the 3% assessment buffer lenders use, and converts the surplus into a maximum loan and property price.',
+    primaryCta: 'Set a deposit goal',
+    primaryCtaHref: '/personal/goals/',
+    secondaryCta: 'Compare offset vs savings',
+    secondaryCtaHref: '/tools/mortgage-offset-calculator/',
+    highlights: [
+      'After-tax income minus expenses, debts, and card loadings',
+      'Assessed at rate + 3% APRA serviceability buffer',
+      'Shows the monthly repayment at the actual rate',
+    ],
+    sections: [
+      {
+        title: 'Serviceability is the real ceiling',
+        body: 'Your deposit decides what you can bid on; serviceability decides what a lender will lend. Banks assess repayments at your rate plus a 3% buffer, then require a surplus after living expenses (floored at the HEM benchmark), existing debts, and card limits. That is why two households on the same salary can be offered very different amounts.',
+      },
+      {
+        title: 'Card limits count, not card balances',
+        body: 'Lenders assess credit cards at roughly 3.8% of the limit per month — whether or not you use them. A $20,000 unused limit can cost around $150,000 of borrowing power. Trimming limits before applying is one of the cheapest ways to lift the ceiling.',
+      },
+      {
+        title: 'What this estimate leaves out',
+        body: 'Lender-specific HEM floors, dependant loadings, HELP repayment commitments, LMI pricing above 80% LVR, and stamp duty all move the real figure. Use this as a planning range and get a broker or lender to run their actual serviceability model before you shop.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Why is the assessment rate higher than my rate?',
+        answer: 'APRA requires banks to test repayments at the higher of your rate plus 3% or a floor rate — so the loan stays serviceable if rates rise.',
+      },
+      {
+        question: 'Does my partner\'s income count?',
+        answer: 'Joint applications combine incomes and expenses. This estimator models one income stream — add a partner\'s net income to the surplus manually for a rough joint figure.',
+      },
+      {
+        question: 'How accurate is the net income figure?',
+        answer: 'It uses the 2024–25 resident tax brackets plus the Medicare levy. HELP repayments, salary sacrifice, and non-salary income shift the real number — see the salary calculator for a precise take-home estimate.',
+      },
+    ],
+    priority: 0.87,
+    changeFrequency: 'weekly',
+  },
+  {
+    path: '/tools/investment-risk-profile',
+    category: 'tools',
+    hubPath: '/tools',
+    hubLabel: 'Tools',
+    navLabel: 'Risk Profile Quiz',
+    title: 'Investment Risk Profile Quiz',
+    description: 'Five questions on horizon, reactions, income, goals, and experience — scored to a suggested growth/defensive asset mix.',
+    eyebrow: 'Risk profiler',
+    heading: 'What mix of growth and defensive assets fits you?',
+    body: 'The same fact-find a planner runs before recommending an allocation. Five questions produce a risk capacity score and a suggested growth/defensive split to start the conversation with yourself.',
+    primaryCta: 'Set an investing goal',
+    primaryCtaHref: '/personal/goals/',
+    secondaryCta: 'Read the investing basics guide',
+    secondaryCtaHref: '/blog/investment-basics-beginners/',
+    highlights: [
+      'Guided five-question flow — no finance jargon',
+      'Risk capacity score on a 15-segment scale',
+      'Suggested growth/defensive split for your band',
+    ],
+    sections: [
+      {
+        title: 'Risk capacity vs risk tolerance',
+        body: 'Tolerance is how a loss feels; capacity is how much loss your situation can absorb. A 25-year-old with a decade-long horizon and stable income has high capacity even if markets feel scary. The questions score both — horizon and income stability measure capacity, the crash-reaction and experience questions measure tolerance.',
+      },
+      {
+        title: 'What the suggested mix means',
+        body: 'Each band maps to a typical allocation — conservative ~25% growth, balanced ~50%, growth ~70%, high growth ~90%. Growth assets are shares and property; defensive are cash and bonds. These are starting points for thinking, not a product recommendation.',
+      },
+      {
+        title: 'Where the mix actually lives',
+        body: 'For most Australians the biggest risk decision is already inside super — your fund\'s investment option is the largest allocation you control. A profile score is most useful when applied there first, then to any investing outside it.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Is this financial advice?',
+        answer: 'No. It is a general educational estimate — a licensed adviser considers your full circumstances, tax position, and goals before recommending an allocation.',
+      },
+      {
+        question: 'My score surprised me — can it be wrong?',
+        answer: 'Quizzes compress a lot into five questions. If the answer that drove your score is "sell everything", consider whether that is fear of the unknown or a true constraint — the difference changes the right allocation.',
+      },
+      {
+        question: 'How often should I retake it?',
+        answer: 'Yearly, or after a life change — new dependants, income shifts, or a horizon milestone. Profiles drift as circumstances change even when temperament does not.',
+      },
+    ],
+    priority: 0.87,
+    changeFrequency: 'weekly',
+  },
+  {
     path: '/compare/spreadsheets-vs-finance-app',
     category: 'compare',
     hubPath: '/compare',

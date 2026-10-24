@@ -30,7 +30,7 @@ export default function PersonalExpensesPage() {
         </p>
       </div>
 
-      <PendingCalculatorBanner tools={['budget']} />
+      <PendingCalculatorBanner tools={['budget', 'cgt']} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <div id="smart-expense-entry">

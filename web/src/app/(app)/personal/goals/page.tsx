@@ -16,6 +16,8 @@ const GOAL_NAMES: Record<string, string> = {
   'hecs-help': 'Pay down HELP debt',
   'debt-payoff': 'Debt-free target',
   'insurance-needs': 'Build emergency buffer',
+  'borrowing-power': 'Home deposit goal',
+  'risk-profile': 'Start investing goal',
 };
 
 const GOAL_AMOUNT_FIELDS: Record<string, string> = {
@@ -24,6 +26,8 @@ const GOAL_AMOUNT_FIELDS: Record<string, string> = {
   'hecs-help': 'helpBalance',
   'debt-payoff': 'totalDebt',
   'insurance-needs': 'liquidAssets',
+  'borrowing-power': 'deposit',
+  'risk-profile': '',
 };
 
 export default function GoalsPage() {
@@ -59,7 +63,7 @@ export default function GoalsPage() {
       </div>
 
       <PendingCalculatorBanner
-        tools={['super', 'mortgage-offset', 'hecs-help', 'debt-payoff', 'insurance-needs']}
+        tools={['super', 'mortgage-offset', 'hecs-help', 'debt-payoff', 'insurance-needs', 'borrowing-power', 'risk-profile']}
         applyLabel="Create a goal from this"
         onApply={applySnapshot}
       />

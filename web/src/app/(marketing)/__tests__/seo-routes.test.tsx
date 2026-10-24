@@ -31,6 +31,9 @@ import MortgageOffsetCalculatorPage, { metadata as mortgageOffsetMetadata } from
 import HecsHelpCalculatorPage, { metadata as hecsHelpMetadata } from '../tools/hecs-help-calculator/page';
 import DebtPayoffCalculatorPage, { metadata as debtPayoffMetadata } from '../tools/debt-payoff-calculator/page';
 import InsuranceNeedsCalculatorPage, { metadata as insuranceNeedsMetadata } from '../tools/insurance-needs-calculator/page';
+import CgtCalculatorPage, { metadata as cgtMetadata } from '../tools/cgt-calculator/page';
+import BorrowingPowerCalculatorPage, { metadata as borrowingPowerMetadata } from '../tools/borrowing-power-calculator/page';
+import InvestmentRiskProfilePage, { metadata as riskProfileMetadata } from '../tools/investment-risk-profile/page';
 import BlogPage from '../blog/page';
 import { buildRssFeedXml } from '@/lib/rss';
 import Footer, { footerLinks } from '../components/Footer';
@@ -114,6 +117,9 @@ describe('marketing SEO routes', () => {
       hecsHelpMetadata,
       debtPayoffMetadata,
       insuranceNeedsMetadata,
+      cgtMetadata,
+      borrowingPowerMetadata,
+      riskProfileMetadata,
       spreadsheetComparisonMetadata,
     ];
 
@@ -268,6 +274,37 @@ describe('marketing SEO routes', () => {
     // $95k income x 10yrs x 70% + $480k debts + $80k costs − $245k resources = $980,000
     expect(doc.querySelector('[data-testid="insurance-life-cover"]')?.textContent).toContain('$980,000');
     expect(doc.querySelector('[data-testid="insurance-ip-benefit"]')?.textContent).toContain('$5,542');
+    expect(doc.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('mounts the interactive CGT calculator on /tools/cgt-calculator/', () => {
+    expect(canonicalPath(cgtMetadata)).toBe('/tools/cgt-calculator');
+    const html = renderToStaticMarkup(<CgtCalculatorPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.body.textContent).toContain('Interactive capital gains tax calculator');
+    // $140k gain, held 30mo -> 50% discount -> $70k taxable at 39% (30%+2% Medicare on $95k+$70k) = $27,300
+    expect(doc.querySelector('[data-testid="cgt-taxable"]')?.textContent).toContain('$70,000');
+    expect(doc.querySelector('[data-testid="cgt-gross"]')?.textContent).toContain('$140,000');
+    expect(doc.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('mounts the interactive borrowing power estimator on /tools/borrowing-power-calculator/', () => {
+    expect(canonicalPath(borrowingPowerMetadata)).toBe('/tools/borrowing-power-calculator');
+    const html = renderToStaticMarkup(<BorrowingPowerCalculatorPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.body.textContent).toContain('Interactive borrowing power estimator');
+    expect(doc.body.textContent).toContain('maximum property price');
+    expect(doc.querySelector('[data-testid="borrowing-repayment"]')?.textContent).toContain('$');
+    expect(doc.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('mounts the interactive risk profile quiz on /tools/investment-risk-profile/', () => {
+    expect(canonicalPath(riskProfileMetadata)).toBe('/tools/investment-risk-profile');
+    const html = renderToStaticMarkup(<InvestmentRiskProfilePage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.body.textContent).toContain('Interactive risk profile quiz');
+    expect(doc.body.textContent).toContain('When will you need the money?');
+    expect(doc.body.textContent).toContain('Answer the five questions');
     expect(doc.querySelectorAll('h1')).toHaveLength(1);
   });
 

@@ -135,6 +135,27 @@ export default function BlogPage() {
               </Link>
               <span aria-hidden="true" className="text-muted-foreground">·</span>
               <Link
+                href="/tools/cgt-calculator/"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                CGT Calculator
+              </Link>
+              <span aria-hidden="true" className="text-muted-foreground">·</span>
+              <Link
+                href="/tools/borrowing-power-calculator/"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Borrowing Power
+              </Link>
+              <span aria-hidden="true" className="text-muted-foreground">·</span>
+              <Link
+                href="/tools/investment-risk-profile/"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Risk Profile Quiz
+              </Link>
+              <span aria-hidden="true" className="text-muted-foreground">·</span>
+              <Link
                 href="/features/tax-deductions/"
                 className="font-medium text-primary underline-offset-4 hover:underline"
               >
