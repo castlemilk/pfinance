@@ -88,6 +88,7 @@ describe('marketing SEO routes', () => {
     const appDir = path.join(__dirname, '..', '..');
 
     expect(fs.existsSync(path.join(appDir, 'opengraph-image.tsx'))).toBe(true);
+    expect(fs.existsSync(path.join(marketingDir, 'opengraph-image.tsx'))).toBe(true);
     expect(fs.existsSync(path.join(marketingDir, 'blog', 'opengraph-image.tsx'))).toBe(true);
     expect(fs.existsSync(path.join(marketingDir, 'blog', '[slug]', 'opengraph-image.tsx'))).toBe(true);
     expect(fs.existsSync(path.join(marketingDir, 'tools', 'super-calculator', 'opengraph-image.tsx'))).toBe(true);
