@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, BookOpen } from 'lucide-react';
+import { ArrowRight, BookOpen, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BreadcrumbJsonLd, FAQPageJsonLd } from '@/components/seo/JsonLd';
@@ -100,18 +100,36 @@ export default function MarketingInfoPage({ page, children }: MarketingInfoPageP
       <section className="border-y bg-muted/25 py-12">
         <div className="container mx-auto grid gap-4 px-4 sm:px-6 md:grid-cols-3 lg:px-8">
           {page.highlights.map((highlight) => (
-            <div key={highlight} className="rounded-lg border bg-background p-5 shadow-sm">
-              <p className="text-sm font-semibold">{highlight}</p>
+            <div
+              key={highlight}
+              className="flex items-start gap-3 rounded-lg border bg-background p-5 shadow-sm"
+            >
+              <span
+                aria-hidden="true"
+                className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary"
+              >
+                <Check className="h-3 w-3" strokeWidth={3} />
+              </span>
+              <p className="text-sm font-medium leading-6">{highlight}</p>
             </div>
           ))}
         </div>
       </section>
 
       <section className="py-16 sm:py-20">
-        <div className="container mx-auto grid gap-8 px-4 sm:px-6 lg:grid-cols-3 lg:px-8">
-          {page.sections.map((section) => (
-            <section key={section.title} className="rounded-lg border bg-card/50 p-6">
-              <h2 className="text-xl font-semibold tracking-tight">{section.title}</h2>
+        <div className="container mx-auto grid gap-6 px-4 sm:px-6 lg:grid-cols-3 lg:px-8">
+          {page.sections.map((section, index) => (
+            <section
+              key={section.title}
+              className="flex flex-col rounded-xl border bg-card/50 p-6"
+            >
+              <span
+                aria-hidden="true"
+                className="text-xs font-semibold uppercase tracking-widest text-primary/70"
+              >
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <h2 className="mt-2 text-xl font-semibold tracking-tight">{section.title}</h2>
               <p className="mt-3 text-sm leading-7 text-muted-foreground">
                 {section.body}
               </p>
