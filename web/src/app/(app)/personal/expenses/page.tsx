@@ -6,6 +6,7 @@ import SmartExpenseEntry from '../../../components/SmartExpenseEntry';
 import ExpenseList from '../../../components/ExpenseList';
 import ExpenseVisualization from '../../../components/ExpenseVisualization';
 import { AnalyticsExpenseFilterSummary } from '../../../components/analytics/AnalyticsExpenseFilterSummary';
+import PendingCalculatorBanner from '../../../components/calculator-handoff/PendingCalculatorBanner';
 import { parseAnalyticsExpenseFilters } from '../../../utils/analyticsExpenseFilters';
 
 export default function PersonalExpensesPage() {
@@ -28,6 +29,8 @@ export default function PersonalExpensesPage() {
           Upload receipts, import statements, and add expenses
         </p>
       </div>
+
+      <PendingCalculatorBanner tools={['budget']} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <div id="smart-expense-entry">

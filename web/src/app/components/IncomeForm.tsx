@@ -37,16 +37,21 @@ type FormData = {
   taxStatus: TaxStatus;
 };
 
-export default function IncomeForm() {
+interface IncomeFormProps {
+  initialValues?: Partial<FormData>;
+}
+
+export default function IncomeForm({ initialValues }: IncomeFormProps) {
   const { addIncome } = useFinance();
   const [deductions, setDeductions] = useState<Deduction[]>([]);
-  
+
   const form = useForm<FormData>({
     defaultValues: {
       source: '',
       amount: '',
       frequency: 'monthly',
       taxStatus: 'preTax',
+      ...initialValues,
     },
   });
 

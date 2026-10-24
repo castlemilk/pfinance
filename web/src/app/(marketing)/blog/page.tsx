@@ -107,6 +107,20 @@ export default function BlogPage() {
               </Link>
               <span aria-hidden="true" className="text-muted-foreground">·</span>
               <Link
+                href="/tools/mortgage-offset-calculator/"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Mortgage Offset Calculator
+              </Link>
+              <span aria-hidden="true" className="text-muted-foreground">·</span>
+              <Link
+                href="/tools/hecs-help-calculator/"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                HECS-HELP Calculator
+              </Link>
+              <span aria-hidden="true" className="text-muted-foreground">·</span>
+              <Link
                 href="/features/tax-deductions/"
                 className="font-medium text-primary underline-offset-4 hover:underline"
               >

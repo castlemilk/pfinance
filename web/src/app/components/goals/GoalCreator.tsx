@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useGoals, GoalType, CreateGoalParams } from '../../context/GoalContext';
 import {
   Dialog,
@@ -32,10 +32,18 @@ import {
   Sparkles,
 } from 'lucide-react';
 
+export interface GoalInitialValues {
+  name?: string;
+  description?: string;
+  targetAmount?: string;
+  goalType?: GoalType;
+}
+
 interface GoalCreatorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onGoalCreated?: () => void;
+  initial?: GoalInitialValues;
 }
 
 type Step = 'type' | 'details' | 'amount' | 'timeline' | 'confirm';
@@ -64,7 +72,7 @@ const goalTypeOptions: { type: GoalType; icon: typeof PiggyBank; title: string; 
 const goalIcons = ['🎯', '🏠', '🚗', '✈️', '💰', '📱', '🎓', '💍', '🏥', '🎁', '🛍️', '🔧'];
 const goalColors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
-export default function GoalCreator({ open, onOpenChange, onGoalCreated }: GoalCreatorProps) {
+export default function GoalCreator({ open, onOpenChange, onGoalCreated, initial }: GoalCreatorProps) {
   const { createGoal } = useGoals();
   const [step, setStep] = useState<Step>('type');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,6 +86,16 @@ export default function GoalCreator({ open, onOpenChange, onGoalCreated }: GoalC
   const [targetDate, setTargetDate] = useState('');
   const [icon, setIcon] = useState('🎯');
   const [color, setColor] = useState('#10b981');
+
+  useEffect(() => {
+    if (open && initial) {
+      if (initial.name !== undefined) setName(initial.name);
+      if (initial.description !== undefined) setDescription(initial.description);
+      if (initial.targetAmount !== undefined) setTargetAmount(initial.targetAmount);
+      if (initial.goalType !== undefined) setGoalType(initial.goalType);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const resetForm = () => {
     setStep('type');

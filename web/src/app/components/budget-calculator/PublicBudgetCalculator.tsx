@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import CalculatorHandoffCta from '../calculator-handoff/CalculatorHandoffCta';
 
 type PayFrequency = 'weekly' | 'fortnightly' | 'monthly' | 'annually';
 
@@ -316,6 +317,32 @@ export default function PublicBudgetCalculator() {
                   </CardContent>
                 </Card>
               )}
+
+              <div className="flex flex-wrap items-center gap-3">
+                <CalculatorHandoffCta
+                  tool="budget"
+                  title="Budget Calculator"
+                  summary={`${values.needsPercent}/${values.wantsPercent}/${values.savingsPercent} split on ${money(calculation.totalAnnual / 12)}/mo take-home`}
+                  metrics={calculation.buckets.map((b) => ({
+                    label: b.label.split(' (')[0],
+                    value: `${money(b.annual / 12)}/mo`,
+                  }))}
+                  fields={{
+                    totalAnnualTakeHome: Math.round(calculation.totalAnnual),
+                    needsPercent: Number(values.needsPercent),
+                    wantsPercent: Number(values.wantsPercent),
+                    savingsPercent: Number(values.savingsPercent),
+                    needsMonthly: Math.round(calculation.buckets[0].annual / 12),
+                    wantsMonthly: Math.round(calculation.buckets[1].annual / 12),
+                    savingsMonthly: Math.round(calculation.buckets[2].annual / 12),
+                  }}
+                  targetPath="/personal/expenses/"
+                  label="Track this budget in PFinance"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Your split is carried over — no re-typing after sign-in.
+                </p>
+              </div>
             </>
           ) : (
             <Card>

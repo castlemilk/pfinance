@@ -477,6 +477,108 @@ export const discoveryPages: MarketingPageData[] = [
     changeFrequency: 'weekly',
   },
   {
+    path: '/tools/mortgage-offset-calculator',
+    category: 'tools',
+    hubPath: '/tools',
+    hubLabel: 'Tools',
+    navLabel: 'Mortgage Offset Calculator',
+    title: 'Mortgage Offset & Savings Calculator',
+    description: 'Compare parking cash in a 100% mortgage offset account versus a taxable high-interest savings account — interest saved, years off the loan, and after-tax returns.',
+    eyebrow: 'Offset calculator',
+    heading: 'See what your offset balance is really worth',
+    body: 'Enter your loan balance, rate, and remaining term alongside the cash you could park in a 100% offset account. Compare tax-free interest savings against the after-tax return of a high-interest savings account.',
+    primaryCta: 'Track payoff goals',
+    primaryCtaHref: '/personal/goals/',
+    secondaryCta: 'Read the offset guide',
+    secondaryCtaHref: '/blog/emergency-fund-guide/',
+    highlights: [
+      'Full amortization simulation with and without offset',
+      'Years-and-months saved plus total interest difference',
+      'After-tax comparison against a HISA at your marginal rate',
+    ],
+    sections: [
+      {
+        title: 'Why offset savings are effectively tax-free',
+        body: 'Interest earned in a high-interest savings account is assessable income taxed at your marginal rate (including the Medicare levy), so a 4.5% HISA on a 32% marginal rate only nets about 3.06%. Money in a 100% offset account earns nothing directly — instead it stops your lender charging interest on that slice of your loan, which is a guaranteed return equal to your mortgage rate with no tax withheld. When your loan rate exceeds the after-tax HISA rate, offset wins on every dollar.',
+      },
+      {
+        title: 'The compounding effect of paying principal sooner',
+        body: 'Every dollar of interest not charged flows straight into principal reduction, which shrinks the interest base for the following month. A persistent offset balance therefore does more than save a flat percentage each year — it shortens the loan by months or years. The calculator simulates the full month-by-month amortization schedule both ways so you can see the real payoff date difference, not just a first-year estimate.',
+      },
+      {
+        title: 'Keep the emergency fund accessible, not redrawn',
+        body: 'Unlike extra repayments locked into a loan (subject to redraw rules and minimums), cash in a genuine 100% offset account stays instantly accessible for emergencies, sinking funds, and opportunities. That makes offset the natural home for an emergency buffer while you have a variable-rate mortgage — you get liquidity and the tax-free saving at the same time.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Does a partial offset account work the same way?',
+        answer: 'Partial offsets only reduce the interest-bearing balance by a percentage of your deposit. The calculator models a 100% offset; if your product is partial, scale the offset balance input accordingly.',
+      },
+      {
+        question: 'Is money in offset still mine to spend?',
+        answer: 'Yes. A genuine offset account is a normal transaction account linked to your loan — you can withdraw at any time. The saving stops for whatever you withdraw, but nothing is locked away.',
+      },
+      {
+        question: 'Why compare against after-tax savings interest?',
+        answer: 'HISA interest is taxed as income at your marginal rate. Offset savings are not income — they are interest you were never charged — so comparing the offset to the gross HISA rate overstates the savings account.',
+      },
+    ],
+    priority: 0.87,
+    changeFrequency: 'weekly',
+  },
+  {
+    path: '/tools/hecs-help-calculator',
+    category: 'tools',
+    hubPath: '/tools',
+    hubLabel: 'Tools',
+    navLabel: 'HECS-HELP Calculator',
+    title: 'HECS-HELP Repayment & Indexation Calculator',
+    description: 'Estimate your compulsory HELP repayment under the 2025–26 marginal rate system, annual 1 June indexation, and your projected year-end balance.',
+    eyebrow: 'HECS-HELP calculator',
+    heading: 'Estimate your compulsory HELP repayment',
+    body: 'From 1 July 2025, HELP repayments are marginal — charged only on repayment income above $67,000. Enter your repayment income and loan balance to see the annual repayment, per-fortnight withholding, and indexation-adjusted year-end balance.',
+    primaryCta: 'Set a payoff goal',
+    primaryCtaHref: '/personal/goals/',
+    secondaryCta: 'Salary sacrifice & HELP guide',
+    secondaryCtaHref: '/blog/salary-sacrifice-super-hecs-medicare-australia/',
+    highlights: [
+      '2025–26 marginal repayment schedule (15c / 17c / 10% tiers)',
+      'Per-fortnight withholding estimate for pay-cycle budgeting',
+      '1 June indexation projection on your current balance',
+    ],
+    sections: [
+      {
+        title: 'How the 2025–26 marginal repayment system works',
+        body: 'Compulsory repayments are now calculated only on the slice of repayment income above $67,000 — not on your total income. You pay 15 cents per dollar between $67,001 and $125,000, $8,700 plus 17 cents per dollar between $125,001 and $179,285, and 10% of total repayment income at $179,286 and above. Most holders will see smaller compulsory repayments than under the old percentage-of-total-income table.',
+      },
+      {
+        title: 'Repayment income is wider than taxable income',
+        body: 'Repayment income adds back reportable employer super contributions (including salary sacrifice), total reportable fringe benefits, net investment losses, and exempt foreign employment income to your taxable income. If you salary sacrifice into super or package a car, enter the add-back-inclusive figure or the estimate will understate your compulsory repayment.',
+      },
+      {
+        title: 'Indexation lands before repayments credit',
+        body: 'On 1 June each year your outstanding balance is indexed by the lower of CPI or WPI, and that uplift applies before the year\'s repayments are credited. Making a voluntary repayment before 1 June reduces the base that indexation is applied to — which is why timing a lump sum just before indexation day saves slightly more than paying after it.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'What counts as repayment income?',
+        answer: 'Taxable income (excluding assessable FHSS released amounts) plus reportable fringe benefits, reportable super contributions, total net investment losses, and exempt foreign employment income.',
+      },
+      {
+        question: 'Do I pay anything if my repayment income is under $67,000?',
+        answer: 'No. For 2025–26 the minimum repayment threshold is $67,000, indexed annually in line with average weekly earnings.',
+      },
+      {
+        question: 'Does salary sacrificing into super reduce my HELP repayment?',
+        answer: 'No. Reportable super contributions are added back into repayment income, so concessional salary sacrifice does not lower the compulsory repayment — though it still reduces income tax.',
+      },
+    ],
+    priority: 0.86,
+    changeFrequency: 'weekly',
+  },
+  {
     path: '/compare/spreadsheets-vs-finance-app',
     category: 'compare',
     hubPath: '/compare',

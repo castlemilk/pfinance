@@ -25,6 +25,8 @@ import TaxDeductionsPage from '../features/tax-deductions/page';
 import BudgetCalculatorPage from '../tools/budget-calculator/page';
 import AustralianSalaryCalculatorPage from '../tools/australian-salary-calculator/page';
 import WfhDeductionCalculatorPage, { metadata as wfhCalculatorMetadata } from '../tools/wfh-deduction-calculator/page';
+import MortgageOffsetCalculatorPage, { metadata as mortgageOffsetMetadata } from '../tools/mortgage-offset-calculator/page';
+import HecsHelpCalculatorPage, { metadata as hecsHelpMetadata } from '../tools/hecs-help-calculator/page';
 import BlogPage from '../blog/page';
 import { buildRssFeedXml } from '@/lib/rss';
 import Footer, { footerLinks } from '../components/Footer';
@@ -87,6 +89,9 @@ describe('marketing SEO routes', () => {
       taxDeductionsMetadata,
       salaryCalculatorMetadata,
       budgetCalculatorMetadata,
+      wfhCalculatorMetadata,
+      mortgageOffsetMetadata,
+      hecsHelpMetadata,
       spreadsheetComparisonMetadata,
     ];
 
@@ -118,6 +123,9 @@ describe('marketing SEO routes', () => {
       '/tools/australian-salary-calculator/',
       '/tools/budget-calculator/',
       '/tools/super-calculator/',
+      '/tools/wfh-deduction-calculator/',
+      '/tools/mortgage-offset-calculator/',
+      '/tools/hecs-help-calculator/',
       '/compare/spreadsheets-vs-finance-app/',
     ]));
   });
@@ -196,6 +204,26 @@ describe('marketing SEO routes', () => {
     const doc = new DOMParser().parseFromString(html, 'text/html');
     expect(doc.body.textContent).toContain('Interactive WFH deduction comparison calculator');
     expect(doc.querySelector('[data-testid="wfh-recommended-method"]')?.textContent).toContain('Actual Cost Method');
+    expect(doc.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('mounts the interactive mortgage offset calculator on /tools/mortgage-offset-calculator/', () => {
+    expect(canonicalPath(mortgageOffsetMetadata)).toBe('/tools/mortgage-offset-calculator');
+    const html = renderToStaticMarkup(<MortgageOffsetCalculatorPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.body.textContent).toContain('Interactive mortgage offset calculator');
+    expect(doc.querySelector('[data-testid="offset-interest-saved"]')?.textContent).toContain('$');
+    expect(doc.querySelector('[data-testid="offset-effective-rate"]')?.textContent).toContain('5.90%');
+    expect(doc.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('mounts the interactive HECS-HELP calculator on /tools/hecs-help-calculator/', () => {
+    expect(canonicalPath(hecsHelpMetadata)).toBe('/tools/hecs-help-calculator');
+    const html = renderToStaticMarkup(<HecsHelpCalculatorPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.body.textContent).toContain('Interactive HECS-HELP repayment estimator');
+    // $85,000 repayment income -> 15c x $18,000 = $2,700 compulsory
+    expect(doc.querySelector('[data-testid="hecs-compulsory-repayment"]')?.textContent).toContain('$2,700');
     expect(doc.querySelectorAll('h1')).toHaveLength(1);
   });
 

@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import CalculatorHandoffCta from '../calculator-handoff/CalculatorHandoffCta';
 import { projectSuper, validateSuperAssumptions, type SuperAssumptions, type SuperProjectionYear } from './projection';
 
 const EXAMPLE = { startingBalance: '100000', annualContribution: '12000', annualReturnPercent: '6', years: '25' };
@@ -79,6 +80,28 @@ export default function SuperCalculator() {
               <figcaption className="flex flex-wrap gap-x-5 gap-y-2 text-sm"><span><span aria-hidden="true" className="mr-2 inline-block h-0.5 w-5 bg-primary align-middle" />Projected balance</span><span><span aria-hidden="true" className="mr-2 inline-block w-5 border-t-2 border-dashed border-muted-foreground align-middle" />Starting balance + contributions</span></figcaption>
             </figure>
           </CardContent></Card>
+          <div className="flex flex-wrap items-center gap-3">
+            <CalculatorHandoffCta
+              tool="super"
+              title="Super Calculator"
+              summary={`Projected ${money(end.balance)} in ${assumptions.years} yrs from ${money(assumptions.startingBalance)} + ${money(assumptions.annualContribution)}/yr at ${assumptions.annualReturnPercent}%`}
+              metrics={[
+                { label: 'Projected balance', value: money(end.balance) },
+                { label: 'Contributions', value: money(end.totalContributions) },
+                { label: 'Growth', value: money(end.totalGrowth) },
+              ]}
+              fields={{
+                startingBalance: assumptions.startingBalance,
+                annualContribution: assumptions.annualContribution,
+                annualReturnPercent: assumptions.annualReturnPercent,
+                years: assumptions.years,
+                projectedBalance: Math.round(end.balance),
+              }}
+              targetPath="/personal/goals/"
+              label="Set a super goal in PFinance"
+            />
+            <p className="text-xs text-muted-foreground">Carry the projection into a savings goal.</p>
+          </div>
         </> : <Card><CardContent className="py-10"><p role="status">{calculation.message || 'Enter valid assumptions to see your projection.'}</p><p className="mt-2 text-sm text-muted-foreground">No previous result is shown while an input is invalid.</p></CardContent></Card>}
       </div>
     </div>
