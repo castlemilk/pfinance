@@ -61,7 +61,7 @@ export default function Hero() {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6 skeu-emboss"
             >
-              Take Control of{' '}
+              Personal Finance,{' '}
               <RoughNotation
                 type="underline"
                 show={showUnderline}
@@ -73,7 +73,7 @@ export default function Hero() {
                 strokeWidth={3}
                 iterations={2}
               >
-                <span className="text-primary crt-text-glow">Your Finances</span>
+                <span className="text-primary crt-text-glow">Built for Australian Households</span>
               </RoughNotation>
             </motion.h1>
 
@@ -84,7 +84,7 @@ export default function Hero() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-lg sm:text-xl text-muted-foreground max-w-xl mx-auto lg:mx-0 mb-8"
             >
-              Track expenses, manage budgets, and collaborate with your household—all with beautiful visualizations and smart AI insights.
+              Track expenses, split household bills, and keep tax-ready records — with an AI assistant that answers questions against your real numbers.
             </motion.p>
 
             {/* CTA Buttons */}

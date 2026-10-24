@@ -1,5 +1,7 @@
 import { render } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server.node';
+import fs from 'node:fs';
+import path from 'node:path';
 import LandingPage from '../page';
 import robots from '@/app/robots';
 import sitemap from '@/app/sitemap';
@@ -70,15 +72,30 @@ describe('marketing SEO routes', () => {
     expect(rootMetadata.metadataBase?.toString()).toBe(`${publicOrigin}/`);
   });
 
-  it('defines canonical URLs and social images for the core public pages', () => {
+  it('defines canonical URLs and leaves OG images to the file convention', () => {
     expect(canonicalPath(homeMetadata)).toBe('/');
-    expect(serializedOpenGraphImages(homeMetadata)).toContain('/og-image.png');
+    expect(serializedOpenGraphImages(homeMetadata)).not.toContain('/og-image.png');
 
     expect(canonicalPath(blogMetadata)).toBe('/blog');
-    expect(serializedOpenGraphImages(blogMetadata)).toContain('/og-image.png');
+    expect(serializedOpenGraphImages(blogMetadata)).not.toContain('/og-image.png');
 
     expect(canonicalPath(privacyMetadata)).toBe('/privacy');
     expect(canonicalPath(termsMetadata)).toBe('/terms');
+  });
+
+  it('provides a generated opengraph-image route for every public marketing page', () => {
+    const marketingDir = path.join(__dirname, '..');
+    const appDir = path.join(__dirname, '..', '..');
+
+    expect(fs.existsSync(path.join(appDir, 'opengraph-image.tsx'))).toBe(true);
+    expect(fs.existsSync(path.join(marketingDir, 'blog', 'opengraph-image.tsx'))).toBe(true);
+    expect(fs.existsSync(path.join(marketingDir, 'blog', '[slug]', 'opengraph-image.tsx'))).toBe(true);
+    expect(fs.existsSync(path.join(marketingDir, 'tools', 'super-calculator', 'opengraph-image.tsx'))).toBe(true);
+
+    for (const page of [...discoveryPages, ...hubPages]) {
+      const ogFile = path.join(marketingDir, page.path, 'opengraph-image.tsx');
+      expect({ path: page.path, exists: fs.existsSync(ogFile) }).toEqual({ path: page.path, exists: true });
+    }
   });
 
   it('defines discovery metadata for feature, tool, and comparison landing pages', () => {
@@ -98,7 +115,7 @@ describe('marketing SEO routes', () => {
     for (const metadata of pages) {
       expect(canonicalPath(metadata)).toMatch(/^\/(features|tools|compare)\//);
       expect(metadata.description).toBeTruthy();
-      expect(serializedOpenGraphImages(metadata)).toContain('/og-image.png');
+      expect(serializedOpenGraphImages(metadata)).not.toContain('/og-image.png');
     }
   });
 

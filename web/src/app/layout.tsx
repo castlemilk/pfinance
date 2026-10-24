@@ -54,24 +54,15 @@ export const metadata: Metadata = {
   creator: "PFinance",
   openGraph: {
     type: "website",
-    locale: "en_US",
+    locale: "en_AU",
     siteName: "PFinance",
-    title: "PFinance - Personal Finance Tracker",
-    description: "Track expenses, manage budgets, and collaborate with your household. Beautiful visualizations, AI-powered insights, and multi-user support.",
-    images: [
-      {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "PFinance - Personal Finance Tracker",
-      },
-    ],
+    title: "PFinance — Personal Finance for Australian Households",
+    description: "Track expenses, budgets, tax deductions, and shared household spending — with an AI assistant, receipt scanning, and free ATO-aware calculators.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "PFinance - Personal Finance Tracker",
-    description: "Track expenses, manage budgets, and collaborate with your household.",
-    images: ["/og-image.png"],
+    title: "PFinance — Personal Finance for Australian Households",
+    description: "Track expenses, budgets, tax deductions, and shared household spending.",
   },
   robots: {
     index: true,
