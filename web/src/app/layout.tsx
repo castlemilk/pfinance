@@ -31,10 +31,10 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://pfinance.dev'),
   title: {
-    default: "PFinance - Personal Finance Tracker",
+    default: "PFinance — Personal Finance for Australian Households",
     template: "%s | PFinance",
   },
-  description: "Track expenses, manage budgets, and collaborate with your household. Beautiful visualizations, AI-powered insights, and multi-user support.",
+  description: "Track expenses, budgets, tax deductions, and shared household spending — with an AI assistant, receipt scanning, and free ATO-aware calculators.",
   alternates: {
     types: {
       'application/rss+xml': '/feed.xml',
