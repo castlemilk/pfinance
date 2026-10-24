@@ -67,7 +67,7 @@ When you upload a PDF or CSV statement into PFinance, the extraction pipeline ru
 
 In the past, some finance apps asked users to hand over their actual internet banking username and password ("screen scraping"). Sharing banking credentials violates most bank terms of service and creates severe security exposure.
 
-Australia's **Consumer Data Right (CDR)**—often called **Open Banking**—was created by the Australian Government and regulated by the ACCC to replace screen scraping with a regulated, consent-driven API standard:
+Australia's **Consumer Data Right (CDR)**, often called **Open Banking**, was created by the Australian Government and regulated by the ACCC to replace screen scraping with a regulated, consent-driven API standard:
 
 - **No password sharing**: You authenticate directly with your bank using one-time passcodes and biometric/app approval, never giving your password to a third party.
 - **Granular, time-bounded consent**: You choose exactly which accounts and data clusters to share (such as account balances and transaction history) for up to 12 months, and you can revoke consent with one click at any time.
@@ -79,7 +79,7 @@ Gamma Systems Pty Ltd (the company behind PFinance) is still completing its Cons
 
 ## Combining Statement Imports with Receipt Capture
 
-Even when live bank feeds are present, a bank transaction line still only carries the merchant name and total amount—never the itemized tax invoice required by the ATO for work-related deductions over $300.
+Even when live bank feeds are present, a bank transaction line still only carries the merchant name and total amount: never the itemized tax invoice required by the ATO for work-related deductions over $300.
 
 The cleanest workflow for Australian households combines both:
 - Use the [Receipt Scanner](/features/receipt-scanner/) at the time of purchase for any work-related deduction or warranty item, tagging the ATO category in the [Tax Deduction Tracker](/features/tax-deductions/).
