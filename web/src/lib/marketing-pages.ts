@@ -579,6 +579,108 @@ export const discoveryPages: MarketingPageData[] = [
     changeFrequency: 'weekly',
   },
   {
+    path: '/tools/debt-payoff-calculator',
+    category: 'tools',
+    hubPath: '/tools',
+    hubLabel: 'Tools',
+    navLabel: 'Debt Payoff Calculator',
+    title: 'Debt Payoff Calculator — Avalanche vs Snowball',
+    description: 'Compare avalanche and snowball payoff strategies across your debts — payoff date, total interest, and what an extra repayment saves.',
+    eyebrow: 'Debt payoff calculator',
+    heading: 'See how fast your debts can be gone',
+    body: 'Enter each debt\'s balance, rate, and minimum repayment plus what extra you can add each month. The simulator runs the full payoff schedule for the avalanche (highest rate first) and snowball (smallest balance first) strategies side by side.',
+    primaryCta: 'Set a debt-free goal',
+    primaryCtaHref: '/personal/goals/',
+    secondaryCta: 'Read the payoff strategies guide',
+    secondaryCtaHref: '/blog/debt-payoff-strategies/',
+    highlights: [
+      'Month-by-month payoff simulation for up to three debts',
+      'Avalanche vs snowball compared on interest and time',
+      'Extra repayment impact — interest and months saved',
+    ],
+    sections: [
+      {
+        title: 'Avalanche wins on maths, snowball wins on behaviour',
+        body: 'The avalanche strategy directs every spare dollar to the highest-interest debt, which is always the cheapest path on paper. The snowball targets the smallest balance first — it costs slightly more interest but clears an account quickly, and the early win keeps many people paying. The calculator shows the exact dollar difference for your debts so the trade-off is concrete, not theoretical.',
+      },
+      {
+        title: 'Extra repayments compound through the order',
+        body: 'Every debt you clear frees its minimum repayment, which rolls onto the next target. A $400/month extra payment on top of minimums does not just save $400 of principal — it accelerates the whole schedule, so the interest saving is usually several times the sum of the extra payments on high-rate debt.',
+      },
+      {
+        title: 'What this model assumes',
+        body: 'Rates are fixed, interest compounds monthly, and minimum repayments stay constant — real credit card minimums shrink as the balance falls, which stretches the payoff further than shown. If your minimum is a percentage of balance, treat the estimate as optimistic and add it to your extra repayment column mentally.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Which debt should I pay first?',
+        answer: 'Mathematically the highest-interest debt (avalanche). If motivation is the binding constraint, the smallest balance (snowball) is fine — for most households the strategies differ by months, not years.',
+      },
+      {
+        question: 'Should I pay debts or build an emergency fund first?',
+        answer: 'Keep a small buffer first — one to two pay cycles of essentials — so a surprise bill does not go straight back onto the card. Then attack high-interest debt while the buffer holds.',
+      },
+      {
+        question: 'Does the order matter if rates are similar?',
+        answer: 'Barely. Avalanche vs snowball only diverges meaningfully when rates differ a lot, like a 20% card alongside a 7% car loan. With similar rates pick whichever order you will actually stick to.',
+      },
+    ],
+    priority: 0.87,
+    changeFrequency: 'weekly',
+  },
+  {
+    path: '/tools/insurance-needs-calculator',
+    category: 'tools',
+    hubPath: '/tools',
+    hubLabel: 'Tools',
+    navLabel: 'Insurance Needs Calculator',
+    title: 'Life, TPD & Income Protection Needs Calculator',
+    description: 'Estimate how much life, TPD, and income protection cover your household needs — debts, income replacement, future costs, minus assets and existing cover.',
+    eyebrow: 'Insurance needs calculator',
+    heading: 'How much cover does your household actually need?',
+    body: 'The same needs-analysis method a financial planner uses: add the income your family would need, debts to clear, and future costs — then subtract savings, super, and any cover you already hold.',
+    primaryCta: 'Save your cover target',
+    primaryCtaHref: '/personal/goals/',
+    secondaryCta: 'Build the emergency buffer first',
+    secondaryCtaHref: '/blog/emergency-fund-guide/',
+    highlights: [
+      'Needs-based life and TPD cover estimate',
+      'Income protection benefit at the typical 70% replacement cap',
+      'Counts your existing super-held cover so you do not double up',
+    ],
+    sections: [
+      {
+        title: 'Why the needs method beats a rule of thumb',
+        body: 'The common "10–15 times your income" rule ignores what actually drives cover: your debts, how long dependants need support, and what you already have. A household with a paid-off home and grown kids needs far less than the multiple suggests; a new mortgage with two toddlers needs more. The needs method prices your situation, not an average one.',
+      },
+      {
+        title: 'Check your super before you buy more cover',
+        body: 'Most Australians already hold default life and TPD cover inside their super fund — often a few hundred thousand dollars. It counts toward the gap, so subtract it before shopping for more. Be aware default amounts are generic and can reduce with age; the policy document or your fund\'s app shows the current insured figure.',
+      },
+      {
+        title: 'Income protection fills a different gap',
+        body: 'Life and TPD cover the catastrophic cases. Income protection covers the common one — being unable to work for months due to illness or injury — by replacing up to about 70% of income. It is usually held outside super so premiums are tax-deductible, and the waiting period you choose moves the premium more than the benefit amount does.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Is this financial advice?',
+        answer: 'No — it is a general estimate of the coverage gap using the standard needs-analysis formula. A licensed adviser weighs health, policy definitions, and tax treatment for your situation.',
+      },
+      {
+        question: 'Why subtract super from the cover I need?',
+        answer: 'Super savings and existing fund-held insurance are resources your family would already have. Counting them prevents paying premiums on cover you do not need.',
+      },
+      {
+        question: 'How much income protection can I get?',
+        answer: 'Australian policies typically replace up to 70% of pre-disability income, sometimes plus super contributions. Benefit periods run from two years to age 65, priced accordingly.',
+      },
+    ],
+    priority: 0.87,
+    changeFrequency: 'weekly',
+  },
+  {
     path: '/compare/spreadsheets-vs-finance-app',
     category: 'compare',
     hubPath: '/compare',

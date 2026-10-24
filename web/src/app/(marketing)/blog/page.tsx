@@ -121,6 +121,20 @@ export default function BlogPage() {
               </Link>
               <span aria-hidden="true" className="text-muted-foreground">·</span>
               <Link
+                href="/tools/debt-payoff-calculator/"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Debt Payoff Calculator
+              </Link>
+              <span aria-hidden="true" className="text-muted-foreground">·</span>
+              <Link
+                href="/tools/insurance-needs-calculator/"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Insurance Needs Calculator
+              </Link>
+              <span aria-hidden="true" className="text-muted-foreground">·</span>
+              <Link
                 href="/features/tax-deductions/"
                 className="font-medium text-primary underline-offset-4 hover:underline"
               >

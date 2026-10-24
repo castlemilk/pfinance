@@ -29,6 +29,8 @@ import AustralianSalaryCalculatorPage from '../tools/australian-salary-calculato
 import WfhDeductionCalculatorPage, { metadata as wfhCalculatorMetadata } from '../tools/wfh-deduction-calculator/page';
 import MortgageOffsetCalculatorPage, { metadata as mortgageOffsetMetadata } from '../tools/mortgage-offset-calculator/page';
 import HecsHelpCalculatorPage, { metadata as hecsHelpMetadata } from '../tools/hecs-help-calculator/page';
+import DebtPayoffCalculatorPage, { metadata as debtPayoffMetadata } from '../tools/debt-payoff-calculator/page';
+import InsuranceNeedsCalculatorPage, { metadata as insuranceNeedsMetadata } from '../tools/insurance-needs-calculator/page';
 import BlogPage from '../blog/page';
 import { buildRssFeedXml } from '@/lib/rss';
 import Footer, { footerLinks } from '../components/Footer';
@@ -110,6 +112,8 @@ describe('marketing SEO routes', () => {
       wfhCalculatorMetadata,
       mortgageOffsetMetadata,
       hecsHelpMetadata,
+      debtPayoffMetadata,
+      insuranceNeedsMetadata,
       spreadsheetComparisonMetadata,
     ];
 
@@ -242,6 +246,28 @@ describe('marketing SEO routes', () => {
     expect(doc.body.textContent).toContain('Interactive HECS-HELP repayment estimator');
     // $85,000 repayment income -> 15c x $18,000 = $2,700 compulsory
     expect(doc.querySelector('[data-testid="hecs-compulsory-repayment"]')?.textContent).toContain('$2,700');
+    expect(doc.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('mounts the interactive debt payoff calculator on /tools/debt-payoff-calculator/', () => {
+    expect(canonicalPath(debtPayoffMetadata)).toBe('/tools/debt-payoff-calculator');
+    const html = renderToStaticMarkup(<DebtPayoffCalculatorPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.body.textContent).toContain('Interactive debt payoff calculator');
+    expect(doc.body.textContent).toContain('Debt-free in');
+    expect(doc.querySelector('[data-testid="debt-avalanche-interest"]')?.textContent).toContain('$');
+    expect(doc.querySelector('[data-testid="debt-snowball-interest"]')?.textContent).toContain('$');
+    expect(doc.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('mounts the interactive insurance needs calculator on /tools/insurance-needs-calculator/', () => {
+    expect(canonicalPath(insuranceNeedsMetadata)).toBe('/tools/insurance-needs-calculator');
+    const html = renderToStaticMarkup(<InsuranceNeedsCalculatorPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.body.textContent).toContain('Interactive insurance needs calculator');
+    // $95k income x 10yrs x 70% + $480k debts + $80k costs − $245k resources = $980,000
+    expect(doc.querySelector('[data-testid="insurance-life-cover"]')?.textContent).toContain('$980,000');
+    expect(doc.querySelector('[data-testid="insurance-ip-benefit"]')?.textContent).toContain('$5,542');
     expect(doc.querySelectorAll('h1')).toHaveLength(1);
   });
 

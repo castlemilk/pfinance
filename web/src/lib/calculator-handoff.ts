@@ -8,7 +8,9 @@ export type CalculatorTool =
   | 'super'
   | 'wfh'
   | 'mortgage-offset'
-  | 'hecs-help';
+  | 'hecs-help'
+  | 'debt-payoff'
+  | 'insurance-needs';
 
 export interface CalculatorSnapshot {
   tool: CalculatorTool;

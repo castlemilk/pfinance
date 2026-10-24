@@ -10,7 +10,7 @@ export default function OpenGraphImage() {
     <OgCard
       eyebrow="Free tools"
       title="Australian Finance Calculators"
-      sub="Salary, budget, super, WFH deductions, mortgage offset & HECS-HELP"
+      sub="Salary, budget, super, WFH, mortgage offset, HECS, debt payoff & insurance"
     />,
     size
   );

@@ -14,12 +14,16 @@ const GOAL_NAMES: Record<string, string> = {
   super: 'Super balance target',
   'mortgage-offset': 'Mortgage offset buffer',
   'hecs-help': 'Pay down HELP debt',
+  'debt-payoff': 'Debt-free target',
+  'insurance-needs': 'Build emergency buffer',
 };
 
 const GOAL_AMOUNT_FIELDS: Record<string, string> = {
   super: 'projectedBalance',
   'mortgage-offset': 'offsetBalance',
   'hecs-help': 'helpBalance',
+  'debt-payoff': 'totalDebt',
+  'insurance-needs': 'liquidAssets',
 };
 
 export default function GoalsPage() {
@@ -55,7 +59,7 @@ export default function GoalsPage() {
       </div>
 
       <PendingCalculatorBanner
-        tools={['super', 'mortgage-offset', 'hecs-help']}
+        tools={['super', 'mortgage-offset', 'hecs-help', 'debt-payoff', 'insurance-needs']}
         applyLabel="Create a goal from this"
         onApply={applySnapshot}
       />
