@@ -12,7 +12,7 @@ import {
 import { createSeoMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = createSeoMetadata({
-  title: 'PFinance — Personal Finance for Australian Households',
+  title: 'Personal Finance for Australian Households',
   description: 'Track expenses, budgets, tax deductions, and shared household spending — with an AI assistant, receipt scanning, and free ATO-aware calculators built for Australia.',
   path: '/',
   imageAlt: 'PFinance dashboard and personal finance tools',
