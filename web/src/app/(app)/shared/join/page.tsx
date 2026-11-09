@@ -74,7 +74,8 @@ function JoinPageContent() {
     if (code) {
       sessionStorage.setItem('pendingJoinCode', code);
     }
-    router.push('/auth/login?returnUrl=/shared/join');
+    const returnUrl = `/shared/join?code=${encodeURIComponent(code || '')}`;
+    router.push(`/auth?returnUrl=${encodeURIComponent(returnUrl)}`);
   };
 
   if (loading) {

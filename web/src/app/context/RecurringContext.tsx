@@ -199,7 +199,7 @@ function generateId(): string {
 // ============================================================================
 
 export function RecurringProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
   const [upcomingBills, setUpcomingBills] = useState<RecurringTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -252,8 +252,9 @@ export function RecurringProvider({ children }: { children: ReactNode }) {
   }, [isAuthenticated, userId]);
 
   useEffect(() => {
+    if (authLoading) return;
     loadRecurring();
-  }, [loadRecurring]);
+  }, [authLoading, loadRecurring]);
 
   const createRecurring = useCallback(async (params: CreateRecurringTransactionParams): Promise<RecurringTransaction | null> => {
     setError(null);

@@ -414,6 +414,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
   // Load data when user changes
   useEffect(() => {
+    if (authLoading) return;
+
     debugLog('[FinanceContext] useEffect triggered', {
       effectiveUserId,
       useApi,
@@ -443,7 +445,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       debugLog('[FinanceContext] useEffect cleanup');
       isLoadingRef.current = false;
     };
-  }, [effectiveUserId, useApi, loadData, dataLoaded]);
+  }, [authLoading, effectiveUserId, useApi, loadData, dataLoaded]);
 
   // Always persist to localStorage as cache (for offline access and recovery)
   useEffect(() => {

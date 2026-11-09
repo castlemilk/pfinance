@@ -207,7 +207,7 @@ export default function PublicRetirementCalculator() {
                   ASFA lifestyle target
                 </label>
                 <Select value={target} onValueChange={(v) => setTarget(v as TargetKey)}>
-                  <SelectTrigger id={`${id}-target`}>
+                  <SelectTrigger id={`${id}-target`} className="w-full min-w-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -228,7 +228,7 @@ export default function PublicRetirementCalculator() {
                 </p>
                 <p className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">
                   <span data-testid="retire-income">
-                    <CountUp to={result.annualIncome} prefix="$" separator="," duration={1.2} trigger="view" />
+                    <CountUp to={result.annualIncome} prefix="$" separator="," decimals={0} duration={1.2} trigger="view" />
                   </span>
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">

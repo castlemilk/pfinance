@@ -410,7 +410,7 @@ export function CountUp({
           })}
         </span>
       ) : (
-        <span ref={textRef} className="gamma-count-up__text">
+        <span ref={textRef} className="gamma-count-up__text" aria-hidden="true">
           {formatValue(startValue)}
         </span>
       )}

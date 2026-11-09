@@ -62,7 +62,7 @@ export function CalcLayout({
 }) {
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(300px,1fr)_minmax(0,2fr)]">
-      <div className="space-y-4">{inputs}</div>
+      <div className="min-w-0 space-y-4">{inputs}</div>
       <div className="min-w-0 space-y-5">{results}</div>
     </div>
   );
