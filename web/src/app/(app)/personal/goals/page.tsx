@@ -23,6 +23,8 @@ const GOAL_NAMES: Record<string, string> = {
   'ccs': 'Childcare fund',
   'super-caps': 'Use unused concessional cap',
   'rent-vs-buy': 'Home deposit goal',
+  'home-loan': 'Pay off the home loan',
+  'compound-interest': 'Savings target',
 };
 
 const GOAL_AMOUNT_FIELDS: Record<string, string> = {
@@ -38,6 +40,8 @@ const GOAL_AMOUNT_FIELDS: Record<string, string> = {
   'ccs': '',
   'super-caps': 'ccHeadroom',
   'rent-vs-buy': 'deposit',
+  'home-loan': 'loanAmount',
+  'compound-interest': 'goalAmount',
 };
 
 const num = (value: unknown) => {
@@ -89,7 +93,7 @@ export default function GoalsPage() {
       </div>
 
       <PendingCalculatorBanner
-        tools={['super', 'mortgage-offset', 'hecs-help', 'debt-payoff', 'insurance-needs', 'borrowing-power', 'risk-profile', 'stamp-duty', 'retirement', 'ccs', 'super-caps', 'rent-vs-buy']}
+        tools={['super', 'mortgage-offset', 'hecs-help', 'debt-payoff', 'insurance-needs', 'borrowing-power', 'risk-profile', 'stamp-duty', 'retirement', 'ccs', 'super-caps', 'rent-vs-buy', 'home-loan', 'compound-interest']}
         applyLabel="Create a goal from this"
         onApply={applySnapshot}
       />
