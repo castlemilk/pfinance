@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { BreadcrumbJsonLd } from '@/components/seo/JsonLd';
+import { BreadcrumbJsonLd, ItemListJsonLd } from '@/components/seo/JsonLd';
 import { discoveryPages, type HubPageData } from '@/lib/marketing-pages';
 import { getSiteUrl } from '@/lib/seo';
 
@@ -39,6 +39,10 @@ export default function MarketingHubPage({ hub, extraSpokes = [] }: MarketingHub
           { name: 'Home', url: `${siteUrl}/` },
           { name: hub.title, url: hubUrl },
         ]}
+      />
+      <ItemListJsonLd
+        name={hub.title}
+        items={spokes.map((spoke) => ({ name: spoke.navLabel, url: `${siteUrl}${spoke.path}` }))}
       />
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">

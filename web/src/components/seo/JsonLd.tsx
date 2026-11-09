@@ -116,6 +116,34 @@ export function BreadcrumbJsonLd({ items }: BreadcrumbJsonLdProps) {
   );
 }
 
+interface ItemListJsonLdProps {
+  name: string;
+  items: Array<{ name: string; url: string }>;
+}
+
+/** An ordered list of pages, e.g. the calculators on a hub page. */
+export function ItemListJsonLd({ name, items }: ItemListJsonLdProps) {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name,
+    numberOfItems: items.length,
+    itemListElement: items.map((item, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: item.name,
+      url: item.url,
+    })),
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
+  );
+}
+
 interface WebsiteJsonLdProps {
   name?: string;
   url?: string;

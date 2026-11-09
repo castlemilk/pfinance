@@ -10,6 +10,8 @@ export interface BlogPostMeta {
   title: string;
   description: string;
   date: string;
+  /** Last substantive revision (frontmatter `updated`), when different from `date`. */
+  updated?: string;
   author: {
     name: string;
     avatar?: string;
@@ -51,6 +53,7 @@ export function getPostBySlug(slug: string): BlogPost | null {
     title: data.title || '',
     description: data.description || '',
     date: data.date || '',
+    updated: data.updated && data.updated !== data.date ? data.updated : undefined,
     author: data.author || { name: 'PFinance Team' },
     category: data.category || 'General',
     tags: data.tags || [],

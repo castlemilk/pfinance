@@ -51,6 +51,7 @@ export async function generateMetadata({
       description: post.description,
       type: 'article',
       publishedTime: post.date,
+      ...(post.updated ? { modifiedTime: post.updated } : {}),
       authors: [post.author.name],
       ...(image ? { images: [{ url: image, width: 1200, height: 630, alt: post.title }] } : {}),
       tags: post.tags,
@@ -95,6 +96,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         title={post.title}
         description={post.description}
         datePublished={post.date}
+        dateModified={post.updated}
         authorName={post.author.name}
         url={postUrl}
         image={post.image}
@@ -147,7 +149,13 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                   </div>
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <Calendar className="w-4 h-4" />
-                    <span>{formatDate(post.date)}</span>
+                    <span>
+                      {post.updated ? (
+                        <>Updated <time dateTime={post.updated}>{formatDate(post.updated)}</time></>
+                      ) : (
+                        <time dateTime={post.date}>{formatDate(post.date)}</time>
+                      )}
+                    </span>
                   </div>
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <Clock className="w-4 h-4" />
