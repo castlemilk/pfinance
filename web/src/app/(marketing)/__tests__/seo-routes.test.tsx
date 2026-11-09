@@ -403,10 +403,12 @@ describe('marketing SEO routes', () => {
     const html = renderToStaticMarkup(<ChildcareSubsidyCalculatorPage />);
     const doc = new DOMParser().parseFromString(html, 'text/html');
     expect(doc.body.textContent).toContain('Interactive CCS estimator');
-    // $150k income → 90 - floor((150000-85279)/5000) = 90-12 = 78% CCS
+    // 2026–27: $150k income → 90 - floor((150000-88520)/5000) = 90-12 = 78% CCS
     expect(doc.querySelector('[data-testid="ccs-pct"]')?.textContent).toContain('78%');
-    // fee $15.50 > cap $14.63 → subsidised rate 14.63*0.77 ≈ $11.27/h × 31.5h ≈ $354.9
-    // out-of-pocket = 15.50*31.5 − subsidy ≈ $133/wk
+    // fee $15.50 > cap $15.19 → subsidised rate 15.19*0.78 ≈ $11.85/h × 31.5h ≈ $373.22/wk
+    expect(doc.body.textContent).toContain('capped at $15.19/h');
+    expect(doc.body.textContent).toContain('subsidy covers $373.22/week');
+    expect(doc.body.textContent).toContain('2026–27 settings');
     expect(doc.querySelector('[data-testid="ccs-weekly"]')?.textContent).toContain('$');
     expect(doc.querySelectorAll('h1')).toHaveLength(1);
   });
