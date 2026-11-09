@@ -16,14 +16,15 @@ import { CalcField, CalcLayout, CalcPanel, ResultStat } from '@/app/components/c
 
 const EXAMPLE = { familyIncome: '150000', hourlyFee: '15.50', daysPerWeek: '3', hoursPerDay: '10.5' };
 
-// 2025–26 CCS settings (from 7 Jul 2025).
-const INCOME_90 = 85_279;
-const INCOME_0 = 535_279;
+// 2026–27 CCS settings (from 6 Jul 2026; Services Australia / Department of Education).
+const INCOME_90 = 88_520;
+const INCOME_0 = 538_520;
+const HIGHER_RATE_95_INCOME = 146_437;
 const HOURLY_CAPS = {
-  cbdc: { label: 'Centre-based day care', cap: 14.63 },
-  fdc: { label: 'Family day care', cap: 13.56 },
-  oshc: { label: 'Outside school hours (school age)', cap: 12.81 },
-  ihc: { label: 'In home care (per family)', cap: 39.8 },
+  cbdc: { label: 'Centre-based day care', cap: 15.19 },
+  fdc: { label: 'Family day care', cap: 14.08 },
+  oshc: { label: 'Outside school hours (school age)', cap: 13.30 },
+  ihc: { label: 'In home care (per family)', cap: 41.31 },
 } as const;
 const ACTIVITY_BANDS = {
   under48: { label: 'Up to 48h/fortnight — 72h subsidised (3-day guarantee)', hoursPerFortnight: 72 },
@@ -142,7 +143,7 @@ export default function PublicCcsEstimator() {
               step="0.25"
               value={values.hourlyFee}
               onChange={update('hourlyFee')}
-              hint={`Rate cap for this care type is $${HOURLY_CAPS[care].cap}/h.`}
+              hint={`Rate cap for this care type is $${HOURLY_CAPS[care].cap.toFixed(2)}/h.`}
             />
             <div className="grid grid-cols-2 gap-3">
               <CalcField id={`${id}-days`} label="Days/week in care" min={1} max={7} value={values.daysPerWeek} onChange={update('daysPerWeek')} />
@@ -174,14 +175,14 @@ export default function PublicCcsEstimator() {
                   </span>
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {result.pct}% CCS rate{result.capped ? `, capped at $${result.cap}/h` : ''} — subsidy covers {money2(result.weeklySubsidy)}/week
+                  {result.pct}% CCS rate{result.capped ? `, capped at $${result.cap.toFixed(2)}/h` : ''} — subsidy covers {money2(result.weeklySubsidy)}/week
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
                 <ResultStat
                   label="CCS percentage"
                   value={`${result.pct}%`}
-                  sub={result.pct === 90 ? 'Maximum rate (income ≤ $85,279)' : result.pct === 0 ? 'Income above the cut-off' : 'Tapers 1% per $5,000 of income'}
+                  sub={result.pct === 90 ? `Maximum rate (income ≤ ${money(INCOME_90)})` : result.pct === 0 ? 'Income above the cut-off' : 'Tapers 1% per $5,000 of income'}
                   testId="ccs-pct"
                 />
                 <ResultStat
@@ -204,9 +205,9 @@ export default function PublicCcsEstimator() {
                 <CardContent className="text-sm text-muted-foreground">
                   The subsidy applies to the lower of your fee and the rate cap — services charging
                   above the cap leave you covering the gap regardless of your percentage. A second
-                  child under 5 in care can attract a higher rate (up to 95% under ~$141k family
+                  child aged 5 or under in care can attract a higher rate (95% up to {money(HIGHER_RATE_95_INCOME)} family
                   income); Services Australia applies it automatically. The estimate uses
-                  2025&ndash;26 settings.
+                  2026&ndash;27 settings.
                 </CardContent>
               </Card>
             </>
