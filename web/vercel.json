@@ -2,7 +2,7 @@
   "framework": "nextjs",
   "regions": ["iad1"],
   "buildCommand": "npm run build",
-  "installCommand": "rm -f package-lock.json && npm install --legacy-peer-deps",
+  "installCommand": "npm ci --no-audit --no-fund",
   "outputDirectory": ".next",
   "git": {
     "deploymentEnabled": false
