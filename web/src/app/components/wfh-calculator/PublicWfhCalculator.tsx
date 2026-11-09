@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import CalculatorHandoffCta from '../calculator-handoff/CalculatorHandoffCta';
 
-const FIXED_RATE_PER_HOUR = 0.67;
+// ATO fixed rate method: 70c per work hour from 2024–25 (67c for 2022–23 and 2023–24).
+const FIXED_RATE_PER_HOUR = 0.7;
 
 const EXAMPLE = {
   hoursPerWeek: '16',
@@ -117,7 +118,7 @@ export default function PublicWfhCalculator() {
             Interactive WFH deduction comparison calculator
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Compare the ATO 67c/hr Fixed Rate Method against the Actual Cost Method based on your hours and work-use bills.
+            Compare the ATO 70c/hr Fixed Rate Method against the Actual Cost Method based on your hours and work-use bills.
           </p>
         </div>
         <Button variant="outline" onClick={() => setValues({ ...EXAMPLE })}>
@@ -306,7 +307,7 @@ export default function PublicWfhCalculator() {
                   }
                 >
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Method 1: Fixed Rate (67c/hr)</CardTitle>
+                    <CardTitle className="text-base">Method 1: Fixed Rate (70c/hr)</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm">
                     <p
@@ -317,12 +318,12 @@ export default function PublicWfhCalculator() {
                     </p>
                     <ul className="space-y-1.5 text-xs text-muted-foreground">
                       <li>
-                        • {calculation.totalHours} hrs × $0.67/hr ={' '}
+                        • {calculation.totalHours} hrs × $0.70/hr ={' '}
                         {money(calculation.fixedRateDeduction)}
                       </li>
                       <li>
                         • Separate mobile phone &amp; internet deduction: <strong>$0</strong>{' '}
-                        (bundled into 67c/hr rate)
+                        (bundled into 70c/hr rate)
                       </li>
                       <li>
                         • Requires full-year contemporaneous hours log + 1 bill per expense type

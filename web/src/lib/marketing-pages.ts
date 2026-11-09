@@ -329,8 +329,8 @@ export const discoveryPages: MarketingPageData[] = [
     hubPath: '/tools',
     hubLabel: 'Tools',
     navLabel: 'Australian Salary Calculator',
-    title: 'Australian Salary Calculator',
-    description: 'Estimate Australian take-home pay across weekly, fortnightly, monthly, and annual cycles with Medicare levy, superannuation, HELP debt, and salary packaging.',
+    title: 'Australian Salary & Pay Calculator 2026–27',
+    description: 'Work out 2026–27 take-home pay with the new 15% tax rate, 12% super, Medicare levy and marginal HELP repayments, for weekly, fortnightly, monthly or annual pay.',
     eyebrow: 'Salary calculator',
     heading: 'Estimate Australian take-home pay with real settings',
     body: 'Model gross or target take-home pay in your browser, adjust residency, Medicare, superannuation, student loan, and salary sacrifice settings, and export a detailed report.',
@@ -359,6 +359,10 @@ export const discoveryPages: MarketingPageData[] = [
     ],
     faqs: [
       {
+        question: 'What changed for the 2026–27 income year?',
+        answer: 'From 1 July 2026 the 16% rate on income between $18,201 and $45,000 dropped to 15%, saving up to $268 a year; it falls again to 14% from 1 July 2027. Super guarantee stays at 12%, the concessional cap rose to $32,500, and HELP repayments start above $69,528 of repayment income. The calculator defaults to 2026–27, and you can switch years to compare.',
+      },
+      {
         question: 'Can I calculate the gross salary needed to achieve a specific take-home pay?',
         answer: 'Yes. Switch the Input Type toggle from Gross to Net (Take-home) to reverse-calculate the annual gross salary required to land on your target weekly, fortnightly, or monthly pay.',
       },
@@ -385,8 +389,8 @@ export const discoveryPages: MarketingPageData[] = [
     eyebrow: 'Budget calculator',
     heading: 'Turn income and expenses into a workable budget',
     body: 'Test how your take-home income divides across housing, groceries, utilities, lifestyle spending, and savings—for one person or a dual-income household.',
-    primaryCta: 'Track this budget in PFinance',
-    primaryCtaHref: '/personal/expenses/',
+    primaryCta: 'Turn this into budgets',
+    primaryCtaHref: '/personal/budgets/',
     secondaryCta: 'Try the salary calculator',
     secondaryCtaHref: '/tools/australian-salary-calculator/',
     highlights: [
@@ -432,7 +436,7 @@ export const discoveryPages: MarketingPageData[] = [
     hubLabel: 'Tools',
     navLabel: 'WFH Deduction Calculator',
     title: 'ATO Working From Home (WFH) Deduction Calculator',
-    description: 'Compare the ATO 67c/hr Fixed Rate Method against the Actual Cost Method for working from home deductions, including phone, internet, and electricity.',
+    description: 'Compare the ATO 70c/hr Fixed Rate Method against the Actual Cost Method for working from home deductions, including phone, internet, and electricity.',
     eyebrow: 'WFH calculator',
     heading: 'Compare Fixed Rate vs Actual Cost WFH deductions',
     body: 'Enter your weekly working-from-home hours and monthly phone, internet, and energy costs to see which ATO method produces the larger deduction—and what records you must keep.',
@@ -441,14 +445,14 @@ export const discoveryPages: MarketingPageData[] = [
     secondaryCta: 'Read the WFH tax guide',
     secondaryCtaHref: '/blog/working-from-home-tax-deductions-guide/',
     highlights: [
-      'Side-by-side 67c/hr Fixed Rate vs Actual Cost comparison',
+      'Side-by-side 70c/hr Fixed Rate vs Actual Cost comparison',
       'Accounts for the mobile & internet bundling rule',
       'Estimates tax refund impact across marginal brackets',
     ],
     sections: [
       {
-        title: 'Why the 67c/hr Fixed Rate Method is not always the winner',
-        body: 'The ATO Revised Fixed Rate Method (67 cents per hour worked from home) is convenient because it avoids apportioning every electricity and internet bill individually. However, the fixed rate bundles mobile phone usage, home internet, electricity, gas, and stationery into that single hourly figure. If you use your mobile phone and home NBN heavily for work, claiming under the Fixed Rate Method prevents you from claiming your work-related mobile phone or internet bills separately anywhere else on your return.',
+        title: 'Why the 70c/hr Fixed Rate Method is not always the winner',
+        body: 'The ATO fixed rate method (70 cents per hour worked from home since 1 July 2024; it was 67 cents for 2022–23 and 2023–24) is convenient because it avoids apportioning every electricity and internet bill individually. However, the fixed rate bundles mobile phone usage, home internet, electricity, gas, and stationery into that single hourly figure. If you use your mobile phone and home NBN heavily for work, claiming under the Fixed Rate Method prevents you from claiming your work-related mobile phone or internet bills separately anywhere else on your return.',
       },
       {
         title: 'When the Actual Cost Method yields a larger deduction',
@@ -461,15 +465,15 @@ export const discoveryPages: MarketingPageData[] = [
     ],
     faqs: [
       {
-        question: 'Can I claim my mobile phone bill separately if I use the 67c/hr Fixed Rate Method?',
+        question: 'Can I claim my mobile phone bill separately if I use the 70c/hr Fixed Rate Method?',
         answer: 'No. Under ATO rules for the Revised Fixed Rate Method, mobile and home phone expenses as well as home internet are included inside the hourly rate and cannot be claimed separately under D4 or D5.',
       },
       {
         question: 'Can I still claim depreciation on a desk, monitor, or laptop under the Fixed Rate Method?',
-        answer: 'Yes. Decline in value (depreciation) of office furniture and equipment—or an immediate deduction for work items costing $300 or less—can be claimed on top of the 67c/hr fixed rate.',
+        answer: 'Yes. Decline in value (depreciation) of office furniture and equipment—or an immediate deduction for work items costing $300 or less—can be claimed on top of the 70c/hr fixed rate.',
       },
       {
-        question: 'What records are required for the 67c/hr Fixed Rate Method?',
+        question: 'What records are required for the 70c/hr Fixed Rate Method?',
         answer: 'You must keep a contemporaneous record of all hours worked from home across the entire financial year (such as timesheets, rosters, or a diary updated as you work) plus at least one bill for each running expense you incurred.',
       },
     ],
@@ -533,24 +537,24 @@ export const discoveryPages: MarketingPageData[] = [
     hubPath: '/tools',
     hubLabel: 'Tools',
     navLabel: 'HECS-HELP Calculator',
-    title: 'HECS-HELP Repayment & Indexation Calculator',
-    description: 'Estimate your compulsory HELP repayment under the 2025–26 marginal rate system, annual 1 June indexation, and your projected year-end balance.',
+    title: 'HECS-HELP Repayment Calculator 2026–27',
+    description: 'Estimate your 2026–27 compulsory HELP repayment under the marginal system (threshold $69,528), 1 June indexation, and your projected year-end balance.',
     eyebrow: 'HECS-HELP calculator',
     heading: 'Estimate your compulsory HELP repayment',
-    body: 'From 1 July 2025, HELP repayments are marginal — charged only on repayment income above $67,000. Enter your repayment income and loan balance to see the annual repayment, per-fortnight withholding, and indexation-adjusted year-end balance.',
+    body: 'Since 1 July 2025, HELP repayments are marginal: they are charged only on repayment income above the threshold, which is $69,528 for 2026–27. Enter your repayment income and loan balance to see the annual repayment, per-fortnight withholding, and indexation-adjusted year-end balance. Switch to 2025–26 if you are still lodging last year\'s return.',
     primaryCta: 'Set a payoff goal',
     primaryCtaHref: '/personal/goals/',
     secondaryCta: 'Salary sacrifice & HELP guide',
     secondaryCtaHref: '/blog/salary-sacrifice-super-hecs-medicare-australia/',
     highlights: [
-      '2025–26 marginal repayment schedule (15c / 17c / 10% tiers)',
+      '2026–27 and 2025–26 marginal schedules (15c / 17c / 10% tiers)',
       'Per-fortnight withholding estimate for pay-cycle budgeting',
       '1 June indexation projection on your current balance',
     ],
     sections: [
       {
-        title: 'How the 2025–26 marginal repayment system works',
-        body: 'Compulsory repayments are now calculated only on the slice of repayment income above $67,000 — not on your total income. You pay 15 cents per dollar between $67,001 and $125,000, $8,700 plus 17 cents per dollar between $125,001 and $179,285, and 10% of total repayment income at $179,286 and above. Most holders will see smaller compulsory repayments than under the old percentage-of-total-income table.',
+        title: 'How the marginal repayment system works',
+        body: 'Compulsory repayments are calculated only on the slice of repayment income above the minimum threshold, not on your total income. For 2026–27 you pay 15 cents per dollar between $69,529 and $129,717, $9,028 plus 17 cents per dollar between $129,718 and $186,051, and 10% of total repayment income above $186,051. The 2025–26 bands were $67,000, $125,000 and $179,285. Most holders repay less than they would have under the old percentage-of-total-income table.',
       },
       {
         title: 'Repayment income is wider than taxable income',
@@ -567,8 +571,8 @@ export const discoveryPages: MarketingPageData[] = [
         answer: 'Taxable income (excluding assessable FHSS released amounts) plus reportable fringe benefits, reportable super contributions, total net investment losses, and exempt foreign employment income.',
       },
       {
-        question: 'Do I pay anything if my repayment income is under $67,000?',
-        answer: 'No. For 2025–26 the minimum repayment threshold is $67,000, indexed annually in line with average weekly earnings.',
+        question: 'Do I pay anything if my repayment income is under $69,528?',
+        answer: 'No. The 2026–27 minimum repayment threshold is $69,528 (it was $67,000 for 2025–26). The thresholds are indexed each year.',
       },
       {
         question: 'Does salary sacrificing into super reduce my HELP repayment?',
@@ -776,7 +780,7 @@ export const discoveryPages: MarketingPageData[] = [
       },
       {
         question: 'How accurate is the net income figure?',
-        answer: 'It uses the 2024–25 resident tax brackets plus the Medicare levy. HELP repayments, salary sacrifice, and non-salary income shift the real number — see the salary calculator for a precise take-home estimate.',
+        answer: 'It uses the resident tax brackets for the income year in progress (2026–27) plus the Medicare levy. HELP repayments, salary sacrifice, and non-salary income shift the real number — see the salary calculator for a precise take-home estimate.',
       },
     ],
     priority: 0.87,
@@ -984,17 +988,17 @@ export const discoveryPages: MarketingPageData[] = [
     hubPath: '/tools',
     hubLabel: 'Tools',
     navLabel: 'Super Cap Checker',
-    title: 'Super Contribution Cap Checker',
-    description: 'Check your concessional headroom, non-concessional cap and bring-forward eligibility, carry-forward availability, and the Division 293 flag for 2025-26.',
+    title: 'Super Contribution Cap Checker 2026–27',
+    description: 'Check your concessional headroom, non-concessional cap and bring-forward eligibility, carry-forward availability, and the Division 293 flag for 2026–27.',
     eyebrow: 'Super calculator',
     heading: 'How much more can you put into super?',
-    body: 'Salary, SG rate, salary sacrifice, personal deductible and planned after-tax contributions — checked against the $30k concessional cap, $120k NCC cap, and the $2m transfer-balance-linked bring-forward bands.',
+    body: 'Salary, SG rate, salary sacrifice, personal deductible and planned after-tax contributions — checked against the 2026–27 caps: $32,500 concessional, $130,000 non-concessional, and bring-forward bands linked to the $2.1m transfer balance cap.',
     primaryCta: 'Project your super',
     primaryCtaHref: '/tools/super-calculator/',
     secondaryCta: 'Check retirement readiness',
     secondaryCtaHref: '/tools/retirement-calculator/',
     highlights: [
-      '$30k concessional headroom including SG + sacrifice',
+      '$32.5k concessional headroom including SG + sacrifice',
       'Bring-forward bands from your total super balance',
       'Division 293 extra-tax flag above $250k',
     ],
@@ -1015,7 +1019,7 @@ export const discoveryPages: MarketingPageData[] = [
       },
       {
         question: 'Does SG include bonuses?',
-        answer: 'Enter ordinary time earnings — typically salary plus bonuses. Some employers cap SG at the maximum contribution base (~$62.5k/quarter); check your payslip.',
+        answer: 'Enter ordinary time earnings — typically salary plus bonuses. Some employers cap SG at the maximum super contribution base, a quarterly earnings limit indexed each year; check your payslip.',
       },
     ],
     priority: 0.88,

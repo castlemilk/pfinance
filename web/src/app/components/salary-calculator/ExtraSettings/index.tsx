@@ -159,6 +159,7 @@ export function ExtraSettings({
           voluntarySuperTaxSavings={voluntarySuperTaxSavings}
           superannuation={superannuation}
           formatCurrency={formatCurrency}
+          taxYear={taxYear as import('@/app/constants/taxSystems').TaxYear | undefined}
         />
 
         <OvertimeSettings

@@ -6,7 +6,8 @@
 
 import { useMemo } from 'react';
 import { TaxSettings, IncomeFrequency, TaxCountry } from '@/app/types';
-import { getTaxSystem, calculateTaxWithBrackets, calculateLITO, TaxYear, TaxCategory, DEFAULT_TAX_YEAR, DEFAULT_TAX_CATEGORY } from '@/app/constants/taxSystems';
+import { getTaxSystem, calculateTaxWithBrackets, calculateLITO, concessionalCapFor, TaxYear, TaxCategory, DEFAULT_TAX_YEAR, DEFAULT_TAX_CATEGORY } from '@/app/constants/taxSystems';
+import { compulsoryHelpRepayment, LATEST_HELP_SCHEDULE_YEAR } from '@/lib/help-repayment';
 import { 
   OvertimeEntry, 
   SalarySacrificeEntry, 
@@ -19,10 +20,23 @@ import {
 import { 
   HELP_REPAYMENT_THRESHOLDS, 
   MEDICARE_LEVY_RATE,
-  ATO_PERSONAL_SUPER_CONTRIBUTION_LIMIT,
   FBT_RATE
 } from '../constants';
 import { toAnnualAmount, fromAnnualAmount, calculateGrossFromNet } from '../utils';
+
+/**
+ * Compulsory HELP/STSL repayment for an income year. From 2025-26 repayments
+ * are marginal; earlier years use the legacy percentage-of-income table.
+ * Taxable income stands in for repayment income (no add-backs are modelled).
+ */
+export function studentLoanRepaymentFor(income: number, taxYear: TaxYear): number {
+  if (income <= 0) return 0;
+  if (taxYear >= '2025-26') {
+    return compulsoryHelpRepayment(income, taxYear === '2025-26' ? '2025-26' : LATEST_HELP_SCHEDULE_YEAR);
+  }
+  const threshold = HELP_REPAYMENT_THRESHOLDS.find((t) => income >= t.min && income <= t.max);
+  return threshold ? income * threshold.rate : 0;
+}
 
 interface UseSalaryCalculationsOptions {
   baseSalary: number;
@@ -120,12 +134,9 @@ export function useSalaryCalculations({
         ? 0
         : taxableIncome * MEDICARE_LEVY_RATE;
       
-      const studentLoanRepayment = !taxSettings.includeStudentLoan ? 0 : (() => {
-        const threshold = HELP_REPAYMENT_THRESHOLDS.find(
-          t => taxableIncome >= t.min && taxableIncome <= t.max
-        );
-        return threshold ? taxableIncome * threshold.rate : 0;
-      })();
+      const studentLoanRepayment = !taxSettings.includeStudentLoan
+        ? 0
+        : studentLoanRepaymentFor(taxableIncome, taxYear);
       
       let net = totalAnnualIncome;
       net -= effectiveTax;
@@ -295,26 +306,15 @@ export function useSalaryCalculations({
   // Calculate student loan repayment
   const studentLoanRepayment = useMemo(() => {
     if (!taxSettings.includeStudentLoan) return 0;
-    
-    const threshold = HELP_REPAYMENT_THRESHOLDS.find(
-      t => taxableIncome >= t.min && taxableIncome <= t.max
-    );
-    
-    if (!threshold) return 0;
-    return taxableIncome * threshold.rate;
-  }, [taxableIncome, taxSettings.includeStudentLoan]);
+    return studentLoanRepaymentFor(taxableIncome, taxYear);
+  }, [taxableIncome, taxSettings.includeStudentLoan, taxYear]);
 
   // Get student loan rate as string
   const studentLoanRate = useMemo(() => {
-    if (!taxSettings.includeStudentLoan) return '0%';
-    
-    const threshold = HELP_REPAYMENT_THRESHOLDS.find(
-      t => taxableIncome >= t.min && taxableIncome <= t.max
-    );
-    
-    if (!threshold) return '0%';
-    return `${(threshold.rate * 100).toFixed(1)}%`;
-  }, [taxableIncome, taxSettings.includeStudentLoan]);
+    if (!taxSettings.includeStudentLoan || taxableIncome <= 0) return '0%';
+    // Effective rate on total income, comparable across the legacy and marginal systems.
+    return `${((studentLoanRepayment / taxableIncome) * 100).toFixed(1)}%`;
+  }, [taxableIncome, taxSettings.includeStudentLoan, studentLoanRepayment]);
 
   // Calculate superannuation
   const superannuation = useMemo(() => {
@@ -337,8 +337,8 @@ export function useSalaryCalculations({
 
   // Base remaining cap before voluntary contributions
   const baseRemainingCap = useMemo(() => {
-    return Math.max(0, ATO_PERSONAL_SUPER_CONTRIBUTION_LIMIT - superannuation);
-  }, [superannuation]);
+    return Math.max(0, concessionalCapFor(taxYear) - superannuation);
+  }, [superannuation, taxYear]);
 
   // Voluntary super contribution (capped)
   const voluntarySuperContribution = useMemo(() => {

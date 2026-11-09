@@ -9,17 +9,17 @@ import { CalcField, CalcLayout, CalcPanel, ResultStat } from '@/app/components/c
 
 const EXAMPLE = { salary: '110000', sgRate: '12', sacrifice: '5000', personalDeductible: '0', ncc: '0', tsb: '450000' };
 
-// 2025–26 settings.
-const CC_CAP = 30_000;
-const NCC_CAP = 120_000;
+// 2026–27 settings (indexed from 1 July 2026).
+const CC_CAP = 32_500;
+const NCC_CAP = 130_000;
 const DIV293_THRESHOLD = 250_000;
 const CARRY_FORWARD_TSB = 500_000;
-// Bring-forward availability by total super balance at 30 Jun 2025 (general TBC $2m).
+// Bring-forward availability by total super balance at 30 Jun 2026 (general TBC $2.1m).
 const BF_BANDS = [
-  { under: 1_760_000, cap: 360_000, label: 'Full 3-year bring-forward ($360k)' },
-  { under: 1_880_000, cap: 240_000, label: '2-year bring-forward ($240k)' },
-  { under: 2_000_000, cap: 120_000, label: 'Annual cap only ($120k)' },
-  { under: Infinity, cap: 0, label: 'Nil — TSB at/above the $2m general TBC' },
+  { under: 1_840_000, cap: 390_000, label: 'Full 3-year bring-forward ($390k)' },
+  { under: 1_970_000, cap: 260_000, label: '2-year bring-forward ($260k)' },
+  { under: 2_100_000, cap: 130_000, label: 'Annual cap only ($130k)' },
+  { under: Infinity, cap: 0, label: 'Nil: TSB at or above the $2.1m general TBC' },
 ] as const;
 
 const money = (n: number) =>
@@ -82,7 +82,7 @@ export default function PublicSuperCapsChecker() {
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             Check concessional and non-concessional headroom, bring-forward eligibility, and the
-            Division&nbsp;293 flag — 2025&ndash;26 settings.
+            Division&nbsp;293 flag, using 2026&ndash;27 settings.
           </p>
         </div>
         <Button variant="outline" onClick={() => setValues({ ...EXAMPLE })}>
@@ -189,7 +189,7 @@ export default function PublicSuperCapsChecker() {
       />
 
       <p className="text-xs text-muted-foreground">
-        2025&ndash;26 caps: $30k concessional, $120k NCC, bring-forward bands tied to the $2m
+        2026&ndash;27 caps: $32.5k concessional, $130k NCC, bring-forward bands tied to the $2.1m
         general transfer balance cap. Unused concessional carry-forward needs TSB under $500k and
         rolls off after 5 years. If you are inside a bring-forward period already, the annual
         amounts differ. General information, not advice.
@@ -205,7 +205,10 @@ export default function PublicSuperCapsChecker() {
             { label: 'Headroom', value: money(Math.max(0, result.ccHeadroom)) },
             { label: 'Div 293', value: result.div293Applies ? money(result.div293Tax) : 'No' },
           ]}
-          fields={{ annualConcessional: Math.round(result.totalCC) }}
+          fields={{
+            annualConcessional: Math.round(result.totalCC),
+            ccHeadroom: Math.max(0, Math.round(CC_CAP - result.totalCC)),
+          }}
           targetPath="/personal/goals/"
           label="Set a contributions goal"
         />
