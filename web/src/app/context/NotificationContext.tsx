@@ -31,7 +31,7 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 // ============================================================================
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -163,6 +163,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   // updates when a notification is created or marked read.
 
   useEffect(() => {
+    if (authLoading) return;
+
     if (!isAuthenticated || !userId) {
       // Clear state when user logs out
       setNotifications([]);
@@ -194,7 +196,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return () => {
       unsubscribe();
     };
-  }, [isAuthenticated, userId, loadPreferences]);
+  }, [authLoading, isAuthenticated, userId, loadPreferences]);
 
   // ── Context value ──────────────────────────────────────────────────────
 

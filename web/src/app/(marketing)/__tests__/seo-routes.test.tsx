@@ -46,7 +46,7 @@ import BlogPage from '../blog/page';
 import { buildRssFeedXml } from '@/lib/rss';
 import Footer, { footerLinks } from '../components/Footer';
 import { discoveryPages, hubPages } from '@/lib/marketing-pages';
-import { getAllPosts, extractTocHeadings } from '@/lib/blog';
+import { getAllPosts, getPostBySlug, extractTocHeadings } from '@/lib/blog';
 import {
   OrganizationJsonLd,
   SoftwareApplicationJsonLd,
@@ -189,6 +189,30 @@ describe('marketing SEO routes', () => {
     }
   });
 
+  it('lists every calculator on the tools hub as ItemList structured data', () => {
+    const html = renderToStaticMarkup(<ToolsHubPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const lists = Array.from(doc.querySelectorAll('script[type="application/ld+json"]'))
+      .map((node) => JSON.parse(node.textContent || '{}'))
+      .filter((data) => data['@type'] === 'ItemList');
+    expect(lists).toHaveLength(1);
+    const urls: string[] = lists[0].itemListElement.map((item: { url: string }) => item.url);
+    const toolPaths = discoveryPages.filter((page) => page.category === 'tools').map((page) => `${page.path}/`);
+    for (const toolPath of [...toolPaths, '/tools/super-calculator/']) {
+      expect(urls.some((url) => url.endsWith(toolPath))).toBe(true);
+    }
+    expect(lists[0].numberOfItems).toBe(urls.length);
+  });
+
+  it('uses the frontmatter updated date for revised blog posts', () => {
+    const revised = getPostBySlug('how-to-calculate-working-from-home-deductions-australia');
+    expect(revised?.updated).toBe('2026-11-09');
+    const entry = sitemap().find((item) => item.url.endsWith('/blog/how-to-calculate-working-from-home-deductions-australia/'));
+    expect(entry?.lastModified).toEqual(new Date('2026-11-09'));
+    const unrevised = getPostBySlug('emergency-fund-guide');
+    expect(unrevised?.updated).toBeUndefined();
+  });
+
   it('links every discovery page, hub, and calculator in the footer with trailing slashes', () => {
     const allHrefs = [
       ...footerLinks.product.map((l) => l.href),
@@ -267,8 +291,9 @@ describe('marketing SEO routes', () => {
     const html = renderToStaticMarkup(<HecsHelpCalculatorPage />);
     const doc = new DOMParser().parseFromString(html, 'text/html');
     expect(doc.body.textContent).toContain('Interactive HECS-HELP repayment estimator');
-    // $85,000 repayment income -> 15c x $18,000 = $2,700 compulsory
-    expect(doc.querySelector('[data-testid="hecs-compulsory-repayment"]')?.textContent).toContain('$2,700');
+    // 2026–27 default: $85,000 repayment income -> 15c x ($85,000 - $69,528) = $2,320.80
+    expect(doc.body.textContent).toContain('2026–27 compulsory repayment');
+    expect(doc.querySelector('[data-testid="hecs-compulsory-repayment"]')?.textContent).toContain('$2,321');
     expect(doc.querySelectorAll('h1')).toHaveLength(1);
   });
 
@@ -391,8 +416,8 @@ describe('marketing SEO routes', () => {
     const html = renderToStaticMarkup(<SuperCapCheckerPage />);
     const doc = new DOMParser().parseFromString(html, 'text/html');
     expect(doc.body.textContent).toContain('Interactive contribution cap checker');
-    // $110k × 12% SG + $5k sacrifice = $18.2k → $11.8k headroom, no Div293
-    expect(doc.querySelector('[data-testid="caps-cc-headroom"]')?.textContent).toContain('11,800');
+    // 2026–27 cap $32.5k − ($110k × 12% SG + $5k sacrifice = $18.2k) → $14.3k headroom, no Div293
+    expect(doc.querySelector('[data-testid="caps-cc-headroom"]')?.textContent).toContain('14,300');
     expect(doc.querySelector('[data-testid="caps-div293"]')?.textContent).toContain('No');
     expect(doc.querySelectorAll('h1')).toHaveLength(1);
   });

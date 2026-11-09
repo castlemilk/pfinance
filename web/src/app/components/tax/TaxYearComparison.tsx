@@ -10,14 +10,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRightLeft, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { financeClient } from '@/lib/financeService';
 import { useAuth } from '../../context/AuthWithAdminContext';
-import { TAX_YEAR_OPTIONS } from '../../constants/taxSystems';
+import { DEFAULT_TAX_YEAR, TAX_YEAR_OPTIONS } from '../../constants/taxSystems';
 import { getCategoryLabel } from '../../constants/taxDeductions';
 import type { TaxYearComparison as ComparisonProto } from '@/gen/pfinance/v1/types_pb';
 
 export default function TaxYearComparison() {
   const { user } = useAuth();
-  const [yearA, setYearA] = useState<string>(TAX_YEAR_OPTIONS[1]?.value || '2023-24');
-  const [yearB, setYearB] = useState<string>(TAX_YEAR_OPTIONS[0]?.value || '2024-25');
+  // Default to last income year vs the one in progress.
+  const currentIndex = TAX_YEAR_OPTIONS.findIndex((opt) => opt.value === DEFAULT_TAX_YEAR);
+  const [yearA, setYearA] = useState<string>(TAX_YEAR_OPTIONS[Math.max(0, currentIndex - 1)]?.value ?? DEFAULT_TAX_YEAR);
+  const [yearB, setYearB] = useState<string>(DEFAULT_TAX_YEAR);
   const [comparison, setComparison] = useState<ComparisonProto | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

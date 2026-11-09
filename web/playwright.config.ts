@@ -85,7 +85,7 @@ export default defineConfig({
           timeout: 120 * 1000,
         },
         {
-          command: 'cd ../backend && go run cmd/server/main.go',
+          command: 'cd ../backend && go run ./cmd/server',
           url: 'http://localhost:8111/health',
           reuseExistingServer: true,
           timeout: 120 * 1000,

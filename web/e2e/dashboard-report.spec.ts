@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
 
 /**
@@ -157,29 +158,35 @@ test.describe('Dashboard Report with Salary Calculator Settings', () => {
 });
 
 test.describe('PDF Export Functionality', () => {
-  test('should have working export button', async ({ page }) => {
+  test('should export a visual PDF download', async ({ page }) => {
+    test.setTimeout(120_000);
+    const exportErrors: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error' && message.text().includes('Failed to export')) {
+        exportErrors.push(message.text());
+      }
+    });
+
     await page.goto('/personal/reports');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await expect(page.getByText('PFinance Report')).toBeVisible();
 
-    // Verify export button exists and is clickable
     const exportButton = page.getByRole('button', { name: /Export Visual PDF/i });
-    await expect(exportButton).toBeVisible();
     await expect(exportButton).toBeEnabled();
 
-    // In CI, just verify button exists - PDF generation depends on browser APIs
-    // that behave differently in headless mode
-    if (process.env.CI) {
-      return;
-    }
-
-    // Locally, click and verify no error
+    const downloadPromise = page.waitForEvent('download', { timeout: 90_000 });
     await exportButton.click();
-    await page.waitForTimeout(1000);
+    const download = await downloadPromise;
 
-    const errorAlert = page.locator('[role="alert"]').filter({ hasText: /error/i });
-    const hasError = await errorAlert.isVisible().catch(() => false);
-    expect(hasError).toBe(false);
+    expect(download.suggestedFilename()).toMatch(/\.pdf$/);
+    expect(await download.failure()).toBeNull();
+    const downloadPath = await download.path();
+    expect(downloadPath).not.toBeNull();
+    if (!downloadPath) throw new Error('Playwright did not persist the PDF download');
+    const pdfBytes = await readFile(downloadPath);
+    expect(pdfBytes.subarray(0, 4).toString()).toBe('%PDF');
+    expect(exportErrors).toEqual([]);
+    await expect(exportButton).toBeEnabled();
   });
 
   test('should show export button with correct text', async ({ page }) => {

@@ -95,6 +95,9 @@ export default function Navbar() {
               size="icon"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="relative"
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-navigation"
             >
               <AnimatePresence mode="wait">
                 {mobileMenuOpen ? (
@@ -132,6 +135,7 @@ export default function Navbar() {
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.3, ease: 'easeInOut' }}
               className="md:hidden overflow-hidden"
+              id="mobile-navigation"
             >
               <div className="py-4 space-y-1 border-t border-border/50">
                 {navLinks.map((link, index) => (

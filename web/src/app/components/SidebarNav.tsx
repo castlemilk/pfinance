@@ -23,6 +23,7 @@ import {
   ExternalLink,
   Repeat,
   Target,
+  PiggyBank,
   Lightbulb,
   BarChart3,
   Search,
@@ -80,6 +81,11 @@ const personalNavItems: NavItem[] = [
     title: 'Recurring',
     href: '/personal/recurring',
     icon: <Repeat className="w-4 h-4" />
+  },
+  {
+    title: 'Budgets',
+    href: '/personal/budgets/',
+    icon: <PiggyBank className="w-4 h-4" />
   },
   {
     title: 'Goals',

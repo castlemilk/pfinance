@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { useMultiUserFinance } from '../context/MultiUserFinanceContext';
 import { useAuth } from '../context/AuthWithAdminContext';
@@ -30,7 +30,9 @@ import {
 } from 'lucide-react';
 import { ExpenseCategory, IncomeFrequency } from '../types';
 import DashboardReport from './DashboardReport';
-import { exportDashboardToPdf } from '../utils/dashboardExport';
+import { useFinanceMetrics } from '../metrics/hooks/useFinanceMetrics';
+import { createFinancialReportData } from '../utils/financialReportData';
+import { exportFinancialReportToPdf } from '../utils/financialReportExport';
 
 interface ReportData {
   title: string;
@@ -69,13 +71,20 @@ interface ReportGeneratorProps {
 
 export default function ReportGenerator({ mode, groupId }: ReportGeneratorProps) {
   const { user } = useAuth();
-  const { 
-    getTotalIncome, 
-    getNetIncome, 
-    getTotalExpenses, 
+  const {
+    getTotalIncome,
+    getNetIncome,
+    getTotalExpenses,
     getExpenseSummary,
-    incomes
+    incomes,
+    expenses,
+    taxConfig
   } = useFinance();
+  const {
+    metrics: visualMetrics,
+    utils: visualUtils,
+    periodLabel: visualPeriodLabel,
+  } = useFinanceMetrics(incomes, expenses, taxConfig, { displayPeriod: 'monthly' });
   const { 
     activeGroup, 
     groupExpenses, 
@@ -92,39 +101,37 @@ export default function ReportGenerator({ mode, groupId }: ReportGeneratorProps)
   const [includeCharts, setIncludeCharts] = useState(true);
   const [activeTab, setActiveTab] = useState<'data' | 'visual'>('visual');
   const [exportProgress, setExportProgress] = useState<string>('');
+  const [visualExportError, setVisualExportError] = useState('');
   
-  // Ref for the visual dashboard
-  const dashboardRef = useRef<HTMLDivElement>(null);
-
-  // Handle visual PDF export
+  // Handle visual PDF export with a structured pdfcn document.
   const handleVisualExport = useCallback(async () => {
-    if (!dashboardRef.current) {
-      console.error('Dashboard ref not available');
-      return;
-    }
-    
+    setVisualExportError('');
     setIsGenerating(true);
     setExportProgress('Starting export...');
-    
+
     try {
-      await exportDashboardToPdf(dashboardRef.current, {
-        title: reportTitle || 'Financial Dashboard Report',
-        subtitle: `${reportPeriod === 'custom' ? 'Custom Period' : reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1) + 'ly'} Report`,
-        includeTimestamp: true,
-        scale: 2,
-        orientation: 'portrait',
-        pageSize: 'a4',
-        onProgress: (progress, message) => {
+      const data = createFinancialReportData({
+        title: reportTitle,
+        author: user?.displayName || user?.email || 'PFinance user',
+        metrics: visualMetrics,
+        periodLabel: visualPeriodLabel,
+        formatCurrency: visualUtils.formatCurrency,
+      });
+      await exportFinancialReportToPdf(data, {
+        onProgress: (_progress, message) => {
           setExportProgress(message);
         },
       });
     } catch (error) {
       console.error('Failed to export visual PDF:', error);
+      setVisualExportError(
+        'Visual PDF export failed. Try again, or use Data Report for a text-based PDF.'
+      );
     } finally {
       setIsGenerating(false);
       setExportProgress('');
     }
-  }, [reportTitle, reportPeriod]);
+  }, [reportTitle, user, visualMetrics, visualPeriodLabel, visualUtils]);
 
   // Calculate date range based on period
   const dateRange = useMemo(() => {
@@ -406,17 +413,18 @@ export default function ReportGenerator({ mode, groupId }: ReportGeneratorProps)
             
             {/* Visual Report Tab - Dashboard with Charts */}
             <TabsContent value="visual" className="space-y-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-lg font-medium">Visual Dashboard Report</h3>
                   <p className="text-sm text-muted-foreground">
                     Export a beautiful PDF with charts and visualizations
                   </p>
                 </div>
-                <Button 
-                  onClick={handleVisualExport} 
+                <Button
+                  onClick={handleVisualExport}
                   disabled={isGenerating}
                   size="lg"
+                  className="w-full sm:w-auto"
                 >
                   {isGenerating ? (
                     <>
@@ -431,13 +439,16 @@ export default function ReportGenerator({ mode, groupId }: ReportGeneratorProps)
                   )}
                 </Button>
               </div>
-              
+
+              {visualExportError && (
+                <p role="alert" className="text-sm text-destructive">
+                  {visualExportError}
+                </p>
+              )}
+
               {/* Visual Dashboard Preview */}
               <div className="border rounded-lg overflow-hidden">
-                <DashboardReport 
-                  ref={dashboardRef}
-                  showExportButton={false}
-                />
+                <DashboardReport showExportButton={false} />
               </div>
             </TabsContent>
             

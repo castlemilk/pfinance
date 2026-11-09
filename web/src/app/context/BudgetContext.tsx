@@ -220,6 +220,8 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
 
   // Load budgets when effectiveUserId changes
   useEffect(() => {
+    if (authLoading) return;
+
     debugLog('[BudgetContext] useEffect triggered', {
       effectiveUserId,
       lastUserIdRef: lastUserIdRef.current,
@@ -253,7 +255,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       debugLog('[BudgetContext] useEffect cleanup');
       isLoadingRef.current = false;
     };
-  }, [effectiveUserId, refreshBudgets, dataLoaded]);
+  }, [authLoading, effectiveUserId, refreshBudgets, dataLoaded]);
 
   // Create budget function
   const createBudget = useCallback(async (params: CreateBudgetParams): Promise<Budget | null> => {

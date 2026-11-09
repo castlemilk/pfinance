@@ -15,13 +15,13 @@ const GOAL_NAMES: Record<string, string> = {
   'mortgage-offset': 'Mortgage offset buffer',
   'hecs-help': 'Pay down HELP debt',
   'debt-payoff': 'Debt-free target',
-  'insurance-needs': 'Build emergency buffer',
-  'borrowing-power': 'Home deposit goal',
+  'insurance-needs': "Emergency buffer (3 months' income)",
+  'borrowing-power': 'Home deposit goal (20%)',
   'risk-profile': 'Start investing goal',
-  'stamp-duty': 'Home purchase goal (incl. duty)',
+  'stamp-duty': 'Home purchase upfront cash (20% deposit + duty)',
   'retirement': 'Retirement nest egg',
   'ccs': 'Childcare fund',
-  'super-caps': 'Top up super',
+  'super-caps': 'Use unused concessional cap',
   'rent-vs-buy': 'Home deposit goal',
   'home-loan': 'Pay off the home loan',
   'compound-interest': 'Savings target',
@@ -32,16 +32,29 @@ const GOAL_AMOUNT_FIELDS: Record<string, string> = {
   'mortgage-offset': 'offsetBalance',
   'hecs-help': 'helpBalance',
   'debt-payoff': 'totalDebt',
-  'insurance-needs': 'liquidAssets',
-  'borrowing-power': 'deposit',
+  'insurance-needs': '',
+  'borrowing-power': '',
   'risk-profile': '',
-  'stamp-duty': 'price',
-  'retirement': 'superBalance',
+  'stamp-duty': '',
+  'retirement': 'nestEgg',
   'ccs': '',
-  'super-caps': '',
-  'rent-vs-buy': 'price',
+  'super-caps': 'ccHeadroom',
+  'rent-vs-buy': 'deposit',
   'home-loan': 'loanAmount',
   'compound-interest': 'goalAmount',
+};
+
+const num = (value: unknown) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+// Targets derived from several snapshot fields rather than copied from one.
+const COMPUTED_GOAL_TARGETS: Record<string, (fields: CalculatorSnapshot['fields']) => number> = {
+  'insurance-needs': (f) => num(f.annualIncome) / 4,
+  'borrowing-power': (f) => num(f.maxProperty) * 0.2,
+  'stamp-duty': (f) => num(f.price) * 0.2 + num(f.duty),
+  ccs: (f) => num(f.weeklyChildcare) * 52,
 };
 
 export default function GoalsPage() {
@@ -51,7 +64,10 @@ export default function GoalsPage() {
   const [contributeGoal, setContributeGoal] = useState<FinancialGoal | null>(null);
 
   const applySnapshot = (snapshot: CalculatorSnapshot) => {
-    const amount = Number(snapshot.fields[GOAL_AMOUNT_FIELDS[snapshot.tool] ?? '']);
+    const computed = COMPUTED_GOAL_TARGETS[snapshot.tool];
+    const amount = computed
+      ? computed(snapshot.fields)
+      : Number(snapshot.fields[GOAL_AMOUNT_FIELDS[snapshot.tool] ?? '']);
     setCreatorInitial({
       name: GOAL_NAMES[snapshot.tool] ?? snapshot.title,
       targetAmount: Number.isFinite(amount) && amount > 0 ? String(Math.round(amount)) : '',

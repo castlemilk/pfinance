@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import EnhancedGroupSelector from '../../components/EnhancedGroupSelector';
 import { useAuth } from '../../context/AuthWithAdminContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,6 +13,8 @@ interface SharedLayoutProps {
 
 export default function SharedLayout({ children }: SharedLayoutProps) {
   const { user, loading } = useAuth();
+  const pathname = usePathname();
+  const isInvitePreview = pathname === '/shared/join' || pathname === '/shared/join/';
 
   // Show loading state
   if (loading) {
@@ -23,6 +26,11 @@ export default function SharedLayout({ children }: SharedLayoutProps) {
         </div>
       </div>
     );
+  }
+
+  // Invite previews and their login continuation must remain available signed out.
+  if (!user && isInvitePreview) {
+    return <>{children}</>;
   }
 
   // Show auth prompt if no user

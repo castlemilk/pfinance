@@ -4,8 +4,11 @@
  * ATO rates, thresholds, and constants for salary calculations.
  */
 
-// Super contribution limits
-export const ATO_PERSONAL_SUPER_CONTRIBUTION_LIMIT = 30000;
+import { concessionalCapFor, DEFAULT_TAX_YEAR, superGuaranteeRateFor } from '@/app/constants/taxSystems';
+
+// Concessional contributions cap for the current income year.
+// Use concessionalCapFor(taxYear) when a specific year is selected.
+export const ATO_PERSONAL_SUPER_CONTRIBUTION_LIMIT = concessionalCapFor(DEFAULT_TAX_YEAR);
 export const ATO_PERSONAL_SUPER_CONTRIBUTION_URL = "https://www.ato.gov.au/individuals-and-families/super-for-individuals-and-families/super/growing-and-keeping-track-of-your-super/how-to-save-more-in-your-super/personal-super-contributions";
 
 // FBT rate and cap
@@ -25,7 +28,9 @@ export const COMMON_PACKAGING_CAPS = [
 // Student loan repayment
 export const ATO_STUDENT_LOAN_URL = "https://www.ato.gov.au/tax-rates-and-codes/study-and-training-support-loans-rates-and-repayment-thresholds";
 
-// HELP/STSL repayment thresholds and rates for 2023-24
+// Legacy HELP/STSL table (2023-24 thresholds): a percentage of total repayment
+// income. Used only for income years before 2025-26; from 2025-26 repayments
+// are marginal (see '@/lib/help-repayment').
 export const HELP_REPAYMENT_THRESHOLDS = [
   { min: 0, max: 51550, rate: 0 },
   { min: 51550, max: 59518, rate: 0.01 },
@@ -67,7 +72,7 @@ export const DEFAULT_FORM_VALUES = {
 // Default tax settings
 export const DEFAULT_TAX_SETTINGS = {
   includeSuper: false,
-  superRate: 11.5,
+  superRate: superGuaranteeRateFor(DEFAULT_TAX_YEAR),
   includeMedicare: false,
   medicareExemption: false,
   includeSeniorOffset: false,

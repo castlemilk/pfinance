@@ -356,6 +356,20 @@ export function CountUp({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [play, inView, startWhen]);
 
+  // Retarget: when the value changes (e.g. a calculator input was edited),
+  // animate from whatever is on screen to the new value. Without this the
+  // first animation's end value stays on screen forever.
+  const targetRef = useRef(endValue);
+  useEffect(() => {
+    if (targetRef.current === endValue) return;
+    targetRef.current = endValue;
+    setPlay((previous) => ({
+      id: previous.id + 1,
+      from: valueRef.current,
+      to: endValue,
+    }));
+  }, [endValue]);
+
   const replay = () => {
     if (runningRef.current) return;
     valueRef.current = startValue;
@@ -410,7 +424,7 @@ export function CountUp({
           })}
         </span>
       ) : (
-        <span ref={textRef} className="gamma-count-up__text">
+        <span ref={textRef} className="gamma-count-up__text" aria-hidden="true">
           {formatValue(startValue)}
         </span>
       )}

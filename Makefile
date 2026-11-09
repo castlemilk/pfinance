@@ -123,7 +123,7 @@ dev-backend: check-port-backend
 	export ALGOLIA_SEARCH_KEY=$$(grep ALGOLIA_SEARCH_KEY .env 2>/dev/null | cut -d= -f2-) && \
 	export ALGOLIA_INDEX_NAME=$$(grep ALGOLIA_INDEX_NAME .env 2>/dev/null | cut -d= -f2- || echo "pfinance") && \
 	export ADMIN_EMAILS=$$(grep ADMIN_EMAILS .env 2>/dev/null | cut -d= -f2- || echo "ben.ebsworth@gmail.com") && \
-	go run cmd/server/main.go
+	go run ./cmd/server
 
 dev-backend-memory: check-port-backend
 	@echo "🔧 Starting backend service on port $(BACKEND_PORT) (memory store)..."
@@ -138,7 +138,7 @@ dev-backend-memory: check-port-backend
 	export STRIPE_PRODUCT_ID=$$(grep STRIPE_PRODUCT_ID .env 2>/dev/null | cut -d= -f2-) && \
 	export STRIPE_PRICE_ID=$$(grep STRIPE_PRICE_ID .env 2>/dev/null | cut -d= -f2-) && \
 	export ADMIN_EMAILS=$$(grep ADMIN_EMAILS .env 2>/dev/null | cut -d= -f2- || echo "ben.ebsworth@gmail.com") && \
-	go run cmd/server/main.go
+	go run ./cmd/server
 
 dev-backend-firebase: check-port-backend
 	@echo "🔥 Starting backend service on port $(BACKEND_PORT) (Firestore)..."
@@ -157,7 +157,7 @@ dev-backend-firebase: check-port-backend
 	export ALGOLIA_SEARCH_KEY=$$(grep ALGOLIA_SEARCH_KEY .env 2>/dev/null | cut -d= -f2-) && \
 	export ALGOLIA_INDEX_NAME=$$(grep ALGOLIA_INDEX_NAME .env 2>/dev/null | cut -d= -f2- || echo "pfinance") && \
 	export ADMIN_EMAILS=$$(grep ADMIN_EMAILS .env 2>/dev/null | cut -d= -f2- || echo "ben.ebsworth@gmail.com") && \
-	go run cmd/server/main.go
+	go run ./cmd/server
 
 dev-frontend: check-port-frontend
 	@echo "🌐 Starting frontend service on port $(FRONTEND_PORT)..."
@@ -216,7 +216,7 @@ check-port-frontend:
 clean-ports:
 	@if lsof -Pi :$(BACKEND_PORT) -sTCP:LISTEN -t >/dev/null 2>&1; then \
 		echo "🧹 Cleaning up port $(BACKEND_PORT)..."; \
-		pgrep -f "go run cmd/server/main.go" | xargs -r ps -o pid,ppid,command 2>/dev/null | grep -F "$$PWD/backend" | awk '{print $$1}' | xargs -r kill -9 2>/dev/null || true; \
+		pgrep -f "go run ./cmd/server" | xargs -r ps -o pid,ppid,command 2>/dev/null | grep -F "$$PWD/backend" | awk '{print $$1}' | xargs -r kill -9 2>/dev/null || true; \
 		$(call kill_pids_in_project_by_port,$(BACKEND_PORT),-9); \
 	fi
 	@if lsof -Pi :$(FRONTEND_PORT) -sTCP:LISTEN -t >/dev/null 2>&1; then \
@@ -236,7 +236,7 @@ kill-port-frontend:
 
 stop:
 	@echo "🛑 Stopping all services (only for this project folder)..."
-	@pgrep -f "go run cmd/server/main.go" | xargs -r ps -o pid,ppid,command | grep -F "$$PWD/backend" | awk '{print $$1}' | xargs -r kill -9 2>/dev/null || true
+	@pgrep -f "go run ./cmd/server" | xargs -r ps -o pid,ppid,command | grep -F "$$PWD/backend" | awk '{print $$1}' | xargs -r kill -9 2>/dev/null || true
 	@pgrep -f "next dev" | xargs -r ps -o pid,ppid,command | grep -F "$$PWD/web" | awk '{print $$1}' | xargs -r kill -9 2>/dev/null || true
 	@$(call kill_pids_in_project_by_port,$(BACKEND_PORT),-9)
 	@$(call kill_pids_in_project_by_port,$(FRONTEND_PORT),-9)
@@ -434,10 +434,11 @@ dev-backend-seed: check-port-backend
 	@echo "🔧 Starting backend in SEED mode (no auth, memory store) on port $(BACKEND_PORT)..."
 	@cd backend && \
 	export GOOGLE_CLOUD_PROJECT=pfinance-app-1748773335 && \
+	export ENV=local && \
 	export PORT=$(BACKEND_PORT) && \
 	export USE_MEMORY_STORE=true && \
 	export SKIP_AUTH=true && \
-	go run cmd/server/main.go
+	go run ./cmd/server
 
 # Start backend without auth for seeding (Firestore)
 dev-backend-firebase-seed: check-port-backend check-firebase-creds
@@ -447,7 +448,7 @@ dev-backend-firebase-seed: check-port-backend check-firebase-creds
 	export PORT=$(BACKEND_PORT) && \
 	export USE_MEMORY_STORE=false && \
 	export SKIP_AUTH=true && \
-	go run cmd/server/main.go
+	go run ./cmd/server
 
 seed-data:
 	@echo "🌱 Seeding test data..."

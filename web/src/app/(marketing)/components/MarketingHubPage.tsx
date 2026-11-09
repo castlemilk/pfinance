@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { BreadcrumbJsonLd } from '@/components/seo/JsonLd';
+import { BreadcrumbJsonLd, ItemListJsonLd } from '@/components/seo/JsonLd';
 import { discoveryPages, type HubPageData } from '@/lib/marketing-pages';
 import { getSiteUrl } from '@/lib/seo';
 
@@ -39,6 +39,10 @@ export default function MarketingHubPage({ hub, extraSpokes = [] }: MarketingHub
           { name: 'Home', url: `${siteUrl}/` },
           { name: hub.title, url: hubUrl },
         ]}
+      />
+      <ItemListJsonLd
+        name={hub.title}
+        items={spokes.map((spoke) => ({ name: spoke.navLabel, url: `${siteUrl}${spoke.path}` }))}
       />
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -79,10 +83,10 @@ export default function MarketingHubPage({ hub, extraSpokes = [] }: MarketingHub
                 href={spoke.path}
                 className="group rounded-xl border bg-card p-6 shadow-sm transition-colors hover:border-primary/50"
               >
-                <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+                <p className="text-xs font-semibold uppercase tracking-wider text-primary-text">
                   {spoke.eyebrow}
                 </p>
-                <h3 className="mt-2 text-xl font-semibold group-hover:text-primary transition-colors flex items-center justify-between gap-2">
+                <h3 className="mt-2 text-xl font-semibold group-hover:text-primary-text transition-colors flex items-center justify-between gap-2">
                   <span>{spoke.navLabel}</span>
                   <ArrowRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
                 </h3>

@@ -15,6 +15,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useAdmin } from './AdminContext';
+import { useHydrated } from '../hooks/useHydrated';
 import { SubscriptionTier, SubscriptionStatus } from '@/gen/pfinance/v1/types_pb';
 
 interface AuthContextType {
@@ -35,23 +36,28 @@ interface AuthContextType {
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
-  const { isAdminMode, impersonatedUser } = useAdmin();
+  const { isAdminMode, impersonatedUser, loading: adminLoading } = useAdmin();
+  const hasHydrated = useHydrated();
   const [actualUser, setActualUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [firebaseLoading, setFirebaseLoading] = useState(true);
   const listenerFiredRef = useRef(false);
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>(SubscriptionTier.FREE);
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>(SubscriptionStatus.UNSPECIFIED);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
 
-  // Determine the effective user (impersonated or actual)
-  const effectiveUser = isAdminMode && impersonatedUser
-    ? impersonatedUser as unknown as User
-    : actualUser;
+  // Keep the server and initial client tree signed out until hydration and
+  // development impersonation restoration have both completed.
+  const effectiveUser = hasHydrated && !adminLoading
+    ? (isAdminMode && impersonatedUser
+      ? impersonatedUser as unknown as User
+      : actualUser)
+    : null;
+  const loading = !hasHydrated || adminLoading || firebaseLoading;
 
   useEffect(() => {
     // Skip auth setup if Firebase is not initialized
     if (!auth) {
-      setLoading(false);
+      setFirebaseLoading(false);
       return;
     }
 
@@ -72,7 +78,7 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
             safetyTimeout = undefined;
           }
           setActualUser(user);
-          setLoading(false);
+          setFirebaseLoading(false);
         });
 
         // Safety timeout: if the auth listener hasn't fired within 5 seconds
@@ -80,13 +86,13 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
         safetyTimeout = setTimeout(() => {
           if (!listenerFiredRef.current) {
             console.warn('[AuthContext] Safety timeout: auth listener did not fire within 5s, clearing loading state');
-            setLoading(false);
+            setFirebaseLoading(false);
           }
         }, 5000);
       })
       .catch((error) => {
         console.error('[AuthContext] Error setting persistence:', error);
-        setLoading(false);
+        setFirebaseLoading(false);
       });
 
     return () => {
@@ -193,7 +199,7 @@ export function AuthWithAdminProvider({ children }: { children: ReactNode }) {
     await signOut(auth);
   }, [isAdminMode, impersonatedUser]);
 
-  const isImpersonating = isAdminMode && !!impersonatedUser;
+  const isImpersonating = hasHydrated && !adminLoading && isAdminMode && !!impersonatedUser;
 
   const value = useMemo(() => ({
     user: effectiveUser,

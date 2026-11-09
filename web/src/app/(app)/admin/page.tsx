@@ -68,7 +68,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
-      router.replace('/login');
+      router.replace('/auth');
       return;
     }
     let cancelled = false;

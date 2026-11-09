@@ -35,6 +35,7 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-primary-text: var(--primary-text);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -61,9 +62,10 @@
   --popover: oklch(0.975 0.012 85);
   --popover-foreground: oklch(0.32 0.03 50);
   --primary: oklch(0.72 0.16 55);                 /* Amber orange */
+  --primary-text: oklch(0.5 0.14 45);             /* Readable amber text */
   --primary-foreground: oklch(0.25 0.02 50);      /* Dark brown */
   --secondary: oklch(0.62 0.08 130);              /* Avocado green */
-  --secondary-foreground: oklch(0.98 0.01 85);    /* Light cream */
+  --secondary-foreground: oklch(0.22 0.03 130);   /* Deep avocado */
   --muted: oklch(0.92 0.01 85);                   /* Muted cream */
   --muted-foreground: oklch(0.45 0.02 50);        /* Warm gray-brown */
   --accent: oklch(0.55 0.14 35);                  /* Rust red */
@@ -103,6 +105,7 @@
   --popover: oklch(0.16 0.008 55);
   --popover-foreground: oklch(0.9 0.04 85);
   --primary: oklch(0.75 0.17 55);                 /* Bright amber */
+  --primary-text: oklch(0.75 0.17 55);
   --primary-foreground: oklch(0.12 0.005 60);     /* CRT black */
   --secondary: oklch(0.7 0.1 130);                /* Sage green */
   --secondary-foreground: oklch(0.12 0.005 60);   /* CRT black */
@@ -150,6 +153,7 @@
   --popover: oklch(0.985 0.008 70);
   --popover-foreground: oklch(0.28 0.02 30);
   --primary: oklch(0.72 0.08 350);                /* Dusty rose */
+  --primary-text: oklch(0.5 0.09 350);            /* Readable rose text */
   --primary-foreground: oklch(0.98 0.01 70);      /* Light cream */
   --secondary: oklch(0.78 0.06 230);              /* Powder blue */
   --secondary-foreground: oklch(0.25 0.02 230);   /* Deep blue */
@@ -192,6 +196,7 @@
   --popover: oklch(0.18 0.015 30);
   --popover-foreground: oklch(0.92 0.02 70);
   --primary: oklch(0.75 0.1 350);                 /* Bright dusty rose */
+  --primary-text: oklch(0.75 0.1 350);
   --primary-foreground: oklch(0.14 0.015 30);     /* Dark background */
   --secondary: oklch(0.72 0.08 230);              /* Muted powder blue */
   --secondary-foreground: oklch(0.14 0.015 30);
@@ -239,6 +244,7 @@
   --popover: oklch(0.985 0.012 60);
   --popover-foreground: oklch(0.25 0.03 160);
   --primary: oklch(0.72 0.1 165);                 /* Mint green */
+  --primary-text: oklch(0.43 0.09 165);           /* Readable mint text */
   --primary-foreground: oklch(0.2 0.03 165);      /* Deep mint */
   --secondary: oklch(0.78 0.08 35);               /* Peach coral */
   --secondary-foreground: oklch(0.3 0.05 35);     /* Deep coral */
@@ -281,6 +287,7 @@
   --popover: oklch(0.17 0.025 160);
   --popover-foreground: oklch(0.92 0.02 60);
   --primary: oklch(0.75 0.12 165);                /* Bright mint */
+  --primary-text: oklch(0.75 0.12 165);
   --primary-foreground: oklch(0.13 0.025 160);    /* Dark background */
   --secondary: oklch(0.75 0.1 35);                /* Bright peach */
   --secondary-foreground: oklch(0.13 0.025 160);
@@ -328,6 +335,7 @@
   --popover: oklch(0.975 0.01 80);
   --popover-foreground: oklch(0.22 0.02 40);
   --primary: oklch(0.62 0.12 40);                 /* Terracotta clay */
+  --primary-text: oklch(0.5 0.12 40);             /* Readable clay text */
   --primary-foreground: oklch(0.97 0.01 80);      /* Light cream */
   --secondary: oklch(0.65 0.05 120);              /* Sage green */
   --secondary-foreground: oklch(0.25 0.03 120);   /* Deep sage */
@@ -370,6 +378,7 @@
   --popover: oklch(0.16 0.01 40);
   --popover-foreground: oklch(0.9 0.02 80);
   --primary: oklch(0.68 0.14 40);                 /* Bright terracotta */
+  --primary-text: oklch(0.68 0.14 40);
   --primary-foreground: oklch(0.12 0.01 40);      /* Dark background */
   --secondary: oklch(0.68 0.06 120);              /* Bright sage */
   --secondary-foreground: oklch(0.12 0.01 40);

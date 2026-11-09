@@ -1,25 +1,33 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../context/AuthWithAdminContext';
 import AuthModal from '../components/AuthModal';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, ArrowLeft } from 'lucide-react';
+import { Users, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
-export default function AuthPage() {
+function getSafeReturnUrl(value: string | null) {
+  if (!value || !value.startsWith('/') || value.startsWith('//') || value.includes('\\')) {
+    return '/shared';
+  }
+  return value;
+}
+
+function AuthPageContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnUrl = getSafeReturnUrl(searchParams.get('returnUrl'));
   const [showAuthModal, setShowAuthModal] = useState(true);
 
   useEffect(() => {
     if (!loading && user) {
-      // Redirect to shared finance if user is already logged in
-      router.push('/shared');
+      router.replace(returnUrl);
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, returnUrl]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -47,9 +55,9 @@ export default function AuthPage() {
             <li>Generate group financial reports</li>
             <li>Sync your data across devices</li>
           </ul>
-          
-          <Button 
-            onClick={() => setShowAuthModal(true)} 
+
+          <Button
+            onClick={() => setShowAuthModal(true)}
             className="w-full"
             size="lg"
           >
@@ -58,13 +66,25 @@ export default function AuthPage() {
         </CardContent>
       </Card>
 
-      <AuthModal 
-        isOpen={showAuthModal} 
+      <AuthModal
+        isOpen={showAuthModal}
         onClose={() => {
           setShowAuthModal(false);
           router.push('/personal');
-        }} 
+        }}
       />
     </div>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Loading sign in" />
+      </div>
+    }>
+      <AuthPageContent />
+    </Suspense>
   );
 }

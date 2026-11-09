@@ -55,7 +55,7 @@ export function ConfigureStep({ state, dispatch }: ConfigureStepProps) {
               <SelectContent>
                 {TAX_YEAR_OPTIONS.map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>
-                    FY {opt.label}{opt.isFuture ? ' (projected)' : ''}
+                    FY {opt.label}{opt.isFuture ? ' (upcoming)' : ''}
                   </SelectItem>
                 ))}
               </SelectContent>

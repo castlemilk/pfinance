@@ -21,6 +21,7 @@ import {
   ATO_PERSONAL_SUPER_CONTRIBUTION_URL, 
   ATO_PERSONAL_SUPER_CONTRIBUTION_LIMIT 
 } from '../constants';
+import { concessionalCapFor, type TaxYear } from '@/app/constants/taxSystems';
 
 interface SuperannuationSettingsProps {
   taxSettings: TaxSettings;
@@ -32,6 +33,7 @@ interface SuperannuationSettingsProps {
   voluntarySuperTaxSavings: number;
   superannuation: number;
   formatCurrency: (amount: number) => string;
+  taxYear?: TaxYear;
 }
 
 export function SuperannuationSettings({
@@ -44,7 +46,9 @@ export function SuperannuationSettings({
   voluntarySuperTaxSavings,
   superannuation,
   formatCurrency,
+  taxYear,
 }: SuperannuationSettingsProps) {
+  const concessionalCap = taxYear ? concessionalCapFor(taxYear) : ATO_PERSONAL_SUPER_CONTRIBUTION_LIMIT;
   const isActive = taxSettings.includeSuper || taxSettings.includeVoluntarySuper;
 
   const getSummary = () => {
@@ -79,7 +83,7 @@ export function SuperannuationSettings({
           <div className="flex justify-between">
             <span>Concessional cap remaining:</span>
             <span className="font-medium">
-              {formatCurrency(remainingConcessionalCap)} of {formatCurrency(ATO_PERSONAL_SUPER_CONTRIBUTION_LIMIT)}
+              {formatCurrency(remainingConcessionalCap)} of {formatCurrency(concessionalCap)}
             </span>
           </div>
           {superannuation > 0 && (

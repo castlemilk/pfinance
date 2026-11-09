@@ -31,7 +31,10 @@ if (process.env.FAILURE === 'verify') process.exit(42);
     fs.mkdirSync(path.join(root, 'web'));
     const cwd = path.join(root, nested);
     fs.mkdirSync(path.join(cwd, '.vercel'), { recursive: true });
-    fs.writeFileSync(path.join(cwd, '.vercel/project.json'), JSON.stringify({ orgId: 'team_fixture', projectId: 'prj_fixture' }));
+    fs.writeFileSync(path.join(cwd, '.vercel/project.json'), JSON.stringify({
+      orgId: 'team_fixture',
+      projectId: failure === 'unexpected-binding' ? 'prj_unexpected' : 'prj_fixture',
+    }));
     if (failure === 'missing-binding') fs.unlinkSync(path.join(cwd, '.vercel/project.json'));
     const bin = path.join(root, 'bin');
     fs.mkdirSync(bin);
@@ -50,7 +53,8 @@ if (verb === 'pull') {
   fs.writeFileSync('.vercel/.env.'+target+'.local', 'TEST_ONLY=true');
 }
 if (verb === 'build') {
-  fs.mkdirSync('.vercel/output', {recursive:true});
+  fs.mkdirSync('.vercel/output/static', {recursive:true});
+  fs.writeFileSync('.vercel/output/static/layout.js', process.env.FAILURE === 'public-env' ? 'process.env.NEXT_PUBLIC_FIREBASE_API_KEY' : 'window.fixture=true');
   fs.writeFileSync('.vercel/output/config.json', '{"version":3}');
   if (process.env.FAILURE === 'native') {
     fs.mkdirSync('.vercel/output/functions/api.func', {recursive:true});
@@ -72,8 +76,9 @@ if (verb === 'deploy') {
     const result = spawnSync('bash', [path.join(root, 'scripts', helper), ...mode.args], {
       cwd: root, encoding: 'utf8', env: {...process.env, PATH: `${bin}:${process.env.PATH}`, CALL_LOG:log,
         VERCEL_ORG_ID:'team_fixture', VERCEL_PROJECT_ID:'prj_fixture', VERCEL_TOKEN:'unit-only-token', TEST_TOKEN:'unit-only-token',
-        VERCEL_GIT_BRANCH:'feature/a', PR_BRANCH:'feature/a', BACKEND_URL:'https://api.fixture.test', GEMINI_API_KEY:'unit-only-token', OPENAI_API_KEY:'unit-only-token', GITHUB_OUTPUT:path.join(root,'github-output'), FAILURE:failure},
-    });
+        VERCEL_GIT_BRANCH:'feature/a', PR_BRANCH:'feature/a', BACKEND_URL:'https://api.fixture.test', GEMINI_API_KEY:'unit-only-token', OPENAI_API_KEY:'unit-only-token', GITHUB_OUTPUT:path.join(root,'github-output'), FAILURE:failure,
+        PFINANCE_SKIP_DOMAIN:failure === 'skip-domain' ? '1' : '',
+    }});
     const calls = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n').filter(Boolean).map(s => JSON.parse(s)) : [];
     const caches = ['production','preview'].filter(t => fs.existsSync(path.join(cwd, `.vercel/.env.${t}.local`)));
     return {result, calls, caches};
@@ -122,11 +127,24 @@ test('local production: missing binding cannot auto-link or create a project', (
   assert.match(result.stderr, /existing.*binding/i);
   assert.deepEqual(calls, []);
 });
+test('local production: unexpected project binding stops before any Vercel call', () => {
+  const { result, calls } = run(modes[1], 'unexpected-binding');
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /binding must be document-analyser\/pfinance/);
+  assert.deepEqual(calls, []);
+});
 test('local production: project rebinding during pull stops before build', () => {
   const { result, calls, caches } = run(modes[1], 'binding');
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /binding changed/);
   assert.ok(!calls.some(c => ['build', 'deploy'].includes(c.verb)));
+  assert.deepEqual(caches, []);
+});
+test('local production: missing public Firebase config stops before deploy', () => {
+  const { result, calls, caches } = run(modes[1], 'public-env');
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Public Firebase settings were not inlined/);
+  assert.ok(!calls.some(c => c.verb === 'deploy'));
   assert.deepEqual(caches, []);
 });
 
@@ -139,6 +157,13 @@ test('preview workflow qualifies release tooling and runs contracts before deplo
   const contracts = workflow.indexOf('      - name: Validate deployment contracts');
   assert.ok(contracts > 0 && contracts < workflow.indexOf('      - name: Deploy to Vercel'));
   assert.match(workflow.slice(contracts, workflow.indexOf('      - name: Deploy to Vercel')), /run: node --test scripts\/\*\.node-tests\.mjs/);
+});
+
+test('local production: candidate deploy can skip domain promotion and stale-domain verification', () => {
+  const { result, calls } = run(modes[1], 'skip-domain');
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(calls.find(c => c.verb === 'deploy').args.includes('--skip-domain'));
+  assert.ok(!calls.some(c => c.verb === 'verify'));
 });
 
 test('production verification follows deployment and fails the release on a bad smoke check', () => {

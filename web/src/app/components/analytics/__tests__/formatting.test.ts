@@ -28,6 +28,7 @@ describe('createAnalyticsCurrencyContext', () => {
     expect(context.locale).toBe('en-US');
     expect(context.currency).toBe('USD');
     expect(context.formatMoney(1234)).toBe('$1,234');
+    expect(context.formatMoney(12500, true)).toBe('$12.5K');
   });
 
   it.each([null, undefined, 'unsupported-country' as TaxCountry])(
