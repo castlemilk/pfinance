@@ -459,11 +459,13 @@ free of workflow files: Cuttlefish runs them too.
 
 | Workflow | Trigger | Description |
 |----------|---------|-------------|
-| `pfinance-ci` | PR into main, push to main | `scripts/ci/backend.sh` (proto-gen, gofmt, vet, race tests) and `scripts/ci/web.sh` (npm ci, type-check + lint + jest + contract tests in parallel, build) |
-| `pfinance-deploy` | Push to main touching `web/**` or release scripts | `scripts/deploy-vercel-prebuilt.sh` → Vercel prod, then verifies pfinance.dev serves the commit |
-| `pfinance-backend-deploy` | Push to main touching `backend/**`, `proto/**` | ko build → Cloud Run `pfinance-backend` (512Mi, max 5, min 0; env vars kept on the service) |
+| `pfinance-ci-backend` | Every PR into main; push to main touching `backend/**`, `proto/**`, `scripts/ci/{backend,go-proto}.sh` | `scripts/ci/backend.sh` (proto-gen, gofmt, vet, race tests) |
+| `pfinance-ci-web` | Every PR into main; push to main touching `web/**`, `scripts/**` | `scripts/ci/web.sh` (npm ci, type-check + lint + jest + contract tests in parallel, build) |
+| `pfinance-deploy` | `pfinance-ci-web` passed on main | `scripts/deploy-vercel-prebuilt.sh` → Vercel prod, then verifies pfinance.dev serves the commit |
+| `pfinance-backend-deploy` | `pfinance-ci-backend` passed on main | ko build → Cloud Run `pfinance-backend` (512Mi, max 5, min 0; env vars kept on the service) |
 
 - Workflow YAML lives in the Cuttlefish repo (`workflows/pfinance-*.yaml`); the commands live here in `scripts/ci/`.
+- Deploys wait for their area's CI (`workflowRun` triggers); a red CI run on main deploys nothing until it is re-run green.
 - Run CI locally with `make ci-backend` / `make ci-frontend`.
 - Generator versions (buf, protoc-gen-go, protoc-gen-connect-go) are pinned in `scripts/ci/go-proto.sh`.
 - Production installs use `npm ci` (`web/vercel.json`); never delete or bypass the lockfile.

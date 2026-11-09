@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Frontend CI: install exactly the lockfile, run the independent checks in
-# parallel, then build. Cuttlefish pfinance-ci runs this; `make ci-web` runs it
-# locally. The checks run together because each is small and mostly
+# parallel, then build. Cuttlefish pfinance-ci-web runs this; `make ci-frontend`
+# runs it locally. The checks run together because each is small and mostly
 # single-threaded; the build runs after them so the two biggest memory users
 # (tsc and next build) never overlap.
 set -euo pipefail
