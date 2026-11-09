@@ -1065,6 +1065,116 @@ export const discoveryPages: MarketingPageData[] = [
     changeFrequency: 'weekly',
   },
   {
+    path: '/tools/home-loan-repayment-calculator',
+    category: 'tools',
+    hubPath: '/tools',
+    hubLabel: 'Tools',
+    navLabel: 'Home Loan Repayment Calculator',
+    title: 'Home Loan Repayment Calculator Australia',
+    description: 'Work out weekly, fortnightly or monthly home loan repayments, total interest and payoff date. Model an interest-only period and see what extra repayments save.',
+    eyebrow: 'Mortgage calculator',
+    heading: 'Home loan repayments, total interest and payoff date',
+    body: 'Enter the loan amount, interest rate and term, then choose how often you pay. The calculator runs the repayment schedule period by period, including an interest-only period and any extra repayment, and shows the balance owing at the end of each year.',
+    primaryCta: 'Track the payoff in PFinance',
+    primaryCtaHref: '/personal/goals/',
+    secondaryCta: 'Check borrowing power',
+    secondaryCtaHref: '/tools/borrowing-power-calculator/',
+    highlights: [
+      'Weekly, fortnightly or monthly schedules, plus the half-the-monthly fortnightly option',
+      'Interest-only years followed by principal and interest',
+      'Interest and time saved by an extra repayment each period',
+    ],
+    sections: [
+      {
+        title: 'Use the interest rate, not the comparison rate',
+        body: 'Lenders advertise a comparison rate next to the interest rate. It folds most upfront and ongoing fees into one percentage, but it is worked out on a $150,000 loan over 25 years, so on a larger loan it overstates how much the fees add. Use the comparison rate to shortlist loans, put the actual interest rate into this calculator, and add the fees on top.',
+      },
+      {
+        title: 'Two kinds of fortnightly repayment',
+        body: 'A true fortnightly repayment divides the annual rate by 26 and spreads the loan over 26 repayments a year. It costs almost the same as paying monthly. Paying half the monthly repayment every fortnight is different: 26 half-payments come to 13 monthly repayments a year, and the extra one goes straight off the principal. The calculator offers both, so you can check which one your lender is quoting.',
+      },
+      {
+        title: 'Interest-only years raise the repayment later',
+        body: 'During an interest-only period the balance stays where it started. When the period ends, the whole loan has to be repaid over the years left, so the principal and interest repayment is higher than it would have been from day one, and the loan costs more interest overall. Run the same loan with and without the interest-only years to see the size of the jump.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Do extra repayments go into redraw or an offset account?',
+        answer: 'Extra repayments go into the loan and reduce the balance straight away. If the loan has a redraw facility you can usually take them back out, subject to the lender’s minimums and any fees. An offset account keeps the cash in a separate transaction account and cuts interest the same way while the money sits there. The mortgage offset calculator compares the two.',
+      },
+      {
+        question: 'Does paying fortnightly save interest?',
+        answer: 'Barely, if it is a true fortnightly repayment. The saving comes from paying half the monthly amount every fortnight, which adds one monthly repayment a year. Choose that option in the frequency list to see the difference on your loan.',
+      },
+      {
+        question: 'Why is my lender’s repayment slightly different?',
+        answer: 'Lenders usually calculate interest on the daily balance and charge it monthly, round repayments, and may include account fees. This calculator splits the annual rate evenly across repayment periods, so expect a small gap. Budget with the figure on your loan documents.',
+      },
+      {
+        question: 'Can I make extra repayments on a fixed-rate loan?',
+        answer: 'Check the contract. Fixed-rate loans can cap extra repayments each year and charge break costs if you pay the loan out early. If you plan to make large extra repayments, ask the lender how a split loan, part fixed and part variable, would treat them.',
+      },
+    ],
+    priority: 0.88,
+    changeFrequency: 'monthly',
+  },
+  {
+    path: '/tools/compound-interest-calculator',
+    category: 'tools',
+    hubPath: '/tools',
+    hubLabel: 'Tools',
+    navLabel: 'Compound Interest Calculator',
+    title: 'Compound Interest Calculator with Regular Deposits',
+    description: 'Project savings growth with regular deposits and monthly, quarterly or annual compounding. See deposits vs interest earned and how long a savings target takes.',
+    eyebrow: 'Savings calculator',
+    heading: 'Savings growth from interest and regular deposits',
+    body: 'Start with a balance, add a regular deposit, and set the interest rate and how often it compounds. The year-by-year schedule splits the final balance into what you paid in and what interest added, and shows when you reach a savings target.',
+    primaryCta: 'Create a savings goal',
+    primaryCtaHref: '/personal/goals/',
+    secondaryCta: 'Project your super',
+    secondaryCtaHref: '/tools/super-calculator/',
+    highlights: [
+      'Monthly, quarterly or annual compounding',
+      'Weekly, fortnightly, monthly or annual deposits',
+      'Time to reach a savings target at your current deposit',
+    ],
+    sections: [
+      {
+        title: 'Match the compounding to your account',
+        body: 'Australian bank savings accounts generally work out interest on the daily balance and pay it monthly, so monthly compounding is the closest match. Some high-interest accounts pay their bonus rate only in months where you meet conditions such as a minimum deposit or no withdrawals, so enter the rate you expect to earn in a typical month. Term deposit interest only compounds if it is added back to the deposit at rollover.',
+      },
+      {
+        title: 'Why the interest share grows each year',
+        body: 'In the first few years most of the balance is money you paid in. Interest is worked out on the whole balance, past interest included, so each year adds more than the year before and the interest band on the chart widens. For a rough check, use the rule of 72: at 6% a year, money doubles on interest alone in about 12 years (72 ÷ 6).',
+      },
+      {
+        title: 'Before tax and before inflation',
+        body: 'Interest on savings is assessable income taxed at your marginal rate, and this calculator shows the balance before that tax. It is also in future dollars. The RBA targets inflation of 2–3% a year, so subtracting an inflation assumption from the rate gives a rough figure in today’s dollars. If the savings sit beside a home loan, an offset account can come out ahead because the interest it saves is not taxed.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'When are deposits added?',
+        answer: 'At the end of each deposit period, after that period’s interest is worked out, so a deposit starts earning in the next period. With quarterly or annual compounding, deposits made between credits earn simple interest until the next credit.',
+      },
+      {
+        question: 'Does compounding frequency make a big difference?',
+        answer: 'Less than the rate or the deposit amount. At 5% a year, monthly compounding lifts the effective annual rate from 5.00% to about 5.12%. A higher deposit or rate moves the result much more.',
+      },
+      {
+        question: 'What rate should I use for shares or ETFs?',
+        answer: 'Shares and ETFs do not pay a fixed rate. Returns vary from year to year and can be negative, so a fixed-rate projection is an illustration only. Pick a conservative assumption and read the result as one possible outcome, not a forecast.',
+      },
+      {
+        question: 'How is this different from the super calculator?',
+        answer: 'The super calculator works with annual contributions after contributions tax and a return after fees. Use it for super, and this calculator for savings accounts, term deposits and money invested outside super.',
+      },
+    ],
+    priority: 0.88,
+    changeFrequency: 'monthly',
+  },
+  {
     path: '/compare/spreadsheets-vs-finance-app',
     category: 'compare',
     hubPath: '/compare',

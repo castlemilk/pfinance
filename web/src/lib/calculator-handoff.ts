@@ -18,7 +18,9 @@ export type CalculatorTool =
   | 'retirement'
   | 'ccs'
   | 'super-caps'
-  | 'rent-vs-buy';
+  | 'rent-vs-buy'
+  | 'home-loan'
+  | 'compound-interest';
 
 export interface CalculatorSnapshot {
   tool: CalculatorTool;

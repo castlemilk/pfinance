@@ -39,6 +39,8 @@ import RetirementCalculatorPage, { metadata as retirementMetadata } from '../too
 import ChildcareSubsidyCalculatorPage, { metadata as ccsMetadata } from '../tools/childcare-subsidy-calculator/page';
 import SuperCapCheckerPage, { metadata as superCapsMetadata } from '../tools/super-contribution-cap-checker/page';
 import RentVsBuyCalculatorPage, { metadata as rentVsBuyMetadata } from '../tools/rent-vs-buy-calculator/page';
+import HomeLoanRepaymentCalculatorPage, { metadata as homeLoanMetadata } from '../tools/home-loan-repayment-calculator/page';
+import CompoundInterestCalculatorPage, { metadata as compoundInterestMetadata } from '../tools/compound-interest-calculator/page';
 import { standardDuty, firstHomeDuty, foreignSurcharge } from '@/lib/stamp-duty';
 import BlogPage from '../blog/page';
 import { buildRssFeedXml } from '@/lib/rss';
@@ -131,6 +133,8 @@ describe('marketing SEO routes', () => {
       ccsMetadata,
       superCapsMetadata,
       rentVsBuyMetadata,
+      homeLoanMetadata,
+      compoundInterestMetadata,
       spreadsheetComparisonMetadata,
     ];
 
@@ -165,6 +169,8 @@ describe('marketing SEO routes', () => {
       '/tools/wfh-deduction-calculator/',
       '/tools/mortgage-offset-calculator/',
       '/tools/hecs-help-calculator/',
+      '/tools/home-loan-repayment-calculator/',
+      '/tools/compound-interest-calculator/',
       '/compare/spreadsheets-vs-finance-app/',
     ]));
   });
@@ -399,6 +405,36 @@ describe('marketing SEO routes', () => {
     // $750k NSW: duty $27,937 → upfront ≈ $180,937
     expect(doc.querySelector('[data-testid="rvb-upfront"]')?.textContent).toContain('180');
     expect(doc.querySelector('[data-testid="rvb-gap"]')?.textContent).toContain('$');
+    expect(doc.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('mounts the interactive home loan repayment calculator on /tools/home-loan-repayment-calculator/', () => {
+    expect(canonicalPath(homeLoanMetadata)).toBe('/tools/home-loan-repayment-calculator');
+    const html = renderToStaticMarkup(<HomeLoanRepaymentCalculatorPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.body.textContent).toContain('Interactive home loan repayment calculator');
+    // $600k at 6% over 30 years: 600,000 x 0.005 / (1 - 1.005^-360) = $3,597.30 a month
+    expect(doc.querySelector('[data-testid="home-loan-repayment"]')?.textContent).toContain(
+      '$3,597 a month principal and interest over 30 years'
+    );
+    expect(doc.querySelector('[data-testid="home-loan-total-interest"]')?.textContent).toContain('$');
+    expect(doc.querySelector('[data-testid="home-loan-interest-saved"]')?.textContent).toContain('$');
+    expect(doc.querySelector('[data-testid="home-loan-time-saved"]')?.textContent).toMatch(/yrs/);
+    expect(doc.querySelector('a[href^="/tools/mortgage-offset-calculator"]')).not.toBeNull();
+    expect(doc.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('mounts the interactive compound interest calculator on /tools/compound-interest-calculator/', () => {
+    expect(canonicalPath(compoundInterestMetadata)).toBe('/tools/compound-interest-calculator');
+    const html = renderToStaticMarkup(<CompoundInterestCalculatorPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.body.textContent).toContain('Interactive compound interest calculator');
+    // $500 a month for 10 years = $60,000 deposited on top of the $10,000 start
+    expect(doc.querySelector('[data-testid="compound-starting"]')?.textContent).toContain('$10,000');
+    expect(doc.querySelector('[data-testid="compound-contributions"]')?.textContent).toContain('$60,000');
+    expect(doc.querySelector('[data-testid="compound-interest-earned"]')?.textContent).toContain('$');
+    expect(doc.querySelector('[data-testid="compound-time-to-target"]')?.textContent).toContain('you reach $50,000 in');
+    expect(doc.querySelector('a[href^="/tools/super-calculator"]')).not.toBeNull();
     expect(doc.querySelectorAll('h1')).toHaveLength(1);
   });
 
