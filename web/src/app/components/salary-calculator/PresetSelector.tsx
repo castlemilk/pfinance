@@ -122,7 +122,6 @@ const PRESETS: Preset[] = [
     taxSettings: {
       ...DEFAULT_TAX_SETTINGS,
       includeSuper: true,
-      superRate: 11.5,
     },
     formDefaults: {
       frequency: 'weekly',

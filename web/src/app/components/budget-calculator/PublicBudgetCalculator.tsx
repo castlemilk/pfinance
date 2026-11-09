@@ -336,8 +336,8 @@ export default function PublicBudgetCalculator() {
                     wantsMonthly: Math.round(calculation.buckets[1].annual / 12),
                     savingsMonthly: Math.round(calculation.buckets[2].annual / 12),
                   }}
-                  targetPath="/personal/expenses/"
-                  label="Track this budget in PFinance"
+                  targetPath="/personal/budgets/"
+                  label="Turn this into budgets in PFinance"
                 />
                 <p className="text-xs text-muted-foreground">
                   Your split is carried over — no re-typing after sign-in.

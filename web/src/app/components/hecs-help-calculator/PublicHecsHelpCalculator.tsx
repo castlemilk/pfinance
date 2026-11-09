@@ -7,13 +7,15 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import CalculatorHandoffCta from '../calculator-handoff/CalculatorHandoffCta';
+import {
+  compulsoryHelpRepayment,
+  helpBandDescription,
+  HELP_SCHEDULES,
+  LATEST_HELP_SCHEDULE_YEAR,
+  type HelpScheduleYear,
+} from '@/lib/help-repayment';
 
-// ATO 2025–26 marginal repayment schedule for HELP/VSL/SFSS/SSL/AASL
-// https://www.ato.gov.au/Rates/HELP,-TSL-and-SFSS-repayment-thresholds-and-rates/
-const MIN_THRESHOLD_2025_26 = 67_000;
-const MID_THRESHOLD = 125_000;
-const TOP_THRESHOLD = 179_285;
-const MID_BASE = 8_700;
+const YEARS: HelpScheduleYear[] = ['2026-27', '2025-26'];
 
 const EXAMPLE = {
   repaymentIncome: '85000',
@@ -29,20 +31,11 @@ const money = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
-export function compulsoryRepayment2025_26(repaymentIncome: number): number {
-  if (repaymentIncome <= MIN_THRESHOLD_2025_26) return 0;
-  if (repaymentIncome <= MID_THRESHOLD) {
-    return 0.15 * (repaymentIncome - MIN_THRESHOLD_2025_26);
-  }
-  if (repaymentIncome <= TOP_THRESHOLD) {
-    return MID_BASE + 0.17 * (repaymentIncome - MID_THRESHOLD);
-  }
-  return 0.1 * repaymentIncome;
-}
-
 export default function PublicHecsHelpCalculator() {
   const id = useId();
   const [values, setValues] = useState(EXAMPLE);
+  const [year, setYear] = useState<HelpScheduleYear>(LATEST_HELP_SCHEDULE_YEAR);
+  const schedule = HELP_SCHEDULES[year];
 
   const calculation = useMemo(() => {
     const num = (v: string) => (v.trim() === '' ? NaN : Number(v));
@@ -67,7 +60,7 @@ export default function PublicHecsHelpCalculator() {
     }
 
     const compulsory = Math.min(
-      compulsoryRepayment2025_26(repaymentIncome),
+      compulsoryHelpRepayment(repaymentIncome, year),
       helpBalance
     );
     const effectivePercent = repaymentIncome > 0 ? (compulsory / repaymentIncome) * 100 : 0;
@@ -78,7 +71,7 @@ export default function PublicHecsHelpCalculator() {
     const indexedBalance = helpBalance * (1 + indexationRatePercent / 100);
     const indexationAmount = indexedBalance - helpBalance;
     const yearEndBalance = Math.max(0, indexedBalance - compulsory - voluntaryRepayment);
-    const aboveThreshold = Math.max(0, repaymentIncome - MIN_THRESHOLD_2025_26);
+    const band = helpBandDescription(repaymentIncome, year);
 
     return {
       valid: true as const,
@@ -89,10 +82,10 @@ export default function PublicHecsHelpCalculator() {
       indexedBalance,
       indexationAmount,
       yearEndBalance,
-      aboveThreshold,
+      band,
       voluntaryRepayment,
     };
-  }, [values]);
+  }, [values, year]);
 
   const update = (key: keyof typeof EXAMPLE) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setValues((p) => ({ ...p, [key]: e.target.value }));
@@ -105,8 +98,9 @@ export default function PublicHecsHelpCalculator() {
             Interactive HECS-HELP repayment estimator
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Estimate your 2025–26 compulsory repayment under the new marginal system, June
-            indexation on your balance, and how a voluntary repayment changes the year-end figure.
+            Estimate your compulsory repayment under the marginal system for {schedule.label},
+            June indexation on your balance, and how a voluntary repayment changes the year-end
+            figure.
           </p>
         </div>
         <Button variant="outline" onClick={() => setValues({ ...EXAMPLE })}>
@@ -120,6 +114,27 @@ export default function PublicHecsHelpCalculator() {
             <CardTitle className="text-lg">Your income &amp; HELP debt</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <fieldset className="space-y-1.5">
+              <legend className="text-sm font-medium">Income year</legend>
+              <div className="flex flex-wrap gap-2">
+                {YEARS.map((y) => (
+                  <Button
+                    key={y}
+                    type="button"
+                    size="sm"
+                    variant={y === year ? 'default' : 'outline'}
+                    aria-pressed={y === year}
+                    onClick={() => setYear(y)}
+                  >
+                    {HELP_SCHEDULES[y].label}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Nothing is repaid below ${schedule.minThreshold.toLocaleString('en-AU')} of
+                repayment income in {schedule.label}.
+              </p>
+            </fieldset>
             <div className="space-y-1.5">
               <Label htmlFor={`${id}-income`}>Repayment income (AUD/yr)</Label>
               <Input id={`${id}-income`} type="number" min={0} step="1000" value={values.repaymentIncome} onChange={update('repaymentIncome')} />
@@ -154,7 +169,7 @@ export default function PublicHecsHelpCalculator() {
               <Card className="border-primary/40 bg-primary/5">
                 <CardContent className="pt-6">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <Badge variant="default">2025–26 compulsory repayment</Badge>
+                    <Badge variant="default">{schedule.label} compulsory repayment</Badge>
                     <span className="text-xs text-muted-foreground tabular-nums">
                       Effective {calculation.effectivePercent.toFixed(2)}% of repayment income
                     </span>
@@ -167,14 +182,7 @@ export default function PublicHecsHelpCalculator() {
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     ≈ <strong className="text-foreground tabular-nums">{money(calculation.fortnightly)}</strong> per
-                    fortnight withheld ({money(calculation.monthly)}/mo)
-                    {calculation.aboveThreshold > 0 && (
-                      <>
-                        {' '}— 15c per $1 over ${MIN_THRESHOLD_2025_26.toLocaleString('en-AU')} on{' '}
-                        {money(calculation.aboveThreshold)} of income above the threshold
-                      </>
-                    )}
-                    .
+                    fortnight withheld ({money(calculation.monthly)}/mo). {calculation.band}.
                   </p>
                 </CardContent>
               </Card>
@@ -241,6 +249,7 @@ export default function PublicHecsHelpCalculator() {
                     repaymentIncome: Number(values.repaymentIncome),
                     helpBalance: Number(values.helpBalance),
                     indexationRatePercent: Number(values.indexationRatePercent),
+                    incomeYear: year,
                     compulsoryRepayment: Math.round(calculation.compulsory),
                     yearEndBalance: Math.round(calculation.yearEndBalance),
                   }}
@@ -248,8 +257,8 @@ export default function PublicHecsHelpCalculator() {
                   label="Set a payoff goal in PFinance"
                 />
                 <p className="text-xs text-muted-foreground">
-                  2025–26 ATO marginal schedule. Estimate only — actual repayment is assessed on
-                  lodgement.
+                  {schedule.label} ATO marginal schedule. Estimate only. The ATO assesses the
+                  actual repayment when you lodge.
                 </p>
               </div>
             </>

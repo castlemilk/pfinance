@@ -61,7 +61,7 @@ const australianTaxBracketsByYear: Record<TaxYear, TaxBracket[]> = {
     { min: 135001, max: 190000, rate: 37 },
     { min: 190001, max: null, rate: 45 }
   ],
-  // 2025-26: Same as 2024-25 (projected)
+  // 2025-26: Same as 2024-25
   '2025-26': [
     { min: 0, max: 18200, rate: 0 },
     { min: 18201, max: 45000, rate: 16 },
@@ -69,26 +69,67 @@ const australianTaxBracketsByYear: Record<TaxYear, TaxBracket[]> = {
     { min: 135001, max: 190000, rate: 37 },
     { min: 190001, max: null, rate: 45 }
   ],
-  // 2026-27: Projected (subject to change)
+  // 2026-27: Cost-of-living tax cut (legislated March 2025) lowers 16% to 15%
   '2026-27': [
     { min: 0, max: 18200, rate: 0 },
-    { min: 18201, max: 45000, rate: 16 },
+    { min: 18201, max: 45000, rate: 15 },
     { min: 45001, max: 135000, rate: 30 },
     { min: 135001, max: 190000, rate: 37 },
     { min: 190001, max: null, rate: 45 }
   ],
-  // 2027-28: Projected (subject to change)
+  // 2027-28: Second legislated stage lowers 15% to 14%
   '2027-28': [
     { min: 0, max: 18200, rate: 0 },
-    { min: 18201, max: 45000, rate: 16 },
+    { min: 18201, max: 45000, rate: 14 },
     { min: 45001, max: 135000, rate: 30 },
     { min: 135001, max: 190000, rate: 37 },
     { min: 190001, max: null, rate: 45 }
   ],
 };
 
-// Default tax year
-export const DEFAULT_TAX_YEAR: TaxYear = '2024-25';
+const SUPPORTED_TAX_YEARS = Object.keys(australianTaxBracketsByYear) as TaxYear[];
+
+/**
+ * The Australian income year (1 July – 30 June) containing `now`, clamped to
+ * the years this module has rates for. Uses Sydney time so the year flips at
+ * local midnight on 1 July regardless of server timezone.
+ */
+export function currentAustralianTaxYear(now: Date = new Date()): TaxYear {
+  const sydney = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Sydney' }));
+  const startYear = sydney.getMonth() >= 6 ? sydney.getFullYear() : sydney.getFullYear() - 1;
+  const candidate = `${startYear}-${String((startYear + 1) % 100).padStart(2, '0')}` as TaxYear;
+  if (SUPPORTED_TAX_YEARS.includes(candidate)) return candidate;
+  const first = SUPPORTED_TAX_YEARS[0];
+  const last = SUPPORTED_TAX_YEARS[SUPPORTED_TAX_YEARS.length - 1];
+  return candidate < first ? first : last;
+}
+
+// Default tax year: the income year in progress
+export const DEFAULT_TAX_YEAR: TaxYear = currentAustralianTaxYear();
+
+/** Superannuation guarantee rate (%) for an income year. */
+export function superGuaranteeRateFor(year: TaxYear): number {
+  const rates: Record<TaxYear, number> = {
+    '2020-21': 9.5,
+    '2021-22': 10,
+    '2022-23': 10.5,
+    '2023-24': 11,
+    '2024-25': 11.5,
+    '2025-26': 12,
+    '2026-27': 12,
+    '2027-28': 12,
+  };
+  return rates[year] ?? 12;
+}
+
+/** Concessional (before-tax) super contributions cap for an income year. */
+export function concessionalCapFor(year: TaxYear): number {
+  if (year <= '2020-21') return 25_000;
+  if (year <= '2023-24') return 27_500;
+  if (year <= '2025-26') return 30_000;
+  // Indexed to $32,500 from 1 July 2026. Later years use the latest published cap.
+  return 32_500;
+}
 export const DEFAULT_TAX_CATEGORY: TaxCategory = 'resident';
 
 // Non-Resident (Foreign Resident) Tax Brackets 2024-25
@@ -108,14 +149,12 @@ const workingHolidayBrackets: TaxBracket[] = [
   { min: 190001, max: null, rate: 45 }
 ];
 
-// No Tax-Free Threshold (Second Job) - Same rates but no tax-free threshold
-// Uses regular rates but starting from 0
-const noTaxFreeBrackets: TaxBracket[] = [
-  { min: 0, max: 45000, rate: 16 },
-  { min: 45001, max: 135000, rate: 30 },
-  { min: 135001, max: 190000, rate: 37 },
-  { min: 190001, max: null, rate: 45 }
-];
+// No Tax-Free Threshold (Second Job): the resident rates for the year, with
+// the first taxed band starting at $0 instead of above the tax-free threshold.
+function noTaxFreeBracketsFor(year: TaxYear): TaxBracket[] {
+  const taxed = australianTaxBracketsByYear[year].filter((b) => b.rate > 0);
+  return taxed.map((b, i) => (i === 0 ? { ...b, min: 0 } : b));
+}
 
 // Tax category info for display
 export const TAX_CATEGORY_OPTIONS: { 
@@ -162,7 +201,7 @@ export function getAustralianBrackets(
     case 'working-holiday':
       return workingHolidayBrackets;
     case 'no-tax-free':
-      return noTaxFreeBrackets;
+      return noTaxFreeBracketsFor(australianTaxBracketsByYear[year] ? year : DEFAULT_TAX_YEAR);
     case 'resident':
     default:
       return australianTaxBracketsByYear[year] || australianTaxBracketsByYear[DEFAULT_TAX_YEAR];
@@ -170,16 +209,12 @@ export function getAustralianBrackets(
 }
 
 // Tax year labels for display
-export const TAX_YEAR_OPTIONS: { value: TaxYear; label: string; isFuture?: boolean }[] = [
-  { value: '2020-21', label: '2020-21' },
-  { value: '2021-22', label: '2021-22' },
-  { value: '2022-23', label: '2022-23' },
-  { value: '2023-24', label: '2023-24' },
-  { value: '2024-25', label: '2024-25' },
-  { value: '2025-26', label: '2025-26', isFuture: true },
-  { value: '2026-27', label: '2026-27 *', isFuture: true },
-  { value: '2027-28', label: '2027-28 *', isFuture: true },
-];
+export const TAX_YEAR_OPTIONS: { value: TaxYear; label: string; isFuture?: boolean }[] =
+  SUPPORTED_TAX_YEARS.map((value) => ({
+    value,
+    label: value,
+    ...(value > DEFAULT_TAX_YEAR ? { isFuture: true } : {}),
+  }));
 
 // Australian Tax System (default year)
 export const australianTaxSystem: CountryTaxSystem = {

@@ -254,7 +254,7 @@ export default function PublicRetirementCalculator() {
 
               <div className="grid gap-3 sm:grid-cols-3">
                 <ResultStat
-                  label="Projected nest egg at 67"
+                  label={`Projected nest egg at ${values.retireAge}`}
                   value={money(result.nestEgg)}
                   sub={`${money(result.projectedSuper)} super + ${money(result.projectedOther)} other`}
                   testId="retire-nest-egg"
@@ -308,7 +308,7 @@ export default function PublicRetirementCalculator() {
         <CalculatorHandoffCta
           tool="retirement"
           title="Retirement Readiness"
-          summary={`Projected ${money(result.nestEgg)} at 67 → ~${money(result.annualIncome)}/yr vs ${money(result.targetIncome)} target`}
+          summary={`Projected ${money(result.nestEgg)} at ${values.retireAge} → ~${money(result.annualIncome)}/yr vs ${money(result.targetIncome)} target`}
           metrics={[
             { label: 'Nest egg', value: money(result.nestEgg) },
             { label: 'Est. income', value: `${money(result.annualIncome)}/yr` },
@@ -318,6 +318,7 @@ export default function PublicRetirementCalculator() {
             superBalance: Number(values.balance),
             annualContributions: Number(values.contributions),
             yearsToRetirement: result.years,
+            nestEgg: Math.round(result.nestEgg),
           }}
           targetPath="/personal/goals/"
           label="Turn this into a plan"

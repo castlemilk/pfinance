@@ -261,8 +261,9 @@ describe('marketing SEO routes', () => {
     const html = renderToStaticMarkup(<HecsHelpCalculatorPage />);
     const doc = new DOMParser().parseFromString(html, 'text/html');
     expect(doc.body.textContent).toContain('Interactive HECS-HELP repayment estimator');
-    // $85,000 repayment income -> 15c x $18,000 = $2,700 compulsory
-    expect(doc.querySelector('[data-testid="hecs-compulsory-repayment"]')?.textContent).toContain('$2,700');
+    // 2026–27 default: $85,000 repayment income -> 15c x ($85,000 - $69,528) = $2,320.80
+    expect(doc.body.textContent).toContain('2026–27 compulsory repayment');
+    expect(doc.querySelector('[data-testid="hecs-compulsory-repayment"]')?.textContent).toContain('$2,321');
     expect(doc.querySelectorAll('h1')).toHaveLength(1);
   });
 
@@ -385,8 +386,8 @@ describe('marketing SEO routes', () => {
     const html = renderToStaticMarkup(<SuperCapCheckerPage />);
     const doc = new DOMParser().parseFromString(html, 'text/html');
     expect(doc.body.textContent).toContain('Interactive contribution cap checker');
-    // $110k × 12% SG + $5k sacrifice = $18.2k → $11.8k headroom, no Div293
-    expect(doc.querySelector('[data-testid="caps-cc-headroom"]')?.textContent).toContain('11,800');
+    // 2026–27 cap $32.5k − ($110k × 12% SG + $5k sacrifice = $18.2k) → $14.3k headroom, no Div293
+    expect(doc.querySelector('[data-testid="caps-cc-headroom"]')?.textContent).toContain('14,300');
     expect(doc.querySelector('[data-testid="caps-div293"]')?.textContent).toContain('No');
     expect(doc.querySelectorAll('h1')).toHaveLength(1);
   });

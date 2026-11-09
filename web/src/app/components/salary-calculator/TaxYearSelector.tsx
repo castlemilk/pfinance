@@ -86,7 +86,7 @@ export function TaxYearSelector({ value, onChange }: TaxYearSelectorProps) {
             </div>
             {selectedOption?.isFuture && (
               <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-                * Future rates are projections and subject to change
+                Rates legislated for an income year that has not started yet
               </p>
             )}
           </TooltipContent>
