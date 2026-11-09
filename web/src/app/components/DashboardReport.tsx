@@ -86,14 +86,14 @@ const DashboardReport = forwardRef<HTMLDivElement, DashboardReportProps>(
       <div className="space-y-6">
         {/* Export Controls - Hidden during export */}
         {showExportButton && (
-          <div className="flex items-center justify-between no-print">
-            <div className="flex items-center gap-4">
-              <h2 className="text-2xl font-bold">Financial Dashboard Report</h2>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between no-print">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+              <h2 className="text-xl sm:text-2xl font-bold">Financial Dashboard Report</h2>
               <Select
                 value={displayPeriod}
                 onValueChange={(value) => setDisplayPeriod(value as IncomeFrequency)}
               >
-                <SelectTrigger className="w-[150px]">
+                <SelectTrigger className="w-full sm:w-[150px]">
                   <SelectValue placeholder="Select period" />
                 </SelectTrigger>
                 <SelectContent>
@@ -106,7 +106,7 @@ const DashboardReport = forwardRef<HTMLDivElement, DashboardReportProps>(
             </div>
             
             {onExport && (
-              <Button onClick={onExport} disabled={isExporting} size="lg">
+              <Button onClick={onExport} disabled={isExporting} size="lg" className="w-full sm:w-auto">
                 {isExporting ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -126,8 +126,7 @@ const DashboardReport = forwardRef<HTMLDivElement, DashboardReportProps>(
         {/* Exportable Content - This div is captured for PDF */}
         <div 
           ref={ref}
-          className="space-y-6 bg-background p-6 rounded-lg export-container"
-          style={{ minWidth: '800px' }}
+          className="w-full min-w-0 space-y-4 sm:space-y-6 bg-background p-3 sm:p-6 rounded-lg export-container"
         >
           {/* Report Header */}
           <div className="text-center pb-4 border-b">
@@ -140,14 +139,14 @@ const DashboardReport = forwardRef<HTMLDivElement, DashboardReportProps>(
                 height={48}
                 className="rounded-lg"
               />
-              <h1 className="text-3xl font-bold text-foreground">PFinance Report</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">PFinance Report</h1>
             </div>
             <p className="text-muted-foreground mt-1">{periodLabel} Financial Summary</p>
             <p className="text-sm text-muted-foreground">Generated on {reportDate}</p>
           </div>
 
           {/* Summary Metrics Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Total Income */}
             <Card>
               <CardContent className="p-4">
@@ -322,7 +321,7 @@ const DashboardReport = forwardRef<HTMLDivElement, DashboardReportProps>(
                 <CardTitle>Expense Categories</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {metrics.expenses.topCategories.map((cat) => (
                     <div 
                       key={cat.category}
