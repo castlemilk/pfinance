@@ -18,6 +18,23 @@ export default function MarketingInfoPage({ page, children }: MarketingInfoPageP
   const hubUrl = `${siteUrl}${page.hubPath}/`;
   const pageUrl = `${siteUrl}${page.path}/`;
   const relatedPages = discoveryPages.filter((item) => item.path !== page.path).slice(0, 3);
+  const isCalculator = page.category === 'tools';
+  const callsToAction = (
+    <>
+      <Link href={page.primaryCtaHref} className="w-full sm:w-auto">
+        <Button size="lg" variant="terminal" className="w-full sm:w-auto">
+          {page.primaryCta}
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      </Link>
+      <Link href={page.secondaryCtaHref} className="w-full sm:w-auto">
+        <Button size="lg" variant="outline" className="w-full sm:w-auto">
+          <BookOpen className="h-4 w-4" aria-hidden="true" />
+          {page.secondaryCta}
+        </Button>
+      </Link>
+    </>
+  );
 
   return (
     <article>
@@ -30,9 +47,9 @@ export default function MarketingInfoPage({ page, children }: MarketingInfoPageP
       />
       {page.faqs.length > 0 && <FAQPageJsonLd items={page.faqs} />}
 
-      <section className="relative overflow-hidden py-12 sm:py-20">
+      <section className={`relative overflow-hidden ${isCalculator ? 'py-8 sm:py-20' : 'py-12 sm:py-20'}`}>
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <nav aria-label="Breadcrumb" className="mx-auto mb-6 max-w-4xl text-sm text-muted-foreground">
+          <nav aria-label="Breadcrumb" className={`mx-auto max-w-4xl text-sm text-muted-foreground ${isCalculator ? 'mb-4 sm:mb-6' : 'mb-6'}`}>
             <ol className="flex flex-wrap items-center justify-center gap-2">
               <li>
                 <Link href="/" className="hover:text-foreground transition-colors">
@@ -56,30 +73,19 @@ export default function MarketingInfoPage({ page, children }: MarketingInfoPageP
             <Badge variant="secondary" className="mb-5">
               {page.eyebrow}
             </Badge>
-            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl skeu-emboss">
+            <h1 className={`font-bold tracking-tight skeu-emboss ${isCalculator ? 'text-3xl sm:text-5xl lg:text-6xl' : 'text-4xl sm:text-5xl lg:text-6xl'}`}>
               {page.heading}
             </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground sm:text-xl">
+            <p className={`mx-auto max-w-2xl text-muted-foreground ${isCalculator ? 'mt-4 text-base sm:mt-6 sm:text-xl' : 'mt-6 text-lg sm:text-xl'}`}>
               {page.body}
             </p>
-            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <Link href={page.primaryCtaHref}>
-                <Button size="lg" variant="terminal" className="w-full sm:w-auto">
-                  {page.primaryCta}
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              </Link>
-              <Link href={page.secondaryCtaHref}>
-                <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                  <BookOpen className="h-4 w-4" aria-hidden="true" />
-                  {page.secondaryCta}
-                </Button>
-              </Link>
+            <div className={`mt-8 flex-col justify-center gap-3 sm:flex-row ${isCalculator ? 'hidden sm:flex' : 'flex'}`}>
+              {callsToAction}
             </div>
           </div>
 
           {children ? (
-            <div className="mx-auto mt-12 max-w-6xl">
+            <div className={`mx-auto max-w-6xl ${isCalculator ? 'mt-8 sm:mt-12' : 'mt-12'}`}>
               {children}
             </div>
           ) : (
@@ -92,6 +98,12 @@ export default function MarketingInfoPage({ page, children }: MarketingInfoPageP
                 priority
                 className="aspect-[1200/630] w-full object-cover"
               />
+            </div>
+          )}
+
+          {isCalculator && (
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:hidden">
+              {callsToAction}
             </div>
           )}
         </div>
@@ -125,7 +137,7 @@ export default function MarketingInfoPage({ page, children }: MarketingInfoPageP
             >
               <span
                 aria-hidden="true"
-                className="text-xs font-semibold uppercase tracking-widest text-primary/70"
+                className="text-xs font-semibold uppercase tracking-widest text-primary-text"
               >
                 {String(index + 1).padStart(2, '0')}
               </span>
@@ -166,7 +178,7 @@ export default function MarketingInfoPage({ page, children }: MarketingInfoPageP
             <h2 className="text-lg font-semibold">Explore related tools and workflows</h2>
             <Link
               href={`${page.hubPath}/`}
-              className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+              className="text-sm font-medium text-primary-text underline-offset-4 hover:underline"
             >
               View all {page.hubLabel.toLowerCase()}
             </Link>
@@ -178,7 +190,7 @@ export default function MarketingInfoPage({ page, children }: MarketingInfoPageP
                 href={`${related.path}/`}
                 className="rounded-lg border bg-background p-4 transition-colors hover:border-primary/50"
               >
-                <p className="text-xs font-medium text-primary">{related.eyebrow}</p>
+                <p className="text-xs font-medium text-primary-text">{related.eyebrow}</p>
                 <p className="mt-1 font-semibold">{related.navLabel}</p>
                 <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
                   {related.description}

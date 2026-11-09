@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useHydrated } from '../hooks/useHydrated';
 
 // SECURITY: Only enable admin features in development
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -35,6 +36,7 @@ export const TEST_USERS = [
 
 interface AdminContextType {
   isAdminMode: boolean;
+  loading: boolean;
   setIsAdminMode: (value: boolean) => void;
   impersonatedUser: typeof TEST_USERS[0] | null;
   setImpersonatedUser: (user: typeof TEST_USERS[0] | null) => void;
@@ -50,13 +52,14 @@ interface AdminProviderProps {
 }
 
 export function AdminProvider({ children }: AdminProviderProps) {
+  const hasHydrated = useHydrated();
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [impersonatedUser, setImpersonatedUser] = useState<typeof TEST_USERS[0] | null>(null);
-  const [hasRestoredPersistence, setHasRestoredPersistence] = useState(false);
+  const [hasRestoredPersistence, setHasRestoredPersistence] = useState(!isDevelopment);
 
   // Restore persisted admin state together before persistence effects can run.
   useEffect(() => {
-    if (!isDevelopment) return; // SECURITY: Never load admin state in production
+    if (!isDevelopment || !hasHydrated) return; // SECURITY: Never load admin state in production
 
     const savedAdminMode = localStorage.getItem('pfinance-admin-mode') === 'true';
     let savedImpersonatedUser: typeof TEST_USERS[0] | null = null;
@@ -75,7 +78,7 @@ export function AdminProvider({ children }: AdminProviderProps) {
     setIsAdminMode(savedAdminMode);
     setImpersonatedUser(savedImpersonatedUser);
     setHasRestoredPersistence(true);
-  }, []);
+  }, [hasHydrated]);
 
   // Add keyboard shortcut for admin mode (Ctrl/Cmd + Shift + A) - development only
   useEffect(() => {
@@ -133,6 +136,7 @@ export function AdminProvider({ children }: AdminProviderProps) {
 
   const value = {
     isAdminMode: isDevelopment ? isAdminMode : false, // SECURITY: Always false in production
+    loading: isDevelopment && (!hasHydrated || !hasRestoredPersistence),
     setIsAdminMode: safeSetIsAdminMode,
     impersonatedUser: isDevelopment ? impersonatedUser : null, // SECURITY: Always null in production
     setImpersonatedUser: isDevelopment ? setImpersonatedUser : () => {}, // SECURITY: No-op in production

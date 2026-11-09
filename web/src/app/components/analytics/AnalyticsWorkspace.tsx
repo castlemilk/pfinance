@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState, useSyncExternalStore } from 'react';
+import { useMemo, useState } from 'react';
 
 import { UpgradePrompt } from '@/app/components/ProFeatureGate';
 import { useFinance } from '@/app/context/FinanceContext';
+import { useHydrated } from '@/app/hooks/useHydrated';
 import { useSubscription } from '@/app/hooks/useSubscription';
 
 import {
@@ -29,10 +30,6 @@ import type {
 } from './types';
 
 export type AnalyticsWorkspaceProps = Readonly<{ scope: AnalyticsScope }>;
-
-const subscribeToHydration = () => () => {};
-const getClientHydrationSnapshot = () => true;
-const getServerHydrationSnapshot = () => false;
 
 function ActiveAnalyticsView({
   view,
@@ -61,11 +58,7 @@ function ActiveAnalyticsView({
 export function AnalyticsWorkspace({ scope }: AnalyticsWorkspaceProps) {
   const { taxConfig } = useFinance();
   const subscription = useSubscription();
-  const hasHydrated = useSyncExternalStore(
-    subscribeToHydration,
-    getClientHydrationSnapshot,
-    getServerHydrationSnapshot
-  );
+  const hasHydrated = useHydrated();
   const [period, setPeriod] = useState<AnalyticsPeriod>('month');
   const [activeView, setActiveView] = useState<AnalyticsView>('overview');
   const currency = useMemo(

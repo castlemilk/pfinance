@@ -337,7 +337,7 @@ function calculateProgress(goal: FinancialGoal): GoalProgress {
 // ============================================================================
 
 export function GoalProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [goals, setGoals] = useState<FinancialGoal[]>([]);
   const [goalProgresses, setGoalProgresses] = useState<Map<string, GoalProgress>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -407,8 +407,9 @@ export function GoalProvider({ children }: { children: ReactNode }) {
   }, [isAuthenticated, userId]);
 
   useEffect(() => {
+    if (authLoading) return;
     loadGoals();
-  }, [loadGoals]);
+  }, [authLoading, loadGoals]);
 
   // Create goal
   const createGoal = useCallback(async (params: CreateGoalParams): Promise<FinancialGoal | null> => {

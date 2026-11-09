@@ -54,7 +54,9 @@ export function formatCurrency(
     formatOptions.maximumFractionDigits = 1;
   }
 
-  return new Intl.NumberFormat(locale, formatOptions).format(amount);
+  const formatted = new Intl.NumberFormat(locale, formatOptions).format(amount);
+
+  return compact ? formatted.replace(/k\b/, 'K') : formatted;
 }
 
 /**

@@ -86,7 +86,7 @@ function categoryLabel(enumName: string, labels: Record<number, string>): string
 }
 
 export default function NetWorthPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const userId = user?.uid ?? '';
 
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -136,8 +136,8 @@ export default function NetWorthPage() {
   }, [userId]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!authLoading) load();
+  }, [authLoading, load]);
 
   const health = useMemo(() => {
     if (!summary) return null;
