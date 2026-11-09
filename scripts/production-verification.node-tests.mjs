@@ -36,12 +36,14 @@ test('rejects missing commit before contacting production', async () => {
   await assert.rejects(verifyProduction({ fetchImpl: () => { throw Error('must not call'); } }), /expected commit/);
 });
 
-test('automatic preview provisioning and cleanup remain disabled', async () => {
-  const { readFileSync } = await import('node:fs');
-  const source = readFileSync(new URL('../.github/workflows/preview-deploy.yml', import.meta.url), 'utf8');
-  for (const job of ['backend', 'frontend', 'cleanup']) {
-    const block = source.split(`\n  ${job}:\n`)[1].split(/\n  [a-z][a-z-]*:\n/)[0];
-    assert.match(block, /^    if: false$/m, `${job} must not provision or delete resources`);
+test('no GitHub workflow provisions or deletes hosted resources', async () => {
+  // CI/CD runs on Cuttlefish; hosted previews were removed. A workflow file
+  // here would also run on Cuttlefish's GitHub Actions compatibility layer.
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const dir = new URL('../.github/workflows/', import.meta.url);
+  for (const name of readdirSync(dir).filter((f) => /\.ya?ml$/.test(f))) {
+    const source = readFileSync(new URL(name, dir), 'utf8');
+    assert.doesNotMatch(source, /gcloud run (deploy|services delete)|vercel (deploy|alias|remove)|ko build/, `${name} must not deploy`);
   }
   const pkg = JSON.parse(readFileSync(new URL('../web/package.json', import.meta.url), 'utf8'));
   assert.equal(pkg.scripts.prebuild, 'node ../scripts/write-release-manifest.mjs');

@@ -194,17 +194,17 @@ func (s *FinanceService) CreateLiability(ctx context.Context, req *connect.Reque
 
 	now := timestamppb.Now()
 	liability := &pfinancev1.Liability{
-		Id:                     uuid.New().String(),
-		UserId:                 req.Msg.UserId,
-		GroupId:                req.Msg.GroupId,
-		Name:                   req.Msg.Name,
-		Category:               req.Msg.Category,
-		BalanceCents:           req.Msg.BalanceCents,
-		InterestRate:           req.Msg.InterestRate,
-		MinimumRepaymentCents:  req.Msg.MinimumRepaymentCents,
-		Notes:                  req.Msg.Notes,
-		CreatedAt:              now,
-		UpdatedAt:              now,
+		Id:                    uuid.New().String(),
+		UserId:                req.Msg.UserId,
+		GroupId:               req.Msg.GroupId,
+		Name:                  req.Msg.Name,
+		Category:              req.Msg.Category,
+		BalanceCents:          req.Msg.BalanceCents,
+		InterestRate:          req.Msg.InterestRate,
+		MinimumRepaymentCents: req.Msg.MinimumRepaymentCents,
+		Notes:                 req.Msg.Notes,
+		CreatedAt:             now,
+		UpdatedAt:             now,
 	}
 	if err := s.store.CreateLiability(ctx, liability); err != nil {
 		return nil, auth.WrapStoreError("create liability", err)
