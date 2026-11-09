@@ -334,6 +334,75 @@ function calculateProgress(goal: FinancialGoal): GoalProgress {
 
 // ============================================================================
 // Provider Component
+/**
+ * Copy goals created while signed out (demo mode) into the signed-in account.
+ * Each goal is removed from local storage as soon as it is created remotely,
+ * so a failure part-way through retries only the rest on the next load and
+ * never duplicates a goal. Cancelled goals are dropped.
+ */
+let demoGoalMigration: Promise<number> | null = null;
+
+export function migrateDemoGoals(userId: string): Promise<number> {
+  // Overlapping loads share one migration so a goal is never created twice.
+  if (!demoGoalMigration) {
+    demoGoalMigration = runDemoGoalMigration(userId).finally(() => {
+      demoGoalMigration = null;
+    });
+  }
+  return demoGoalMigration;
+}
+
+async function runDemoGoalMigration(userId: string): Promise<number> {
+  const pending = loadDemoGoals().filter((goal) => goal.status !== 'cancelled');
+  if (pending.length === 0) {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem(DEMO_GOALS_KEY);
+      } catch {
+        // best-effort
+      }
+    }
+    return 0;
+  }
+
+  let migrated = 0;
+  const remaining = [...pending];
+  while (remaining.length > 0) {
+    const goal = remaining[0];
+    try {
+      await financeClient.createGoal({
+        userId,
+        name: goal.name,
+        description: goal.description ?? '',
+        goalType: goalTypeToProto[goal.goalType],
+        targetAmount: goal.targetAmount,
+        initialAmount: goal.currentAmount,
+        startDate: timestampFromDate(goal.startDate),
+        targetDate: timestampFromDate(goal.targetDate),
+        categoryIds: goal.categoryIds?.map((c) => parseInt(c) as ProtoExpenseCategory),
+        icon: goal.icon,
+        color: goal.color,
+      });
+    } catch (e) {
+      console.error('Failed to move a signed-out goal into the account:', e);
+      break;
+    }
+    remaining.shift();
+    migrated++;
+    saveDemoGoals(remaining);
+  }
+
+  if (remaining.length === 0 && typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(DEMO_GOALS_KEY);
+      localStorage.removeItem(DEMO_CONTRIBUTIONS_KEY);
+    } catch {
+      // best-effort
+    }
+  }
+  return migrated;
+}
+
 // ============================================================================
 
 export function GoalProvider({ children }: { children: ReactNode }) {
@@ -357,6 +426,10 @@ export function GoalProvider({ children }: { children: ReactNode }) {
 
     try {
       if (isAuthenticated) {
+        // Goals made before signing in (e.g. from a calculator handoff) move
+        // into the account first, so they appear in the list below.
+        await migrateDemoGoals(userId);
+
         // Load from API
         const response = await financeClient.listGoals({
           userId,
