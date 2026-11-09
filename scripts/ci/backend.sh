@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Backend CI: generate the Go protobuf code, then gofmt, vet and test.
-# Cuttlefish pfinance-ci runs this; `make ci-backend` runs it locally.
+# Cuttlefish pfinance-ci-backend runs this; `make ci-backend` runs it locally.
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 

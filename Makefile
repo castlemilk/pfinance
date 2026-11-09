@@ -595,7 +595,7 @@ ci-fast: generate
 	@make pre-push
 	@echo "🎉 Fast CI checks passed!"
 
-# Exactly what Cuttlefish pfinance-ci runs (see .github/workflows/README.md).
+# Exactly what Cuttlefish pfinance-ci-backend / pfinance-ci-web run (see .github/workflows/README.md).
 ci-backend:
 	@scripts/ci/backend.sh
 
