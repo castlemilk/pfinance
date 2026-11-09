@@ -99,6 +99,8 @@ func main() {
 
 	extractionSvc := extraction.NewExtractionService(extraction.Config{
 		MLServiceURL:     mlServiceURL,
+		OXRServiceURL:    os.Getenv("OXR_SERVICE_URL"),
+		OXRAPIKey:        os.Getenv("OXR_API_KEY"),
 		GeminiAPIKey:     os.Getenv("GEMINI_API_KEY"),
 		EnableML:         enableML,
 		EnableValidation: os.Getenv("GEMINI_API_KEY") != "",
