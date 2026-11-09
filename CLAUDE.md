@@ -453,18 +453,25 @@ GEMINI_API_KEY=<your-gemini-api-key>
 
 ## CI/CD Pipelines
 
-### GitHub Actions Workflows
+CI/CD runs on Cuttlefish (project `pfinance`), not GitHub Actions; see
+[.github/workflows/README.md](./.github/workflows/README.md). Keep `.github/workflows/`
+free of workflow files: Cuttlefish runs them too.
 
-| File | Trigger | Description |
-|------|---------|-------------|
-| `ci.yml` | PR + push | Path-filtered (backend/frontend/proto), `buf lint`, gofmt, go vet, tests, tsc |
-| `preview-deploy.yml` | PR open/sync | Cloud Run preview (256Mi, max 2, min 0), Algolia env vars, image cleanup on PR close |
-| `production-deploy.yml` | Merge to main | Cloud Run prod (512Mi, max 5, min 0), all env vars via `--set-env-vars` |
+| Workflow | Trigger | Description |
+|----------|---------|-------------|
+| `pfinance-ci` | PR into main, push to main | `scripts/ci/backend.sh` (proto-gen, gofmt, vet, race tests) and `scripts/ci/web.sh` (npm ci, type-check + lint + jest + contract tests in parallel, build) |
+| `pfinance-deploy` | Push to main touching `web/**` or release scripts | `scripts/deploy-vercel-prebuilt.sh` → Vercel prod, then verifies pfinance.dev serves the commit |
+| `pfinance-backend-deploy` | Push to main touching `backend/**`, `proto/**` | ko build → Cloud Run `pfinance-backend` (512Mi, max 5, min 0; env vars kept on the service) |
+
+- Workflow YAML lives in the Cuttlefish repo (`workflows/pfinance-*.yaml`); the commands live here in `scripts/ci/`.
+- Run CI locally with `make ci-backend` / `make ci-frontend`.
+- Generator versions (buf, protoc-gen-go, protoc-gen-connect-go) are pinned in `scripts/ci/go-proto.sh`.
+- Production installs use `npm ci` (`web/vercel.json`); never delete or bypass the lockfile.
 
 ### Deployment Targets
 
-- **Frontend**: Vercel (auto-deploys from GitHub)
-- **Backend**: Google Cloud Run (project: `pfinance-app-1748773335`)
+- **Frontend**: Vercel, prebuilt deploys from Cuttlefish (Git auto-deploys are off)
+- **Backend**: Google Cloud Run (project: `pfinance-app-1748773335`, region `us-central1`)
 
 ### One-Time Setup Commands
 ```bash

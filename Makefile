@@ -595,13 +595,12 @@ ci-fast: generate
 	@make pre-push
 	@echo "🎉 Fast CI checks passed!"
 
+# Exactly what Cuttlefish pfinance-ci runs (see .github/workflows/README.md).
 ci-backend:
-	@echo "🧪 Backend CI..."
-	@cd backend && go vet ./... && go test -race -timeout=60s ./...
+	@scripts/ci/backend.sh
 
 ci-frontend:
-	@echo "🧪 Frontend CI..."
-	@cd web && npm run type-check && npm run lint && npm test -- --passWithNoTests --maxWorkers=2
+	@scripts/ci/web.sh
 
 # ===================
 # Tax Evaluation
