@@ -44,7 +44,7 @@ import BlogPage from '../blog/page';
 import { buildRssFeedXml } from '@/lib/rss';
 import Footer, { footerLinks } from '../components/Footer';
 import { discoveryPages, hubPages } from '@/lib/marketing-pages';
-import { getAllPosts, extractTocHeadings } from '@/lib/blog';
+import { getAllPosts, getPostBySlug, extractTocHeadings } from '@/lib/blog';
 import {
   OrganizationJsonLd,
   SoftwareApplicationJsonLd,
@@ -181,6 +181,30 @@ describe('marketing SEO routes', () => {
       expect(wordCount).toBeGreaterThanOrEqual(200);
       expect(body.querySelectorAll('h1')).toHaveLength(1);
     }
+  });
+
+  it('lists every calculator on the tools hub as ItemList structured data', () => {
+    const html = renderToStaticMarkup(<ToolsHubPage />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const lists = Array.from(doc.querySelectorAll('script[type="application/ld+json"]'))
+      .map((node) => JSON.parse(node.textContent || '{}'))
+      .filter((data) => data['@type'] === 'ItemList');
+    expect(lists).toHaveLength(1);
+    const urls: string[] = lists[0].itemListElement.map((item: { url: string }) => item.url);
+    const toolPaths = discoveryPages.filter((page) => page.category === 'tools').map((page) => `${page.path}/`);
+    for (const toolPath of [...toolPaths, '/tools/super-calculator/']) {
+      expect(urls.some((url) => url.endsWith(toolPath))).toBe(true);
+    }
+    expect(lists[0].numberOfItems).toBe(urls.length);
+  });
+
+  it('uses the frontmatter updated date for revised blog posts', () => {
+    const revised = getPostBySlug('how-to-calculate-working-from-home-deductions-australia');
+    expect(revised?.updated).toBe('2026-11-09');
+    const entry = sitemap().find((item) => item.url.endsWith('/blog/how-to-calculate-working-from-home-deductions-australia/'));
+    expect(entry?.lastModified).toEqual(new Date('2026-11-09'));
+    const unrevised = getPostBySlug('emergency-fund-guide');
+    expect(unrevised?.updated).toBeUndefined();
   });
 
   it('links every discovery page, hub, and calculator in the footer with trailing slashes', () => {
