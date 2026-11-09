@@ -55,6 +55,7 @@ type StatementStore interface {
 type ExtractionService struct {
 	mlClient       *MLClient
 	stmtClient     *StatementParserClient
+	oxrClient      *OXRClient
 	validator      *ValidationService
 	mlEnabled      bool
 	stmtEnabled    bool
@@ -69,6 +70,8 @@ type ExtractionService struct {
 type Config struct {
 	MLServiceURL       string
 	StatementParserURL string
+	OXRServiceURL      string
+	OXRAPIKey          string
 	GeminiAPIKey       string
 	MistralAPIKey      string
 	EnableML           bool
@@ -87,6 +90,11 @@ func NewExtractionService(cfg Config) *ExtractionService {
 		stmtClient = NewStatementParserClient(cfg.StatementParserURL)
 	}
 
+	var oxrClient *OXRClient
+	if cfg.OXRServiceURL != "" {
+		oxrClient = NewOXRClient(cfg.OXRServiceURL, cfg.OXRAPIKey)
+	}
+
 	var validator *ValidationService
 	if cfg.EnableValidation && cfg.GeminiAPIKey != "" {
 		validator = NewValidationService(cfg.GeminiAPIKey, cfg.MistralAPIKey)
@@ -95,6 +103,7 @@ func NewExtractionService(cfg Config) *ExtractionService {
 	return &ExtractionService{
 		mlClient:      mlClient,
 		stmtClient:    stmtClient,
+		oxrClient:     oxrClient,
 		validator:     validator,
 		mlEnabled:     cfg.EnableML && mlClient != nil,
 		stmtEnabled:   stmtClient != nil,
@@ -256,6 +265,46 @@ func (s *ExtractionService) buildFallbackChain(method pfinancev1.ExtractionMetho
 	}
 }
 
+// extractStatementWithOXR uses OXR for layout recognition and Gemini for
+// semantic transaction structuring. It runs only inside the Gemini extraction
+// stage, so it does not change the meaning of an explicitly self-hosted request.
+func (s *ExtractionService) extractStatementWithOXR(
+	ctx context.Context,
+	data []byte,
+	filename string,
+	opts GeminiExtractionOpts,
+) (*pfinancev1.ExtractionResult, error) {
+	start := time.Now()
+	recognized, err := s.oxrClient.Parse(ctx, data, filename)
+	if err != nil {
+		return nil, fmt.Errorf("recognize statement with OXR: %w", err)
+	}
+
+	result, err := s.validator.extractFromTextWithGemini(
+		ctx,
+		recognized.Markdown,
+		pfinancev1.DocumentType_DOCUMENT_TYPE_BANK_STATEMENT,
+		opts,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("structure OXR statement with Gemini: %w", err)
+	}
+
+	result.Warnings = append(result.Warnings,
+		fmt.Sprintf("Processing note: SoMark OXR recognition with %s transaction structuring", result.ModelUsed))
+	result.ModelUsed = "SoMark OXR + " + result.ModelUsed
+	result.ProcessingTimeMs = int32(time.Since(start).Milliseconds())
+	if recognized.PageCount > 0 {
+		result.PageCount = int32(recognized.PageCount)
+	} else if detectMimeType(data) == "application/pdf" {
+		result.PageCount = int32(CountPDFPagesAccurate(data))
+	}
+	for _, warning := range recognized.Warnings {
+		result.Warnings = append(result.Warnings, "SoMark OXR: "+warning)
+	}
+	return result, nil
+}
+
 // tryExtract attempts extraction with a single method.
 func (s *ExtractionService) tryExtract(
 	ctx context.Context,
@@ -294,7 +343,24 @@ func (s *ExtractionService) tryExtract(
 			}
 		}
 
-		return s.validator.ExtractWithGeminiAdvanced(ctx, data, docType, opts)
+		oxrFallbackWarning := ""
+		if docType == pfinancev1.DocumentType_DOCUMENT_TYPE_BANK_STATEMENT && s.oxrClient != nil {
+			result, err := s.extractStatementWithOXR(ctx, data, filename, opts)
+			if err == nil {
+				return result, nil
+			}
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			log.Printf("[extraction] OXR statement pipeline failed, trying direct Gemini: %v", err)
+			oxrFallbackWarning = "SoMark OXR statement pipeline failed; used direct Gemini extraction"
+		}
+
+		result, err := s.validator.ExtractWithGeminiAdvanced(ctx, data, docType, opts)
+		if err == nil && oxrFallbackWarning != "" {
+			result.Warnings = append(result.Warnings, oxrFallbackWarning)
+		}
+		return result, err
 
 	case pfinancev1.ExtractionMethod_EXTRACTION_METHOD_SELF_HOSTED:
 		// For bank statements, try the dedicated statement parser first
@@ -767,9 +833,11 @@ func (s *ExtractionService) ParseBankStatement(
 	method pfinancev1.ExtractionMethod,
 ) (*pfinancev1.BankStatementResult, error) {
 	start := time.Now()
+	fallbackFrom := pfinancev1.ExtractionMethod_EXTRACTION_METHOD_UNSPECIFIED
 
 	// Try statement parser first (self-hosted ML) unless Gemini explicitly requested
 	if method != pfinancev1.ExtractionMethod_EXTRACTION_METHOD_GEMINI && s.stmtEnabled {
+		fallbackFrom = pfinancev1.ExtractionMethod_EXTRACTION_METHOD_SELF_HOSTED
 		result, err := s.parseWithStatementClient(ctx, pdfData, bankHint)
 		if err != nil {
 			log.Printf("[statement] ML parser failed: %v", err)
@@ -814,7 +882,7 @@ func (s *ExtractionService) ParseBankStatement(
 	}
 
 	// Convert ExtractionResult to BankStatementResult
-	bsResult := s.convertExtractionToBankResult(geminiResult, pfinancev1.ExtractionMethod_EXTRACTION_METHOD_SELF_HOSTED)
+	bsResult := s.convertExtractionToBankResult(geminiResult, fallbackFrom)
 	bsResult.ProcessingTimeMs = int32(time.Since(start).Milliseconds())
 	return bsResult, nil
 }
