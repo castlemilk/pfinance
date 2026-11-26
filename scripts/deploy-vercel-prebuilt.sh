@@ -10,7 +10,7 @@ if [[ -n "${VERCEL_SCOPE:-}" ]]; then
 elif [[ -n "${VERCEL_ORG_ID:-}" ]]; then
   vercel_args+=("--scope=${VERCEL_ORG_ID}")
 fi
-cli() { npx --yes vercel@59.13.1 "$@" "${vercel_args[@]}" --non-interactive; }
+cli() { npx --yes vercel@65.8.0 "$@" "${vercel_args[@]}" --non-interactive; }
 
 # Local Codex checkouts may have the Vercel project link under web/.vercel,
 # but this project is configured with rootDirectory=web and must be built from
