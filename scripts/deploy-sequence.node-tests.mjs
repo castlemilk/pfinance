@@ -54,7 +54,7 @@ if (verb === 'build') {
   fs.writeFileSync('.vercel/output/config.json', '{"version":3}');
   if (process.env.FAILURE === 'native') {
     fs.mkdirSync('.vercel/output/functions/api.func', {recursive:true});
-    fs.writeFileSync('.vercel/output/functions/api.func/.vc-config.json', '{"runtime":"nodejs24.x"}');
+    fs.writeFileSync('.vercel/output/functions/api.func/.vc-config.json', '{"runtime":"nodejs26.x"}');
     fs.writeFileSync('.vercel/output/functions/api.func/bad.node', 'not-a-linux-library');
   }
 }

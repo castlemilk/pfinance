@@ -2,6 +2,7 @@
   "name": "pfinance",
   "version": "0.1.1",
   "private": true,
+  "engines": { "node": "26.x" },
   "scripts": {
     "dev": "next dev -p 1234 --webpack",
     "build": "next build --webpack",
@@ -107,7 +108,7 @@
     "@bufbuild/protoc-gen-es": "^2.12.0",
     "@eslint/eslintrc": "^3",
     "@next/bundle-analyzer": "^16.1.6",
-    "@playwright/test": "^1.58.1",
+    "@playwright/test": "1.60.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.4.2",
     "@testing-library/react": "^16.1.0",
